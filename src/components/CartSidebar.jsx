@@ -1,9 +1,14 @@
 import React, { useState } from 'react';
+import { supabase } from '../lib/supabase';
 
 const CartSidebar = ({ isOpen, cart, removeFromCart, updateQuantity, toggleCart }) => {
   const [step, setStep] = useState('cart');
   const [info, setInfo] = useState({ name: '', phone: '', address: '' });
-  const [showToast, setShowToast] = useState(false); // État pour le toast
+  const [paymentMethod, setPaymentMethod] = useState('');
+  const [paymentReference, setPaymentReference] = useState('');
+  const [showToast, setShowToast] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
   const total = cart.reduce((sum, item) => {
     const price = Number(item.price) || 0;
@@ -13,23 +18,99 @@ const CartSidebar = ({ isOpen, cart, removeFromCart, updateQuantity, toggleCart 
 
   const discountedTotal = cart.length >= 2 ? total * 0.85 : total;
 
-  const handleProcess = () => {
-    if (step === 'cart') setStep('checkout');
-    else if (step === 'checkout') setStep('payment');
-    else if (step === 'payment') {
-      // Déclenchement du toast de confirmation
+  const handleProcess = async () => {
+    setError('');
+    
+    if (step === 'cart') {
+      setStep('checkout');
+    } else if (step === 'checkout') {
+      // Validation des informations
+      if (!info.name || !info.phone || !info.address) {
+        setError('Veuillez remplir tous les champs');
+        return;
+      }
+      setStep('payment');
+    } else if (step === 'payment') {
+      // Validation du paiement
+      if (!paymentMethod) {
+        setError('Veuillez choisir un mode de paiement');
+        return;
+      }
+
+      if (paymentMethod === 'orange_money' && !paymentReference) {
+        setError('Veuillez saisir la référence de transaction Orange Money');
+        return;
+      }
+
+      await createOrder();
+    }
+  };
+
+  const createOrder = async () => {
+    setLoading(true);
+    setError('');
+
+    try {
+      // Créer la commande
+      const { data: orderData, error: orderError } = await supabase
+        .from('orders')
+        .insert({
+          client_name: info.name,
+          client_phone: info.phone,
+          client_address: info.address,
+          total_amount: Math.round(discountedTotal),
+          payment_method: paymentMethod,
+          payment_reference: paymentReference || null,
+          status: 'pending'
+        })
+        .select()
+        .single();
+
+      if (orderError) throw orderError;
+
+      // Créer les items de la commande
+      const orderItems = cart.map(item => ({
+        order_id: orderData.id,
+        product_id: item.id,
+        product_name: item.name,
+        product_img: item.img,
+        quantity: item.quantity,
+        unit_price: item.price,
+        selected_size: item.selectedSize || null,
+        selected_color: item.selectedColor || null
+      }));
+
+      const { error: itemsError } = await supabase
+        .from('order_items')
+        .insert(orderItems);
+
+      if (itemsError) throw itemsError;
+
+      // Succès - Afficher le toast
       setShowToast(true);
+      
+      // Réinitialiser après 3 secondes
       setTimeout(() => {
         setShowToast(false);
         setStep('cart');
+        setInfo({ name: '', phone: '', address: '' });
+        setPaymentMethod('');
+        setPaymentReference('');
         toggleCart();
+        // Clear cart (vous devrez passer une fonction clearCart depuis le parent)
       }, 3000);
+
+    } catch (error) {
+      console.error('Error creating order:', error);
+      setError('Erreur lors de la création de la commande. Veuillez réessayer.');
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
     <>
-      {/* Toast de Confirmation Style Elite */}
+      {/* Toast de Confirmation */}
       {showToast && (
         <div className="fixed top-10 left-1/2 -translate-x-1/2 z-[300] animate-bounce">
           <div className="bg-black border-2 border-primary px-8 py-4 rounded-full shadow-[0_0_30px_rgba(0,255,136,0.4)] backdrop-blur-xl flex items-center space-x-4">
@@ -46,10 +127,16 @@ const CartSidebar = ({ isOpen, cart, removeFromCart, updateQuantity, toggleCart 
       <div className={`fixed top-0 right-0 h-full w-full sm:w-[450px] bg-white dark:bg-zinc-950 z-[250] transform ${isOpen ? 'translate-x-0' : 'translate-x-full'} transition-transform duration-700 shadow-2xl p-10 flex flex-col`}>
         <div className="flex justify-between items-center mb-10 border-b dark:border-zinc-800 pb-6">
           <h2 className="text-2xl font-black italic uppercase tracking-tighter">
-            {step === 'cart' ? 'Arsenal' : step === 'checkout' ? 'Elite Info' : 'Final Step'}
+            {step === 'cart' ? 'Arsenal' : step === 'checkout' ? 'Elite Info' : 'Paiement'}
           </h2>
-          <button onClick={() => { setStep('cart'); toggleCart(); }} className="text-xs font-black uppercase border px-4 py-2 transition">X</button>
+          <button onClick={() => { setStep('cart'); setError(''); toggleCart(); }} className="text-xs font-black uppercase border px-4 py-2 transition hover:bg-zinc-100 dark:hover:bg-zinc-900">X</button>
         </div>
+
+        {error && (
+          <div className="mb-6 bg-red-500/10 border border-red-500/30 rounded-xl p-3 animate-shake">
+            <p className="text-red-500 text-[9px] font-bold uppercase text-center">{error}</p>
+          </div>
+        )}
 
         <div className="flex-grow overflow-y-auto space-y-6 hide-scrollbar">
           {step === 'cart' && (
@@ -93,30 +180,75 @@ const CartSidebar = ({ isOpen, cart, removeFromCart, updateQuantity, toggleCart 
           {step === 'checkout' && (
             <div className="space-y-6 animate-fadeIn">
               <div>
-                <label className="text-[9px] font-black uppercase text-zinc-500 mb-2 block">Nom Complet</label>
-                <input type="text" className="w-full bg-white/5 border border-zinc-800 p-4 text-xs font-bold focus:border-primary outline-none" placeholder="Ex: David Nsoga" />
+                <label className="text-[9px] font-black uppercase text-zinc-500 mb-2 block">Nom Complet *</label>
+                <input 
+                  type="text" 
+                  required
+                  value={info.name}
+                  onChange={(e) => setInfo({ ...info, name: e.target.value })}
+                  className="w-full bg-white/5 border border-zinc-800 p-4 text-xs font-bold focus:border-primary outline-none dark:text-white" 
+                  placeholder="Ex: David Nsoga" 
+                />
               </div>
               <div>
-                <label className="text-[9px] font-black uppercase text-zinc-500 mb-2 block">Numéro Mobile (OM/MTN)</label>
-                <input type="tel" className="w-full bg-white/5 border border-zinc-800 p-4 text-xs font-bold focus:border-primary outline-none" placeholder="+237 6..." />
+                <label className="text-[9px] font-black uppercase text-zinc-500 mb-2 block">Numéro Mobile (OM/MTN) *</label>
+                <input 
+                  type="tel" 
+                  required
+                  value={info.phone}
+                  onChange={(e) => setInfo({ ...info, phone: e.target.value })}
+                  className="w-full bg-white/5 border border-zinc-800 p-4 text-xs font-bold focus:border-primary outline-none dark:text-white" 
+                  placeholder="+237 6..." 
+                />
               </div>
               <div>
-                <label className="text-[9px] font-black uppercase text-zinc-500 mb-2 block">Adresse de Livraison (Douala)</label>
-                <textarea className="w-full bg-white/5 border border-zinc-800 p-4 text-xs font-bold focus:border-primary outline-none h-24" placeholder="Quartier, Rue, Porte..."></textarea>
+                <label className="text-[9px] font-black uppercase text-zinc-500 mb-2 block">Adresse de Livraison (Douala) *</label>
+                <textarea 
+                  required
+                  value={info.address}
+                  onChange={(e) => setInfo({ ...info, address: e.target.value })}
+                  className="w-full bg-white/5 border border-zinc-800 p-4 text-xs font-bold focus:border-primary outline-none h-24 dark:text-white" 
+                  placeholder="Quartier, Rue, Porte..."
+                ></textarea>
               </div>
             </div>
           )}
 
           {step === 'payment' && (
             <div className="space-y-4 animate-fadeIn">
-               <button onClick={handleProcess} className="w-full border border-zinc-800 p-6 flex items-center justify-between hover:border-primary transition group text-left">
-                  <span className="font-black text-xs uppercase italic group-hover:text-primary">Orange Money</span>
-                  <i className="fa-solid fa-mobile-screen-button text-2xl text-orange-500"></i>
-               </button>
-               <button onClick={handleProcess} className="w-full border border-zinc-800 p-6 flex items-center justify-between hover:border-primary transition group text-left">
-                  <span className="font-black text-xs uppercase italic group-hover:text-primary">Payer à la livraison</span>
-                  <i className="fa-solid fa-truck-fast text-2xl text-primary"></i>
-               </button>
+              <button 
+                onClick={() => setPaymentMethod('orange_money')} 
+                className={`w-full border p-6 flex items-center justify-between transition group text-left rounded-xl ${paymentMethod === 'orange_money' ? 'border-primary bg-primary/5' : 'border-zinc-800 hover:border-primary'}`}
+              >
+                <span className={`font-black text-xs uppercase italic ${paymentMethod === 'orange_money' ? 'text-primary' : 'group-hover:text-primary'}`}>Orange Money</span>
+                <i className="fa-solid fa-mobile-screen-button text-2xl text-orange-500"></i>
+              </button>
+
+              {paymentMethod === 'orange_money' && (
+                <div className="bg-zinc-900/50 p-6 rounded-xl border border-zinc-800 space-y-4 animate-fadeIn">
+                  <p className="text-[9px] font-bold text-zinc-400 uppercase">
+                    1. Composez #150*50# <br />
+                    2. Entrez le montant: <span className="text-primary font-black">{Math.round(discountedTotal)} FCFA</span><br />
+                    3. Envoyez au: <span className="text-primary font-black">+237 6XX XXX XXX</span><br />
+                    4. Copiez la référence de transaction ci-dessous
+                  </p>
+                  <input
+                    type="text"
+                    placeholder="Ex: OM-123456789"
+                    value={paymentReference}
+                    onChange={(e) => setPaymentReference(e.target.value)}
+                    className="w-full bg-black border border-zinc-700 p-4 text-xs font-bold focus:border-primary outline-none rounded-lg dark:text-white"
+                  />
+                </div>
+              )}
+
+              <button 
+                onClick={() => setPaymentMethod('cash_on_delivery')} 
+                className={`w-full border p-6 flex items-center justify-between transition group text-left rounded-xl ${paymentMethod === 'cash_on_delivery' ? 'border-primary bg-primary/5' : 'border-zinc-800 hover:border-primary'}`}
+              >
+                <span className={`font-black text-xs uppercase italic ${paymentMethod === 'cash_on_delivery' ? 'text-primary' : 'group-hover:text-primary'}`}>Payer à la livraison</span>
+                <i className="fa-solid fa-truck-fast text-2xl text-primary"></i>
+              </button>
             </div>
           )}
         </div>
@@ -134,9 +266,10 @@ const CartSidebar = ({ isOpen, cart, removeFromCart, updateQuantity, toggleCart 
               </div>
               <button 
                 onClick={handleProcess}
-                className="w-full bg-primary text-black font-black py-6 uppercase tracking-[0.2em] text-[10px] shadow-[0_10px_30px_rgba(0,255,136,0.2)] hover:scale-105 transition"
+                disabled={loading}
+                className="w-full bg-primary text-black font-black py-6 uppercase tracking-[0.2em] text-[10px] shadow-[0_10px_30px_rgba(0,255,136,0.2)] hover:scale-105 transition disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {step === 'cart' ? 'Proceed to Checkout' : step === 'checkout' ? 'Finalize Order' : 'Confirm Order'}
+                {loading ? 'Traitement...' : step === 'cart' ? 'Proceed to Checkout' : step === 'checkout' ? 'Choisir le paiement' : 'Confirmer la commande'}
               </button>
             </>
           )}
