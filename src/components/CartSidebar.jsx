@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { supabase } from '../lib/supabase';
 
-const CartSidebar = ({ isOpen, cart, removeFromCart, updateQuantity, toggleCart }) => {
+const CartSidebar = ({ isOpen, cart, removeFromCart, updateQuantity, toggleCart, clearCart, vendor }) => {
   const [step, setStep] = useState('cart');
   const [info, setInfo] = useState({ name: '', phone: '', address: '' });
   const [paymentMethod, setPaymentMethod] = useState('');
@@ -13,35 +13,31 @@ const CartSidebar = ({ isOpen, cart, removeFromCart, updateQuantity, toggleCart 
   const total = cart.reduce((sum, item) => {
     const price = Number(item.price) || 0;
     const qty = Number(item.quantity) || 1;
-    return sum + (price * qty);
+    return sum + price * qty;
   }, 0);
 
   const discountedTotal = cart.length >= 2 ? total * 0.85 : total;
 
   const handleProcess = async () => {
     setError('');
-    
+
     if (step === 'cart') {
       setStep('checkout');
     } else if (step === 'checkout') {
-      // Validation des informations
       if (!info.name || !info.phone || !info.address) {
         setError('Veuillez remplir tous les champs');
         return;
       }
       setStep('payment');
     } else if (step === 'payment') {
-      // Validation du paiement
       if (!paymentMethod) {
         setError('Veuillez choisir un mode de paiement');
         return;
       }
-
       if (paymentMethod === 'orange_money' && !paymentReference) {
         setError('Veuillez saisir la référence de transaction Orange Money');
         return;
       }
-
       await createOrder();
     }
   };
@@ -51,7 +47,7 @@ const CartSidebar = ({ isOpen, cart, removeFromCart, updateQuantity, toggleCart 
     setError('');
 
     try {
-      // Créer la commande
+      // ✅ vendor_id ajouté — sans lui les commandes sont invisibles dans le Dashboard
       const { data: orderData, error: orderError } = await supabase
         .from('orders')
         .insert({
@@ -61,15 +57,15 @@ const CartSidebar = ({ isOpen, cart, removeFromCart, updateQuantity, toggleCart 
           total_amount: Math.round(discountedTotal),
           payment_method: paymentMethod,
           payment_reference: paymentReference || null,
-          status: 'pending'
+          status: 'pending',
+          vendor_id: vendor?.id || null, // ✅ AJOUTÉ
         })
         .select()
         .single();
 
       if (orderError) throw orderError;
 
-      // Créer les items de la commande
-      const orderItems = cart.map(item => ({
+      const orderItems = cart.map((item) => ({
         order_id: orderData.id,
         product_id: item.id,
         product_name: item.name,
@@ -77,7 +73,7 @@ const CartSidebar = ({ isOpen, cart, removeFromCart, updateQuantity, toggleCart 
         quantity: item.quantity,
         unit_price: item.price,
         selected_size: item.selectedSize || null,
-        selected_color: item.selectedColor || null
+        selected_color: item.selectedColor || null,
       }));
 
       const { error: itemsError } = await supabase
@@ -86,22 +82,19 @@ const CartSidebar = ({ isOpen, cart, removeFromCart, updateQuantity, toggleCart 
 
       if (itemsError) throw itemsError;
 
-      // Succès - Afficher le toast
       setShowToast(true);
-      
-      // Réinitialiser après 3 secondes
+
       setTimeout(() => {
         setShowToast(false);
         setStep('cart');
         setInfo({ name: '', phone: '', address: '' });
         setPaymentMethod('');
         setPaymentReference('');
+        clearCart(); // ✅ APPELÉ maintenant
         toggleCart();
-        // Clear cart (vous devrez passer une fonction clearCart depuis le parent)
       }, 3000);
-
-    } catch (error) {
-      console.error('Error creating order:', error);
+    } catch (err) {
+      console.error('Error creating order:', err);
       setError('Erreur lors de la création de la commande. Veuillez réessayer.');
     } finally {
       setLoading(false);
@@ -129,11 +122,16 @@ const CartSidebar = ({ isOpen, cart, removeFromCart, updateQuantity, toggleCart 
           <h2 className="text-2xl font-black italic uppercase tracking-tighter">
             {step === 'cart' ? 'Arsenal' : step === 'checkout' ? 'Elite Info' : 'Paiement'}
           </h2>
-          <button onClick={() => { setStep('cart'); setError(''); toggleCart(); }} className="text-xs font-black uppercase border px-4 py-2 transition hover:bg-zinc-100 dark:hover:bg-zinc-900">X</button>
+          <button
+            onClick={() => { setStep('cart'); setError(''); toggleCart(); }}
+            className="text-xs font-black uppercase border px-4 py-2 transition hover:bg-zinc-100 dark:hover:bg-zinc-900"
+          >
+            X
+          </button>
         </div>
 
         {error && (
-          <div className="mb-6 bg-red-500/10 border border-red-500/30 rounded-xl p-3 animate-shake">
+          <div className="mb-6 bg-red-500/10 border border-red-500/30 rounded-xl p-3">
             <p className="text-red-500 text-[9px] font-bold uppercase text-center">{error}</p>
           </div>
         )}
@@ -144,33 +142,30 @@ const CartSidebar = ({ isOpen, cart, removeFromCart, updateQuantity, toggleCart 
               <p className="text-center pt-20 italic opacity-50 uppercase text-[10px] tracking-widest">Votre arsenal est vide</p>
             ) : (
               cart.map((item, idx) => (
-                <div key={`${item.id}-${idx}`} className="flex items-center space-x-4 py-4 border-b dark:border-zinc-900 animate-fadeIn">
-                  <img 
-                    src={item.img || 'https://via.placeholder.com/100'} 
-                    className="w-16 h-16 object-cover rounded-xl bg-zinc-800" 
-                    alt={item.name} 
+                <div key={`${item.id}-${idx}`} className="flex items-center space-x-4 py-4 border-b dark:border-zinc-900">
+                  <img
+                    src={item.img || 'https://via.placeholder.com/100'}
+                    className="w-16 h-16 object-cover rounded-xl bg-zinc-800"
+                    alt={item.name}
                   />
-                  
                   <div className="flex-grow">
-                    <p className="font-black uppercase text-[10px] italic leading-tight mb-1">
-                      {item.name || "Produit Inconnu"}
-                    </p>
+                    <p className="font-black uppercase text-[10px] italic leading-tight mb-1">{item.name || 'Produit Inconnu'}</p>
                     <p className="text-[9px] text-zinc-500 font-bold uppercase">
                       {item.selectedSize || 'Standard'} / {item.selectedColor || 'Original'}
                     </p>
-                    
                     <div className="flex items-center space-x-3 mt-2">
                       <button onClick={() => updateQuantity(idx, -1)} className="text-zinc-500 hover:text-primary transition">-</button>
                       <span className="font-black text-[10px] w-4 text-center">{item.quantity || 1}</span>
                       <button onClick={() => updateQuantity(idx, 1)} className="text-zinc-500 hover:text-primary transition">+</button>
                     </div>
                   </div>
-
                   <div className="text-right">
                     <p className="text-primary text-[10px] font-black whitespace-nowrap">
                       {((Number(item.price) || 0) * (Number(item.quantity) || 1)).toLocaleString()} FCFA
                     </p>
-                    <button onClick={() => removeFromCart(idx)} className="text-[8px] font-bold uppercase text-red-500 mt-2 hover:underline transition">Remove</button>
+                    <button onClick={() => removeFromCart(idx)} className="text-[8px] font-bold uppercase text-red-500 mt-2 hover:underline transition">
+                      Remove
+                    </button>
                   </div>
                 </div>
               ))
@@ -178,36 +173,36 @@ const CartSidebar = ({ isOpen, cart, removeFromCart, updateQuantity, toggleCart 
           )}
 
           {step === 'checkout' && (
-            <div className="space-y-6 animate-fadeIn">
+            <div className="space-y-6">
               <div>
                 <label className="text-[9px] font-black uppercase text-zinc-500 mb-2 block">Nom Complet *</label>
-                <input 
-                  type="text" 
+                <input
+                  type="text"
                   required
                   value={info.name}
                   onChange={(e) => setInfo({ ...info, name: e.target.value })}
-                  className="w-full bg-white/5 border border-zinc-800 p-4 text-xs font-bold focus:border-primary outline-none dark:text-white" 
-                  placeholder="Ex: David Nsoga" 
+                  className="w-full bg-white/5 border border-zinc-800 p-4 text-xs font-bold focus:border-primary outline-none dark:text-white"
+                  placeholder="Ex: David Nsoga"
                 />
               </div>
               <div>
                 <label className="text-[9px] font-black uppercase text-zinc-500 mb-2 block">Numéro Mobile (OM/MTN) *</label>
-                <input 
-                  type="tel" 
+                <input
+                  type="tel"
                   required
                   value={info.phone}
                   onChange={(e) => setInfo({ ...info, phone: e.target.value })}
-                  className="w-full bg-white/5 border border-zinc-800 p-4 text-xs font-bold focus:border-primary outline-none dark:text-white" 
-                  placeholder="+237 6..." 
+                  className="w-full bg-white/5 border border-zinc-800 p-4 text-xs font-bold focus:border-primary outline-none dark:text-white"
+                  placeholder="+237 6..."
                 />
               </div>
               <div>
                 <label className="text-[9px] font-black uppercase text-zinc-500 mb-2 block">Adresse de Livraison (Douala) *</label>
-                <textarea 
+                <textarea
                   required
                   value={info.address}
                   onChange={(e) => setInfo({ ...info, address: e.target.value })}
-                  className="w-full bg-white/5 border border-zinc-800 p-4 text-xs font-bold focus:border-primary outline-none h-24 dark:text-white" 
+                  className="w-full bg-white/5 border border-zinc-800 p-4 text-xs font-bold focus:border-primary outline-none h-24 dark:text-white"
                   placeholder="Quartier, Rue, Porte..."
                 ></textarea>
               </div>
@@ -215,17 +210,19 @@ const CartSidebar = ({ isOpen, cart, removeFromCart, updateQuantity, toggleCart 
           )}
 
           {step === 'payment' && (
-            <div className="space-y-4 animate-fadeIn">
-              <button 
-                onClick={() => setPaymentMethod('orange_money')} 
+            <div className="space-y-4">
+              <button
+                onClick={() => setPaymentMethod('orange_money')}
                 className={`w-full border p-6 flex items-center justify-between transition group text-left rounded-xl ${paymentMethod === 'orange_money' ? 'border-primary bg-primary/5' : 'border-zinc-800 hover:border-primary'}`}
               >
-                <span className={`font-black text-xs uppercase italic ${paymentMethod === 'orange_money' ? 'text-primary' : 'group-hover:text-primary'}`}>Orange Money</span>
+                <span className={`font-black text-xs uppercase italic ${paymentMethod === 'orange_money' ? 'text-primary' : 'group-hover:text-primary'}`}>
+                  Orange Money
+                </span>
                 <i className="fa-solid fa-mobile-screen-button text-2xl text-orange-500"></i>
               </button>
 
               {paymentMethod === 'orange_money' && (
-                <div className="bg-zinc-900/50 p-6 rounded-xl border border-zinc-800 space-y-4 animate-fadeIn">
+                <div className="bg-zinc-900/50 p-6 rounded-xl border border-zinc-800 space-y-4">
                   <p className="text-[9px] font-bold text-zinc-400 uppercase">
                     1. Composez #150*50# <br />
                     2. Entrez le montant: <span className="text-primary font-black">{Math.round(discountedTotal)} FCFA</span><br />
@@ -242,11 +239,13 @@ const CartSidebar = ({ isOpen, cart, removeFromCart, updateQuantity, toggleCart 
                 </div>
               )}
 
-              <button 
-                onClick={() => setPaymentMethod('cash_on_delivery')} 
+              <button
+                onClick={() => setPaymentMethod('cash_on_delivery')}
                 className={`w-full border p-6 flex items-center justify-between transition group text-left rounded-xl ${paymentMethod === 'cash_on_delivery' ? 'border-primary bg-primary/5' : 'border-zinc-800 hover:border-primary'}`}
               >
-                <span className={`font-black text-xs uppercase italic ${paymentMethod === 'cash_on_delivery' ? 'text-primary' : 'group-hover:text-primary'}`}>Payer à la livraison</span>
+                <span className={`font-black text-xs uppercase italic ${paymentMethod === 'cash_on_delivery' ? 'text-primary' : 'group-hover:text-primary'}`}>
+                  Payer à la livraison
+                </span>
                 <i className="fa-solid fa-truck-fast text-2xl text-primary"></i>
               </button>
             </div>
@@ -264,12 +263,18 @@ const CartSidebar = ({ isOpen, cart, removeFromCart, updateQuantity, toggleCart 
                   {Math.round(discountedTotal).toLocaleString()} FCFA
                 </span>
               </div>
-              <button 
+              <button
                 onClick={handleProcess}
                 disabled={loading}
                 className="w-full bg-primary text-black font-black py-6 uppercase tracking-[0.2em] text-[10px] shadow-[0_10px_30px_rgba(0,255,136,0.2)] hover:scale-105 transition disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {loading ? 'Traitement...' : step === 'cart' ? 'Proceed to Checkout' : step === 'checkout' ? 'Choisir le paiement' : 'Confirmer la commande'}
+                {loading
+                  ? 'Traitement...'
+                  : step === 'cart'
+                  ? 'Proceed to Checkout'
+                  : step === 'checkout'
+                  ? 'Choisir le paiement'
+                  : 'Confirmer la commande'}
               </button>
             </>
           )}

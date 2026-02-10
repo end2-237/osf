@@ -29,7 +29,6 @@ const Dashboard = () => {
       fetchProducts();
       fetchOrders();
       
-      // Subscribe to realtime orders
       const ordersSubscription = supabase
         .channel('orders-changes')
         .on('postgres_changes', 
@@ -90,6 +89,7 @@ const Dashboard = () => {
   const handleImageChange = (e) => {
     const file = e.target.files[0];
     if (file) {
+      console.log(" [IMAGE] Fichier sélectionné:", file.name, file.size, "octets");
       setImageFile(file);
       setImagePreview(URL.createObjectURL(file));
     }
@@ -98,32 +98,62 @@ const Dashboard = () => {
   const handleAddProduct = async (e) => {
     e.preventDefault();
     setLoading(true);
+    
+    console.log(">>> [ADD_PRODUCT 1] Début de la procédure d'ajout");
+    console.log("Données du formulaire:", newProduct);
+    console.log("Vendeur ID:", vendor?.id);
 
     try {
       let imageUrl = '';
       
-      // Upload image si présente
+      // 1. Upload de l'image
       if (imageFile) {
-        imageUrl = await uploadProductImage(imageFile, vendor.id);
+        console.log(">>> [ADD_PRODUCT 2] Tentative d'upload de l'image vers le storage...");
+        try {
+          imageUrl = await uploadProductImage(imageFile, vendor.id);
+          console.log(">>> [ADD_PRODUCT 2.1] Upload réussi ! URL publique:", imageUrl);
+        } catch (uploadErr) {
+          console.error("xxx [ADD_PRODUCT 2.2] ÉCHEC de l'upload de l'image:", uploadErr);
+          throw new Error("Le stockage de l'image a échoué. Vérifiez votre bucket 'product-images'.");
+        }
+      } else {
+        console.warn(" [ADD_PRODUCT] Aucune image sélectionnée, utilisation d'un placeholder.");
+        imageUrl = 'https://via.placeholder.com/600';
       }
 
+      // 2. Traitement des features
       const features = newProduct.features
         ? newProduct.features.split(',').map(f => f.trim())
         : [];
+      console.log(" [ADD_PRODUCT 3] Features formatées:", features);
 
-      const { error } = await supabase
+      // 3. Insertion en base de données
+      console.log(">>> [ADD_PRODUCT 4] Insertion dans la table 'products' via Supabase...");
+      const { data, error } = await supabase
         .from('products')
         .insert({
           name: newProduct.name,
           price: Number(newProduct.price),
           type: newProduct.type,
           status: newProduct.status,
-          img: imageUrl || 'https://via.placeholder.com/600',
+          img: imageUrl,
           features: features,
           vendor_id: vendor.id
-        });
+        })
+        .select();
 
-      if (error) throw error;
+      if (error) {
+        console.error("xxx [ADD_PRODUCT 4.1] ÉCHEC de l'insertion SQL:", error);
+        console.error("Détails SQL:", {
+          code: error.code,
+          message: error.message,
+          details: error.details,
+          hint: error.hint
+        });
+        throw error;
+      }
+
+      console.log(">>> [ADD_PRODUCT 5] SUCCESS ! Produit ajouté avec succès:", data);
 
       // Reset form
       setNewProduct({ name: '', price: '', type: 'Audio Lab', status: 'In Stock', features: '' });
@@ -132,9 +162,11 @@ const Dashboard = () => {
       setShowAddForm(false);
       
       await fetchProducts();
+      console.log(" [ADD_PRODUCT 6] Liste des produits rafraîchie.");
+
     } catch (error) {
-      console.error('Error adding product:', error);
-      alert('Erreur lors de l\'ajout du produit');
+      console.error("!!! [ADD_PRODUCT ERROR] Le processus s'est arrêté:", error.message);
+      alert('Erreur lors de l\'ajout du produit: ' + error.message);
     } finally {
       setLoading(false);
     }
@@ -142,10 +174,11 @@ const Dashboard = () => {
 
   const deleteProduct = async (product) => {
     if (!window.confirm('Confirmer la suppression de cet actif ?')) return;
+    console.log(" [DELETE_PRODUCT] Tentative de suppression du produit:", product.id);
 
     try {
-      // Delete image from storage
       if (product.img && product.img.includes('product-images')) {
+        console.log(" [DELETE_PRODUCT] Suppression de l'image du storage...");
         await deleteProductImage(product.img);
       }
 
@@ -155,6 +188,7 @@ const Dashboard = () => {
         .eq('id', product.id);
 
       if (error) throw error;
+      console.log(" [DELETE_PRODUCT] Succès !");
       await fetchProducts();
     } catch (error) {
       console.error('Error deleting product:', error);
