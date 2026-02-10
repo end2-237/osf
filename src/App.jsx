@@ -8,7 +8,7 @@ import Home from './pages/Home';
 import Store from './pages/Store';
 import Studio from './pages/Studio';
 import Dashboard from './pages/Dashboard';
-import PrivateRoute from './routes/PrivateRoute'; // Import du gardien
+import PrivateRoute from './routes/PrivateRoute'; 
 
 function App() {
   const [isDark, setIsDark] = useState(false);
