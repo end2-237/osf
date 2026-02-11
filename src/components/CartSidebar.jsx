@@ -20,7 +20,6 @@ const CartSidebar = ({ isOpen, cart, removeFromCart, updateQuantity, toggleCart,
 
   const handleProcess = async () => {
     setError('');
-
     if (step === 'cart') {
       setStep('checkout');
     } else if (step === 'checkout') {
@@ -45,31 +44,26 @@ const CartSidebar = ({ isOpen, cart, removeFromCart, updateQuantity, toggleCart,
   const createOrder = async () => {
     setLoading(true);
     setError('');
-  
+
     try {
-      // 1. Regrouper les produits du panier par vendor_id
+      // Regrouper les produits par vendor_id
       const ordersByVendor = cart.reduce((acc, item) => {
-        const vId = item.vendor_id || 'no_vendor'; // Gère les produits sans ID vendeur
+        const vId = item.vendor_id || 'no_vendor';
         if (!acc[vId]) acc[vId] = [];
         acc[vId].push(item);
         return acc;
       }, {});
-  
-      // 2. Créer une commande pour chaque groupe de vendeur
+
       const vendorIds = Object.keys(ordersByVendor);
-      
+
       for (const vId of vendorIds) {
         const vendorItems = ordersByVendor[vId];
-        
-        // Calculer le total pour ce vendeur spécifique
-        const vendorTotal = vendorItems.reduce((sum, item) => 
+        const vendorTotal = vendorItems.reduce((sum, item) =>
           sum + (Number(item.price) * Number(item.quantity)), 0
         );
-  
-        // Appliquer la réduction de 15% si le panier total global avait >= 2 articles
         const finalVendorAmount = cart.length >= 2 ? vendorTotal * 0.85 : vendorTotal;
-  
-        // A. Insérer la commande principale
+
+        // A. Créer la commande
         const { data: orderData, error: orderError } = await supabase
           .from('orders')
           .insert({
@@ -80,14 +74,14 @@ const CartSidebar = ({ isOpen, cart, removeFromCart, updateQuantity, toggleCart,
             payment_method: paymentMethod,
             payment_reference: paymentReference || null,
             status: 'pending',
-            vendor_id: vId === 'no_vendor' ? null : vId, // Assigne le bon vendeur
+            vendor_id: vId === 'no_vendor' ? null : vId,
           })
           .select()
           .single();
-  
+
         if (orderError) throw orderError;
-  
-        // B. Insérer les articles liés à cette commande précise
+
+        // B. Créer les items
         const itemsToInsert = vendorItems.map((item) => ({
           order_id: orderData.id,
           product_id: item.id,
@@ -98,15 +92,40 @@ const CartSidebar = ({ isOpen, cart, removeFromCart, updateQuantity, toggleCart,
           selected_size: item.selectedSize || null,
           selected_color: item.selectedColor || null,
         }));
-  
+
         const { error: itemsError } = await supabase
           .from('order_items')
           .insert(itemsToInsert);
-  
+
         if (itemsError) throw itemsError;
+
+        // ✅ FIX #3 : Broadcaster via Supabase Realtime pour notifier le dashboard vendeur
+        // Fonctionne si le dashboard est ouvert dans un autre onglet/navigateur
+        if (vId !== 'no_vendor') {
+          try {
+            const channel = supabase.channel(`vendor-notifications-${vId}`);
+            await channel.subscribe();
+            await channel.send({
+              type: 'broadcast',
+              event: 'new_order',
+              payload: {
+                order_number: orderData.order_number,
+                client_name: info.name,
+                total_amount: Math.round(finalVendorAmount),
+                payment_method: paymentMethod,
+                items_count: vendorItems.length,
+              }
+            });
+            supabase.removeChannel(channel);
+            console.log('[ORDER] ✅ Broadcast envoyé au vendeur:', vId);
+          } catch (broadcastErr) {
+            // Non bloquant — la commande est créée même si le broadcast échoue
+            console.warn('[ORDER] Broadcast échoué (non bloquant):', broadcastErr);
+          }
+        }
       }
-  
-      // 3. Finalisation après que toutes les commandes soient créées
+
+      // Finalisation
       setShowToast(true);
       setTimeout(() => {
         setShowToast(false);
@@ -114,12 +133,12 @@ const CartSidebar = ({ isOpen, cart, removeFromCart, updateQuantity, toggleCart,
         setInfo({ name: '', phone: '', address: '' });
         setPaymentMethod('');
         setPaymentReference('');
-        clearCart(); 
+        clearCart();
         toggleCart();
       }, 3000);
-  
+
     } catch (err) {
-      console.error('Erreur multi-vendeurs:', err);
+      console.error('Erreur commande:', err);
       setError('Erreur lors de la création des commandes.');
     } finally {
       setLoading(false);
@@ -128,7 +147,6 @@ const CartSidebar = ({ isOpen, cart, removeFromCart, updateQuantity, toggleCart,
 
   return (
     <>
-      {/* Toast de Confirmation */}
       {showToast && (
         <div className="fixed top-10 left-1/2 -translate-x-1/2 z-[300] animate-bounce">
           <div className="bg-black border-2 border-primary px-8 py-4 rounded-full shadow-[0_0_30px_rgba(0,255,136,0.4)] backdrop-blur-xl flex items-center space-x-4">
@@ -202,9 +220,7 @@ const CartSidebar = ({ isOpen, cart, removeFromCart, updateQuantity, toggleCart,
               <div>
                 <label className="text-[9px] font-black uppercase text-zinc-500 mb-2 block">Nom Complet *</label>
                 <input
-                  type="text"
-                  required
-                  value={info.name}
+                  type="text" required value={info.name}
                   onChange={(e) => setInfo({ ...info, name: e.target.value })}
                   className="w-full bg-white/5 border border-zinc-800 p-4 text-xs font-bold focus:border-primary outline-none dark:text-white"
                   placeholder="Ex: David Nsoga"
@@ -213,9 +229,7 @@ const CartSidebar = ({ isOpen, cart, removeFromCart, updateQuantity, toggleCart,
               <div>
                 <label className="text-[9px] font-black uppercase text-zinc-500 mb-2 block">Numéro Mobile (OM/MTN) *</label>
                 <input
-                  type="tel"
-                  required
-                  value={info.phone}
+                  type="tel" required value={info.phone}
                   onChange={(e) => setInfo({ ...info, phone: e.target.value })}
                   className="w-full bg-white/5 border border-zinc-800 p-4 text-xs font-bold focus:border-primary outline-none dark:text-white"
                   placeholder="+237 6..."
@@ -224,8 +238,7 @@ const CartSidebar = ({ isOpen, cart, removeFromCart, updateQuantity, toggleCart,
               <div>
                 <label className="text-[9px] font-black uppercase text-zinc-500 mb-2 block">Adresse de Livraison (Douala) *</label>
                 <textarea
-                  required
-                  value={info.address}
+                  required value={info.address}
                   onChange={(e) => setInfo({ ...info, address: e.target.value })}
                   className="w-full bg-white/5 border border-zinc-800 p-4 text-xs font-bold focus:border-primary outline-none h-24 dark:text-white"
                   placeholder="Quartier, Rue, Porte..."
@@ -255,9 +268,7 @@ const CartSidebar = ({ isOpen, cart, removeFromCart, updateQuantity, toggleCart,
                     4. Copiez la référence de transaction ci-dessous
                   </p>
                   <input
-                    type="text"
-                    placeholder="Ex: OM-123456789"
-                    value={paymentReference}
+                    type="text" placeholder="Ex: OM-123456789" value={paymentReference}
                     onChange={(e) => setPaymentReference(e.target.value)}
                     className="w-full bg-black border border-zinc-700 p-4 text-xs font-bold focus:border-primary outline-none rounded-lg dark:text-white"
                   />
