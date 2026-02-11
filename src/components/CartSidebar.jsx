@@ -99,30 +99,11 @@ const CartSidebar = ({ isOpen, cart, removeFromCart, updateQuantity, toggleCart,
 
         if (itemsError) throw itemsError;
 
-        // ✅ FIX #3 : Broadcaster via Supabase Realtime pour notifier le dashboard vendeur
-        // Fonctionne si le dashboard est ouvert dans un autre onglet/navigateur
-        if (vId !== 'no_vendor') {
-          try {
-            const channel = supabase.channel(`vendor-notifications-${vId}`);
-            await channel.subscribe();
-            await channel.send({
-              type: 'broadcast',
-              event: 'new_order',
-              payload: {
-                order_number: orderData.order_number,
-                client_name: info.name,
-                total_amount: Math.round(finalVendorAmount),
-                payment_method: paymentMethod,
-                items_count: vendorItems.length,
-              }
-            });
-            supabase.removeChannel(channel);
-            console.log('[ORDER] ✅ Broadcast envoyé au vendeur:', vId);
-          } catch (broadcastErr) {
-            // Non bloquant — la commande est créée même si le broadcast échoue
-            console.warn('[ORDER] Broadcast échoué (non bloquant):', broadcastErr);
-          }
-        }
+        // ✅ FIX : Pas de broadcast manuel nécessaire !
+        // Le Dashboard écoute déjà les Database Changes PostgreSQL via Supabase Realtime
+        // L'INSERT dans 'orders' sera automatiquement détecté par le listener
+        console.log('[ORDER] ✅ Commande créée - ID:', orderData.id);
+        console.log('[ORDER] Le Dashboard sera notifié automatiquement via Database Changes');
       }
 
       // Finalisation

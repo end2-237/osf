@@ -19,9 +19,9 @@ const Dashboard = () => {
   // 🔔 Notifications
   const [notifStatus, setNotifStatus] = useState('idle');
   const [notifToken, setNotifToken] = useState(null);
-  const [liveToast, setLiveToast] = useState(null); // toast pour nouvelle commande
-  const broadcastChannelRef = useRef(null);
+  const [liveToast, setLiveToast] = useState(null);
   const fcmUnsubscribeRef = useRef(null);
+  const realtimeChannelRef = useRef(null);
 
   const [newProduct, setNewProduct] = useState({
     name: '', price: '', type: 'Audio Lab', status: 'In Stock', features: ''
@@ -32,13 +32,12 @@ const Dashboard = () => {
       fetchProducts();
       fetchOrders();
       registerFCMToken();
-      listenBroadcastOrders();
-      listenRealtimeOrders();
+      listenRealtimeOrders(); // ✅ Écoute Database Changes uniquement
     }
     return () => {
-      // Cleanup broadcast channel
-      if (broadcastChannelRef.current) {
-        supabase.removeChannel(broadcastChannelRef.current);
+      // Cleanup Realtime channel
+      if (realtimeChannelRef.current) {
+        supabase.removeChannel(realtimeChannelRef.current);
       }
       // Cleanup FCM foreground listener
       if (fcmUnsubscribeRef.current) {
@@ -56,7 +55,7 @@ const Dashboard = () => {
       if (token) {
         setNotifToken(token);
         setNotifStatus('granted');
-        // ✅ FIX : listener continu pour messages foreground (ne s'éteint plus après 1 message)
+        // ✅ Listener continu pour messages foreground
         const unsubscribe = setupForegroundNotifications((payload) => {
           showLiveToast({
             title: payload.notification?.title || 'Nouvelle commande',
@@ -72,55 +71,57 @@ const Dashboard = () => {
     }
   };
 
-  // ✅ FIX #3 : Écouter le broadcast Supabase Realtime envoyé par CartSidebar
-  const listenBroadcastOrders = () => {
-    const channel = supabase
-      .channel(`vendor-notifications-${vendor.id}`)
-      .on('broadcast', { event: 'new_order' }, ({ payload }) => {
-        console.log('[BROADCAST] Nouvelle commande reçue:', payload);
-        // Afficher toast dans le dashboard
-        showLiveToast({
-          title: `🛒 Commande #${payload.order_number}`,
-          body: `${payload.client_name} — ${payload.total_amount?.toLocaleString()} FCFA (${payload.items_count} article${payload.items_count > 1 ? 's' : ''})`,
-        });
-        // Envoyer notification SW locale (fonctionne même si l'onglet n'est pas actif)
-        if (Notification.permission === 'granted') {
-          navigator.serviceWorker.getRegistration('/').then((reg) => {
-            if (reg) {
-              reg.showNotification(`🛒 Commande #${payload.order_number}`, {
-                body: `${payload.client_name} — ${payload.total_amount?.toLocaleString()} FCFA`,
-                icon: '/ofs.png',
-                badge: '/ofs.png',
-                tag: `order-${payload.order_number}`,
-                requireInteraction: true,
-                vibrate: [200, 100, 200],
-                data: { url: '/admin' }
-              });
-            }
-          });
-        }
-        // Rafraîchir la liste des commandes
-        fetchOrders();
-      })
-      .subscribe();
-
-    broadcastChannelRef.current = channel;
-    console.log('[BROADCAST] Écoute active sur vendor-notifications-' + vendor.id);
-  };
-
-  // Écoute Realtime PostgreSQL (pour la liste en temps réel)
+  // ✅ FIX : Écouter SEULEMENT les Database Changes PostgreSQL (pas de broadcast)
   const listenRealtimeOrders = () => {
-    const sub = supabase
-      .channel('orders-db-changes')
+    console.log('[REALTIME] Configuration de l\'écoute Database Changes pour vendor:', vendor.id);
+    
+    const channel = supabase
+      .channel('orders-realtime-changes')
       .on('postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'orders', filter: `vendor_id=eq.${vendor.id}` },
-        () => fetchOrders()
+        { 
+          event: 'INSERT', 
+          schema: 'public', 
+          table: 'orders', 
+          filter: `vendor_id=eq.${vendor.id}` 
+        },
+        (payload) => {
+          console.log('[REALTIME] ✅ Nouvelle commande détectée:', payload.new);
+          
+          // Afficher toast dans le dashboard
+          showLiveToast({
+            title: `🛒 Commande #${payload.new.order_number}`,
+            body: `${payload.new.client_name} — ${payload.new.total_amount?.toLocaleString()} FCFA`,
+          });
+          
+          // Notification système (même si onglet actif, pour référence)
+          if (Notification.permission === 'granted') {
+            navigator.serviceWorker.getRegistration('/').then((reg) => {
+              if (reg) {
+                reg.showNotification(`🛒 Nouvelle Commande #${payload.new.order_number}`, {
+                  body: `${payload.new.client_name} — ${payload.new.total_amount?.toLocaleString()} FCFA`,
+                  icon: '/ofs.png',
+                  badge: '/ofs.png',
+                  tag: `order-${payload.new.order_number}`,
+                  requireInteraction: true,
+                  vibrate: [200, 100, 200],
+                  data: { url: '/admin' }
+                });
+              }
+            });
+          }
+          
+          // Rafraîchir la liste
+          fetchOrders();
+        }
       )
-      .subscribe();
-    return () => sub.unsubscribe();
+      .subscribe((status) => {
+        console.log('[REALTIME] Statut subscription:', status);
+      });
+
+    realtimeChannelRef.current = channel;
   };
 
-  // Afficher un toast de notification live en haut du dashboard
+  // Afficher un toast de notification live
   const showLiveToast = (notif) => {
     setLiveToast(notif);
     setTimeout(() => setLiveToast(null), 6000);
@@ -137,7 +138,7 @@ const Dashboard = () => {
       reg.showNotification('🛒 Test Elite Notification', {
         body: `${vendor.shop_name} — Système de notifications opérationnel !`,
         icon: '/ofs.png',
-        tag: `test-${Date.now()}`, // ✅ tag unique = pas de déduplication, fonctionne à chaque clic
+        tag: `test-${Date.now()}`, // ✅ tag unique = pas de déduplication
         requireInteraction: false,
         vibrate: [200, 100, 200],
       });
@@ -285,7 +286,7 @@ const Dashboard = () => {
         </div>
 
         <div className="flex flex-col items-end gap-3">
-          {notifStatus === 'granted' && (
+          {/* {notifStatus === 'granted' && (
             <button
               onClick={sendTestNotification}
               className="px-5 py-2.5 text-[9px] font-black uppercase tracking-widest rounded-xl border border-zinc-300 dark:border-zinc-700 text-zinc-500 hover:border-primary hover:text-primary transition-all"
@@ -293,7 +294,17 @@ const Dashboard = () => {
               <i className="fa-solid fa-paper-plane mr-2"></i>
               Tester Notification
             </button>
-          )}
+          )} */}
+          {/* NOUVEAU BOUTON : VOIR MA BOUTIQUE */}
+    <a
+      href={`/shop/${vendor?.shop_name}`}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="px-5 py-2.5 text-[9px] font-black uppercase tracking-widest rounded-xl border border-primary text-primary hover:bg-primary hover:text-black transition-all"
+    >
+      <i className="fa-solid fa-eye mr-2"></i>
+      Voir ma boutique
+    </a>
           <div className="flex bg-zinc-100 dark:bg-zinc-900/80 p-1.5 border border-zinc-200 dark:border-white/10 rounded-2xl shadow-xl overflow-x-auto">
             {['inventory', 'orders'].map((tab) => (
               <button key={tab} onClick={() => setActiveTab(tab)}
@@ -340,7 +351,7 @@ const Dashboard = () => {
               <p className="text-[8px] font-mono text-zinc-500 break-all leading-relaxed">{notifToken.substring(0, 40)}...</p>
               <div className="mt-3 flex items-center space-x-1">
                 <div className="w-2 h-2 bg-primary rounded-full animate-pulse"></div>
-                <span className="text-[8px] font-black uppercase text-primary">1 token en BD</span>
+                <span className="text-[8px] font-black uppercase text-primary">Realtime DB Changes Actif</span>
               </div>
             </div>
           )}

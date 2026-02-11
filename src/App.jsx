@@ -12,6 +12,7 @@ import Studio from './pages/Studio';
 import Dashboard from './pages/Dashboard';
 import Login from './pages/Login.jsx';
 import Register from './pages/Register';
+import ShopPage from './pages/ShopPage.jsx';
 import PrivateRoute from './routes/PrivateRoute';
 
 // ✅ Composant interne qui peut utiliser useAuth (il est DANS AuthProvider)
@@ -86,6 +87,7 @@ function AppContent() {
           <Route path="/studio" element={<Studio />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
+          <Route path="/shop/:shopName" element={<ShopPage openModal={openModal} addToCart={addToCart} />} />
 
           {/* ROUTES PRIVÉES */}
           <Route element={<PrivateRoute />}>
