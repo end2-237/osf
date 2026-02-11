@@ -1,6 +1,6 @@
-import React, { useState, useMemo } from 'react';
-import { products } from '../data/products';
+import React, { useState, useMemo, useEffect } from 'react';
 import ProductCard from '../components/ProductCard';
+import { supabase } from '../lib/supabase';
 
 const Store = ({ openModal, addToCart }) => {
   const [search, setSearch] = useState("");
@@ -8,9 +8,20 @@ const Store = ({ openModal, addToCart }) => {
   const [sortBy, setSortBy] = useState("featured");
   const [maxPrice, setMaxPrice] = useState(250000);
   const [selectedSize, setSelectedSize] = useState("All");
+  const [dbProducts, setDbProducts] = useState([]);
+
+  useEffect(() => {
+    const fetchStoreProducts = async () => {
+      const { data, error } = await supabase
+        .from('products')
+        .select('*');
+      if (!error) setDbProducts(data);
+    };
+    fetchStoreProducts();
+  }, []);
 
   const filteredProducts = useMemo(() => {
-    return products
+    return dbProducts
       .filter(p => (category === "All" || p.type === category))
       .filter(p => p.name.toLowerCase().includes(search.toLowerCase()))
       .filter(p => p.price <= maxPrice)
@@ -23,7 +34,7 @@ const Store = ({ openModal, addToCart }) => {
         if (sortBy === "price-desc") return b.price - a.price;
         return 0;
       });
-  }, [search, category, sortBy, maxPrice, selectedSize]);
+  }, [dbProducts, search, category, sortBy, maxPrice, selectedSize]);
 
   const categories = ["All", "Audio Lab", "Clothing", "Shoes", "Tech Lab"];
   const apparelSizes = ["S", "M", "L", "XL"];

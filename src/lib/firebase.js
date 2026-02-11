@@ -3,12 +3,13 @@ import { getMessaging, getToken, onMessage } from 'firebase/messaging';
 import { supabase } from './supabase';
 
 const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-  appId: import.meta.env.VITE_FIREBASE_APP_ID
+  apiKey: "AIzaSyBOMDUPerxSFJkLQbG1z1ao48_lB0mprV0",
+  authDomain: "buyticle-bce3f.firebaseapp.com",
+  projectId: "buyticle-bce3f",
+  storageBucket: "buyticle-bce3f.firebasestorage.app",
+  messagingSenderId: "313383491173",
+  appId: "1:313383491173:web:d0ccc12fc62e5efd0f188c",
+  measurementId: "G-V88H9TVFPM"
 };
 
 const app = initializeApp(firebaseConfig);

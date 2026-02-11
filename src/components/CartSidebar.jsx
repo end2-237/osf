@@ -45,57 +45,82 @@ const CartSidebar = ({ isOpen, cart, removeFromCart, updateQuantity, toggleCart,
   const createOrder = async () => {
     setLoading(true);
     setError('');
-
+  
     try {
-      // ✅ vendor_id ajouté — sans lui les commandes sont invisibles dans le Dashboard
-      const { data: orderData, error: orderError } = await supabase
-        .from('orders')
-        .insert({
-          client_name: info.name,
-          client_phone: info.phone,
-          client_address: info.address,
-          total_amount: Math.round(discountedTotal),
-          payment_method: paymentMethod,
-          payment_reference: paymentReference || null,
-          status: 'pending',
-          vendor_id: vendor?.id || null, // ✅ AJOUTÉ
-        })
-        .select()
-        .single();
-
-      if (orderError) throw orderError;
-
-      const orderItems = cart.map((item) => ({
-        order_id: orderData.id,
-        product_id: item.id,
-        product_name: item.name,
-        product_img: item.img,
-        quantity: item.quantity,
-        unit_price: item.price,
-        selected_size: item.selectedSize || null,
-        selected_color: item.selectedColor || null,
-      }));
-
-      const { error: itemsError } = await supabase
-        .from('order_items')
-        .insert(orderItems);
-
-      if (itemsError) throw itemsError;
-
+      // 1. Regrouper les produits du panier par vendor_id
+      const ordersByVendor = cart.reduce((acc, item) => {
+        const vId = item.vendor_id || 'no_vendor'; // Gère les produits sans ID vendeur
+        if (!acc[vId]) acc[vId] = [];
+        acc[vId].push(item);
+        return acc;
+      }, {});
+  
+      // 2. Créer une commande pour chaque groupe de vendeur
+      const vendorIds = Object.keys(ordersByVendor);
+      
+      for (const vId of vendorIds) {
+        const vendorItems = ordersByVendor[vId];
+        
+        // Calculer le total pour ce vendeur spécifique
+        const vendorTotal = vendorItems.reduce((sum, item) => 
+          sum + (Number(item.price) * Number(item.quantity)), 0
+        );
+  
+        // Appliquer la réduction de 15% si le panier total global avait >= 2 articles
+        const finalVendorAmount = cart.length >= 2 ? vendorTotal * 0.85 : vendorTotal;
+  
+        // A. Insérer la commande principale
+        const { data: orderData, error: orderError } = await supabase
+          .from('orders')
+          .insert({
+            client_name: info.name,
+            client_phone: info.phone,
+            client_address: info.address,
+            total_amount: Math.round(finalVendorAmount),
+            payment_method: paymentMethod,
+            payment_reference: paymentReference || null,
+            status: 'pending',
+            vendor_id: vId === 'no_vendor' ? null : vId, // Assigne le bon vendeur
+          })
+          .select()
+          .single();
+  
+        if (orderError) throw orderError;
+  
+        // B. Insérer les articles liés à cette commande précise
+        const itemsToInsert = vendorItems.map((item) => ({
+          order_id: orderData.id,
+          product_id: item.id,
+          product_name: item.name,
+          product_img: item.img,
+          quantity: item.quantity,
+          unit_price: item.price,
+          selected_size: item.selectedSize || null,
+          selected_color: item.selectedColor || null,
+        }));
+  
+        const { error: itemsError } = await supabase
+          .from('order_items')
+          .insert(itemsToInsert);
+  
+        if (itemsError) throw itemsError;
+      }
+  
+      // 3. Finalisation après que toutes les commandes soient créées
       setShowToast(true);
-
       setTimeout(() => {
         setShowToast(false);
         setStep('cart');
         setInfo({ name: '', phone: '', address: '' });
         setPaymentMethod('');
         setPaymentReference('');
-        clearCart(); // ✅ APPELÉ maintenant
+        clearCart(); 
         toggleCart();
       }, 3000);
+  
     } catch (err) {
-      console.error('Error creating order:', err);
-      setError('Erreur lors de la création de la commande. Veuillez réessayer.');
+      console.error('Erreur multi-vendeurs:', err);
+      setError('Erreur lors de la création des commandes.');
     } finally {
       setLoading(false);
     }
