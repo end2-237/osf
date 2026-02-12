@@ -14,15 +14,15 @@ import Login from './pages/Login.jsx';
 import Register from './pages/Register';
 import ShopPage from './pages/ShopPage.jsx';
 import PrivateRoute from './routes/PrivateRoute';
+import { products as staticProducts } from './data/products';
 
-// ✅ Composant interne qui peut utiliser useAuth (il est DANS AuthProvider)
 function AppContent() {
-  const { vendor } = useAuth(); // ← useAuth ici, pas dans App
-
+  const { vendor } = useAuth();
   const [isDark, setIsDark] = useState(false);
   const [cart, setCart] = useState([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
-  const [modalProductId, setModalProductId] = useState(null);
+  // ✅ Stocke l'objet produit COMPLET (plus juste l'ID)
+  const [modalProduct, setModalProduct] = useState(null);
 
   useEffect(() => {
     isDark
@@ -40,7 +40,6 @@ function AppContent() {
         item.selectedSize === productData.selectedSize &&
         item.selectedColor === productData.selectedColor
     );
-
     if (existingIndex > -1) {
       const newCart = [...cart];
       newCart[existingIndex].quantity += productData.quantity;
@@ -63,12 +62,23 @@ function AppContent() {
     setCart(newCart);
   };
 
-  const clearCart = () => {
-    setCart([]);
+  const clearCart = () => setCart([]);
+
+  /**
+   * ✅ openModal accepte :
+   * - Un objet produit complet (depuis ShopPage, ProductCard vendeur)
+   * - Un ID numérique (depuis AudioAds, TechProducts qui utilisent les produits statiques)
+   */
+  const openModal = (productOrId) => {
+    if (typeof productOrId === 'object' && productOrId !== null) {
+      setModalProduct(productOrId);
+    } else {
+      const found = staticProducts.find(p => p.id === productOrId);
+      setModalProduct(found || null);
+    }
   };
 
-  const openModal = (productId) => setModalProductId(productId);
-  const closeModal = () => setModalProductId(null);
+  const closeModal = () => setModalProduct(null);
 
   return (
     <div className="bg-white text-zinc-900 dark:bg-black dark:text-white transition-colors duration-500 min-h-screen flex flex-col">
@@ -81,15 +91,12 @@ function AppContent() {
 
       <main className="flex-grow">
         <Routes>
-          {/* ROUTES PUBLIQUES */}
           <Route path="/" element={<Home openModal={openModal} addToCart={addToCart} />} />
           <Route path="/store" element={<Store openModal={openModal} addToCart={addToCart} />} />
           <Route path="/studio" element={<Studio />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route path="/shop/:shopName" element={<ShopPage openModal={openModal} addToCart={addToCart} />} />
-
-          {/* ROUTES PRIVÉES */}
           <Route element={<PrivateRoute />}>
             <Route path="/admin" element={<Dashboard />} />
           </Route>
@@ -98,9 +105,10 @@ function AppContent() {
 
       <Footer />
 
+      {/* ✅ ProductModal reçoit l'objet produit complet */}
       <ProductModal
-        isOpen={modalProductId !== null}
-        productId={modalProductId}
+        isOpen={modalProduct !== null}
+        product={modalProduct}
         closeModal={closeModal}
         addToCart={addToCart}
       />
@@ -112,13 +120,12 @@ function AppContent() {
         updateQuantity={updateQuantity}
         toggleCart={toggleCart}
         clearCart={clearCart}
-        vendor={vendor} // ✅ passé correctement
+        vendor={vendor}
       />
     </div>
   );
 }
 
-// ✅ App enveloppe AuthProvider + Router, AppContent est à l'intérieur
 function App() {
   return (
     <AuthProvider>
