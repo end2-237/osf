@@ -11,77 +11,106 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   // Surveillance de la session au démarrage
-  useEffect(() => {
-    console.log(" [INIT] Vérification de la session existante...");
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) {
-        console.log(" [INIT] Session trouvée pour:", session.user.email);
-        setUser(session.user);
-        loadVendor(session.user.id);
-      } else {
-        console.log(" [INIT] Aucune session active.");
+
+useEffect(() => {
+  console.log("🔍 [INIT] Démarrage de la surveillance Auth...");
+
+  const initializeAuth = async () => {
+    // Sécurité ultime : si après 7 secondes rien n'est chargé, on débloque l'UI
+    const forceUnlock = setTimeout(() => {
+      if (loading) {
+        console.warn("⚠️ [SAFETY] Déblocage forcé du loader après 7s");
         setLoading(false);
       }
-    });
+    }, 7000);
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
-        console.log(` [AUTH_CHANGE] Événement: ${_event}`);
-        setUser(session?.user ?? null);
-        if (session?.user) {
-          await loadVendor(session.user.id);
-        } else {
-          setVendor(null);
-          setLoading(false);
-        }
-      }
-    );
-
-    return () => subscription.unsubscribe();
-  }, []);
-
-  // Chargement des données du vendeur
-  const loadVendor = async (userId) => {
-    console.log(" [LOAD_VENDOR] Début du chargement...");
-    setLoading(true); // Force le chargement au début de la fonction
     try {
-      const { data, error } = await supabase
-        .from('vendors')
-        .select('*')
-        .eq('user_id', userId)
-        .single();
-  
-      if (error) {
-        console.error(" [LOAD_VENDOR] Profil non trouvé ou erreur SQL:", error.message);
-        setVendor(null);
+      // 1. Récupérer la session persistée (JWT dans le localStorage)
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      
+      if (sessionError) throw sessionError;
+
+      if (session?.user) {
+        setUser(session.user);
+        // On attend le profil vendeur, mais loadVendor a son propre try/finally
+        await loadVendor(session.user.id);
       } else {
-        console.log(" [LOAD_VENDOR] Profil vendeur chargé :", data.shop_name);
-        setVendor(data);
+        // Pas de session trouvée
+        setLoading(false);
       }
-    } catch (e) {
-      console.error(" [LOAD_VENDOR] Exception:", e);
-      setVendor(null);
+    } catch (error) {
+      console.error("❌ [INIT] Erreur lors de l'initialisation:", error.message);
+      // En cas d'erreur de session corrompue, on peut nettoyer ici
+      // mais seulement si c'est une erreur critique
+      if (error.message.includes("JWT") || error.message.includes("expired")) {
+        console.log("Cleaning corrupted session...");
+        localStorage.removeItem('sb-alrbokstfwwlvbvghrqr-auth-token');
+      }
     } finally {
-      setLoading(false); // On ne libère le chargement qu'ICI
-      console.log(" [LOAD_VENDOR] Chargement terminé.");
+      // ✅ Ce bloc s'exécute TOUJOURS, succès ou échec
+      setLoading(false);
+      clearTimeout(forceUnlock);
     }
   };
 
+  initializeAuth();
+
+  // Écouteur pour les événements futurs
+  const { data: { subscription } } = supabase.auth.onAuthStateChange(
+    async (event, session) => {
+      console.log(`🔄 [AUTH_CHANGE] Événement: ${event}`);
+      
+      if (session?.user) {
+        setUser(session.user);
+        if (event === 'SIGNED_IN') {
+           await loadVendor(session.user.id);
+        }
+      } else {
+        setUser(null);
+        setVendor(null);
+        setLoading(false);
+      }
+    }
+  );
+
+  return () => subscription.unsubscribe();
+}, []);
+
+// Mise à jour de loadVendor pour être aussi "étanche"
+const loadVendor = async (userId) => {
+  try {
+    const { data, error } = await supabase
+      .from('vendors')
+      .select('*')
+      .eq('user_id', userId)
+      .maybeSingle(); // maybeSingle est crucial pour ne pas crasher si pas de profil
+
+    if (error) throw error;
+    setVendor(data);
+  } catch (e) {
+    console.error("❌ [LOAD_VENDOR] Erreur profil:", e.message);
+    setVendor(null);
+  } finally {
+    // ✅ On s'assure que le chargement s'arrête ici aussi
+    setLoading(false);
+  }
+};
+
   // Connexion
   const signIn = async (email, password) => {
-    console.log(" [SIGN_IN] Tentative de connexion pour:", email);
+    console.log("🔐 [SIGN_IN] Tentative de connexion pour:", email);
     const { data, error } = await supabase.auth.signInWithPassword({ 
       email: email.trim(), 
       password 
     });
 
     if (error) {
-      console.error(" [SIGN_IN] Erreur Supabase Auth:", error.message);
+      console.error("❌ [SIGN_IN] Erreur Supabase Auth:", error.message);
       if (error.message.includes('Email not confirmed'))
         throw new Error('Email non confirmé — vérifiez vos emails ou désactivez la confirmation dans Supabase.');
       throw new Error(error.message);
     }
-    console.log(" [SIGN_IN] Succès !");
+    console.log("✅ [SIGN_IN] Succès !");
     return data;
   };
 
@@ -153,10 +182,13 @@ export const AuthProvider = ({ children }) => {
   };
 
   const signOut = async () => {
-    console.log(" [SIGN_OUT] Déconnexion de l'utilisateur.");
+    console.log("🚪 [SIGN_OUT] Déconnexion de l'utilisateur.");
     await supabase.auth.signOut();
     setVendor(null);
     setUser(null);
+    
+    // ✅ FIX : Nettoyer le cache pour éviter les bugs après déconnexion
+    localStorage.removeItem('sb-alrbokstfwwlvbvghrqr-auth-token');
   };
 
   return (

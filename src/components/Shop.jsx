@@ -15,7 +15,7 @@ const Shop = ({ openModal, addToCart, products }) => {
             Collection
           </span>
         </h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-x-6 md:gap-x-8 gap-y-12 md:gap-y-16">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-x-3 md:gap-x-8 gap-y-6 md:gap-y-16">
           {Array.isArray(products) && products.length === 0 ? (
             <div className="w-full h-24 flex justify-center item-center  font-bold text-gray-250 text-2xl">
               Aucun produits trouvé
