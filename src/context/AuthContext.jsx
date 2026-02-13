@@ -21,7 +21,12 @@ export const AuthProvider = ({ children }) => {
         if (error) throw error;
         setVendor(data);
       } catch (e) {
-        console.error('❌ [LOAD_VENDOR]', e.message);
+        // ✅ FIX : ignorer silencieusement les AbortError (navigator.locks)
+        if (e?.name === 'AbortError' || e?.message?.includes('aborted')) {
+          console.warn('⚠️ [LOAD_VENDOR] AbortError ignoré (navigator.locks)');
+        } else {
+          console.error('❌ [LOAD_VENDOR]', e.message);
+        }
         setVendor(null);
       } finally {
         setLoading(false);
@@ -36,7 +41,24 @@ export const AuthProvider = ({ children }) => {
 
       try {
         const { data: { session }, error } = await supabase.auth.getSession();
-        if (error) throw error;
+
+        // ✅ FIX : ignorer les AbortError — elles ne signifient pas un échec d'auth
+        if (error) {
+          if (error?.name === 'AbortError' || error?.message?.includes('aborted')) {
+            console.warn('⚠️ [INIT] AbortError ignoré, retry getSession...');
+            // Petite pause puis retry une seule fois
+            await new Promise(r => setTimeout(r, 500));
+            const { data: retryData } = await supabase.auth.getSession();
+            if (retryData?.session?.user) {
+              setUser(retryData.session.user);
+              await loadVendor(retryData.session.user.id);
+              return;
+            }
+            setLoading(false);
+            return;
+          }
+          throw error;
+        }
 
         if (session?.user) {
           setUser(session.user);
@@ -64,9 +86,7 @@ export const AuthProvider = ({ children }) => {
 
         if (session?.user) {
           setUser(session.user);
-          // Ignorer le SIGNED_IN du refresh initial (initializeAuth le gère)
           if (event === 'SIGNED_IN' && !initDoneRef.current) return;
-          // Nouvelle connexion manuelle
           if (event === 'SIGNED_IN') await loadVendor(session.user.id);
         } else {
           setUser(null);

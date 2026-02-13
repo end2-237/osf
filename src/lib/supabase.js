@@ -11,6 +11,9 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
     persistSession: true,
     autoRefreshToken: true,
+    // ✅ FIX AbortError: bypass navigator.locks qui est instable dans certains navigateurs
+    // Cela désactive le verrou natif du browser et évite le crash "signal is aborted without reason"
+    lock: (name, acquireTimeout, fn) => fn(),
   }
 });
 
