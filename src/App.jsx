@@ -1,10 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, useNavigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { useAuth } from './context/AuthContext';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
-import ProductModal from './components/ProductModal';
 import CartSidebar from './components/CartSidebar';
 import Home from './pages/Home';
 import Store from './pages/Store';
@@ -13,16 +12,15 @@ import Dashboard from './pages/Dashboard';
 import Login from './pages/Login.jsx';
 import Register from './pages/Register';
 import ShopPage from './pages/ShopPage.jsx';
+import ProductDetail from './pages/ProductDetail.jsx';
 import PrivateRoute from './routes/PrivateRoute';
-import { products as staticProducts } from './data/products';
 
 function AppContent() {
   const { vendor } = useAuth();
+  const navigate = useNavigate();
   const [isDark, setIsDark] = useState(false);
   const [cart, setCart] = useState([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
-  // ✅ Stocke l'objet produit COMPLET (plus juste l'ID)
-  const [modalProduct, setModalProduct] = useState(null);
 
   useEffect(() => {
     isDark
@@ -65,20 +63,16 @@ function AppContent() {
   const clearCart = () => setCart([]);
 
   /**
-   * ✅ openModal accepte :
-   * - Un objet produit complet (depuis ShopPage, ProductCard vendeur)
-   * - Un ID numérique (depuis AudioAds, TechProducts qui utilisent les produits statiques)
+   * ✅ openModal → navigue vers la ProductDetail page
+   * Passe le produit via location.state pour éviter un fetch supplémentaire
    */
   const openModal = (productOrId) => {
     if (typeof productOrId === 'object' && productOrId !== null) {
-      setModalProduct(productOrId);
-    } else {
-      const found = staticProducts.find(p => p.id === productOrId);
-      setModalProduct(found || null);
+      navigate(`/product/${productOrId.id}`, { state: { product: productOrId } });
+    } else if (productOrId) {
+      navigate(`/product/${productOrId}`);
     }
   };
-
-  const closeModal = () => setModalProduct(null);
 
   return (
     <div className="bg-white text-zinc-900 dark:bg-black dark:text-white transition-colors duration-500 min-h-screen flex flex-col">
@@ -97,6 +91,13 @@ function AppContent() {
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route path="/shop/:shopName" element={<ShopPage openModal={openModal} addToCart={addToCart} />} />
+
+          {/* ✅ NOUVELLE ROUTE PRODUCT DETAIL */}
+          <Route
+            path="/product/:productId"
+            element={<ProductDetail addToCart={addToCart} openModal={openModal} />}
+          />
+
           <Route element={<PrivateRoute />}>
             <Route path="/admin" element={<Dashboard />} />
           </Route>
@@ -104,14 +105,6 @@ function AppContent() {
       </main>
 
       <Footer />
-
-      {/* ✅ ProductModal reçoit l'objet produit complet */}
-      <ProductModal
-        isOpen={modalProduct !== null}
-        product={modalProduct}
-        closeModal={closeModal}
-        addToCart={addToCart}
-      />
 
       <CartSidebar
         isOpen={isCartOpen}
