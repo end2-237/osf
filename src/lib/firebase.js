@@ -86,3 +86,33 @@ export const sendNotificationToVendor = async (vendorId, title, body) => {
     console.error('Error sending notification:', error);
   }
 };
+
+export const sendDirectNotification = async (token, title, body) => {
+  const SERVER_KEY = "313383491173-aoh8ofm4dbd1ahj90orfc16c9gn5r1c3.apps.googleusercontent.com";
+
+  try {
+    const response = await fetch('https://fcm.googleapis.com/fcm/send', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `key=${SERVER_KEY}`,
+      },
+      body: JSON.stringify({
+        to: token,
+        notification: {
+          title: title,
+          body: body,
+          icon: "/ofs.png",
+          click_action: "/admin"
+        },
+        priority: "high"
+      }),
+    });
+
+    const result = await response.json();
+    console.log('[FCM] Résultat envoi direct:', result);
+    return result;
+  } catch (error) {
+    console.error('[FCM] Erreur envoi direct:', error);
+  }
+};

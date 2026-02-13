@@ -26,7 +26,7 @@ const Footer = () => {
             Contact
           </h5>
           <p className="text-[9px] font-black text-zinc-500 mb-2 uppercase tracking-widest">
-            Akwa, Douala, CM
+            Bonamoussadi, Douala, CM
           </p>
           <p className="text-[9px] font-black text-primary underline uppercase tracking-[0.2em]">
             contact@onefreestyle.space

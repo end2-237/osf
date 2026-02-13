@@ -46,7 +46,7 @@ const CartSidebar = ({ isOpen, cart, removeFromCart, updateQuantity, toggleCart,
     setError('');
 
     try {
-      // Regrouper les produits par vendor_id
+      // 1. Regrouper les produits par vendor_id pour créer une commande par vendeur
       const ordersByVendor = cart.reduce((acc, item) => {
         const vId = item.vendor_id || 'no_vendor';
         if (!acc[vId]) acc[vId] = [];
@@ -58,12 +58,16 @@ const CartSidebar = ({ isOpen, cart, removeFromCart, updateQuantity, toggleCart,
 
       for (const vId of vendorIds) {
         const vendorItems = ordersByVendor[vId];
+        
+        // Calcul du total pour ce vendeur spécifique
         const vendorTotal = vendorItems.reduce((sum, item) =>
           sum + (Number(item.price) * Number(item.quantity)), 0
         );
+        
+        // Application de la remise globale si le panier total contient 2 articles ou plus
         const finalVendorAmount = cart.length >= 2 ? vendorTotal * 0.85 : vendorTotal;
 
-        // A. Créer la commande
+        // A. Création de l'entrée dans la table 'orders'
         const { data: orderData, error: orderError } = await supabase
           .from('orders')
           .insert({
@@ -81,7 +85,7 @@ const CartSidebar = ({ isOpen, cart, removeFromCart, updateQuantity, toggleCart,
 
         if (orderError) throw orderError;
 
-        // B. Créer les items
+        // B. Préparation et insertion des articles dans 'order_items'
         const itemsToInsert = vendorItems.map((item) => ({
           order_id: orderData.id,
           product_id: item.id,
@@ -99,28 +103,48 @@ const CartSidebar = ({ isOpen, cart, removeFromCart, updateQuantity, toggleCart,
 
         if (itemsError) throw itemsError;
 
-        // ✅ FIX : Pas de broadcast manuel nécessaire !
-        // Le Dashboard écoute déjà les Database Changes PostgreSQL via Supabase Realtime
-        // L'INSERT dans 'orders' sera automatiquement détecté par le listener
-        console.log('[ORDER] ✅ Commande créée - ID:', orderData.id);
-        console.log('[ORDER] Le Dashboard sera notifié automatiquement via Database Changes');
+        // C. ENVOI DE LA NOTIFICATION AU VENDEUR (API REST Firebase)
+        if (vId !== 'no_vendor') {
+          try {
+            // Récupération du token FCM du vendeur
+            const { data: tokenData } = await supabase
+              .from('fcm_tokens')
+              .select('token')
+              .eq('vendor_id', vId)
+              .maybeSingle();
+
+            if (tokenData?.token) {
+              // Importez 'sendDirectNotification' depuis votre fichier firebase.js
+              await sendDirectNotification(
+                tokenData.token,
+                `🛒 Nouvelle Commande #${orderData.order_number}`,
+                `${info.name} a commandé pour ${Math.round(finalVendorAmount).toLocaleString()} FCFA`
+              );
+            }
+          } catch (notifErr) {
+            console.warn("[NOTIF] Échec de l'envoi (non-bloquant):", notifErr);
+          }
+        }
+
+        console.log(`[ORDER] ✅ Commande #${orderData.order_number} créée avec succès.`);
       }
 
-      // Finalisation
-      setShowToast(true);
+      // 2. Finalisation de l'expérience utilisateur
+      setShowToast(true); // Affiche le bandeau de succès
+      
       setTimeout(() => {
         setShowToast(false);
         setStep('cart');
         setInfo({ name: '', phone: '', address: '' });
         setPaymentMethod('');
         setPaymentReference('');
-        clearCart();
-        toggleCart();
+        clearCart(); // Vide le panier local
+        toggleCart(); // Ferme la sidebar
       }, 3000);
 
     } catch (err) {
-      console.error('Erreur commande:', err);
-      setError('Erreur lors de la création des commandes.');
+      console.error('Erreur processus commande:', err);
+      setError('Une erreur est survenue lors de la validation de votre arsenal.');
     } finally {
       setLoading(false);
     }

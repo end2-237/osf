@@ -211,14 +211,31 @@ const Dashboard = () => {
   const handleAddProduct = async (e) => {
     e.preventDefault();
     setLoading(true);
+  
+    // Timeout de sécurité : débloque après 15s
+    const safetyTimer = setTimeout(() => {
+      setLoading(false);
+      alert("Timeout : vérifiez votre connexion ou les permissions Supabase.");
+    }, 15000);
+  
     try {
-      let imageUrl = imageFile
-        ? await uploadProductImage(imageFile, vendor.id)
-        : "https://via.placeholder.com/600";
+      // Étape 1 : Upload image
+      let imageUrl = "https://via.placeholder.com/600";
+      if (imageFile) {
+        try {
+          imageUrl = await uploadProductImage(imageFile, vendor.id);
+        } catch (imgErr) {
+          console.error("Erreur upload image:", imgErr.message);
+          alert("Erreur upload image : " + imgErr.message + "\nLe produit sera ajouté sans image.");
+        }
+      }
+  
+      // Étape 2 : Insert produit
       const features = newProduct.features
         ? newProduct.features.split(",").map((f) => f.trim())
         : [];
-      const { error } = await supabase.from("products").insert({
+  
+      const { data, error } = await supabase.from("products").insert({
         name: newProduct.name,
         price: Number(newProduct.price),
         type: newProduct.type,
@@ -226,22 +243,23 @@ const Dashboard = () => {
         img: imageUrl,
         features,
         vendor_id: vendor.id,
-      });
+      }).select(); // ← .select() force Supabase à retourner une vraie réponse
+  
       if (error) throw error;
-      setNewProduct({
-        name: "",
-        price: "",
-        type: "Audio Lab",
-        status: "In Stock",
-        features: "",
-      });
+      if (!data || data.length === 0) throw new Error("Insert ignoré par RLS — vérifiez les policies.");
+  
+      // Reset form
+      setNewProduct({ name: "", price: "", type: "Audio Lab", status: "In Stock", features: "" });
       setImageFile(null);
       setImagePreview("");
       setShowAddForm(false);
       await fetchProducts();
+  
     } catch (error) {
-      alert("Erreur ajout produit: " + error.message);
+      console.error("Erreur ajout produit:", error);
+      alert("Erreur : " + error.message);
     } finally {
+      clearTimeout(safetyTimer);
       setLoading(false);
     }
   };
