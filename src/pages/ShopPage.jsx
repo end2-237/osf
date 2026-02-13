@@ -2,6 +2,28 @@ import React, { useEffect, useState, useRef } from 'react';
 import { useParams, Link, useSearchParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import ProductCard from '../components/ProductCard';
+import ofsLogo from "../assets/ofs.png"; // ✅ Import du logo pour le filigrane
+
+// ✅ Sous-composant pour l'effet Shimmer (Squelette de chargement)
+const ProductSkeleton = () => (
+  <div className="animate-pulse">
+    <div className="aspect-[3/4] overflow-hidden bg-zinc-200 dark:bg-zinc-900 rounded-[1.5rem] md:rounded-[2rem] mb-3 relative flex items-center justify-center">
+      <img 
+        src={ofsLogo} 
+        alt="" 
+        className="w-16 h-auto opacity-10 grayscale brightness-0 dark:brightness-100" 
+      />
+      <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 dark:via-white/5 to-transparent -translate-x-full animate-[shimmer_2s_infinite]"></div>
+    </div>
+    <div className="px-1 space-y-2">
+      <div className="h-3 bg-zinc-200 dark:bg-zinc-900 rounded-full w-3/4"></div>
+      <div className="flex justify-between items-center">
+        <div className="h-2 bg-zinc-200 dark:bg-zinc-900 rounded-full w-1/3"></div>
+        <div className="h-3 bg-zinc-200 dark:bg-zinc-900 rounded-full w-1/4"></div>
+      </div>
+    </div>
+  </div>
+);
 
 const ShopPage = ({ openModal, addToCart }) => {
   const { shopName } = useParams();
@@ -9,7 +31,6 @@ const ShopPage = ({ openModal, addToCart }) => {
   const [shopOwner, setShopOwner] = useState(null);
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
-  // Garde une ref pour n'ouvrir le modal auto qu'une seule fois
   const autoModalDone = useRef(false);
 
   useEffect(() => {
@@ -33,14 +54,9 @@ const ShopPage = ({ openModal, addToCart }) => {
       }
     };
     fetchShopData();
-    // reset auto-modal quand le shop change
     autoModalDone.current = false;
   }, [shopName]);
 
-  /**
-   * ✅ Quand un lien copié depuis le Dashboard est ouvert (?product=UUID),
-   * on ouvre automatiquement le modal du produit correspondant
-   */
   useEffect(() => {
     if (!loading && products.length > 0 && !autoModalDone.current) {
       const productId = searchParams.get('product');
@@ -48,20 +64,14 @@ const ShopPage = ({ openModal, addToCart }) => {
         const found = products.find(p => p.id === productId);
         if (found) {
           autoModalDone.current = true;
-          // Petit délai pour que la page soit bien rendue avant d'ouvrir le modal
           setTimeout(() => openModal(found), 300);
         }
       }
     }
-  }, [loading, products, searchParams]);
+  }, [loading, products, searchParams, openModal]);
 
-  if (loading) return (
-    <div className="min-h-screen flex items-center justify-center bg-black">
-      <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
-    </div>
-  );
-
-  if (!shopOwner) return (
+  // ✅ Suppression du "if (loading) return black screen" pour permettre l'affichage du squelette dans le layout
+  if (!loading && !shopOwner) return (
     <div className="pt-32 text-center font-black uppercase text-red-500">
       Boutique introuvable
     </div>
@@ -72,77 +82,69 @@ const ShopPage = ({ openModal, addToCart }) => {
 
       {/* ===== HERO SECTION ===== */}
       <div className="relative h-[40vh] md:h-[55vh] bg-zinc-900 overflow-hidden">
-        {/* ✅ DESKTOP FIX: gradient adapté aux 2 thèmes (dark → #050505, light → white) */}
         <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-black/50 to-zinc-900 dark:to-[#050505] z-10"></div>
-        <img
-          src={`https://picsum.photos/1600/900?random=${shopOwner.id}`}
-          className="w-full h-full object-cover opacity-60 grayscale"
-          alt="Cover"
-        />
+        {shopOwner && (
+          <img
+            src={`https://picsum.photos/1600/900?random=${shopOwner.id}`}
+            className="w-full h-full object-cover opacity-60 grayscale"
+            alt="Cover"
+          />
+        )}
         <div className="absolute inset-0 z-20 flex flex-col items-center justify-center text-center px-6">
           <span className="bg-primary text-black px-4 py-1 text-[10px] font-black uppercase tracking-[0.3em] mb-4 animate-bounce">
             Certified Vendor
           </span>
           <h1 className="text-6xl md:text-9xl font-black italic tracking-tighter uppercase text-white leading-none mb-4">
-            {shopOwner.shop_name}
+            {loading ? "Chargement..." : shopOwner?.shop_name}
           </h1>
-          <div className="flex flex-wrap justify-center gap-4 md:gap-6 text-white/70 font-bold uppercase text-[10px] tracking-widest">
-            <span><i className="fa-solid fa-box-open text-primary mr-2"></i>{products.length} Items</span>
-            <span><i className="fa-solid fa-star text-primary mr-2"></i>Elite Quality</span>
-            <span><i className="fa-solid fa-location-dot text-primary mr-2"></i>Douala, CM</span>
-          </div>
+          {!loading && (
+            <div className="flex flex-wrap justify-center gap-4 md:gap-6 text-white/70 font-bold uppercase text-[10px] tracking-widest">
+              <span><i className="fa-solid fa-box-open text-primary mr-2"></i>{products.length} Items</span>
+              <span><i className="fa-solid fa-star text-primary mr-2"></i>Elite Quality</span>
+              <span><i className="fa-solid fa-location-dot text-primary mr-2"></i>Douala, CM</span>
+            </div>
+          )}
         </div>
       </div>
 
       {/* ===== CONTENU ===== */}
-      {/*
-        ✅ DESKTOP FIX:
-        - mobile: -mt-10 (overlap léger de l'hero)
-        - desktop: -mt-16 avec z-30 pour bien chevaucher l'hero proprement
-        - bg-white en light mode pour que le filtre bar ne soit pas transparent sur bg clair
-      */}
       <div className="max-w-[1600px] mx-auto px-4 md:px-8 -mt-10 md:-mt-16 relative z-30 pb-20">
 
-        {/* BARRE FILTRE / INFO — ✅ DESKTOP FIX: layout flex avec wrap correct */}
+        {/* BARRE FILTRE / INFO */}
         <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-white/5 rounded-2xl p-4 md:p-6 mb-8 md:mb-12 shadow-2xl">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 md:gap-6">
             <p className="text-[11px] font-black uppercase italic tracking-tight text-zinc-800 dark:text-white">
-              Explorez la collection de{' '}
-              <span className="text-primary">{shopOwner.full_name}</span>
+              {loading ? "Initialisation de la collection..." : (
+                <>Explorez la collection de <span className="text-primary">{shopOwner?.full_name}</span></>
+              )}
             </p>
             <div className="flex gap-2 shrink-0">
-              <button className="px-4 py-2 bg-primary text-black text-[9px] font-black uppercase rounded-lg">
-                Recent
-              </button>
-              <button className="px-4 py-2 bg-zinc-100 dark:bg-black text-zinc-600 dark:text-white text-[9px] font-black uppercase rounded-lg hover:bg-zinc-200 dark:hover:bg-zinc-800 transition">
-                Popular
-              </button>
+              <button className="px-4 py-2 bg-primary text-black text-[9px] font-black uppercase rounded-lg">Recent</button>
+              <button className="px-4 py-2 bg-zinc-100 dark:bg-black text-zinc-600 dark:text-white text-[9px] font-black uppercase rounded-lg">Popular</button>
             </div>
           </div>
         </div>
 
-        {/* GRILLE PRODUITS
-          ✅ DESKTOP FIX:
-          - Gardée identique sur mobile (grid-cols-2, gap-3)
-          - Sur desktop: gap plus grand, max 5 colonnes sur très grands écrans
-          - `items-start` sur la grille pour éviter que les cartes s'étirent en hauteur
-        */}
-        {products.length === 0 ? (
-          <div className="py-32 text-center border-2 border-dashed border-zinc-200 dark:border-zinc-900 rounded-3xl">
-            <p className="text-xl font-black italic uppercase opacity-30">Aucun produit disponible</p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 md:gap-5 lg:gap-6 items-start">
-            {products.map(product => (
+        {/* GRILLE PRODUITS AVEC SKELETONS */}
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 md:gap-5 lg:gap-6 items-start">
+          {loading ? (
+            // ✅ Affiche 10 squelettes pendant le chargement
+            Array.from({ length: 10 }).map((_, i) => <ProductSkeleton key={i} />)
+          ) : products.length === 0 ? (
+            <div className="col-span-full py-32 text-center border-2 border-dashed border-zinc-200 dark:border-zinc-900 rounded-3xl">
+              <p className="text-xl font-black italic uppercase opacity-30">Aucun produit disponible</p>
+            </div>
+          ) : (
+            products.map(product => (
               <ProductCard
                 key={product.id}
                 product={product}
                 openModal={openModal}
                 addToCart={addToCart}
               />
-            ))}
-          </div>
-        )}
+            ))
+          )}
+        </div>
       </div>
     </div>
   );

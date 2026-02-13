@@ -40,3 +40,18 @@ body {
 .hide-scrollbar::-webkit-scrollbar {
   display: none;
 }
+
+
+@keyframes shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+/* Optionnel : Amélioration du scrollbar pour le style Elite */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 5px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #00ff88;
+  border-radius: 10px;
+}
