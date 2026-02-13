@@ -20,8 +20,8 @@ const Navbar = ({ isDark, toggleTheme, cartCount, toggleCart }) => {
   const location = useLocation();
 
   const ads = [
-    { text: "LIVRAISON GRATUITE SUR TOUTES LES COMMANDES — PENDANT 1 MOIS !", img: "https://images.unsplash.com/photo-1586769852044-692d6e671f6c?w=100&h=100&auto=format&fit=crop", color: "text-primary" },
-    { text: "NEW DROP: NIKE AIR MAX ELITE X", img: "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=100&h=100&auto=format&fit=crop", color: "text-white" },
+    { text: "LIVRAISON GRATUITE SUR TOUTES LES COMMANDES — PENDANT 1 MOIS !", img: "https://plus.unsplash.com/premium_photo-1681487829842-2aeff98f8b63?q=80&w=870&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D", color: "text-primary" },
+    { text: "SUPER PROMO: AIRPODS PRO 2 6000 FCFA", img: "https://alrbokstfwwlvbvghrqr.supabase.co/storage/v1/object/public/product-images/7af44857-1793-4e5f-8af2-55a367cac991/AirPods-Pro-2-Semi-Original-White.jpg", color: "text-white" },
     { text: "OFFRE BUNDLE: -15% SUR LE PANIER (MIN. 2 ARTICLES)", img: "https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?w=100&h=100&auto=format&fit=crop", color: "text-yellow-400" },
     { text: "STUDIO LAB: PERSONNALISE TON ÉQUIPEMENT MAINTENANT", img: "https://images.unsplash.com/photo-1558769132-cb1aea458c5e?w=100&h=100&auto=format&fit=crop", color: "text-primary" },
   ];
