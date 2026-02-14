@@ -132,7 +132,7 @@ const HeroBanners = () => {
             {/* SIDE BANNER 2 */}
             <Link to="/store" className="flex-1 relative overflow-hidden rounded-2xl h-[132px] md:h-[180px] group bg-zinc-900 border border-white/5">
               <img
-                src="https://images.unsplash.com/photo-1552066344-24632e509633?q=80&w=600"
+                src="https://images.unsplash.com/photo-1549298916-f52d724204b4?q=80&w=1113&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D"
                 alt=""
                 className="absolute right-0 bottom-0 w-4/5 h-full object-cover opacity-60 group-hover:opacity-80 transition-opacity"
               />

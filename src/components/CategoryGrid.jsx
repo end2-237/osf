@@ -20,7 +20,7 @@ const CATS = [
   {
     name: 'Sneakers',
     icon: 'fa-shoe-prints',
-    img: 'https://images.unsplash.com/photo-1552066344-24632e509633?q=80&w=400',
+    img: 'https://images.unsplash.com/photo-1549298916-f52d724204b4?q=80&w=1113&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
     count: '60+',
     color: '#f97316',
     new: true,
@@ -35,7 +35,7 @@ const CATS = [
   {
     name: 'Parfums',
     icon: 'fa-spray-can-sparkles',
-    img: 'https://images.unsplash.com/photo-1590156534196-f4f71888c6d1?q=80&w=400',
+    img: 'https://images.unsplash.com/photo-1587017539504-67cfbddac569?q=80&w=735&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
     count: '30+',
     color: '#ec4899',
     new: true,

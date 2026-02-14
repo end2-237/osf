@@ -14,6 +14,7 @@ import Register from './pages/Register';
 import ShopPage from './pages/ShopPage.jsx';
 import ProductDetail from './pages/ProductDetail.jsx';
 import PrivateRoute from './routes/PrivateRoute';
+import VisualSearchModal from './components/VisualSearchModal';
 
 function AppContent() {
   const { vendor } = useAuth();
@@ -21,6 +22,9 @@ function AppContent() {
   const [isDark, setIsDark] = useState(false);
   const [cart, setCart] = useState([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
+  const [isVisualSearchOpen, setIsVisualSearchOpen] = useState(false);
+const toggleVisualSearch = () => setIsVisualSearchOpen(!isVisualSearchOpen);
+
 
   useEffect(() => {
     isDark
@@ -77,11 +81,12 @@ function AppContent() {
   return (
     <div className="bg-white text-zinc-900 dark:bg-black dark:text-white transition-colors duration-500 min-h-screen flex flex-col">
       <Navbar
-        isDark={isDark}
-        toggleTheme={toggleTheme}
-        cartCount={cart.reduce((total, item) => total + item.quantity, 0)}
-        toggleCart={toggleCart}
-      />
+  isDark={isDark}
+  toggleTheme={toggleTheme}
+  cartCount={cart.reduce((total, item) => total + item.quantity, 0)}
+  toggleCart={toggleCart}
+  toggleVisualSearch={toggleVisualSearch}   // ← AJOUTER CETTE LIGNE
+/>
 
       <main className="flex-grow">
         <Routes>
@@ -115,6 +120,12 @@ function AppContent() {
         clearCart={clearCart}
         vendor={vendor}
       />
+
+<VisualSearchModal
+  isOpen={isVisualSearchOpen}
+  onClose={() => setIsVisualSearchOpen(false)}
+  addToCart={addToCart}
+/>
     </div>
   );
 }
