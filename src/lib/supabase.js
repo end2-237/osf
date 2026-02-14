@@ -11,11 +11,26 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
     persistSession: true,
     autoRefreshToken: true,
-    // ✅ FIX AbortError: bypass navigator.locks qui est instable dans certains navigateurs
-    // Cela désactive le verrou natif du browser et évite le crash "signal is aborted without reason"
+    // ✅ FIX AbortError: bypass navigator.locks instable
     lock: (name, acquireTimeout, fn) => fn(),
   }
 });
+
+// ✅ NOUVEAU: Wake-up ping pour Supabase Free Tier
+// Le plan gratuit met le projet en veille après 7 jours d'inactivité
+// Ce ping léger le réveille dès le chargement de l'app, avant que l'auth n'essaie de se connecter
+export const wakeUpSupabase = async () => {
+  try {
+    console.log('[SUPABASE] Ping wake-up...');
+    await supabase.from('vendors').select('id').limit(1).maybeSingle();
+    console.log('[SUPABASE] ✅ Base de données active');
+  } catch (err) {
+    console.warn('[SUPABASE] Wake-up ping ignoré:', err.message);
+  }
+};
+
+// Déclencher le ping immédiatement au chargement du module
+wakeUpSupabase();
 
 // Storage helpers
 export const uploadProductImage = async (file, vendorId) => {

@@ -8,45 +8,49 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser]       = useState(null);
   const [vendor, setVendor]   = useState(null);
   const [loading, setLoading] = useState(true);
-  const initDoneRef = useRef(false);
+  const initDoneRef  = useRef(false);
+  const vendorLoadedRef = useRef(false); // ✅ FIX: évite le double loadVendor
+
+  const loadVendor = async (userId) => {
+    try {
+      const { data, error } = await supabase
+        .from('vendors')
+        .select('*')
+        .eq('user_id', userId)
+        .maybeSingle();
+      if (error) throw error;
+      setVendor(data);
+      vendorLoadedRef.current = !!data;
+    } catch (e) {
+      // ✅ FIX CRITIQUE: AbortError → ne pas reset vendor à null si déjà chargé
+      if (e?.name === 'AbortError' || e?.message?.includes('aborted')) {
+        console.warn('⚠️ [LOAD_VENDOR] AbortError ignoré — vendor conservé');
+        // Ne pas écraser un vendor déjà chargé
+        if (!vendorLoadedRef.current) setVendor(null);
+      } else {
+        console.error('❌ [LOAD_VENDOR]', e.message);
+        setVendor(null);
+        vendorLoadedRef.current = false;
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const loadVendor = async (userId) => {
-      try {
-        const { data, error } = await supabase
-          .from('vendors')
-          .select('*')
-          .eq('user_id', userId)
-          .maybeSingle();
-        if (error) throw error;
-        setVendor(data);
-      } catch (e) {
-        // ✅ FIX : ignorer silencieusement les AbortError (navigator.locks)
-        if (e?.name === 'AbortError' || e?.message?.includes('aborted')) {
-          console.warn('⚠️ [LOAD_VENDOR] AbortError ignoré (navigator.locks)');
-        } else {
-          console.error('❌ [LOAD_VENDOR]', e.message);
-        }
-        setVendor(null);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     const initializeAuth = async () => {
+      // ✅ Augmenté à 15s pour Supabase free tier (peut mettre 20-30s à se réveiller)
       const forceUnlock = setTimeout(() => {
-        console.warn('⚠️ [SAFETY] Déblocage forcé après 7s');
+        console.warn('⚠️ [SAFETY] Déblocage forcé après 15s — Supabase peut être en veille');
         setLoading(false);
-      }, 7000);
+      }, 15000);
 
       try {
         const { data: { session }, error } = await supabase.auth.getSession();
 
-        // ✅ FIX : ignorer les AbortError — elles ne signifient pas un échec d'auth
         if (error) {
           if (error?.name === 'AbortError' || error?.message?.includes('aborted')) {
             console.warn('⚠️ [INIT] AbortError ignoré, retry getSession...');
-            // Petite pause puis retry une seule fois
             await new Promise(r => setTimeout(r, 500));
             const { data: retryData } = await supabase.auth.getSession();
             if (retryData?.session?.user) {
@@ -86,11 +90,20 @@ export const AuthProvider = ({ children }) => {
 
         if (session?.user) {
           setUser(session.user);
-          if (event === 'SIGNED_IN' && !initDoneRef.current) return;
-          if (event === 'SIGNED_IN') await loadVendor(session.user.id);
+
+          if (event === 'SIGNED_IN') {
+            // ✅ FIX CRITIQUE: ne pas rappeler loadVendor si déjà chargé
+            if (!initDoneRef.current) return;
+            if (vendorLoadedRef.current) {
+              console.log('[AUTH] Vendor déjà chargé, skip loadVendor');
+              return;
+            }
+            await loadVendor(session.user.id);
+          }
         } else {
           setUser(null);
           setVendor(null);
+          vendorLoadedRef.current = false;
           setLoading(false);
         }
       }
@@ -106,6 +119,7 @@ export const AuthProvider = ({ children }) => {
         throw new Error('Email non confirmé — vérifiez vos emails.');
       throw new Error(error.message);
     }
+    vendorLoadedRef.current = false; // reset pour forcer le rechargement
     return data;
   };
 
@@ -132,6 +146,7 @@ export const AuthProvider = ({ children }) => {
 
   const signOut = async () => {
     initDoneRef.current = false;
+    vendorLoadedRef.current = false;
     await supabase.auth.signOut();
     setVendor(null);
     setUser(null);

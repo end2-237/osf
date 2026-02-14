@@ -127,6 +127,11 @@ const Dashboard = () => {
   const [newProduct, setNewProduct] = useState(EMPTY_PRODUCT);
   const [formStep, setFormStep] = useState(1);
 
+  // ══════════════════════════════════════════════
+// REMPLACER UNIQUEMENT le useEffect INIT dans Dashboard.jsx
+// (vers la ligne 127 dans votre fichier actuel)
+// ══════════════════════════════════════════════
+
   /* ─── INIT ─── */
   useEffect(() => {
     if (vendor?.id) {
@@ -138,6 +143,17 @@ const Dashboard = () => {
       if (realtimeRef.current)  supabase.removeChannel(realtimeRef.current);
       if (fcmUnsubRef.current)  fcmUnsubRef.current();
     };
+  }, [vendor]);
+
+  // INIT
+  useEffect(() => {
+    if (!vendor?.id) {
+      const safetyTimer = setTimeout(() => {
+        console.warn('[DASHBOARD] Safety: forcer pageLoading=false (vendor non chargé)');
+        setPageLoading(false);
+      }, 20000); // 20s max
+      return () => clearTimeout(safetyTimer);
+    }
   }, [vendor]);
 
   /* ─── TOAST HELPER ─── */
