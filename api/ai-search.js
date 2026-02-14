@@ -1,6 +1,4 @@
 // api/ai-search.js — ESM (compatible "type": "module")
-// Supporte 3 modes: "image" (analyse), "text" (description), "compare" (comparaison visuelle)
-
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -11,7 +9,7 @@ export default async function handler(req, res) {
 
   const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
   if (!GEMINI_API_KEY) {
-    return res.status(500).json({ error: 'GEMINI_API_KEY manquante dans les variables env' });
+    return res.status(500).json({ error: 'GEMINI_API_KEY manquante' });
   }
 
   try {
@@ -19,11 +17,10 @@ export default async function handler(req, res) {
 
     let parts = [];
 
-    // ── MODE COMPARE: comparaison visuelle image vs images produits ──
+    // ── MODE COMPARE: Comparaison visuelle intuitive (humaine) ──
     if (type === 'compare') {
-      const urls = (productImageUrls || []).slice(0, 8); // max 8 produits
+      const urls = (productImageUrls || []).slice(0, 10); // Augmenté à 10 pour plus de choix
 
-      // Télécharger les images produits côté serveur (pas de CORS)
       const productImages = await Promise.all(
         urls.map(async (url, i) => {
           try {
@@ -45,24 +42,31 @@ export default async function handler(req, res) {
 
       parts = [
         {
-          text: `You are a visual similarity expert for an e-commerce store. 
-Compare the REFERENCE IMAGE (first image) with each of the ${validProducts.length} PRODUCT IMAGES below.
-Rank the products from most to least visually similar to the reference.
-Consider: overall style, category, shape, colors, design language.
+          // api/ai-search.js (Mode Compare)
+text: `Tu es un expert en authentification de produits pour une marketplace de luxe.
+IMAGE RÉFÉRENCE : [L'image fournie par l'utilisateur]
+CANDIDATS : [Les images du catalogue]
 
-Return ONLY this JSON (no markdown):
+VOTRE ANALYSE DOIT ÊTRE INFAILLIBLE :
+1. ANALYSE DES FORMES (MORPHOLOGIE) : Compare les proportions exactes. Un régime de bananes et une main de bananes partagent la même signature cellulaire/visuelle.
+2. SIGNATURES UNIQUES : Identifie les logos, les ports de charge, les coutures ou les motifs. 
+3. ÉLIMINATION DES FAUX POSITIFS : Ne te laisse pas tromper par la couleur. Un produit noir et un produit blanc de même forme sont plus proches qu'un produit noir d'une autre forme.
+4. RÉSISTANCE AU FLOU : Si l'image de référence est floue, utilise la silhouette comme empreinte digitale.
+
+RÈGLE D'OR : Le produit identique ou le concept le plus proche (ex: partie pour le tout) DOIT être l'index 0.
+
+RETOURNE UNIQUEMENT CE JSON :
 {
-  "rankedIndices": [index of most similar, second most similar, ...all indices],
-  "topMatch": index of single best match,
-  "reasoning": "one sentence in French explaining the best match"
-}`
-        },
-        // Image de référence (uploadée par l'utilisateur)
+  "rankedIndices": [indices classés],
+  "topMatch": index du gagnant,
+  "confidenceScore": "high | medium | low",
+  "reasoning": "Preuve technique du match (ex: 'La disposition des capteurs sur l'image floue correspond exactement au modèle X du catalogue.')"
+}`},
+        // Image de référence (L'input de l'utilisateur)
         { inline_data: { mime_type: userImageMimeType || 'image/jpeg', data: userImageBase64 } },
-        { text: `--- PRODUCT IMAGES TO COMPARE ---` },
-        // Images des produits
+        { text: `--- CATALOGUE PRODUITS À COMPARER ---` },
         ...validProducts.flatMap(p => [
-          { text: `Product index ${p.index}:` },
+          { text: `Produit Index ${p.index}:` },
           { inline_data: { mime_type: p.ct, data: p.b64 } },
         ]),
       ];
@@ -74,29 +78,28 @@ Return ONLY this JSON (no markdown):
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             contents: [{ parts }],
-            generationConfig: { temperature: 0.1, maxOutputTokens: 400 },
+            generationConfig: { temperature: 0.1, maxOutputTokens: 500 },
           }),
         }
       );
 
-      if (!response.ok) {
-        const err = await response.text();
-        return res.status(response.status).json({ error: err });
-      }
-
+      if (!response.ok) return res.status(response.status).json({ error: await response.text() });
       const data = await response.json();
       const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
       return res.status(200).json({ text });
     }
 
-    // ── MODE IMAGE: analyse simple ──
+    // ── MODE IMAGE: Identification sémantique ──
     if (type === 'image' && imageBase64) {
       parts = [
+        {
+          text: `Analyse cette image comme un humain. Même si elle est floue, identifie l'objet. 
+Exemple: Si tu vois une forme jaune allongée, dis que c'est une banane.
+${prompt}` // Le prompt passé contient les instructions de formatage JSON
+        },
         { inline_data: { mime_type: imageMimeType || 'image/jpeg', data: imageBase64 } },
-        { text: prompt },
       ];
     } else {
-      // ── MODE TEXT ──
       parts = [{ text: prompt }];
     }
 
@@ -107,16 +110,12 @@ Return ONLY this JSON (no markdown):
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           contents: [{ parts }],
-          generationConfig: { temperature: 0.3, maxOutputTokens: 600 },
+          generationConfig: { temperature: 0.2, maxOutputTokens: 600 },
         }),
       }
     );
 
-    if (!response.ok) {
-      const err = await response.text();
-      return res.status(response.status).json({ error: err });
-    }
-
+    if (!response.ok) return res.status(response.status).json({ error: await response.text() });
     const data = await response.json();
     const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
     return res.status(200).json({ text });
