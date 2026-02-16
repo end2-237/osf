@@ -1,30 +1,38 @@
 // api/index-products.js
-import { pipeline, env, RawImage } from '@xenova/transformers';
+import { AutoProcessor, CLIPVisionModelWithProjection, RawImage, env } from '@xenova/transformers';
 import { createClient } from '@supabase/supabase-js';
 
 env.allowLocalModels = false;
 env.cacheDir = '/tmp/transformers_cache';
 env.useBrowserCache = false;
 
-let clipEmbedder = null;
-async function getEmbedder() {
-  if (!clipEmbedder) {
-    console.log('[CLIP] Chargement modèle...');
-    clipEmbedder = await pipeline(
-      'feature-extraction',
-      'Xenova/clip-vit-base-patch32'
-    );
+// ── Singleton : modèle vision CLIP uniquement (pas de tokeniseur texte) ──
+let processor = null;
+let visionModel = null;
+
+async function getVisionModel() {
+  if (!processor || !visionModel) {
+    console.log('[CLIP] Chargement AutoProcessor + CLIPVisionModel...');
+    [processor, visionModel] = await Promise.all([
+      AutoProcessor.from_pretrained('Xenova/clip-vit-base-patch32'),
+      CLIPVisionModelWithProjection.from_pretrained('Xenova/clip-vit-base-patch32'),
+    ]);
     console.log('[CLIP] ✅ Prêt');
   }
-  return clipEmbedder;
+  return { processor, visionModel };
 }
 
-// ── RawImage.fromURL fonctionne en Node.js, contrairement à fromBlob ──
+// ── Génère un embedding image normalisé (512 dim) ──
 async function embedFromURL(url) {
-  const embedder = await getEmbedder();
+  const { processor, visionModel } = await getVisionModel();
   const image = await RawImage.fromURL(url);
-  const output = await embedder(image, { pooling: 'mean', normalize: true });
-  return Array.from(output.data);
+  const inputs = await processor(image);
+  const { image_embeds } = await visionModel(inputs);
+
+  // Normalisation L2 (indispensable pour cosine similarity)
+  const data = Array.from(image_embeds.data);
+  const norm = Math.sqrt(data.reduce((sum, x) => sum + x * x, 0));
+  return norm > 0 ? data.map(x => x / norm) : data;
 }
 
 export default async function handler(req, res) {
@@ -46,14 +54,10 @@ export default async function handler(req, res) {
   // ── GET : Statut ──
   if (req.method === 'GET') {
     const { count: total } = await supabase
-      .from('products')
-      .select('*', { count: 'exact', head: true });
-
+      .from('products').select('*', { count: 'exact', head: true });
     const { count: indexed } = await supabase
-      .from('products')
-      .select('*', { count: 'exact', head: true })
+      .from('products').select('*', { count: 'exact', head: true })
       .not('embedding', 'is', null);
-
     return res.status(200).json({
       total: total ?? 0,
       indexed: indexed ?? 0,
@@ -82,7 +86,6 @@ export default async function handler(req, res) {
     const batch = products.slice(i, i + batchSize);
     console.log(`[index-products] Batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(products.length / batchSize)}`);
 
-    // Séquentiel pour limiter la RAM
     for (const product of batch) {
       if (!product.img) {
         results.failed.push({ id: product.id, name: product.name, reason: "Pas d'image" });
@@ -91,15 +94,13 @@ export default async function handler(req, res) {
       try {
         const embedding = await embedFromURL(product.img);
         const { error: updateError } = await supabase
-          .from('products')
-          .update({ embedding })
-          .eq('id', product.id);
+          .from('products').update({ embedding }).eq('id', product.id);
         if (updateError) throw new Error(updateError.message);
         results.success.push({ id: product.id, name: product.name });
-        console.log(`  ✅ ${product.name}`);
+        console.log(`  ✅ ${product.name.slice(0, 40)}`);
       } catch (err) {
         results.failed.push({ id: product.id, name: product.name, reason: err.message });
-        console.error(`  ❌ ${product.name}: ${err.message}`);
+        console.error(`  ❌ ${product.name.slice(0, 40)}: ${err.message}`);
       }
     }
   }

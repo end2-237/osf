@@ -1,22 +1,36 @@
 // api/visual-search.js
-import { pipeline, env, RawImage } from '@xenova/transformers';
+import { AutoProcessor, CLIPVisionModelWithProjection, RawImage, env } from '@xenova/transformers';
 import { createClient } from '@supabase/supabase-js';
 
 env.allowLocalModels = false;
 env.cacheDir = '/tmp/transformers_cache';
 env.useBrowserCache = false;
 
-let clipEmbedder = null;
-async function getEmbedder() {
-  if (!clipEmbedder) {
-    console.log('[CLIP] Chargement modèle...');
-    clipEmbedder = await pipeline(
-      'feature-extraction',
-      'Xenova/clip-vit-base-patch32'
-    );
+let processor = null;
+let visionModel = null;
+
+async function getVisionModel() {
+  if (!processor || !visionModel) {
+    console.log('[CLIP] Chargement AutoProcessor + CLIPVisionModel...');
+    [processor, visionModel] = await Promise.all([
+      AutoProcessor.from_pretrained('Xenova/clip-vit-base-patch32'),
+      CLIPVisionModelWithProjection.from_pretrained('Xenova/clip-vit-base-patch32'),
+    ]);
     console.log('[CLIP] ✅ Prêt');
   }
-  return clipEmbedder;
+  return { processor, visionModel };
+}
+
+async function base64ToEmbedding(base64, mimeType) {
+  const { processor, visionModel } = await getVisionModel();
+  const dataUrl = `data:${mimeType};base64,${base64}`;
+  const image = await RawImage.fromURL(dataUrl);
+  const inputs = await processor(image);
+  const { image_embeds } = await visionModel(inputs);
+
+  const data = Array.from(image_embeds.data);
+  const norm = Math.sqrt(data.reduce((sum, x) => sum + x * x, 0));
+  return norm > 0 ? data.map(x => x / norm) : data;
 }
 
 function getSupabase() {
@@ -24,16 +38,6 @@ function getSupabase() {
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY;
   if (!url || !key) throw new Error('Variables Supabase manquantes');
   return createClient(url, key);
-}
-
-// ── base64 → RawImage via data URL (fonctionne en Node.js) ──
-async function base64ToEmbedding(base64, mimeType) {
-  const embedder = await getEmbedder();
-  // Passe une data URL — RawImage.fromURL gère aussi les data URLs
-  const dataUrl = `data:${mimeType};base64,${base64}`;
-  const image = await RawImage.fromURL(dataUrl);
-  const output = await embedder(image, { pooling: 'mean', normalize: true });
-  return Array.from(output.data);
 }
 
 export default async function handler(req, res) {
