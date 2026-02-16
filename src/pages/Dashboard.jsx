@@ -149,7 +149,7 @@ const Dashboard = () => {
   useEffect(() => {
     if (!vendor?.id) {
       const safetyTimer = setTimeout(() => {
-        console.warn('[DASHBOARD] Safety: forcer pageLoading=false (vendor non chargé)');
+        console.warn('[DASHBOARD] Safety: forcer pageLoading=false (vendor non chargé)    ');
         setPageLoading(false);
       }, 20000); // 20s max
       return () => clearTimeout(safetyTimer);
