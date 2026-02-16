@@ -1,156 +1,439 @@
-import React, { useState, useEffect } from 'react';
-import { useLocation } from 'react-router-dom';
-import { products } from '../data/products';
+import React, { useState, useRef, useEffect, useCallback } from "react";
+import { supabase } from "../lib/supabase";
 
 const Studio = () => {
-  const location = useLocation();
-  const [activeTab, setActiveTab] = useState('clothing');
-  const [currentProduct, setCurrentProduct] = useState(null); // État pour stocker le produit réel
-  const [config, setConfig] = useState({
-    material: 'Premium Cotton',
-    color: '#00ff88',
-    finish: 'Matte',
-    engraving: ''
-  });
-  const [isRendering, setIsRendering] = useState(false);
+  // --- ÉTATS ---
+  const [catalogue, setCatalogue] = useState([]);
+  const [selectedProduct, setSelectedProduct] = useState(null);
+  const [layers, setLayers] = useState([]);
+  const [activeLayerId, setActiveLayerId] = useState(null);
+  const [isCatalogOpen, setIsCatalogOpen] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
 
-  // Initialisation : Charger le produit réel et mapper la catégorie
+  // --- RÉFÉRENCES ---
+  const canvasRef = useRef(null);
+  const dragStartPos = useRef({ x: 0, y: 0 });
+
+  // --- CHARGEMENT DU CATALOGUE COMPLET ---
   useEffect(() => {
-    if (location.state && location.state.productId) {
-      const foundProduct = products.find(p => p.id === location.state.productId);
-      if (foundProduct) {
-        setCurrentProduct(foundProduct);
-        const type = foundProduct.type.toLowerCase();
-        if (type.includes('clothing')) setActiveTab('clothing');
-        else if (type.includes('shoes')) setActiveTab('sneakers');
-        else if (type.includes('tech') || type.includes('audio')) setActiveTab('watch');
+    const fetchProducts = async () => {
+      // On récupère tous les produits sans limite pour le studio
+      const { data, error } = await supabase
+        .from("products")
+        .select("*")
+        .order('created_at', { ascending: false });
+        
+      if (data && !error) {
+        setCatalogue(data);
+        if (!selectedProduct) setSelectedProduct(data[0]);
       }
-    }
-  }, [location]);
+    };
+    fetchProducts();
+  }, [selectedProduct]);
+
+  // --- MOTEUR DRAG & DROP PRO ---
+  const startDrag = (e, id) => {
+    e.stopPropagation();
+    setActiveLayerId(id);
+    setIsDragging(true);
+    
+    const layer = layers.find((l) => l.id === id);
+    const clientX = e.type.includes('touch') ? e.touches[0].clientX : e.clientX;
+    const clientY = e.type.includes('touch') ? e.touches[0].clientY : e.clientY;
+
+    dragStartPos.current = {
+      x: clientX - layer.x,
+      y: clientY - layer.y,
+    };
+  };
+
+  const onDrag = useCallback((e) => {
+    if (!isDragging || activeLayerId === null) return;
+
+    const clientX = e.type.includes('touch') ? e.touches[0].clientX : e.clientX;
+    const clientY = e.type.includes('touch') ? e.touches[0].clientY : e.clientY;
+
+    setLayers((prev) =>
+      prev.map((l) => (l.id === activeLayerId ? { 
+        ...l, 
+        x: clientX - dragStartPos.current.x, 
+        y: clientY - dragStartPos.current.y 
+      } : l))
+    );
+  }, [isDragging, activeLayerId]);
+
+  const stopDrag = () => setIsDragging(false);
 
   useEffect(() => {
-    setIsRendering(true);
-    const timer = setTimeout(() => setIsRendering(false), 800);
-    return () => clearTimeout(timer);
-  }, [config, activeTab]);
+    if (isDragging) {
+      window.addEventListener("mousemove", onDrag);
+      window.addEventListener("mouseup", stopDrag);
+      window.addEventListener("touchmove", onDrag, { passive: false });
+      window.addEventListener("touchend", stopDrag);
+    }
+    return () => {
+      window.removeEventListener("mousemove", onDrag);
+      window.removeEventListener("mouseup", stopDrag);
+      window.removeEventListener("touchmove", onDrag);
+      window.removeEventListener("touchend", stopDrag);
+    };
+  }, [isDragging, onDrag]);
 
-  const categories = {
-    clothing: {
-      name: 'Apparel Lab',
-      defaultImg: 'https://images.unsplash.com/photo-1556821840-3a63f95609a7?q=80&w=1000',
-      materials: ['Premium Cotton', 'Tech-Silk', 'Organic Hemp'],
-      inspirations: [
-        "https://images.unsplash.com/photo-1551488831-00ddcb6c6bd3?q=80&w=200",
-        "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?q=80&w=200"
-      ]
-    },
-    watch: {
-      name: 'Horology Lab',
-      defaultImg: 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?q=80&w=1000',
-      materials: ['Carbon Fiber', 'Brushed Titanium', 'Ceramic'],
-      inspirations: [
-        "https://images.unsplash.com/photo-1542496658-e33a6d0d50f6?q=80&w=200",
-        "https://images.unsplash.com/photo-1508685096489-77a46807e604?q=80&w=200"
-      ]
-    },
-    sneakers: {
-      name: 'Footwear Lab',
-      defaultImg: 'https://images.unsplash.com/photo-1552066344-24632e509633?q=80&w=1000',
-      materials: ['Italian Leather', 'PrimeKnit', 'Suede'],
-      inspirations: [
-        "https://images.unsplash.com/photo-1595950653106-6c9ebd614d3a?q=80&w=200",
-        "https://images.unsplash.com/photo-1549298916-b41d501d3772?q=80&w=200"
-      ]
+  // --- ACTIONS STUDIO ---
+  const addLayer = (type, content = "") => {
+    const newLayer = {
+      id: Date.now(),
+      type,
+      content: type === "text" ? "TEXTE OFS" : content,
+      x: 150, // Position initiale centrée
+      y: 150,
+      rotate: 0,
+      scale: 1,
+      color: "#000000",
+      zIndex: layers.length + 1
+    };
+    setLayers([...layers, newLayer]);
+    setActiveLayerId(newLayer.id);
+  };
+
+  const handleImageUpload = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (f) => addLayer("image", f.target.result);
+      reader.readAsDataURL(file);
     }
   };
 
-  // Logique pour déterminer quelle image afficher : produit réel ou image par défaut de la tab
-  const displayImage = currentProduct && activeTab === (
-    currentProduct.type.toLowerCase().includes('clothing') ? 'clothing' : 
-    currentProduct.type.toLowerCase().includes('shoes') ? 'sneakers' : 'watch'
-  ) ? currentProduct.img : categories[activeTab].defaultImg;
+  const updateLayer = (id, props) => {
+    setLayers(layers.map((l) => (l.id === id ? { ...l, ...props } : l)));
+  };
+
+  const activeLayer = layers.find((l) => l.id === activeLayerId);
 
   return (
-    <main className="pt-20 min-h-screen flex flex-col lg:flex-row bg-white dark:bg-[#020202] text-zinc-900 dark:text-white transition-colors duration-500">
-      
-      {/* SECTION VISUALISEUR */}
-      <div className="lg:w-3/5 h-[60vh] lg:h-screen sticky top-0 bg-zinc-50 dark:bg-black flex items-center justify-center p-6 md:p-12 overflow-hidden border-r border-zinc-200 dark:border-white/5">
-        <div className="absolute inset-0 p-8 flex flex-col justify-between pointer-events-none z-20">
-          <div className="flex justify-between items-start text-zinc-400 dark:text-zinc-500 font-mono text-[10px] uppercase">
-             <p>Device: FS-X-RENDERER</p>
-             <p className={isRendering ? 'text-primary animate-pulse' : ''}>{isRendering ? '>> RENDERING...' : '>> READY'}</p>
+    <div className="min-h-screen bg-zinc-50 pt-24 pb-12 selection:bg-primary selection:text-black">
+      <div className="max-w-[1700px] mx-auto px-6">
+        
+        {/* HEADER */}
+        <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-10 gap-6">
+          <div className="space-y-1">
+            <h1 className="text-6xl font-black italic uppercase tracking-tighter text-zinc-900 leading-none">
+              OFS <span className="text-primary">STUDIO</span> PRO
+            </h1>
+            <p className="text-zinc-400 font-black uppercase text-[10px] tracking-[0.3em]">
+              Workstation de personnalisation haute performance v2.0
+            </p>
           </div>
-          <div className="bg-white/80 dark:bg-zinc-900/50 backdrop-blur-md p-4 rounded-xl border border-zinc-200 dark:border-white/5">
-              <p className="text-[11px] font-black italic uppercase">
-                {currentProduct ? `Target: ${currentProduct.name}` : categories[activeTab].name}
-              </p>
-          </div>
-        </div>
-
-        <div className="relative group scale-90 md:scale-100 transition-all duration-1000">
-          <div className={`absolute -inset-20 bg-primary/10 blur-[100px] rounded-full transition-opacity duration-1000 ${isRendering ? 'opacity-100' : 'opacity-40'}`}></div>
-          <img 
-            src={displayImage} 
-            className={`relative z-10 w-full max-w-xl shadow-2xl transition-all duration-700 ${isRendering ? 'scale-95 blur-sm' : 'scale-105'}`} 
-            alt="Custom Asset" 
-          />
-        </div>
-      </div>
-
-      {/* SECTION CONFIGURATION */}
-      <div className="lg:w-2/5 p-8 lg:p-16 flex flex-col h-screen overflow-y-auto hide-scrollbar bg-white dark:bg-[#050505]">
-        <div className="mb-12">
-          <h2 className="text-5xl font-black italic tracking-tighter mb-4 uppercase">Elite <span className="text-primary underline decoration-primary/30">Studio.</span></h2>
-          <p className="text-zinc-500 text-[10px] font-black uppercase tracking-[0.4em]">Engine v2.0 // Personalized Manufacturing</p>
-        </div>
-
-        <div className="space-y-12 pb-20">
-          <section>
-            <label className="text-[10px] font-black uppercase text-primary mb-6 block tracking-[0.2em] border-l-2 border-primary pl-4">01. Base Selection</label>
-            <div className="grid grid-cols-3 gap-2">
-              {Object.keys(categories).map(key => (
-                <button 
-                  key={key}
-                  onClick={() => { setActiveTab(key); setCurrentProduct(null); }}
-                  className={`py-5 border-2 rounded-2xl text-[10px] font-black transition-all duration-300 ${activeTab === key ? 'border-primary text-primary bg-primary/5' : 'border-zinc-100 dark:border-zinc-900 text-zinc-400'}`}
-                >
-                  {key.toUpperCase()}
-                </button>
-              ))}
-            </div>
-          </section>
-
-          <section className="animate-fadeIn">
-            <label className="text-[10px] font-black uppercase text-primary mb-6 block tracking-[0.2em] border-l-2 border-primary pl-4">02. Core Material</label>
-            <div className="space-y-2">
-              {categories[activeTab].materials.map(m => (
-                <button key={m} onClick={() => setConfig({...config, material: m})} className={`w-full p-4 rounded-xl border text-[11px] font-black uppercase text-left ${config.material === m ? 'border-primary text-primary' : 'border-zinc-100 dark:border-white/5'}`}>{m}</button>
-              ))}
-            </div>
-          </section>
-
-          <section className="pt-6">
-            <label className="text-[10px] font-black uppercase text-zinc-400 mb-6 block tracking-[0.2em]">Inspiration Gallery</label>
-            <div className="grid grid-cols-2 gap-4">
-               {categories[activeTab].inspirations.map((url, i) => (
-                 <div key={i} className="group relative aspect-square rounded-2xl overflow-hidden cursor-pointer border border-zinc-100 dark:border-white/5">
-                    <img src={url} className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition duration-500" />
-                    <div className="absolute inset-0 bg-primary/20 opacity-0 group-hover:opacity-100 transition flex items-center justify-center">
-                       <span className="text-[8px] font-black text-black uppercase bg-primary px-3 py-1">Apply Style</span>
-                    </div>
-                 </div>
-               ))}
-            </div>
-          </section>
-
-          <div className="pt-10 border-t border-zinc-100 dark:border-white/10 mt-10">
-            <button className="w-full bg-black dark:bg-primary text-white dark:text-black font-black py-7 uppercase tracking-[0.5em] text-[11px] shadow-xl hover:scale-[1.02] transition-transform">
-              Initialize Lab Order
+          
+          <div className="flex gap-4">
+            <button 
+              onClick={() => setIsCatalogOpen(true)}
+              className="bg-white border-2 border-zinc-200 px-8 py-4 rounded-2xl font-black uppercase text-xs hover:border-primary transition-all flex items-center gap-3 shadow-sm"
+            >
+              <i className="fa-solid fa-layer-group text-primary"></i> Changer Support
+            </button>
+            <button className="bg-primary text-black px-12 py-4 rounded-2xl font-black uppercase text-xs shadow-xl shadow-primary/20 hover:scale-105 active:scale-95 transition-all">
+              Commander le Build
             </button>
           </div>
         </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+          
+          {/* TOOLS & LAYERS (LEFT) */}
+          <div className="lg:col-span-3 space-y-6">
+            <div className="bg-white border border-zinc-200 rounded-[32px] p-6 shadow-sm">
+              <h3 className="font-black uppercase italic text-xs mb-6 text-zinc-400">Composants</h3>
+              <div className="grid grid-cols-1 gap-3">
+                <button 
+                  onClick={() => addLayer("text")}
+                  className="w-full flex items-center gap-4 p-4 border-2 border-zinc-50 rounded-2xl hover:border-primary/50 hover:bg-primary/5 transition-all group text-left"
+                >
+                  <div className="w-10 h-10 bg-zinc-900 text-white rounded-xl flex items-center justify-center group-hover:bg-primary group-hover:text-black transition-all">
+                    <i className="fa-solid fa-font"></i>
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-black uppercase italic">Ajouter Texte</p>
+                    <p className="text-[8px] font-bold text-zinc-400 uppercase">Custom Font</p>
+                  </div>
+                </button>
+
+                <label className="w-full flex items-center gap-4 p-4 border-2 border-zinc-50 rounded-2xl hover:border-primary/50 hover:bg-primary/5 transition-all cursor-pointer group text-left">
+                  <input type="file" className="hidden" onChange={handleImageUpload} />
+                  <div className="w-10 h-10 bg-zinc-900 text-white rounded-xl flex items-center justify-center group-hover:bg-primary group-hover:text-black transition-all">
+                    <i className="fa-solid fa-cloud-arrow-up"></i>
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-black uppercase italic">Importer Image</p>
+                    <p className="text-[8px] font-bold text-zinc-400 uppercase">PNG / JPG / SVG</p>
+                  </div>
+                </label>
+              </div>
+            </div>
+
+            {/* LAYER MANAGER */}
+            <div className="bg-white border border-zinc-200 rounded-[32px] p-6 shadow-sm">
+              <h3 className="font-black uppercase italic text-xs mb-6 text-zinc-400">Timeline Calques</h3>
+              <div className="space-y-3 max-h-[350px] overflow-y-auto pr-2 custom-scrollbar">
+                {layers.length === 0 && (
+                  <div className="text-center py-10 opacity-20">
+                    <i className="fa-solid fa-layer-group text-2xl mb-2"></i>
+                    <p className="text-[10px] font-black uppercase">Aucun élément</p>
+                  </div>
+                )}
+                {[...layers].reverse().map((layer) => (
+                  <div 
+                    key={layer.id}
+                    onClick={() => setActiveLayerId(layer.id)}
+                    className={`flex items-center justify-between p-3 rounded-2xl border-2 transition-all cursor-pointer ${activeLayerId === layer.id ? 'border-primary bg-primary/5 shadow-md' : 'border-zinc-50 bg-zinc-50'}`}
+                  >
+                    <div className="flex items-center gap-3 overflow-hidden">
+                      <div className="w-8 h-8 flex-shrink-0 bg-white rounded-lg flex items-center justify-center text-[10px]">
+                        {layer.type === 'text' ? 'T' : <i className="fa-solid fa-image text-zinc-400"></i>}
+                      </div>
+                      <span className="text-[10px] font-black uppercase truncate italic">
+                        {layer.type === 'text' ? layer.content : 'Image_Upload'}
+                      </span>
+                    </div>
+                    <button onClick={(e) => { e.stopPropagation(); setLayers(layers.filter(l => l.id !== layer.id)) }} className="text-zinc-300 hover:text-red-500 p-2">
+                      <i className="fa-solid fa-trash-can text-[10px]"></i>
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* MAIN CANVAS (CENTER) */}
+          <div 
+            className="lg:col-span-6 min-h-[700px] bg-zinc-100/50 rounded-[60px] border-4 border-white shadow-2xl relative flex items-center justify-center overflow-hidden cursor-crosshair"
+            onMouseDown={() => setActiveLayerId(null)} // Désélectionner au clic sur le fond
+          >
+            <div className="absolute inset-0 opacity-20 pointer-events-none bg-[radial-gradient(#000_1px,transparent_1px)] [background-size:30px_30px]"></div>
+            
+            {selectedProduct && (
+              <div 
+                ref={canvasRef} 
+                className="relative w-full h-full flex items-center justify-center select-none"
+                onClick={(e) => e.stopPropagation()} 
+              >
+                <img 
+                  src={selectedProduct.img} 
+                  alt="Mockup" 
+                  className="max-w-[85%] max-h-[85%] object-contain drop-shadow-[0_25px_50px_rgba(0,0,0,0.15)] pointer-events-none"
+                />
+
+                <div className="absolute inset-0">
+                  {layers.map((layer) => (
+                    <div
+                      key={layer.id}
+                      onMouseDown={(e) => startDrag(e, layer.id)}
+                      onTouchStart={(e) => startDrag(e, layer.id)}
+                      style={{
+                        left: `${layer.x}px`,
+                        top: `${layer.y}px`,
+                        transform: `rotate(${layer.rotate}deg) scale(${layer.scale})`,
+                        position: 'absolute',
+                        zIndex: layer.zIndex,
+                        cursor: isDragging && activeLayerId === layer.id ? 'grabbing' : 'grab'
+                      }}
+                      className={`group p-2 transition-shadow ${activeLayerId === layer.id ? 'ring-2 ring-primary ring-offset-4 ring-offset-zinc-100 rounded-sm' : 'hover:ring-1 hover:ring-primary/30'}`}
+                    >
+                      {layer.type === 'text' ? (
+                        <h2 style={{ color: layer.color }} className="font-black italic uppercase text-4xl whitespace-nowrap leading-none select-none drop-shadow-sm">
+                          {layer.content}
+                        </h2>
+                      ) : (
+                        <img src={layer.content} className="w-40 h-auto pointer-events-none rounded-lg" alt="Custom" />
+                      )}
+                      
+                      {/* Anchor points visuels si sélectionné */}
+                      {activeLayerId === layer.id && (
+                        <div className="absolute -top-2 -right-2 w-4 h-4 bg-primary rounded-full shadow-lg flex items-center justify-center">
+                           <div className="w-1.5 h-1.5 bg-black rounded-full"></div>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* INSPECTOR (RIGHT) */}
+          <div className="lg:col-span-3 space-y-6">
+            {activeLayer ? (
+              <div className="bg-zinc-900 text-white rounded-[40px] p-8 shadow-2xl space-y-8 animate-in slide-in-from-right duration-500">
+                <div className="flex justify-between items-center border-b border-white/10 pb-4">
+                   <h3 className="font-black uppercase italic text-xs text-primary">Inspecteur</h3>
+                   <button onClick={() => setActiveLayerId(null)} className="text-zinc-500 hover:text-white text-[10px] font-black uppercase">Fermer</button>
+                </div>
+                
+                {activeLayer.type === 'text' && (
+                  <div className="space-y-4">
+                    <label className="text-[9px] font-black uppercase text-zinc-500 tracking-widest">Édition Texte</label>
+                    <input 
+                      type="text" 
+                      value={activeLayer.content}
+                      onChange={(e) => updateLayer(activeLayer.id, { content: e.target.value })}
+                      className="w-full bg-zinc-800 border-none rounded-2xl p-4 text-xs font-black uppercase italic outline-none focus:ring-2 ring-primary transition-all"
+                    />
+                  </div>
+                )}
+
+                <div className="space-y-8">
+                  {/* POSITION X/Y */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <label className="text-[9px] font-black uppercase text-zinc-500 tracking-widest">Pos X</label>
+                      <input 
+                        type="number" 
+                        value={Math.round(activeLayer.x)}
+                        onChange={(e) => updateLayer(activeLayer.id, { x: parseInt(e.target.value) })}
+                        className="w-full bg-zinc-800 rounded-xl p-2 text-[10px] font-black text-center"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[9px] font-black uppercase text-zinc-500 tracking-widest">Pos Y</label>
+                      <input 
+                        type="number" 
+                        value={Math.round(activeLayer.y)}
+                        onChange={(e) => updateLayer(activeLayer.id, { y: parseInt(e.target.value) })}
+                        className="w-full bg-zinc-800 rounded-xl p-2 text-[10px] font-black text-center"
+                      />
+                    </div>
+                  </div>
+
+                  {/* SCALE */}
+                  <div className="space-y-4">
+                    <div className="flex justify-between">
+                      <label className="text-[9px] font-black uppercase text-zinc-500 tracking-widest">Échelle</label>
+                      <span className="text-[10px] font-black text-primary">{(activeLayer.scale * 100).toFixed(0)}%</span>
+                    </div>
+                    <input 
+                      type="range" min="0.1" max="5" step="0.1" 
+                      value={activeLayer.scale}
+                      onChange={(e) => updateLayer(activeLayer.id, { scale: parseFloat(e.target.value) })}
+                      className="w-full accent-primary h-1 bg-zinc-800 rounded-lg appearance-none cursor-pointer" 
+                    />
+                  </div>
+
+                  {/* ROTATION */}
+                  <div className="space-y-4">
+                    <div className="flex justify-between">
+                      <label className="text-[9px] font-black uppercase text-zinc-500 tracking-widest">Rotation</label>
+                      <span className="text-[10px] font-black text-primary">{activeLayer.rotate}°</span>
+                    </div>
+                    <input 
+                      type="range" min="0" max="360" 
+                      value={activeLayer.rotate}
+                      onChange={(e) => updateLayer(activeLayer.id, { rotate: parseInt(e.target.value) })}
+                      className="w-full accent-primary h-1 bg-zinc-800 rounded-lg appearance-none cursor-pointer" 
+                    />
+                  </div>
+
+                  {/* COLOR (Uniquement texte) */}
+                  {activeLayer.type === 'text' && (
+                    <div className="space-y-4">
+                      <label className="text-[9px] font-black uppercase text-zinc-500 tracking-widest">Nuancier OFS</label>
+                      <div className="flex flex-wrap gap-2">
+                        {['#00ff88', '#ffffff', '#000000', '#ff2d2d', '#2d8cff', '#ffff2d'].map(c => (
+                          <button 
+                            key={c}
+                            onClick={() => updateLayer(activeLayer.id, { color: c })}
+                            style={{ backgroundColor: c }}
+                            className={`w-9 h-9 rounded-xl border-2 transition-all ${activeLayer.color === c ? 'border-primary scale-110 shadow-[0_0_10px_rgba(0,255,136,0.3)]' : 'border-zinc-700'}`}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Z-INDEX CONTROL */}
+                  <div className="flex gap-2 pt-4">
+                      <button 
+                        onClick={() => updateLayer(activeLayer.id, { zIndex: activeLayer.zIndex + 1 })}
+                        className="flex-1 bg-zinc-800 hover:bg-zinc-700 py-3 rounded-2xl text-[9px] font-black uppercase italic border border-white/5 transition-all"
+                      >Avant-plan</button>
+                      <button 
+                        onClick={() => updateLayer(activeLayer.id, { zIndex: Math.max(1, activeLayer.zIndex - 1) })}
+                        className="flex-1 bg-zinc-800 hover:bg-zinc-700 py-3 rounded-2xl text-[9px] font-black uppercase italic border border-white/5 transition-all"
+                      >Arrière-plan</button>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="h-[400px] flex flex-col items-center justify-center p-12 text-center bg-white border-2 border-dashed border-zinc-200 rounded-[40px]">
+                <div className="w-16 h-16 bg-zinc-50 rounded-full flex items-center justify-center mb-6">
+                   <i className="fa-solid fa-hand-pointer text-zinc-300 animate-bounce"></i>
+                </div>
+                <p className="text-[10px] font-black uppercase text-zinc-400 leading-relaxed tracking-widest">
+                  Cliquez sur un élément du canvas pour éditer ses propriétés
+                </p>
+              </div>
+            )}
+
+            {/* CART SUMMARY */}
+            <div className="bg-primary/5 border border-primary/20 rounded-[40px] p-8">
+              <div className="flex items-center justify-between mb-4">
+                <span className="text-[10px] font-black uppercase text-zinc-500">Total Custom Build</span>
+                <span className="text-3xl font-black italic tracking-tighter">{selectedProduct?.price || 0} F</span>
+              </div>
+              <p className="text-[9px] font-bold text-zinc-400 uppercase leading-relaxed">
+                * Livraison estimée : 2-4 jours à Douala/Yaoundé. Impression Haute Fidélité garantie.
+              </p>
+            </div>
+          </div>
+        </div>
       </div>
-    </main>
+
+      {/* MODAL CATALOGUE COMPLET */}
+      {isCatalogOpen && (
+        <div className="fixed inset-0 z-[999] bg-zinc-900/80 backdrop-blur-2xl flex items-center justify-center p-4 md:p-10 animate-in fade-in zoom-in duration-300">
+          <div className="bg-white w-full max-w-6xl h-full max-h-[90vh] rounded-[50px] shadow-2xl flex flex-col overflow-hidden">
+            {/* Modal Header */}
+            <div className="p-10 border-b border-zinc-100 flex justify-between items-center bg-zinc-50/50">
+              <div>
+                <h2 className="text-4xl font-black italic uppercase tracking-tighter">Support <span className="text-primary">Library</span></h2>
+                <p className="text-[10px] font-black uppercase text-zinc-400 tracking-widest mt-1">Sélectionnez la base de votre création OFS</p>
+              </div>
+              <button 
+                onClick={() => setIsCatalogOpen(false)} 
+                className="w-14 h-14 bg-white border border-zinc-200 rounded-full flex items-center justify-center hover:bg-zinc-900 hover:text-white transition-all shadow-xl group"
+              >
+                <i className="fa-solid fa-xmark text-xl group-hover:rotate-90 transition-transform"></i>
+              </button>
+            </div>
+            
+            {/* Modal Grid (All Products) */}
+            <div className="flex-1 p-10 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-8 overflow-y-auto custom-scrollbar">
+              {catalogue.map(product => (
+                <div 
+                  key={product.id}
+                  onClick={() => { setSelectedProduct(product); setIsCatalogOpen(false); }}
+                  className="group cursor-pointer flex flex-col"
+                >
+                  <div className="aspect-[4/5] bg-zinc-50 rounded-[40px] p-8 border-2 border-transparent group-hover:border-primary group-hover:bg-primary/5 transition-all relative overflow-hidden flex items-center justify-center">
+                    <img src={product.img} className="max-w-full max-h-full object-contain group-hover:scale-110 transition-all duration-700" loading="lazy" />
+                    <div className="absolute inset-0 bg-primary/10 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                        <span className="bg-white px-6 py-2 rounded-full text-[10px] font-black uppercase italic shadow-xl">Choisir ce modèle</span>
+                    </div>
+                  </div>
+                  <div className="mt-6 px-2">
+                    <div className="flex justify-between items-start mb-1">
+                        <p className="text-[11px] font-black uppercase text-zinc-900 leading-tight flex-1">{product.name}</p>
+                        <p className="text-[11px] font-black text-primary italic ml-4">{product.price}F</p>
+                    </div>
+                    <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest">{product.type}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
   );
 };
 
