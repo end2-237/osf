@@ -3,6 +3,21 @@
     {
       "source": "/(.*)",
       "destination": "/index.html"
+    },
+    {
+      "functions": {
+        "api/visual-search.js": {
+          "memory": 3009,
+          "maxDuration": 60
+        },
+        "api/index-products.js": {
+          "memory": 3009,
+          "maxDuration": 300
+        }
+      },
+      "buildCommand": "npm run build",
+      "outputDirectory": "dist",
+      "framework": "vite"
     }
   ]
 }
