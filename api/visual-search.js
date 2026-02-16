@@ -11,7 +11,7 @@ let visionModel = null;
 
 async function getVisionModel() {
   if (!processor || !visionModel) {
-    console.log('[CLIP] Chargement AutoProcessor + CLIPVisionModel...');
+    console.log('[CLIP] Chargement modèle...');
     [processor, visionModel] = await Promise.all([
       AutoProcessor.from_pretrained('Xenova/clip-vit-base-patch32'),
       CLIPVisionModelWithProjection.from_pretrained('Xenova/clip-vit-base-patch32'),
@@ -21,13 +21,19 @@ async function getVisionModel() {
   return { processor, visionModel };
 }
 
+// ── base64 → RawImage via Blob natif Node.js 18 ──
 async function base64ToEmbedding(base64, mimeType) {
   const { processor, visionModel } = await getVisionModel();
-  const dataUrl = `data:${mimeType};base64,${base64}`;
-  const image = await RawImage.fromURL(dataUrl);
+
+  // Node.js 18+ supporte Blob nativement
+  const buffer = Buffer.from(base64, 'base64');
+  const blob = new Blob([buffer], { type: mimeType || 'image/jpeg' });
+  const image = await RawImage.fromBlob(blob);
+
   const inputs = await processor(image);
   const { image_embeds } = await visionModel(inputs);
 
+  // Normalisation L2 (indispensable pour cosine similarity)
   const data = Array.from(image_embeds.data);
   const norm = Math.sqrt(data.reduce((sum, x) => sum + x * x, 0));
   return norm > 0 ? data.map(x => x / norm) : data;
