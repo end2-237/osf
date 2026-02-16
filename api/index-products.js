@@ -71,16 +71,19 @@ export default async function handler(req, res) {
 
   // ── GET : Statut de l'indexation ──
   if (req.method === 'GET') {
-    const { data: total } = await supabase.from('products').select('id', { count: 'exact', head: true });
-    const { data: indexed } = await supabase
+    const { count: total } = await supabase
       .from('products')
-      .select('id', { count: 'exact', head: true })
+      .select('*', { count: 'exact', head: true });
+  
+    const { count: indexed } = await supabase
+      .from('products')
+      .select('*', { count: 'exact', head: true })
       .not('embedding', 'is', null);
-
+  
     return res.status(200).json({
-      total: total?.length ?? '?',
-      indexed: indexed?.length ?? '?',
-      remaining: (total?.length ?? 0) - (indexed?.length ?? 0),
+      total: total ?? 0,
+      indexed: indexed ?? 0,
+      remaining: (total ?? 0) - (indexed ?? 0),
     });
   }
 
