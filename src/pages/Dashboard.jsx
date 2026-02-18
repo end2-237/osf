@@ -43,6 +43,93 @@ const StatCard = ({ icon, label, value, sub, color, gradient }) => (
   </div>
 );
 
+const MemberDiscountCard = ({ vendor, loading, onToggle }) => (
+  <div className={`rounded-2xl border-2 overflow-hidden transition-all ${
+    vendor?.member_discount_enabled
+      ? 'border-primary bg-primary/5'
+      : 'border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-900'
+  }`}>
+    <div className="p-6 flex flex-col md:flex-row items-start md:items-center gap-5">
+
+      {/* ICON */}
+      <div className={`w-14 h-14 rounded-2xl flex items-center justify-center flex-shrink-0 ${
+        vendor?.member_discount_enabled
+          ? 'bg-primary text-black'
+          : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-400'
+      }`}>
+        <i className={`fa-solid fa-tag text-xl`}></i>
+      </div>
+
+      {/* INFO */}
+      <div className="flex-1">
+        <div className="flex items-center gap-2 mb-1">
+          <h3 className="font-black uppercase italic text-sm text-zinc-900 dark:text-white tracking-tight">
+            Remise Membre −25%
+          </h3>
+          {vendor?.member_discount_enabled && (
+            <span className="bg-primary text-black text-[8px] font-black px-2 py-0.5 rounded-full uppercase">
+              Actif
+            </span>
+          )}
+        </div>
+        <p className="text-[10px] font-bold text-zinc-400 leading-relaxed max-w-md">
+          {vendor?.member_discount_enabled
+            ? `Tous vos produits affichent −25% pour les clients avec un compte membre. Les non-connectés voient un teaser "prix membre" pour les inciter à s'inscrire.`
+            : `Activez cette option pour offrir −25% à tous les membres OFS sur l'ensemble de vos produits. Vos prix normaux restent affichés pour les visiteurs.`
+          }
+        </p>
+      </div>
+
+      {/* TOGGLE */}
+      <div className="flex flex-col items-center gap-2 flex-shrink-0">
+        <button
+          onClick={onToggle}
+          disabled={loading}
+          className={`relative w-16 h-8 rounded-full transition-all duration-300 focus:outline-none ${
+            vendor?.member_discount_enabled
+              ? 'bg-primary shadow-[0_0_16px_rgba(0,255,136,0.4)]'
+              : 'bg-zinc-200 dark:bg-zinc-700'
+          } ${loading ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer hover:opacity-90'}`}
+        >
+          <span className={`absolute top-1 w-6 h-6 rounded-full bg-white shadow-md transition-all duration-300 ${
+            vendor?.member_discount_enabled ? 'left-9' : 'left-1'
+          }`}>
+            {loading && (
+              <span className="absolute inset-0 flex items-center justify-center">
+                <i className="fa-solid fa-circle-notch animate-spin text-zinc-400 text-[8px]"></i>
+              </span>
+            )}
+          </span>
+        </button>
+        <span className={`text-[8px] font-black uppercase tracking-widest ${
+          vendor?.member_discount_enabled ? 'text-primary' : 'text-zinc-400'
+        }`}>
+          {vendor?.member_discount_enabled ? 'On' : 'Off'}
+        </span>
+      </div>
+    </div>
+
+    {/* FOOTER STATS si actif */}
+    {vendor?.member_discount_enabled && (
+      <div className="border-t border-primary/20 bg-primary/5 px-6 py-3 flex items-center gap-6 text-[9px] font-black uppercase text-primary">
+        <span className="flex items-center gap-1.5">
+          <i className="fa-solid fa-bolt text-[8px]"></i>
+          Tous produits concernés
+        </span>
+        <span className="flex items-center gap-1.5">
+          <i className="fa-solid fa-users text-[8px]"></i>
+          Membres OFS uniquement
+        </span>
+        <span className="flex items-center gap-1.5">
+          <i className="fa-solid fa-layer-group text-[8px]"></i>
+          Compatible bundle −15%
+        </span>
+      </div>
+    )}
+  </div>
+);
+
+
 /* ─── TOAST ─── */
 const Toast = ({ toast, onClose }) => {
   if (!toast) return null;
@@ -96,7 +183,7 @@ const ConfirmModal = ({ open, title, desc, onConfirm, onCancel, danger = true })
    MAIN DASHBOARD
 ═══════════════════════════════════════════ */
 const Dashboard = () => {
-  const { vendor, signOut } = useAuth();
+const { vendor, signOut, updateVendorField } = useAuth();
   const navigate = useNavigate();
 
   /* ─ State ─ */
@@ -115,6 +202,8 @@ const Dashboard = () => {
   const [searchInv, setSearchInv]       = useState("");
   const [searchOrders, setSearchOrders] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
+
+const [discountToggleLoading, setDiscountToggleLoading] = useState(false);
 
   /* ─ Notifications ─ */
   const [notifStatus, setNotifStatus]   = useState("idle");
@@ -239,6 +328,24 @@ const Dashboard = () => {
     } finally { clearTimeout(safetyTimer); setLoading(false); }
   };
 
+
+  const handleToggleMemberDiscount = async () => {
+    setDiscountToggleLoading(true);
+    try {
+      await updateVendorField('member_discount_enabled', !vendor.member_discount_enabled);
+      showToast(
+        vendor.member_discount_enabled ? 'Promo désactivée' : 'Promo activée !',
+        vendor.member_discount_enabled
+          ? 'Les prix normaux sont rétablis sur tous vos produits.'
+          : 'Les membres bénéficient maintenant de −25% sur tous vos produits.',
+        vendor.member_discount_enabled ? 'error' : 'success'
+      );
+    } catch (err) {
+      showToast('Erreur', err.message, 'error');
+    } finally {
+      setDiscountToggleLoading(false);
+    }
+  };
   /* ─── DELETE PRODUCT ─── */
   const confirmDeleteProduct = (product) => {
     setConfirmModal({ open:true, type:"product", id:product.id, data:product,
@@ -428,7 +535,11 @@ const Dashboard = () => {
           <StatCard icon="fa-clock"        label="En attente"         value={pendingCount}                           sub="à traiter"     color="text-orange-500"     gradient="bg-orange-400" />
           <StatCard icon="fa-check-circle" label="Commandes livrées"  value={deliveredCount}                         sub="succès"        color="text-emerald-500"    gradient="bg-emerald-400"/>
         </div>
-
+        <MemberDiscountCard
+          vendor={vendor}
+          loading={discountToggleLoading}
+          onToggle={handleToggleMemberDiscount}
+        />
         {/* ══════════════════════════ INVENTORY TAB ══════════════════════════ */}
         {activeTab === "inventory" && (
           <div className="space-y-6">
@@ -920,6 +1031,8 @@ const Dashboard = () => {
                   <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-purple-400"></span>Expédié</span>
                   <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-orange-400"></span>En attente</span>
                 </div>
+
+                
               </div>
 
               {/* STATUS DONUT */}

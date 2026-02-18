@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import ofsLogo from "../assets/ofs.png";
+import { useAuth } from "../context/AuthContext";
 
 const ScrollToTop = () => {
   const { pathname } = useLocation();
@@ -75,6 +76,8 @@ const Navbar = ({
   toggleCart,
   toggleVisualSearch,
 }) => {
+  const { user, isMember, isVendor, signOut } = useAuth(); // ✅ NOUVEAU
+
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchFocused, setSearchFocused] = useState(false);
@@ -230,6 +233,24 @@ const Navbar = ({
 
           {/* ACTIONS */}
           <div className="flex items-center gap-1 sm:gap-1.5 md:gap-2 flex-shrink-0">
+            {/* ✅ NOUVEAU — Badge membre desktop (remplace le teaser invité si connecté) */}
+            {isMember && (
+              <span className="hidden lg:flex items-center gap-1 border border-primary/40 bg-primary/5 text-primary px-2.5 py-1 text-[7px] font-black uppercase tracking-widest whitespace-nowrap">
+                <i className="fa-solid fa-crown text-[8px]"></i>
+                Prix −20%
+              </span>
+            )}
+            {/* ✅ NOUVEAU — Teaser invité desktop */}
+            {!user && (
+              <Link
+                to="/register"
+                className="hidden lg:flex items-center gap-1 border border-white/10 text-zinc-400 hover:border-primary/40 hover:text-primary px-2.5 py-1 text-[7px] font-black uppercase tracking-widest transition-all whitespace-nowrap"
+              >
+                <i className="fa-solid fa-tag text-[8px]"></i>
+                −20% avec un compte
+              </Link>
+            )}
+
             {/* Theme */}
             <button
               onClick={toggleTheme}
@@ -505,6 +526,30 @@ const Navbar = ({
           </button>
         </div>
 
+        {/* ✅ NOUVEAU — Bande statut membre dans le drawer */}
+        {isMember && (
+          <div className="flex items-center gap-2 px-5 py-2.5 bg-primary/10 border-b border-primary/20">
+            <i className="fa-solid fa-crown text-primary text-[9px]"></i>
+            <span className="text-[8px] font-black uppercase text-primary tracking-widest">
+              Prix membre actifs — −25% sur tout
+            </span>
+          </div>
+        )}
+        {/* ✅ NOUVEAU — Teaser invité dans le drawer */}
+        {!user && (
+          <Link
+            to="/register"
+            onClick={() => setMobileMenuOpen(false)}
+            className="flex items-center gap-2 px-5 py-2.5 bg-primary/5 border-b border-primary/10 hover:bg-primary/10 transition-colors"
+          >
+            <i className="fa-solid fa-tag text-primary text-[9px]"></i>
+            <span className="text-[8px] font-black uppercase text-zinc-400 tracking-widest">
+              Créer un compte — prix −25%
+            </span>
+            <i className="fa-solid fa-arrow-right text-[7px] text-primary ml-auto"></i>
+          </Link>
+        )}
+
         {/* BODY */}
         <div className="flex-grow overflow-y-auto py-3 px-3">
           {/* Main links */}
@@ -577,8 +622,9 @@ const Navbar = ({
           </div>
         </div>
 
-        {/* FOOTER */}
+        {/* FOOTER — ✅ MIS À JOUR: affichage conditionnel selon statut auth */}
         <div className="flex-shrink-0 border-t border-white/5 p-4 space-y-2 bg-black/50">
+          {/* Devenir Vendeur — toujours visible */}
           <Link
             to="/admin"
             onClick={() => setMobileMenuOpen(false)}
@@ -587,14 +633,38 @@ const Navbar = ({
             <i className="fa-solid fa-bolt text-xs"></i>
             <span>Devenir Vendeur</span>
           </Link>
-          <Link
-            to="/login"
-            onClick={() => setMobileMenuOpen(false)}
-            className="flex items-center justify-center gap-2 border border-white/10 text-zinc-400 p-3 rounded-2xl font-black uppercase text-[9px] tracking-widest w-full hover:border-primary/40 hover:text-white transition-all"
-          >
-            <i className="fa-solid fa-right-to-bracket text-xs"></i>
-            <span>Espace Vendeur</span>
-          </Link>
+
+          {/* ✅ NOUVEAU — Auth CTA conditionnel */}
+          {user ? (
+            // Connecté → bouton déconnexion
+            <button
+              onClick={() => { setMobileMenuOpen(false); signOut(); }}
+              className="flex items-center justify-center gap-2 border border-white/10 text-zinc-400 p-3 rounded-2xl font-black uppercase text-[9px] tracking-widest w-full hover:border-red-500/40 hover:text-red-400 transition-all"
+            >
+              <i className="fa-solid fa-right-from-bracket text-xs"></i>
+              <span>Se déconnecter</span>
+            </button>
+          ) : (
+            // Non connecté → Espace Vendeur + Créer un compte membre
+            <>
+              <Link
+                to="/login"
+                onClick={() => setMobileMenuOpen(false)}
+                className="flex items-center justify-center gap-2 border border-white/10 text-zinc-400 p-3 rounded-2xl font-black uppercase text-[9px] tracking-widest w-full hover:border-primary/40 hover:text-white transition-all"
+              >
+                <i className="fa-solid fa-right-to-bracket text-xs"></i>
+                <span>Espace Vendeur</span>
+              </Link>
+              <Link
+                to="/register"
+                onClick={() => setMobileMenuOpen(false)}
+                className="flex items-center justify-center gap-2 border border-primary/20 text-primary/80 p-2.5 rounded-2xl font-black uppercase text-[8px] tracking-widest w-full hover:border-primary/50 hover:text-primary transition-all"
+              >
+                <i className="fa-solid fa-crown text-[9px]"></i>
+                <span>Compte membre — Prix −25%</span>
+              </Link>
+            </>
+          )}
         </div>
       </div>
 

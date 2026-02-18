@@ -1,10 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, useNavigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { useAuth } from './context/AuthContext';
+
+// Components
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
 import CartSidebar from './components/CartSidebar';
+import VisualSearchModal from './components/VisualSearchModal';
+
+// Pages
 import Home from './pages/Home';
 import Store from './pages/Store';
 import Studio from './pages/Studio';
@@ -14,17 +19,20 @@ import Register from './pages/Register';
 import ShopPage from './pages/ShopPage.jsx';
 import ProductDetail from './pages/ProductDetail.jsx';
 import PrivateRoute from './routes/PrivateRoute';
-import VisualSearchModal from './components/VisualSearchModal';
 
 function AppContent() {
   const { vendor } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+
+  // Configuration du thème et panier
   const [isDark, setIsDark] = useState(false);
   const [cart, setCart] = useState([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isVisualSearchOpen, setIsVisualSearchOpen] = useState(false);
-const toggleVisualSearch = () => setIsVisualSearchOpen(!isVisualSearchOpen);
 
+  // Détection des pages d'authentification pour isoler le layout
+  const isAuthPage = location.pathname === '/login' || location.pathname === '/register';
 
   useEffect(() => {
     isDark
@@ -34,6 +42,7 @@ const toggleVisualSearch = () => setIsVisualSearchOpen(!isVisualSearchOpen);
 
   const toggleTheme = () => setIsDark(!isDark);
   const toggleCart = () => setIsCartOpen(!isCartOpen);
+  const toggleVisualSearch = () => setIsVisualSearchOpen(!isVisualSearchOpen);
 
   const addToCart = (productData) => {
     const existingIndex = cart.findIndex(
@@ -66,10 +75,6 @@ const toggleVisualSearch = () => setIsVisualSearchOpen(!isVisualSearchOpen);
 
   const clearCart = () => setCart([]);
 
-  /**
-   * ✅ openModal → navigue vers la ProductDetail page
-   * Passe le produit via location.state pour éviter un fetch supplémentaire
-   */
   const openModal = (productOrId) => {
     if (typeof productOrId === 'object' && productOrId !== null) {
       navigate(`/product/${productOrId.id}`, { state: { product: productOrId } });
@@ -80,15 +85,20 @@ const toggleVisualSearch = () => setIsVisualSearchOpen(!isVisualSearchOpen);
 
   return (
     <div className="bg-white text-zinc-900 dark:bg-black dark:text-white transition-colors duration-500 min-h-screen flex flex-col">
-      <Navbar
-  isDark={isDark}
-  toggleTheme={toggleTheme}
-  cartCount={cart.reduce((total, item) => total + item.quantity, 0)}
-  toggleCart={toggleCart}
-  toggleVisualSearch={toggleVisualSearch}   // ← AJOUTER CETTE LIGNE
-/>
+      
+      {/* HEADER : Masqué sur Login/Register */}
+      {!isAuthPage && (
+        <Navbar
+          isDark={isDark}
+          toggleTheme={toggleTheme}
+          cartCount={cart.reduce((total, item) => total + item.quantity, 0)}
+          toggleCart={toggleCart}
+          toggleVisualSearch={toggleVisualSearch}
+        />
+      )}
 
-      <main className="flex-grow">
+      {/* ZONE DE CONTENU PRINCIPALE */}
+      <main className={`flex-grow ${isAuthPage ? 'h-screen overflow-hidden' : ''}`}>
         <Routes>
           <Route path="/" element={<Home openModal={openModal} addToCart={addToCart} />} />
           <Route path="/store" element={<Store openModal={openModal} addToCart={addToCart} />} />
@@ -96,36 +106,38 @@ const toggleVisualSearch = () => setIsVisualSearchOpen(!isVisualSearchOpen);
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route path="/shop/:shopName" element={<ShopPage openModal={openModal} addToCart={addToCart} />} />
-
-          {/* ✅ NOUVELLE ROUTE PRODUCT DETAIL */}
           <Route
             path="/product/:productId"
             element={<ProductDetail addToCart={addToCart} openModal={openModal} />}
           />
-
           <Route element={<PrivateRoute />}>
             <Route path="/admin" element={<Dashboard />} />
           </Route>
         </Routes>
       </main>
 
-      <Footer />
+      {/* FOOTER : Masqué sur Login/Register */}
+      {!isAuthPage && <Footer />}
 
-      <CartSidebar
-        isOpen={isCartOpen}
-        cart={cart}
-        removeFromCart={removeFromCart}
-        updateQuantity={updateQuantity}
-        toggleCart={toggleCart}
-        clearCart={clearCart}
-        vendor={vendor}
-      />
-
-<VisualSearchModal
-  isOpen={isVisualSearchOpen}
-  onClose={() => setIsVisualSearchOpen(false)}
-  addToCart={addToCart}
-/>
+      {/* OVERLAYS & MODALS : Masqués sur Login/Register pour éviter les conflits de design */}
+      {!isAuthPage && (
+        <>
+          <CartSidebar
+            isOpen={isCartOpen}
+            cart={cart}
+            removeFromCart={removeFromCart}
+            updateQuantity={updateQuantity}
+            toggleCart={toggleCart}
+            clearCart={clearCart}
+            vendor={vendor}
+          />
+          <VisualSearchModal
+            isOpen={isVisualSearchOpen}
+            onClose={() => setIsVisualSearchOpen(false)}
+            addToCart={addToCart}
+          />
+        </>
+      )}
     </div>
   );
 }

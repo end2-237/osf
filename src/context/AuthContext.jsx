@@ -8,8 +8,8 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser]       = useState(null);
   const [vendor, setVendor]   = useState(null);
   const [loading, setLoading] = useState(true);
-  const initDoneRef  = useRef(false);
-  const vendorLoadedRef = useRef(false); // ✅ FIX: évite le double loadVendor
+  const initDoneRef     = useRef(false);
+  const vendorLoadedRef = useRef(false);
 
   const loadVendor = async (userId) => {
     try {
@@ -22,10 +22,8 @@ export const AuthProvider = ({ children }) => {
       setVendor(data);
       vendorLoadedRef.current = !!data;
     } catch (e) {
-      // ✅ FIX CRITIQUE: AbortError → ne pas reset vendor à null si déjà chargé
       if (e?.name === 'AbortError' || e?.message?.includes('aborted')) {
         console.warn('⚠️ [LOAD_VENDOR] AbortError ignoré — vendor conservé');
-        // Ne pas écraser un vendor déjà chargé
         if (!vendorLoadedRef.current) setVendor(null);
       } else {
         console.error('❌ [LOAD_VENDOR]', e.message);
@@ -39,9 +37,8 @@ export const AuthProvider = ({ children }) => {
 
   useEffect(() => {
     const initializeAuth = async () => {
-      // ✅ Augmenté à 15s pour Supabase free tier (peut mettre 20-30s à se réveiller)
       const forceUnlock = setTimeout(() => {
-        console.warn('⚠️ [SAFETY] Déblocage forcé après 15s — Supabase peut être en veille');
+        console.warn('⚠️ [SAFETY] Déblocage forcé après 15s');
         setLoading(false);
       }, 15000);
 
@@ -50,7 +47,7 @@ export const AuthProvider = ({ children }) => {
 
         if (error) {
           if (error?.name === 'AbortError' || error?.message?.includes('aborted')) {
-            console.warn('⚠️ [INIT] AbortError ignoré, retry getSession...');
+            console.warn('⚠️ [INIT] AbortError ignoré, retry...');
             await new Promise(r => setTimeout(r, 500));
             const { data: retryData } = await supabase.auth.getSession();
             if (retryData?.session?.user) {
@@ -87,12 +84,9 @@ export const AuthProvider = ({ children }) => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         console.log(`🔄 [AUTH_CHANGE] ${event}`);
-
         if (session?.user) {
           setUser(session.user);
-
           if (event === 'SIGNED_IN') {
-            // ✅ FIX CRITIQUE: ne pas rappeler loadVendor si déjà chargé
             if (!initDoneRef.current) return;
             if (vendorLoadedRef.current) {
               console.log('[AUTH] Vendor déjà chargé, skip loadVendor');
@@ -112,6 +106,7 @@ export const AuthProvider = ({ children }) => {
     return () => subscription.unsubscribe();
   }, []);
 
+  /* ─── SIGN IN ─── */
   const signIn = async (email, password) => {
     const { data, error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
     if (error) {
@@ -119,10 +114,11 @@ export const AuthProvider = ({ children }) => {
         throw new Error('Email non confirmé — vérifiez vos emails.');
       throw new Error(error.message);
     }
-    vendorLoadedRef.current = false; // reset pour forcer le rechargement
+    vendorLoadedRef.current = false;
     return data;
   };
 
+  /* ─── SIGN UP VENDOR ─── */
   const signUp = async (email, password, vendorData) => {
     const { count, error: countError } = await supabase
       .from('vendors').select('*', { count: 'exact', head: true }).eq('is_active', true);
@@ -144,6 +140,20 @@ export const AuthProvider = ({ children }) => {
     return authData;
   };
 
+  /* ─── SIGN UP MEMBRE (client avec remise) ─── */
+  const signUpMember = async (email, password, displayName) => {
+    const { data: authData, error: authError } = await supabase.auth.signUp({
+      email,
+      password,
+      options: { data: { display_name: displayName } },
+    });
+    if (authError) throw new Error(authError.message);
+    if (!authData.user) throw new Error("Échec création du compte.");
+    // Pas d'insertion dans vendors → l'utilisateur est un membre normal
+    return authData;
+  };
+
+  /* ─── SIGN OUT ─── */
   const signOut = async () => {
     initDoneRef.current = false;
     vendorLoadedRef.current = false;
@@ -153,8 +163,36 @@ export const AuthProvider = ({ children }) => {
     localStorage.removeItem('sb-alrbokstfwwlvbvghrqr-auth-token');
   };
 
+  /* ─── UPDATE VENDOR FIELD (pour le toggle depuis Dashboard) ─── */
+  const updateVendorField = async (field, value) => {
+    if (!vendor?.id) return;
+    const { error } = await supabase
+      .from('vendors')
+      .update({ [field]: value })
+      .eq('id', vendor.id);
+    if (error) throw new Error(error.message);
+    setVendor(prev => ({ ...prev, [field]: value }));
+  };
+
+  /* ─── FLAGS dérivés ─── */
+  // isVendor : a un profil vendeur
+  const isVendor = !!vendor;
+  // isMember : connecté MAIS pas vendeur (compte client avec remise)
+  const isMember = !!user && !isVendor;
+
   return (
-    <AuthContext.Provider value={{ user, vendor, loading, signIn, signUp, signOut }}>
+    <AuthContext.Provider value={{
+      user,
+      vendor,
+      loading,
+      isVendor,
+      isMember,
+      signIn,
+      signUp,
+      signUpMember,
+      signOut,
+      updateVendorField,
+    }}>
       {children}
     </AuthContext.Provider>
   );

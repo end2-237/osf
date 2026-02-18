@@ -190,12 +190,11 @@ const Home = ({ openModal, addToCart }) => {
     async function getItems() {
       setLoading(true);
       try {
-        const { data, error } = await supabase
-          .from("products")
-          .select("*")
+        const { data: pData } = await supabase
+          .from('products')
+          .select('*, vendor:vendors!vendor_id(member_discount_enabled)')
           .order('created_at', { ascending: false });
-        if (error) throw error;
-        setProductsList(data || []);
+        setProductsList(pData || []);
       } catch (error) {
         console.error("Erreur:", error.message);
       } finally {

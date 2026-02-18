@@ -20,6 +20,15 @@ const ProductSkeleton = () => (
     </div>
   </div>
 );
+const VendorMemberBadge = ({ vendor }) => {
+  if (!vendor?.member_discount_enabled) return null;
+  return (
+    <div className="flex items-center gap-2 bg-primary/10 border border-primary/30 text-primary text-[9px] font-black px-3 py-1.5 rounded-full uppercase">
+      <i className="fa-solid fa-tag text-[8px]"></i>
+      <span>Remise −20% membres sur tout</span>
+    </div>
+  );
+};
 
 /* ── VENDOR PROFILE HEADER ── */
 const VendorHeader = ({ vendor, products, loading }) => {
@@ -93,6 +102,7 @@ const VendorHeader = ({ vendor, products, loading }) => {
                   <span><i className="fa-solid fa-tag mr-1.5 text-primary"></i>{categories.slice(0,2).join(' · ')}</span>
                 )}
               </div>
+              <VendorMemberBadge vendor={vendor} />
             </div>
 
             {/* STATS PILLS */}
@@ -190,12 +200,19 @@ const ShopPage = ({ openModal, addToCart }) => {
           .from('vendors').select('*').eq('shop_name', shopName).single();
         if (vError) throw vError;
         setVendor(vendorData);
-
+    
         const { data: pData, error: pError } = await supabase
           .from('products').select('*').eq('vendor_id', vendorData.id)
           .order('created_at', { ascending: false });
         if (pError) throw pError;
-        setProducts(pData || []);
+    
+        // ✅ Injecter le flag vendeur sur chaque produit
+        const productsWithVendorFlag = (pData || []).map(p => ({
+          ...p,
+          vendor_member_discount_enabled: vendorData.member_discount_enabled ?? false,
+        }));
+    
+        setProducts(productsWithVendorFlag);
       } catch (err) {
         console.error('Erreur boutique:', err.message);
       } finally {
@@ -257,6 +274,16 @@ const ShopPage = ({ openModal, addToCart }) => {
       </div>
     </div>
   );
+
+  const VendorMemberBadge = ({ vendor }) => {
+    if (!vendor?.member_discount_enabled) return null;
+    return (
+      <div className="flex items-center gap-2 bg-primary/10 border border-primary/30 text-primary text-[9px] font-black px-3 py-1.5 rounded-full uppercase">
+        <i className="fa-solid fa-tag text-[8px]"></i>
+        <span>Remise −25% membres sur tout</span>
+      </div>
+    );
+  };
 
   return (
     <div className="min-h-screen bg-black text-white">

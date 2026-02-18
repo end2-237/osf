@@ -36,7 +36,7 @@ const PROMO_BANNERS = [
     title: 'Sneakers',
     sub: 'Éditions limitées arrivées',
     color: '#f97316',
-    img: 'https://images.unsplash.com/photo-1552066344-24632e509633?q=80&w=600',
+    img: 'https://images.unsplash.com/photo-1549298916-f52d724204b4?q=80&w=1113&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
     bg: 'from-orange-50 to-white',
   },
   {
