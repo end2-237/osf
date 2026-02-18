@@ -96,7 +96,7 @@ const ProductCard = ({ product, openModal, addToCart }) => {
 
       {/* INFOS */}
       <div onClick={() => openModal(product)}>
-        <p className="text-[10px] md:text-[11px] font-black uppercase text-zinc-400 dark:text-zinc-500 tracking-widest truncate mb-0.5">
+        <p className="text-[6px] md:text-[8px] font-black underline-offset-2 underline decoration-primary uppercase text-zinc-600 dark:text-zinc-700 tracking-widest truncate mb-0.5">
           {product.type}
         </p>
         <h3 className="font-black italic uppercase text-[10px] md:text-[11px] tracking-tighter text-zinc-900 dark:text-white leading-tight truncate">
