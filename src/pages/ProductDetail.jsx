@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useParams, useNavigate, Link, useLocation } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import ProductCard from "../components/ProductCard";
@@ -27,12 +27,20 @@ const ImageGallery = ({ product }) => {
   const [activeImg, setActiveImg] = useState(0);
   const [zoomed, setZoomed] = useState(false);
 
-  const images = [
-    product?.img,
-    `https://images.unsplash.com/photo-1505740420928-5e560c06d30e?q=80&w=800`,
-    `https://images.unsplash.com/photo-1546435770-a3e426bf472b?q=80&w=800`,
-    `https://images.unsplash.com/photo-1590658268037-6bf12165a8df?q=80&w=800`,
-  ].filter(Boolean);
+  // LOGIQUE : Priorité au tableau 'images', sinon l'image 'img', sinon rien.
+  // On filtre les images statiques Unsplash pour ne garder que les vraies données.
+  const images = React.useMemo(() => {
+    if (product?.images && Array.isArray(product.images) && product.images.length > 0) {
+      return product.images;
+    }
+    return product?.img ? [product.img] : [];
+  }, [product]);
+
+  if (images.length === 0) return (
+    <div className="aspect-square bg-zinc-100 rounded-3xl flex items-center justify-center border border-zinc-200">
+      <i className="fa-solid fa-image text-zinc-300 text-4xl"></i>
+    </div>
+  );
 
   return (
     <div className="flex flex-col gap-4">
@@ -64,32 +72,34 @@ const ImageGallery = ({ product }) => {
           <i className="fa-solid fa-magnifying-glass-plus mr-1"></i>ZOOM
         </div>
         {/* AUTHENTICITY BADGE */}
-        <div className="absolute top-4 right-4 bg-white/90 backdrop-blur-md border border-primary/30 rounded-xl px-3 py-2 z-10 shadow-sm">
-          <p className="text-primary text-[7px] font-black uppercase tracking-widest">
+        <div className="absolute top-4 right-4 bg-white/90 backdrop-blur-md border border-primary/30 rounded-xl px-3 py-2 z-10 shadow-sm text-center">
+          <p className="text-primary text-[7px] font-black uppercase tracking-widest leading-none mb-1">
             OneFreestyle
           </p>
-          <p className="text-zinc-700 text-[7px] font-black uppercase">
+          <p className="text-zinc-700 text-[7px] font-black uppercase leading-none">
             Authentic ✓
           </p>
         </div>
       </div>
 
-      {/* THUMBNAILS */}
-      <div className="grid grid-cols-4 gap-2">
-        {images.map((img, i) => (
-          <button
-            key={i}
-            onClick={() => setActiveImg(i)}
-            className={`aspect-square rounded-xl overflow-hidden border-2 transition-all ${
-              activeImg === i
-                ? "border-primary shadow-[0_0_12px_rgba(0,255,136,0.25)]"
-                : "border-zinc-200 hover:border-zinc-300"
-            }`}
-          >
-            <img src={img} alt="" className="w-full h-full object-cover" />
-          </button>
-        ))}
-      </div>
+      {/* THUMBNAILS - S'affichent seulement si + de 1 image */}
+      {images.length > 1 && (
+        <div className="grid grid-cols-4 gap-2">
+          {images.map((img, i) => (
+            <button
+              key={i}
+              onClick={() => setActiveImg(i)}
+              className={`aspect-square rounded-xl overflow-hidden border-2 transition-all ${
+                activeImg === i
+                  ? "border-primary shadow-[0_0_12px_rgba(0,255,136,0.25)]"
+                  : "border-zinc-200 hover:border-zinc-300"
+              }`}
+            >
+              <img src={img} alt="" className="w-full h-full object-cover" />
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 };
@@ -119,17 +129,21 @@ const RelatedProducts = ({ currentProduct, openModal, addToCart }) => {
 
   useEffect(() => {
     if (!currentProduct?.type) return;
-    supabase
-      .from("products")
-      .select(
-        "*, vendor:vendors!vendor_id(member_discount_enabled, shop_name, full_name)"
-      )
-      .eq("id", currentProduct.id)
-      .single()
-      .then(({ data, error }) => {
-        if (!error && data) setProduct(data);
-        setLoading(false);
-      });
+    
+    const fetchRelated = async () => {
+      const { data, error } = await supabase
+        .from("products")
+        .select("*, vendor:vendors!vendor_id(member_discount_enabled, shop_name, full_name)")
+        .eq("type", currentProduct.type)
+        .neq("id", currentProduct.id) // Éviter d'afficher le produit actuel
+        .limit(6);
+
+      if (!error && data) {
+        setRelated(data); // Correction : on utilise setRelated ici
+      }
+    };
+
+    fetchRelated();
   }, [currentProduct]);
 
   if (!related.length) return null;

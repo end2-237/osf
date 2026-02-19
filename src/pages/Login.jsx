@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import ofsLogo from '../assets/ofs.png'; 
+import { supabase } from '../lib/supabase';
 
 const Icons = {
   Key: () => <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" /></svg>,
@@ -21,18 +22,33 @@ const Login = () => {
     setError('');
     setLoading(true);
     try {
-      // Connexion initiale
-      const { user } = await signIn(email.trim(), password);
+      // 1. Connexion via Supabase Auth
+      const { data: authData, error: signInError } = await supabase.auth.signInWithPassword({
+        email: email.trim(),
+        password,
+      });
 
-      // Redirection conditionnelle basée sur les métadonnées ou le rôle
-      // On vérifie si l'utilisateur a un 'vendor_id' ou le rôle 'vendor' dans ses métadonnées
-      if (user?.user_metadata?.role === 'vendor' || user?.user_metadata?.vendor_id) {
+      if (signInError) throw signInError;
+      const user = authData.user;
+
+      // 2. Vérification forcée dans la table vendors
+      // On vérifie si l'ID de l'utilisateur ou son email existe dans la table vendors
+      const { data: vendorData, error: vendorError } = await supabase
+        .from('vendors')
+        .select('id, email')
+        .or(`id.eq.${user.id},email.eq.${user.email}`) // Double vérification ID ou Email
+        .maybeSingle();
+
+      // 3. Redirection intelligente
+      // Si on trouve une correspondance dans 'vendors' OU si le metadata dit 'vendor'
+      if (vendorData || user?.user_metadata?.role === 'vendor') {
         navigate('/admin');
       } else {
         navigate('/');
       }
     } catch (err) {
-      setError(err.message);
+      console.error("Login Error:", err);
+      setError("Identifiants invalides ou accès refusé.");
     } finally {
       setLoading(false);
     }
