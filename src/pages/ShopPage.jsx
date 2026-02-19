@@ -196,23 +196,31 @@ const ShopPage = ({ openModal, addToCart }) => {
     const fetchShopData = async () => {
       setLoading(true);
       try {
-        const { data: vendorData, error: vError } = await supabase
-          .from('vendors').select('*').eq('shop_name', shopName).single();
+        const decoded = decodeURIComponent(shopName).trim();
+    
+        const { data: allVendors, error: vError } = await supabase
+          .from('vendors')
+          .select('*');
+    
         if (vError) throw vError;
+    
+        const vendorData = allVendors?.find(
+          v => v.shop_name.trim().toLowerCase() === decoded.toLowerCase()
+        );
+    
+        if (!vendorData) throw new Error('Boutique introuvable');
+    
         setVendor(vendorData);
     
         const { data: pData, error: pError } = await supabase
-          .from('products').select('*').eq('vendor_id', vendorData.id)
+          .from('products')
+          .select('*')
+          .eq('vendor_id', vendorData.id)
           .order('created_at', { ascending: false });
+    
         if (pError) throw pError;
+        setProducts(pData || []);
     
-        // ✅ Injecter le flag vendeur sur chaque produit
-        const productsWithVendorFlag = (pData || []).map(p => ({
-          ...p,
-          vendor_member_discount_enabled: vendorData.member_discount_enabled ?? false,
-        }));
-    
-        setProducts(productsWithVendorFlag);
       } catch (err) {
         console.error('Erreur boutique:', err.message);
       } finally {
