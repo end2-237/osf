@@ -286,7 +286,7 @@ const CartSidebar = ({ isOpen, cart, removeFromCart, updateQuantity, toggleCart,
                 Vous économisez {Math.round(memberSavingsAmount + bundleAmount).toLocaleString()} FCFA
               </p>
               <p className="text-[8px] text-zinc-400 font-bold uppercase mt-0.5">
-                Remise membre −25%{hasBundle && ' + bundle −15%'}
+                Remise membre −20%{hasBundle && ' + bundle −15%'}
               </p>
             </div>
           </div>
@@ -437,7 +437,7 @@ const CartSidebar = ({ isOpen, cart, removeFromCart, updateQuantity, toggleCart,
                 {/* Ligne remise membre */}
                 {hasMemberSavings && (
                   <div className="flex justify-between items-center">
-                    <span className="text-[8px] font-black uppercase text-primary tracking-widest">Remise membre −25%</span>
+                    <span className="text-[8px] font-black uppercase text-primary tracking-widest">Remise membre −20%</span>
                     <span className="text-[9px] font-black text-primary">−{memberSavingsAmount.toLocaleString()} FCFA</span>
                   </div>
                 )}

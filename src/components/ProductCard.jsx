@@ -19,17 +19,19 @@ const ProductCard = ({ product, openModal, addToCart }) => {
     ? Math.round(originalPrice * (1 - MEMBER_DISCOUNT))
     : originalPrice;
 
-  const handleQuickBuy = (e) => {
-    e.stopPropagation();
-    addToCart({
-      ...product,
-      price: memberPrice,
-      vendor_member_discount_enabled: vendorHasPromo,
-      selectedSize: product.type === "Shoes" ? "42" : "M",
-      selectedColor: "Black",
-      quantity: 1,
-    });
-  };
+    const handleQuickBuy = (e) => {
+      e.stopPropagation();
+      addToCart({
+        ...product,
+        // ESSENTIEL : On envoie originalPrice, PAS le prix remisé
+        price: originalPrice, 
+        // On passe l'info de la promo pour que le panier sache s'il doit l'appliquer
+        vendor_member_discount_enabled: vendorHasPromo,
+        selectedSize: product.type === "Shoes" ? "42" : "M",
+        selectedColor: "Black",
+        quantity: 1,
+      });
+    };
 
   return (
     <div className="product-card group relative cursor-pointer hover:z-10">
