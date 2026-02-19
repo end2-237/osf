@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
@@ -30,6 +30,24 @@ const CartSidebar = ({ isOpen, cart, removeFromCart, updateQuantity, toggleCart,
   const [showToast, setShowToast] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [paymentRefs, setPaymentRefs] = useState({}); // { vendorId: 'ref' }
+  const [cartVendors, setCartVendors] = useState({}); // { vendorId: { name, phone, address } }
+
+  const vendorIds = [...new Set(cart.map(item => item.vendor_id || 'no_vendor'))].filter(id => id !== 'no_vendor');
+  const isMultiVendor = vendorIds.length > 1;
+
+  useEffect(() => {
+    if (step !== 'payment' || vendorIds.length === 0) return;
+    const fetchVendors = async () => {
+      const { data } = await supabase.from('vendors').select('id, phone, shop_name').in('id', vendorIds);
+      if (data) {
+        const map = {};
+        data.forEach(v => { map[v.id] = v; });
+        setCartVendors(map);
+      }
+    };
+    fetchVendors();
+  }, [step]);
 
   // ─── CALCUL DES TOTAUX ────────────────────────────────────────────────────────
   // Total brut sans aucune remise
@@ -78,9 +96,13 @@ const CartSidebar = ({ isOpen, cart, removeFromCart, updateQuantity, toggleCart,
         setError('Veuillez choisir un mode de paiement');
         return;
       }
-      if (paymentMethod === 'orange_money' && !paymentReference) {
-        setError('Veuillez saisir la référence de transaction Orange Money');
-        return;
+      if (paymentMethod === 'orange_money') {
+        const allProvided = [...vendorIds, ...(cart.some(i => !i.vendor_id) ? ['no_vendor'] : [])]
+          .every(id => (paymentRefs[id] || '').trim().length > 0);
+        if (!allProvided) {
+          setError(isMultiVendor ? 'Saisissez la référence pour chaque boutique' : 'Saisissez la référence OM');
+          return;
+        }
       }
       await createOrder();
     }
@@ -120,7 +142,7 @@ const CartSidebar = ({ isOpen, cart, removeFromCart, updateQuantity, toggleCart,
             client_address: info.address,
             total_amount: vendorFinal,
             payment_method: paymentMethod,
-            payment_reference: paymentReference || null,
+            payment_reference: paymentRefs[vId] || null,
             status: 'pending',
             vendor_id: vId === 'no_vendor' ? null : vId,
             member_discount_applied: isMember && hasMemberSavings,
@@ -179,6 +201,8 @@ const CartSidebar = ({ isOpen, cart, removeFromCart, updateQuantity, toggleCart,
         setPaymentReference('');
         clearCart();
         toggleCart();
+        setPaymentRefs({});
+        setCartVendors({});
       }, 3000);
 
     } catch (err) {
@@ -187,6 +211,12 @@ const CartSidebar = ({ isOpen, cart, removeFromCart, updateQuantity, toggleCart,
     } finally {
       setLoading(false);
     }
+  };
+
+  const getVendorAmount = (vId) => {
+    const vItems = cart.filter(i => (i.vendor_id || 'no_vendor') === vId);
+    const sub = vItems.reduce((s, i) => s + getUnitPrice(i, isMember) * i.quantity, 0);
+    return hasBundle ? Math.round(sub * (1 - BUNDLE_DISCOUNT)) : sub;
   };
 
   return (
@@ -359,16 +389,25 @@ const CartSidebar = ({ isOpen, cart, removeFromCart, updateQuantity, toggleCart,
               </button>
 
               {paymentMethod === 'orange_money' && (
-                <div className="bg-zinc-900/50 p-6 rounded-xl border border-zinc-800 space-y-4">
-                  <p className="text-[9px] font-bold text-zinc-400 uppercase">
-                    1. Composez #150*50# <br />
-                    2. Montant : <span className="text-primary font-black">{Math.round(finalTotal).toLocaleString()} FCFA</span><br />
-                    3. Envoyez au : <span className="text-primary font-black">+237 6XX XXX XXX</span><br />
-                    4. Copiez la référence ci-dessous
-                  </p>
-                  <input type="text" placeholder="Ex: OM-123456789" value={paymentReference}
-                    onChange={(e) => setPaymentReference(e.target.value)}
-                    className="w-full bg-black border border-zinc-700 p-4 text-xs font-bold focus:border-primary outline-none rounded-lg dark:text-white" />
+                <div className="space-y-3">
+                  {[...vendorIds, ...(cart.some(i => !i.vendor_id) ? ['no_vendor'] : [])].map(vId => {
+                    const infoV = cartVendors[vId];
+                    const amt = getVendorAmount(vId);
+                    return (
+                      <div key={vId} className="bg-zinc-900/50 p-4 rounded-xl border border-zinc-800 space-y-2">
+                        <div className="flex justify-between text-[10px] font-black uppercase text-primary">
+                          <span>{infoV?.shop_name || 'Boutique'}</span>
+                          <span>{amt.toLocaleString()} FCFA</span>
+                        </div>
+                        <p className="text-[9px] text-zinc-400 font-bold">
+                          Composez <span className="text-white">#150*50#</span> vers <span className="text-white">{infoV?.phone || '...'}</span>
+                        </p>
+                        <input type="text" placeholder="Référence OM" value={paymentRefs[vId] || ''}
+                          onChange={e => setPaymentRefs(prev => ({ ...prev, [vId]: e.target.value }))}
+                          className="w-full bg-black border border-zinc-700 p-3 text-xs font-bold focus:border-primary outline-none rounded-lg dark:text-white" />
+                      </div>
+                    );
+                  })}
                 </div>
               )}
 
