@@ -1,3 +1,9 @@
+# Supabase
+supabase/.temp/
+supabase/migrations/
+# Note: On ignore généralement les migrations si on veut gérer le schéma 
+# uniquement via le dashboard ou si on veut éviter les conflits en équipe.
+
 # Logs
 logs
 *.log
@@ -7,10 +13,18 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
+# Dependencies
 node_modules
 dist
 dist-ssr
 *.local
+
+# Environment variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
 
 # Editor directories and files
 .vscode/*
