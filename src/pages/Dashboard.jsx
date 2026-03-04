@@ -343,11 +343,12 @@ const Dashboard = () => {
     status: "In Stock",
     features: "",
     description: "",
-    moreImages: ["", "", ""], // Liens URLs
+    colors: ["Black", "White"],
+    moreImages: ["", "", ""],
   };
   const [imageFiles, setImageFiles] = useState([]); // Pour stocker les fichiers binaires
   const [previews, setPreviews] = useState([]);
-  
+
   const [newProduct, setNewProduct] = useState(EMPTY_PRODUCT);
   const [formStep, setFormStep] = useState(1);
 
@@ -476,7 +477,7 @@ const Dashboard = () => {
     try {
       // 1. Upload de TOUS les fichiers vers Supabase Storage
       const uploadedUrls = [];
-      
+
       if (imageFiles.length > 0) {
         for (const file of imageFiles) {
           // On utilise votre fonction uploadProductImage existante
@@ -486,13 +487,20 @@ const Dashboard = () => {
       }
 
       // 2. Récupération des URLs manuelles (si vous en avez mis au Step 2)
-      const manualUrls = newProduct.moreImages ? newProduct.moreImages.filter(url => url.trim() !== "") : [];
+      const manualUrls = newProduct.moreImages
+        ? newProduct.moreImages.filter((url) => url.trim() !== "")
+        : [];
 
       // 3. Fusionner tout dans le tableau final
       const allImages = [...uploadedUrls, ...manualUrls];
 
       // 4. Préparation des features
-      const features = newProduct.features ? newProduct.features.split(",").map(f => f.trim()).filter(Boolean) : [];
+      const features = newProduct.features
+        ? newProduct.features
+            .split(",")
+            .map((f) => f.trim())
+            .filter(Boolean)
+        : [];
 
       // 5. Insertion en base de données
       const { data, error } = await supabase
@@ -506,6 +514,11 @@ const Dashboard = () => {
           images: allImages, // Le nouveau tableau pour la galerie
           features,
           vendor_id: vendor.id,
+          description: newProduct.description || null,
+          colors:
+            newProduct.colors?.length > 0
+              ? newProduct.colors
+              : ["Black", "White"],
         })
         .select();
 
@@ -520,7 +533,6 @@ const Dashboard = () => {
       setFormStep(1);
       await fetchProducts();
       showToast("Produit publié !", "La galerie est prête.");
-      
     } catch (err) {
       showToast("Erreur", err.message, "error");
     } finally {
@@ -1073,8 +1085,6 @@ const Dashboard = () => {
                       </div>
                     </div>
                   )}
-
-                  {/* STEP 2 — DETAILS */}
                   {/* STEP 2 — DETAILS */}
 
                   {formStep === 2 && (
@@ -1116,6 +1126,89 @@ const Dashboard = () => {
                               ))}
                           </div>
                         )}
+                      </div>
+
+                      {/* DESCRIPTION */}
+                      <div>
+                        <label className="text-[9px] font-black uppercase text-zinc-400 mb-2 block tracking-widest">
+                          Description
+                        </label>
+                        <textarea
+                          value={newProduct.description}
+                          onChange={(e) =>
+                            setNewProduct({
+                              ...newProduct,
+                              description: e.target.value,
+                            })
+                          }
+                          placeholder="Décrivez votre produit en quelques phrases..."
+                          rows={3}
+                          className="w-full bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl px-4 py-3 text-sm font-bold text-zinc-900 dark:text-white placeholder-zinc-400 outline-none focus:border-primary transition-colors resize-none"
+                        />
+                      </div>
+
+                      {/* COULEURS */}
+                      <div>
+                        <label className="text-[9px] font-black uppercase text-zinc-400 mb-2 block tracking-widest">
+                          Couleurs disponibles
+                        </label>
+                        <div className="flex flex-wrap gap-2">
+                          {[
+                            { name: "Black", hex: "#111111" },
+                            { name: "White", hex: "#f5f5f5" },
+                            { name: "Neon", hex: "#00ff88" },
+                            { name: "Red", hex: "#ef4444" },
+                            { name: "Blue", hex: "#3b82f6" },
+                            { name: "Navy", hex: "#1e3a5f" },
+                            { name: "Sky", hex: "#38bdf8" },
+                            { name: "Slate", hex: "#64748b" },
+                            { name: "Gray", hex: "#9ca3af" },
+                            { name: "Brown", hex: "#92400e" },
+                            { name: "Beige", hex: "#d4b896" },
+                            { name: "Camel", hex: "#c19a6b" },
+                            { name: "Green", hex: "#16a34a" },
+                            { name: "Olive", hex: "#65a30d" },
+                            { name: "Yellow", hex: "#facc15" },
+                            { name: "Orange", hex: "#f97316" },
+                            { name: "Pink", hex: "#ec4899" },
+                            { name: "Purple", hex: "#a855f7" },
+                            { name: "Burgundy", hex: "#7f1d1d" },
+                            { name: "Gold", hex: "#d97706" },
+                            { name: "Silver", hex: "#c0c0c0" },
+                            { name: "Khaki", hex: "#c3b091" },
+                            { name: "Teal", hex: "#0d9488" },
+                            { name: "Coral", hex: "#fb7185" },
+                          ].map((c) => {
+                            const selected = newProduct.colors.includes(c.name);
+                            return (
+                              <button
+                                key={c.name}
+                                type="button"
+                                onClick={() =>
+                                  setNewProduct({
+                                    ...newProduct,
+                                    colors: selected
+                                      ? newProduct.colors.filter(
+                                          (x) => x !== c.name
+                                        )
+                                      : [...newProduct.colors, c.name],
+                                  })
+                                }
+                                className={`flex items-center gap-2 px-3 py-2 rounded-xl text-[10px] font-black border-2 transition-all ${
+                                  selected
+                                    ? "border-primary bg-primary/10 text-primary"
+                                    : "border-zinc-200 dark:border-zinc-700 text-zinc-500 hover:border-zinc-300"
+                                }`}
+                              >
+                                <span
+                                  className="w-4 h-4 rounded-full border border-zinc-300 flex-shrink-0"
+                                  style={{ backgroundColor: c.hex }}
+                                />
+                                {c.name}
+                              </button>
+                            );
+                          })}
+                        </div>
                       </div>
 
                       {/* PREVIEW CARD */}

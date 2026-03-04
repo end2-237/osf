@@ -31,17 +31,22 @@ const ImageGallery = ({ product }) => {
   // LOGIQUE : Priorité au tableau 'images', sinon l'image 'img', sinon rien.
   // On filtre les images statiques Unsplash pour ne garder que les vraies données.
   const images = React.useMemo(() => {
-    if (product?.images && Array.isArray(product.images) && product.images.length > 0) {
+    if (
+      product?.images &&
+      Array.isArray(product.images) &&
+      product.images.length > 0
+    ) {
       return product.images;
     }
     return product?.img ? [product.img] : [];
   }, [product]);
 
-  if (images.length === 0) return (
-    <div className="aspect-square bg-zinc-100 rounded-3xl flex items-center justify-center border border-zinc-200">
-      <i className="fa-solid fa-image text-zinc-300 text-4xl"></i>
-    </div>
-  );
+  if (images.length === 0)
+    return (
+      <div className="aspect-square bg-zinc-100 rounded-3xl flex items-center justify-center border border-zinc-200">
+        <i className="fa-solid fa-image text-zinc-300 text-4xl"></i>
+      </div>
+    );
 
   return (
     <div className="flex flex-col gap-4">
@@ -130,11 +135,13 @@ const RelatedProducts = ({ currentProduct, openModal, addToCart }) => {
 
   useEffect(() => {
     if (!currentProduct?.type) return;
-    
+
     const fetchRelated = async () => {
       const { data, error } = await supabase
         .from("products")
-        .select("*, vendor:vendors!vendor_id(member_discount_enabled, shop_name, full_name)")
+        .select(
+          "*, vendor:vendors!vendor_id(member_discount_enabled, shop_name, full_name)"
+        )
         .eq("type", currentProduct.type)
         .neq("id", currentProduct.id) // Éviter d'afficher le produit actuel
         .limit(6);
@@ -259,6 +266,24 @@ const ProductDetail = ({ addToCart, openModal }) => {
   const isApparel = product?.type === "Clothing";
   const isShoes = product?.type === "Shoes";
 
+  const COLOR_MAP = {
+    Black: "#111111", White: "#f5f5f5", Neon: "#00ff88",
+    Red: "#ef4444", Blue: "#3b82f6", Navy: "#1e3a5f",
+    Sky: "#38bdf8", Slate: "#64748b", Gray: "#9ca3af",
+    Brown: "#92400e", Beige: "#d4b896", Camel: "#c19a6b",
+    Green: "#16a34a", Olive: "#65a30d", Yellow: "#facc15",
+    Orange: "#f97316", Pink: "#ec4899", Purple: "#a855f7",
+    Burgundy: "#7f1d1d", Gold: "#d97706", Silver: "#c0c0c0",
+    Khaki: "#c3b091", Teal: "#0d9488", Coral: "#fb7185",
+  };
+  const productColors = product?.colors?.length
+    ? product.colors.map((name) => ({ name, hex: COLOR_MAP[name] ?? "#888" }))
+    : [
+        { name: "Black", hex: "#111" },
+        { name: "White", hex: "#f5f5f5" },
+        { name: "Neon", hex: "#00ff88" },
+      ];
+
   return (
     <div className="min-h-screen bg-zinc-50 text-zinc-900 pt-[120px] pb-20">
       {/* SHARE TOAST */}
@@ -367,12 +392,7 @@ const ProductDetail = ({ addToCart, openModal }) => {
                     Couleur — <span className="text-zinc-900">{color}</span>
                   </p>
                   <div className="flex gap-3">
-                    {[
-                      { name: "Black", hex: "#111" },
-                      { name: "White", hex: "#f5f5f5" },
-                      { name: "Neon", hex: "#00ff88" },
-                      { name: "Slate", hex: "#64748b" },
-                    ].map((c) => (
+                    {productColors.map((c) => (
                       <button
                         key={c.name}
                         onClick={() => setColor(c.name)}
@@ -611,19 +631,26 @@ const ProductDetail = ({ addToCart, openModal }) => {
               {activeTab === "description" && (
                 <div className="max-w-2xl space-y-4">
                   <p className="text-zinc-600 leading-relaxed font-bold text-sm">
-                    <span className="text-primary font-black italic">
-                      {product.name}
-                    </span>{" "}
-                    est une pièce sélectionnée par les experts OneFreestyle
-                    Elite — conçue pour ceux qui refusent la médiocrité et ne
-                    jurent que par l'excellence.
+                    {product.description ? (
+                      product.description
+                    ) : (
+                      <>
+                        <span className="text-primary font-black italic">
+                          {product.name}
+                        </span>{" "}
+                        est une pièce sélectionnée par les experts OneFreestyle
+                        Elite — conçue pour ceux qui refusent la médiocrité et
+                        ne jurent que par l'excellence.
+                      </>
+                    )}
                   </p>
-                  <p className="text-zinc-500 leading-relaxed text-sm font-bold">
-                    Chaque produit de notre catalogue est soigneusement vérifié
-                    et certifié avant d'intégrer la marketplace. Livraison
-                    express à Douala, paiement sécurisé via Orange Money ou cash
-                    à la livraison.
-                  </p>
+                  {!product.description && (
+                    <p className="text-zinc-500 leading-relaxed text-sm font-bold">
+                      Chaque produit est soigneusement vérifié et certifié avant
+                      d'intégrer la marketplace. Livraison express à Douala,
+                      paiement sécurisé via Orange Money ou cash à la livraison.
+                    </p>
+                  )}
                   <div className="grid grid-cols-2 gap-3 pt-4">
                     {[
                       { label: "Type", value: product.type },
