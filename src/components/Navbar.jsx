@@ -263,6 +263,14 @@ const Navbar = ({
                 }
               ></i>
             </button>
+            {user && (
+  <Link
+    to="/wishlist"
+    className="relative w-8 h-8 md:w-9 md:h-9 flex items-center justify-center rounded-xl bg-white/5 border border-white/10 hover:border-red-400/50 transition-all"
+  >
+    <i className="fa-regular fa-heart text-sm text-white hover:text-red-400 transition-colors"></i>
+  </Link>
+)}
 
             {/* Cart */}
             <button
@@ -561,6 +569,12 @@ const Navbar = ({
                 to: "/studio",
                 icon: "fa-wand-magic-sparkles",
                 label: "Studio Lab",
+                accent: true,
+              },
+              {
+                to: "/wishlist",
+                icon: "fa-heart",
+                label: "Wishlist",
                 accent: true,
               },
             ].map((link) => (

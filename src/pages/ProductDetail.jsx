@@ -3,6 +3,8 @@ import { useParams, useNavigate, Link, useLocation } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import ProductCard from "../components/ProductCard";
 import ReviewsSection from "../components/ReviewsSection";
+import { useWishlist } from "../hooks/useWishlist";
+import { useAuth } from "../context/AuthContext";
 
 /* ── BREADCRUMB ── */
 const Breadcrumb = ({ product }) => (
@@ -201,7 +203,9 @@ const ProductDetail = ({ addToCart, openModal }) => {
   const [qty, setQty] = useState(1);
   const [addedFeedback, setAddedFeedback] = useState(false);
   const [activeTab, setActiveTab] = useState("specs");
-  const [wishlist, setWishlist] = useState(false);
+  const { user } = useAuth();
+  const { isInWishlist, toggle: toggleWishlist } = useWishlist();
+  const wishlist = isInWishlist(product?.id);
   const [shareToast, setShareToast] = useState(false);
 
   useEffect(() => {
@@ -267,14 +271,30 @@ const ProductDetail = ({ addToCart, openModal }) => {
   const isShoes = product?.type === "Shoes";
 
   const COLOR_MAP = {
-    Black: "#111111", White: "#f5f5f5", Neon: "#00ff88",
-    Red: "#ef4444", Blue: "#3b82f6", Navy: "#1e3a5f",
-    Sky: "#38bdf8", Slate: "#64748b", Gray: "#9ca3af",
-    Brown: "#92400e", Beige: "#d4b896", Camel: "#c19a6b",
-    Green: "#16a34a", Olive: "#65a30d", Yellow: "#facc15",
-    Orange: "#f97316", Pink: "#ec4899", Purple: "#a855f7",
-    Burgundy: "#7f1d1d", Gold: "#d97706", Silver: "#c0c0c0",
-    Khaki: "#c3b091", Teal: "#0d9488", Coral: "#fb7185",
+    Black: "#111111",
+    White: "#f5f5f5",
+    Neon: "#00ff88",
+    Red: "#ef4444",
+    Blue: "#3b82f6",
+    Navy: "#1e3a5f",
+    Sky: "#38bdf8",
+    Slate: "#64748b",
+    Gray: "#9ca3af",
+    Brown: "#92400e",
+    Beige: "#d4b896",
+    Camel: "#c19a6b",
+    Green: "#16a34a",
+    Olive: "#65a30d",
+    Yellow: "#facc15",
+    Orange: "#f97316",
+    Pink: "#ec4899",
+    Purple: "#a855f7",
+    Burgundy: "#7f1d1d",
+    Gold: "#d97706",
+    Silver: "#c0c0c0",
+    Khaki: "#c3b091",
+    Teal: "#0d9488",
+    Coral: "#fb7185",
   };
   const productColors = product?.colors?.length
     ? product.colors.map((name) => ({ name, hex: COLOR_MAP[name] ?? "#888" }))
@@ -502,7 +522,10 @@ const ProductDetail = ({ addToCart, openModal }) => {
                       Personnaliser
                     </Link>
                     <button
-                      onClick={() => setWishlist(!wishlist)}
+                      onClick={async () => {
+                        if (!user) { navigate('/login'); return; }
+                        await toggleWishlist(product);
+                      }}
                       className={`py-4 rounded-2xl border font-black text-[10px] tracking-wider transition-all flex items-center justify-center gap-2 shadow-sm ${
                         wishlist
                           ? "bg-red-50 border-red-200 text-red-400"

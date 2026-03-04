@@ -19,6 +19,7 @@ import Register from './pages/Register';
 import ShopPage from './pages/ShopPage.jsx';
 import ProductDetail from './pages/ProductDetail.jsx';
 import PrivateRoute from './routes/PrivateRoute';
+import WishlistPage from './pages/WishlistPage.jsx';
 
 function AppContent() {
   const { vendor } = useAuth();
@@ -106,6 +107,7 @@ function AppContent() {
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route path="/shop/:shopName" element={<ShopPage openModal={openModal} addToCart={addToCart} />} />
+          <Route path="/wishlist" element={<WishlistPage openModal={openModal} addToCart={addToCart} />} />
           <Route
             path="/product/:productId"
             element={<ProductDetail addToCart={addToCart} openModal={openModal} />}

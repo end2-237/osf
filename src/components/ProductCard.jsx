@@ -1,10 +1,15 @@
 import React from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import { useWishlist } from "../hooks/useWishlist";
+import { useNavigate } from "react-router-dom";
 
-const MEMBER_DISCOUNT = 0.20;
+const MEMBER_DISCOUNT = 0.2;
 
 const ProductCard = ({ product, openModal, addToCart }) => {
+  const navigate = useNavigate();
+  const { isInWishlist, toggle: toggleWishlist } = useWishlist();
+  const inWishlist = isInWishlist(product.id);
   const { user, isMember } = useAuth();
 
   const originalPrice = Number(product.price) || 0;
@@ -19,23 +24,22 @@ const ProductCard = ({ product, openModal, addToCart }) => {
     ? Math.round(originalPrice * (1 - MEMBER_DISCOUNT))
     : originalPrice;
 
-    const handleQuickBuy = (e) => {
-      e.stopPropagation();
-      addToCart({
-        ...product,
-        // ESSENTIEL : On envoie originalPrice, PAS le prix remisé
-        price: originalPrice, 
-        // On passe l'info de la promo pour que le panier sache s'il doit l'appliquer
-        vendor_member_discount_enabled: vendorHasPromo,
-        selectedSize: product.type === "Shoes" ? "42" : "M",
-        selectedColor: "Black",
-        quantity: 1,
-      });
-    };
+  const handleQuickBuy = (e) => {
+    e.stopPropagation();
+    addToCart({
+      ...product,
+      // ESSENTIEL : On envoie originalPrice, PAS le prix remisé
+      price: originalPrice,
+      // On passe l'info de la promo pour que le panier sache s'il doit l'appliquer
+      vendor_member_discount_enabled: vendorHasPromo,
+      selectedSize: product.type === "Shoes" ? "42" : "M",
+      selectedColor: "Black",
+      quantity: 1,
+    });
+  };
 
   return (
     <div className="product-card group relative cursor-pointer hover:z-10">
-
       {/* IMAGE */}
       <div
         className="aspect-[3/4] overflow-hidden bg-zinc-100 dark:bg-zinc-900 rounded-[1.5rem] md:rounded-[2rem] mb-3 relative shadow-xl"
@@ -48,11 +52,13 @@ const ProductCard = ({ product, openModal, addToCart }) => {
 
         {/* BADGE PROMO */}
         {vendorHasPromo && (
-          <span className={`absolute top-3 right-3 z-10 px-2 py-0.5 text-[7px] md:text-[8px] font-black uppercase tracking-widest ${
-            isMember
-              ? "bg-primary text-black"
-              : "bg-black/70 text-primary border border-primary/40"
-          }`}>
+          <span
+            className={`absolute top-3 right-3 z-10 px-2 py-0.5 text-[7px] md:text-[8px] font-black uppercase tracking-widest ${
+              isMember
+                ? "bg-primary text-black"
+                : "bg-black/70 text-primary border border-primary/40"
+            }`}
+          >
             {isMember ? "−20% toi" : "−20% membres"}
           </span>
         )}
@@ -75,6 +81,27 @@ const ProductCard = ({ product, openModal, addToCart }) => {
             Personalize
           </Link>
           <button
+            onClick={async (e) => {
+              e.stopPropagation();
+              if (!user) {
+                navigate("/login");
+                return;
+              }
+              await toggleWishlist(product);
+            }}
+            className={`absolute top-3 right-3 w-8 h-8 rounded-full flex items-center justify-center transition-all z-20 ${
+              inWishlist
+                ? "bg-red-500 text-white"
+                : "bg-black/50 text-white hover:bg-red-500"
+            }`}
+          >
+            <i
+              className={`fa-${
+                inWishlist ? "solid" : "regular"
+              } fa-heart text-xs`}
+            ></i>
+          </button>
+          <button
             onClick={handleQuickBuy}
             className="bg-primary text-black w-full py-2.5 md:py-3 font-black uppercase text-[8px] md:text-[9px] shadow-lg active:scale-95 transition"
           >
@@ -90,7 +117,11 @@ const ProductCard = ({ product, openModal, addToCart }) => {
               onClick={(e) => e.stopPropagation()}
               className=" border-[1px] rounded-none border-primary/40 px-2 py-0.5 text-center text-[6px] font-black uppercase text-primary/80 hover:text-primary transition"
             >
-              Prix membre : {Math.round(originalPrice * (1 - MEMBER_DISCOUNT)).toLocaleString()} F
+              Prix membre :{" "}
+              {Math.round(
+                originalPrice * (1 - MEMBER_DISCOUNT)
+              ).toLocaleString()}{" "}
+              F
             </Link>
           )}
         </div>
@@ -128,14 +159,16 @@ const ProductCard = ({ product, openModal, addToCart }) => {
                   className="border-[1px] rounded-none border-primary/40 px-2 py-0.5 text-center text-[10px] font-black uppercase text-primary/80 hover:text-primary transition"
                   title="Créer un compte pour bénéficier du prix membre"
                 >
-                  {Math.round(originalPrice * (1 - MEMBER_DISCOUNT)).toLocaleString()} F membre
+                  {Math.round(
+                    originalPrice * (1 - MEMBER_DISCOUNT)
+                  ).toLocaleString()}{" "}
+                  F membre
                 </Link>
               )}
             </>
           )}
         </div>
       </div>
-
     </div>
   );
 };
