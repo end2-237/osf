@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from "react";
 import { useParams, useNavigate, Link, useLocation } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import ProductCard from "../components/ProductCard";
+import ReviewsSection from "../components/ReviewsSection";
 
 /* ── BREADCRUMB ── */
 const Breadcrumb = ({ product }) => (
@@ -647,106 +648,7 @@ const ProductDetail = ({ addToCart, openModal }) => {
               )}
 
               {activeTab === "reviews" && (
-                <div className="max-w-2xl space-y-4">
-                  {/* AVERAGE RATING */}
-                  <div className="flex items-center gap-6 bg-white border border-zinc-200 rounded-2xl p-6 mb-6 shadow-sm">
-                    <div className="text-center">
-                      <p className="text-5xl font-black italic text-primary">
-                        4.2
-                      </p>
-                      <div className="flex justify-center gap-0.5 my-1">
-                        {[...Array(5)].map((_, i) => (
-                          <i
-                            key={i}
-                            className={`fa-solid fa-star text-xs ${
-                              i < 4 ? "text-yellow-400" : "text-zinc-300"
-                            }`}
-                          ></i>
-                        ))}
-                      </div>
-                      <p className="text-[9px] font-black uppercase text-zinc-400">
-                        128 avis
-                      </p>
-                    </div>
-                    <div className="flex-1 space-y-1.5">
-                      {[5, 4, 3, 2, 1].map((star) => (
-                        <div key={star} className="flex items-center gap-2">
-                          <span className="text-[9px] font-black text-zinc-400 w-2">
-                            {star}
-                          </span>
-                          <i className="fa-solid fa-star text-yellow-400 text-[8px]"></i>
-                          <div className="flex-1 bg-zinc-100 rounded-full h-1.5">
-                            <div
-                              className="h-1.5 rounded-full bg-primary transition-all"
-                              style={{
-                                width: `${[72, 18, 6, 2, 2][5 - star]}%`,
-                              }}
-                            ></div>
-                          </div>
-                          <span className="text-[9px] font-black text-zinc-400 w-6">
-                            {[72, 18, 6, 2, 2][5 - star]}%
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* SAMPLE REVIEWS */}
-                  {[
-                    {
-                      name: "Aristide M.",
-                      rating: 5,
-                      text: "Qualité top, livraison ultra rapide. Je recommande !",
-                      date: "Il y a 3 jours",
-                    },
-                    {
-                      name: "Sandra N.",
-                      rating: 4,
-                      text: "Très bon produit, correspond exactement aux photos. Packaging soigné.",
-                      date: "Il y a 1 semaine",
-                    },
-                    {
-                      name: "Kevin F.",
-                      rating: 5,
-                      text: "OneFreestyle c'est sérieux. Produit authentique, rien à redire !",
-                      date: "Il y a 2 semaines",
-                    },
-                  ].map((rev, i) => (
-                    <div
-                      key={i}
-                      className="bg-white border border-zinc-200 rounded-2xl p-5 hover:border-zinc-300 hover:shadow-sm transition-all"
-                    >
-                      <div className="flex items-center justify-between mb-3">
-                        <div className="flex items-center gap-3">
-                          <div className="w-9 h-9 bg-primary/10 rounded-full flex items-center justify-center border border-primary/20">
-                            <span className="font-black text-primary text-xs">
-                              {rev.name[0]}
-                            </span>
-                          </div>
-                          <div>
-                            <p className="text-[10px] font-black uppercase text-zinc-900">
-                              {rev.name}
-                            </p>
-                            <p className="text-[8px] font-bold text-zinc-400">
-                              {rev.date}
-                            </p>
-                          </div>
-                        </div>
-                        <div className="flex">
-                          {[...Array(rev.rating)].map((_, j) => (
-                            <i
-                              key={j}
-                              className="fa-solid fa-star text-yellow-400 text-[10px]"
-                            ></i>
-                          ))}
-                        </div>
-                      </div>
-                      <p className="text-zinc-500 text-xs font-bold leading-relaxed">
-                        {rev.text}
-                      </p>
-                    </div>
-                  ))}
-                </div>
+                <ReviewsSection productId={product.id} />
               )}
             </div>
 
