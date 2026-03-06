@@ -18,6 +18,14 @@ const CATS = [
     color: '#a855f7',
   },
   {
+    name: 'Mode Femme',
+    icon: 'fa-person-dress',
+    img: 'https://images.unsplash.com/photo-1483985988355-763728e1935b?q=80&w=400',
+    count: '40+',
+    color: '#ec4899',
+    new: true,
+  },
+  {
     name: 'Sneakers',
     icon: 'fa-shoe-prints',
     img: 'https://images.unsplash.com/photo-1549298916-f52d724204b4?q=80&w=1113&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
@@ -72,7 +80,7 @@ const CategoryGrid = () => {
         </div>
 
         {/* CATEGORY GRID */}
-        <div className="grid grid-cols-3 md:grid-cols-6 gap-3">
+        <div className="grid grid-cols-3 md:grid-cols-7 gap-3">
           {CATS.map((cat) => (
             <Link
               key={cat.name}

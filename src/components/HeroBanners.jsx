@@ -29,6 +29,15 @@ const SLIDES = [
     accent: '#3b82f6',
     href: '/store',
   },
+  {
+    tag: 'Collection Femme',
+    title: 'STYLE SANS<br/>LIMITES',
+    sub: 'Streetwear, parfums & accessoires pour elle.',
+    cta: 'Découvrir',
+    img: 'https://images.unsplash.com/photo-1483985988355-763728e1935b?q=80&w=1200',
+    accent: '#ec4899',
+    href: '/store',
+  }
 ];
 
 const HeroBanners = () => {

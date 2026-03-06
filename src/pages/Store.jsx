@@ -14,6 +14,12 @@ const CATEGORIES = [
     icon: "fa-headphones",
     color: "#00ff88",
   },
+  { 
+    key: 'Femme', 
+    label: 'Pour Elle', 
+    icon: 'fa-person-dress', 
+    color: '#ec4899' 
+  },
   { key: "Clothing", label: "Streetwear", icon: "fa-shirt", color: "#a855f7" },
   { key: "Shoes", label: "Sneakers", icon: "fa-shoe-prints", color: "#f97316" },
   {

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import ofsLogo from '../assets/ofs.png'; 
 import { supabase } from '../lib/supabase';
@@ -10,19 +10,22 @@ const Icons = {
 };
 
 const Login = () => {
-  const navigate = useNavigate();
-  const { signIn } = useAuth();
+  const navigate          = useNavigate();
+  const location          = useLocation();
+  const { signIn }        = useAuth();
   const [email, setEmail]       = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading]   = useState(false);
   const [error, setError]       = useState('');
+
+  // Page depuis laquelle l'utilisateur a été redirigé (ex: /profile)
+  const from = location.state?.from || null;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
     setLoading(true);
     try {
-      // 1. Connexion via Supabase Auth
       const { data: authData, error: signInError } = await supabase.auth.signInWithPassword({
         email: email.trim(),
         password,
@@ -31,20 +34,23 @@ const Login = () => {
       if (signInError) throw signInError;
       const user = authData.user;
 
-      // 2. Vérification forcée dans la table vendors
-      // On vérifie si l'ID de l'utilisateur ou son email existe dans la table vendors
-      const { data: vendorData, error: vendorError } = await supabase
+      // Si on vient d'une page précise (ex: /profile), on y retourne
+      if (from) {
+        navigate(from, { replace: true });
+        return;
+      }
+
+      // Sinon redirection intelligente : vendeur → admin, client → accueil
+      const { data: vendorData } = await supabase
         .from('vendors')
-        .select('id, email')
-        .or(`id.eq.${user.id},email.eq.${user.email}`) // Double vérification ID ou Email
+        .select('id')
+        .or(`id.eq.${user.id},email.eq.${user.email}`)
         .maybeSingle();
 
-      // 3. Redirection intelligente
-      // Si on trouve une correspondance dans 'vendors' OU si le metadata dit 'vendor'
       if (vendorData || user?.user_metadata?.role === 'vendor') {
-        navigate('/admin');
+        navigate('/admin', { replace: true });
       } else {
-        navigate('/');
+        navigate('/', { replace: true });
       }
     } catch (err) {
       console.error("Login Error:", err);
@@ -57,7 +63,7 @@ const Login = () => {
   return (
     <div className="h-screen w-full bg-white flex overflow-hidden font-sans select-none">
       
-      {/* --- PANEL GAUCHE : IDENTITÉ VISUELLE --- */}
+      {/* PANEL GAUCHE */}
       <div className="hidden lg:flex lg:w-[40%] relative flex-col justify-between p-10 overflow-hidden bg-[#0a0a0a] border-r border-zinc-800">
         <div className="absolute inset-0 z-0">
           <img 
@@ -78,6 +84,13 @@ const Login = () => {
             Welcome Back <br />
             <span className="text-primary italic">Elite Member.</span>
           </h2>
+          {/* Message contextuel si redirection depuis /profile */}
+          {from === '/profile' && (
+            <div className="flex items-center gap-2 bg-primary/10 border border-primary/20 rounded-xl px-4 py-2.5">
+              <i className="fa-solid fa-user text-primary text-xs"></i>
+              <span className="text-[9px] font-black uppercase tracking-widest text-primary">Connectez-vous pour accéder à votre profil</span>
+            </div>
+          )}
           <div className="space-y-1.5">
             {['Accès Dashboard Vendeur', 'Gestion de Stock Temps Réel', 'Analytiques Avancées'].map((text, i) => (
               <div key={i} className="flex items-center gap-2 text-zinc-500 text-[10px] font-bold uppercase tracking-widest">
@@ -93,7 +106,7 @@ const Login = () => {
         </div>
       </div>
 
-      {/* --- PANEL DROIT : FORMULAIRE --- */}
+      {/* PANEL DROIT */}
       <div className="w-full lg:w-[60%] h-full flex flex-col justify-center items-center bg-white p-4 relative overflow-hidden">
         
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-[0.03]">
@@ -106,7 +119,9 @@ const Login = () => {
             <h1 className="text-xl font-black italic uppercase tracking-tighter text-zinc-900 leading-none">
               Sign In
             </h1>
-            <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-[0.3em] mt-1">Authorized Personnel Only</p>
+            <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-[0.3em] mt-1">
+              {from === '/profile' ? 'Connexion requise · Profil' : 'Authorized Personnel Only'}
+            </p>
           </header>
 
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -144,8 +159,8 @@ const Login = () => {
               disabled={loading}
               className="w-full py-4 rounded-xl text-[9px] font-black uppercase tracking-[0.3em] transition-all relative overflow-hidden group shadow-lg active:scale-[0.97] mt-4 bg-zinc-900 text-white"
             >
-               <div className="absolute inset-0 bg-white/20 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-500"></div>
-               {loading ? "AUTHENTICATING..." : "START SESSION"}
+              <div className="absolute inset-0 bg-white/20 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-500"></div>
+              {loading ? "AUTHENTICATING..." : "START SESSION"}
             </button>
           </form>
 
