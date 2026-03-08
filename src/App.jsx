@@ -22,6 +22,7 @@ import PrivateRoute from './routes/PrivateRoute';
 import WishlistPage from './pages/WishlistPage.jsx';
 import BoutiquesPage from './pages/BoutiquesPage.jsx';
 import ProfilePage from './pages/ProfilePage.jsx';
+import OFSRewardsPage from './pages/OFSRewardsPage.jsx';
 
 function AppContent() {
   const { vendor } = useAuth();
@@ -112,6 +113,7 @@ function AppContent() {
           <Route path="/wishlist" element={<WishlistPage openModal={openModal} addToCart={addToCart} />} />
           <Route path="/boutiques" element={<BoutiquesPage />} />
           <Route path="/profile" element={<ProfilePage />} />
+          <Route path="/rewards" element={<OFSRewardsPage />} />
 
           <Route
             path="/product/:productId"
