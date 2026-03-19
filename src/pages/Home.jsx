@@ -10,16 +10,16 @@ import { supabase } from "../lib/supabase";
 // ─── ADS FULLSCREEN CONFIG ────────────────────────────────────────────────────
 const FULLSCREEN_ADS = [
   {
-    id:      "ad_elite",
+    id:      "ad_concert",
     type:    "image",
-    img:     "https://images.unsplash.com/photo-1610889186954-69404e4affee?q=80&w=1169&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
-    tag:     "🔥 Exclusif",
-  title:   ["MUSIQUE", "AFRO", "CAMER"],
-    sub:     "Nouvelle collection mode femme disponible maintenant. Livraison express Douala.",
-    cta:     "Découvrir la collection",
-    href:    "/shop/OSF Store?product=b2932f6b-0616-43e9-a31c-97d618664f2a",
-    badge:   "−20% membres",
-    accent:  "#00d97e",
+    img:     "https://alrbokstfwwlvbvghrqr.supabase.co/storage/v1/object/public/product-images/ads/Gemini_Generated_Image_4mbl2c4mbl2c4mbl.png",
+    tag:     "👑 Événement Royal",
+    title:   ["CONCERT", "NPBJ", "STAR"],
+    sub:     "Le concert légendaire - Célébrez la royauté.",
+    cta:     "Réserver maintenant",
+    href:    "https://wa.me/237695507127",
+    badge:   "Pass VVIP Disponible",
+    accent:  "#DAA520",
     dark:    true,
   },
   {
