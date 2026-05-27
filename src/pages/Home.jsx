@@ -7,73 +7,74 @@ import FlashDrop from "../components/FlashDrop";
 import Marquee from "../components/Marquee";
 import { supabase } from "../lib/supabase";
 
-// ─── ADS FULLSCREEN CONFIG ────────────────────────────────────────────────────
+// ─── ADS CONFIG ───────────────────────────────────────────────────────────────
 const FULLSCREEN_ADS = [
   {
-    id:      "ad_concert",
-    type:    "image",
-    img:     "https://alrbokstfwwlvbvghrqr.supabase.co/storage/v1/object/public/product-images/ads/Gemini_Generated_Image_4mbl2c4mbl2c4mbl.png",
-    tag:     "👑 Événement Royal",
-    title:   ["CONCERT", "NPBJ", "STAR"],
-    sub:     "Le concert légendaire - Célébrez la royauté.",
-    cta:     "Réserver maintenant",
-    href:    "https://wa.me/237695507127",
-    badge:   "Pass VVIP Disponible",
-    accent:  "#DAA520",
-    dark:    true,
+    id:     "ad_concert",
+    img:    "https://alrbokstfwwlvbvghrqr.supabase.co/storage/v1/object/public/product-images/ads/Gemini_Generated_Image_4mbl2c4mbl2c4mbl.png",
+    tag:    "Événement Royal",
+    tagIcon:"fa-crown",
+    title:  "CONCERT NPBJ STAR",
+    sub:    "Le concert légendaire. Célébrez la royauté en direct à Douala.",
+    cta:    "Réserver un Pass VVIP",
+    href:   "https://wa.me/237695507127",
+    badge:  "Pass VVIP",
+    accent: "#FF9900",
+    external: true,
   },
   {
-    id:      "ad_audio",
-    type:    "image",
-    img:     "https://images.unsplash.com/photo-1546435770-a3e426bf472b?q=80&w=1600",
-    tag:     "⚡ Flash Drop",
-    title:   ["THE", "ULTIMATE", "BEAT."],
-    sub:     "Basses sismiques. Design OneFreestyle. Stock ultra-limité — commande avant rupture.",
-    cta:     "Réserver maintenant",
-    href:    "/store",
-    badge:   "Stock limité",
-    accent:  "#3b82f6",
-    dark:    true,
+    id:     "ad_audio",
+    img:    "https://images.unsplash.com/photo-1546435770-a3e426bf472b?q=80&w=1600",
+    tag:    "Flash Drop",
+    tagIcon:"fa-bolt",
+    title:  "THE ULTIMATE BEAT",
+    sub:    "Basses sismiques. Design exclusif OneFreestyle. Stock ultra-limité — avant rupture.",
+    cta:    "Voir le produit",
+    href:   "/store",
+    badge:  "Stock limité",
+    accent: "#FFD814",
+    external: false,
   },
   {
-    id:      "ad_member",
-    type:    "gradient",
-    gradient:"from-yellow-400/90 to-orange-500/90",
-    img:     "https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?q=80&w=1600",
-    tag:     "👑 Membres Elite",
-    title:   ["−20%", "SUR", "TOUT."],
-    sub:     "Inscription gratuite. Prix exclusifs immédiats. Des milliers de produits à prix réduit.",
-    cta:     "Rejoindre l'élite",
-    href:    "/register",
-    badge:   "Gratuit",
-    accent:  "#facc15",
-    dark:    false,
+    id:     "ad_member",
+    img:    "https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?q=80&w=1600",
+    tag:    "Offre Membre Elite",
+    tagIcon:"fa-star",
+    title:  "−20% SUR TOUT",
+    sub:    "Inscription gratuite. Prix exclusifs immédiats. Des milliers de produits à prix réduit.",
+    cta:    "Rejoindre l'élite",
+    href:   "/register",
+    badge:  "Gratuit",
+    accent: "#FF9900",
+    external: false,
   },
   {
-    id:      "ad_gift",
-    type:    "image",
-    img:     "https://images.unsplash.com/photo-1549465220-1a8b9238cd48?q=80&w=1600",
-    tag:     "✈️ Diaspora",
-    title:   ["LE CADEAU", "PARFAIT", "EXISTE."],
-    sub:     "Commandez depuis l'étranger. Livraison directe à Douala pour vos proches.",
-    cta:     "Offrir maintenant",
-    href:    "/store",
-    badge:   "Livraison incluse",
-    accent:  "#a855f7",
-    dark:    true,
+    id:     "ad_gift",
+    img:    "https://images.unsplash.com/photo-1549465220-1a8b9238cd48?q=80&w=1600",
+    tag:    "Diaspora 🇨🇲",
+    tagIcon:"fa-plane",
+    title:  "LE CADEAU PARFAIT EXISTE",
+    sub:    "Commandez depuis l'étranger. Livraison directe à Douala pour vos proches.",
+    cta:    "Offrir maintenant",
+    href:   "/store",
+    badge:  "Livraison incluse",
+    accent: "#FFD814",
+    external: false,
   },
 ];
 
-// ─── FULLSCREEN AD MODAL ──────────────────────────────────────────────────────
-const FullscreenAd = ({ ad, adIndex, onClose, onNext, isLast }) => {
-  const navigate                = useNavigate();
-  const [closing,  setClosing]  = useState(false);
-  const [progress, setProgress] = useState(0);
-  const [timeLeft, setTimeLeft] = useState(9);
-  const canClose   = adIndex >= 1;
-  const AUTO_CLOSE = 9000;
+const SESSION_KEY = "ofs_ads_shown";
+const SHOW_DELAY  = 4000;
+const AD_DURATION = 8000;
 
-  // Refs pour éviter les stale closures dans le timer
+// ─── FULLSCREEN AD MODAL ──────────────────────────────────────────────────────
+const FullscreenAd = ({ ad, adIndex, total, onClose, onNext, isLast }) => {
+  const navigate              = useNavigate();
+  const [closing, setClosing] = useState(false);
+  const [progress, setProg]   = useState(0);
+  const [timeLeft, setTime]   = useState(Math.ceil(AD_DURATION / 1000));
+  const canClose              = adIndex >= 1;
+
   const closingRef = useRef(false);
   const isLastRef  = useRef(isLast);
   const onNextRef  = useRef(onNext);
@@ -82,217 +83,243 @@ const FullscreenAd = ({ ad, adIndex, onClose, onNext, isLast }) => {
   useEffect(() => { onNextRef.current  = onNext;  }, [onNext]);
   useEffect(() => { onCloseRef.current = onClose; }, [onClose]);
 
-  // Bloquer le scroll
   useEffect(() => {
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     return () => { document.body.style.overflow = prev; };
   }, []);
 
-  // Timer progression + auto-avance
   useEffect(() => {
-    setProgress(0);
-    setTimeLeft(Math.ceil(AUTO_CLOSE / 1000));
+    setProg(0);
+    setTime(Math.ceil(AD_DURATION / 1000));
     closingRef.current = false;
     setClosing(false);
-
     const start = Date.now();
-    const prog = setInterval(() => {
+    const iv = setInterval(() => {
       const elapsed = Date.now() - start;
-      const pct     = Math.min((elapsed / AUTO_CLOSE) * 100, 100);
-      const secs    = Math.max(0, Math.ceil((AUTO_CLOSE - elapsed) / 1000));
-      setProgress(pct);
-      setTimeLeft(secs);
+      const pct  = Math.min((elapsed / AD_DURATION) * 100, 100);
+      const secs = Math.max(0, Math.ceil((AD_DURATION - elapsed) / 1000));
+      setProg(pct);
+      setTime(secs);
       if (pct >= 100) {
-        clearInterval(prog);
+        clearInterval(iv);
         if (closingRef.current) return;
         closingRef.current = true;
         setClosing(true);
-        // avancer ou fermer selon position dans la série
         setTimeout(() => {
           if (isLastRef.current) onCloseRef.current();
           else onNextRef.current();
         }, 300);
       }
     }, 80);
-    return () => clearInterval(prog);
+    return () => clearInterval(iv);
   }, [ad]);
 
-  const handleClose = () => {
+  const dismiss = () => {
     if (closingRef.current || !canClose) return;
     closingRef.current = true;
     setClosing(true);
-    setTimeout(onCloseRef.current, 300);
+    setTimeout(onCloseRef.current, 280);
   };
-  const handleNext = () => {
+  const goNext = () => {
     if (closingRef.current) return;
     closingRef.current = true;
     setClosing(true);
-    setTimeout(onNextRef.current, 300);
+    setTimeout(onNextRef.current, 280);
   };
   const handleCta = () => {
     if (closingRef.current) return;
     closingRef.current = true;
     setClosing(true);
     const href = ad.href;
-    setTimeout(() => { onCloseRef.current(); navigate(href); }, 300);
+    setTimeout(() => {
+      onCloseRef.current();
+      if (ad.external) window.open(href, "_blank", "noopener");
+      else navigate(href);
+    }, 280);
   };
 
   return (
-    <div
-      style={{
-        position:   "fixed",
-        inset:      0,
-        zIndex:     9000,
-        width:      "100dvw",
-        height:     "100dvh",
-        overflow:   "hidden",
-        animation:  closing
-          ? "fsOut 0.3s ease forwards"
-          : "fsIn 0.4s cubic-bezier(0.2,0,0,1) both",
-      }}
-    >
-      {/* IMAGE FOND ABSOLU */}
-      <img src={ad.img} alt="" style={{ position:"absolute", inset:0, width:"100%", height:"100%", objectFit:"cover", objectPosition:"center top" }} />
-
-      {/* OVERLAY COULEUR optionnel */}
-      {ad.type === "gradient" && (
-        <div className={`absolute inset-0 bg-gradient-to-br ${ad.gradient}`} style={{ mixBlendMode:"multiply" }} />
-      )}
-
-      {/* GRADIENT SOMBRE */}
-      <div style={{ position:"absolute", inset:0, background:"linear-gradient(to top, rgba(0,0,0,0.93) 0%, rgba(0,0,0,0.22) 55%, rgba(0,0,0,0.18) 100%)" }} />
-
-      {/* ── BARRE PROGRESSION ── */}
-      <div style={{ position:"absolute", top:0, left:0, right:0, height:3, background:"rgba(255,255,255,0.12)", zIndex:10 }}>
-        <div style={{ height:"100%", borderRadius:9999, width: progress + "%", backgroundColor: ad.accent, transition:"none" }} />
-      </div>
-
-      {/* ── TOP BAR ── */}
-      <div style={{ position:"absolute", top:0, left:0, right:0, zIndex:20, display:"flex", alignItems:"center", justifyContent:"space-between", padding:"1.25rem 1.25rem 0" }}>
-        {/* DOTS SÉRIE */}
-        <div style={{ display:"flex", gap:6 }}>
-          {FULLSCREEN_ADS.map((_, i) => (
-            <div key={i} style={{
-              height: 3,
-              borderRadius: 9999,
-              transition: "width 0.4s, background-color 0.4s",
-              width:  i < adIndex ? 20 : i === adIndex ? 28 : 8,
-              backgroundColor: i <= adIndex ? ad.accent : "rgba(255,255,255,0.25)",
-            }} />
-          ))}
+    <div style={{
+      position: "fixed", inset: 0, zIndex: 9000,
+      display: "flex", alignItems: "center", justifyContent: "center",
+      background: "rgba(0,0,0,0.82)", backdropFilter: "blur(6px)",
+      animation: closing ? "adOut 0.28s ease forwards" : "adIn 0.35s cubic-bezier(0.2,0,0,1) both",
+    }}>
+      {/* ── CARD ── */}
+      <div style={{
+        position: "relative", width: "min(92vw, 860px)", maxHeight: "90dvh",
+        borderRadius: 16, overflow: "hidden",
+        boxShadow: "0 32px 80px rgba(0,0,0,0.7)",
+        display: "flex", flexDirection: "column",
+        background: "#0F1111",
+      }}>
+        {/* PROGRESS BAR */}
+        <div style={{ height: 3, background: "rgba(255,255,255,0.08)", flexShrink: 0 }}>
+          <div style={{ height: "100%", width: progress + "%", background: ad.accent, transition: "none", borderRadius: 9999 }} />
         </div>
 
-        {/* CLOSE ou TIMER */}
-        {canClose ? (
-          <button onClick={handleClose}
-            style={{ width:40, height:40, borderRadius:"50%", background:"rgba(0,0,0,0.6)", backdropFilter:"blur(8px)", border:"1px solid rgba(255,255,255,0.2)", display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer", transition:"transform 0.2s" }}
-            onMouseEnter={e => e.currentTarget.style.transform = "scale(1.1)"}
-            onMouseLeave={e => e.currentTarget.style.transform = "scale(1)"}
-          >
-            <i className="fa-solid fa-xmark" style={{ color:"white", fontSize:14 }}></i>
-          </button>
-        ) : (
-          <div style={{ display:"flex", alignItems:"center", gap:6, background:"rgba(0,0,0,0.55)", backdropFilter:"blur(6px)", border:"1px solid rgba(255,255,255,0.12)", padding:"6px 14px", borderRadius:9999 }}>
-            <span style={{ color: ad.accent, fontWeight:900, fontSize:13, fontFamily:"monospace" }}>{timeLeft}s</span>
-            <span style={{ color:"rgba(255,255,255,0.35)", fontWeight:900, fontSize:9, textTransform:"uppercase", letterSpacing:"0.12em" }}>
-              · pub {adIndex + 1}/{FULLSCREEN_ADS.length}
+        {/* IMAGE */}
+        <div style={{ position: "relative", flex: "0 0 auto" }}>
+          <img src={ad.img} alt={ad.title}
+            style={{ width: "100%", height: "clamp(200px, 38vh, 320px)", objectFit: "cover", objectPosition: "center 20%", display: "block" }}
+          />
+          {/* dark gradient overlay on image */}
+          <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to bottom, rgba(0,0,0,0.1) 0%, rgba(15,17,17,0.85) 100%)" }} />
+
+          {/* TOP BAR inside image */}
+          <div style={{ position: "absolute", top: 14, left: 16, right: 16, display: "flex", alignItems: "center", justifyContent: "space-between", zIndex: 5 }}>
+            {/* Series dots */}
+            <div style={{ display: "flex", gap: 5 }}>
+              {Array.from({ length: total }).map((_, i) => (
+                <div key={i} style={{
+                  height: 3, borderRadius: 9999, transition: "all 0.35s",
+                  width: i === adIndex ? 24 : 8,
+                  background: i < adIndex ? ad.accent : i === adIndex ? ad.accent : "rgba(255,255,255,0.25)",
+                }} />
+              ))}
+            </div>
+            {/* Close or countdown */}
+            {canClose ? (
+              <button onClick={dismiss} style={{
+                width: 36, height: 36, borderRadius: "50%", border: "1.5px solid rgba(255,255,255,0.25)",
+                background: "rgba(0,0,0,0.6)", backdropFilter: "blur(6px)",
+                display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer",
+              }}>
+                <i className="fa-solid fa-xmark" style={{ color: "white", fontSize: 13 }}></i>
+              </button>
+            ) : (
+              <div style={{
+                display: "flex", alignItems: "center", gap: 5,
+                background: "rgba(0,0,0,0.55)", backdropFilter: "blur(6px)",
+                border: "1px solid rgba(255,255,255,0.12)", padding: "5px 12px", borderRadius: 9999,
+              }}>
+                <span style={{ color: ad.accent, fontWeight: 900, fontSize: 12, fontFamily: "monospace" }}>{timeLeft}s</span>
+                <span style={{ color: "rgba(255,255,255,0.3)", fontSize: 8, fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.1em" }}>
+                  PUB {adIndex + 1}/{total}
+                </span>
+              </div>
+            )}
+          </div>
+
+          {/* Badge on image bottom-left */}
+          <div style={{ position: "absolute", bottom: 14, left: 16, display: "flex", gap: 8, alignItems: "center", zIndex: 5 }}>
+            <span style={{
+              fontSize: 8, fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.14em",
+              padding: "5px 10px", borderRadius: 9999,
+              border: `1px solid ${ad.accent}60`, color: ad.accent, background: `${ad.accent}18`,
+            }}>
+              <i className={`fa-solid ${ad.tagIcon} mr-1`} style={{ fontSize: 7 }}></i>
+              {ad.tag}
+            </span>
+            <span style={{
+              fontSize: 8, fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.1em",
+              padding: "5px 10px", borderRadius: 9999,
+              background: "white", color: "#0F1111",
+            }}>
+              {ad.badge}
             </span>
           </div>
-        )}
-      </div>
-
-      {/* BADGE TAG */}
-      <div style={{ position:"absolute", top:"4.5rem", left:"1.25rem", zIndex:20 }}>
-        <span style={{ fontSize:9, fontWeight:900, textTransform:"uppercase", letterSpacing:"0.14em", padding:"6px 12px", borderRadius:9999, border:`1px solid ${ad.accent}55`, color:ad.accent, background:`${ad.accent}18` }}>
-          {ad.tag}
-        </span>
-      </div>
-
-      {/* BADGE PROMO */}
-      <div style={{ position:"absolute", top:"6.8rem", left:"1.25rem", zIndex:20 }}>
-        <span style={{ fontSize:9, fontWeight:900, textTransform:"uppercase", letterSpacing:"0.12em", background:"white", color:"#111", padding:"4px 10px", borderRadius:9999 }}>
-          {ad.badge}
-        </span>
-      </div>
-
-      {/* ── CONTENU BAS ── */}
-      <div style={{ position:"absolute", bottom:0, left:0, right:0, zIndex:20, padding:"0 1.5rem clamp(1.5rem, 4vh, 3rem)" }}>
-        {/* TITRE */}
-        <h2 style={{ fontWeight:900, fontStyle:"italic", letterSpacing:"-0.04em", lineHeight:0.9, color:"white", fontSize:"clamp(2.6rem, 7.5vw, 4.6rem)", margin:"0 0 1rem 0" }}>
-          {ad.title.map((line, i) => (
-            <span key={i} style={{ display:"block", color: i === 0 ? ad.accent : "white" }}>{line}</span>
-          ))}
-        </h2>
-
-        <p style={{ color:"rgba(210,210,210,0.9)", fontWeight:600, lineHeight:1.6, marginBottom:"1.5rem", maxWidth:420, fontSize:"clamp(0.8rem, 2vw, 1rem)" }}>
-          {ad.sub}
-        </p>
-
-        <div style={{ display:"flex", alignItems:"center", gap:16, flexWrap:"wrap" }}>
-          <button onClick={handleCta}
-            style={{ display:"flex", alignItems:"center", gap:10, padding:"14px 28px", borderRadius:14, fontWeight:900, textTransform:"uppercase", letterSpacing:"0.12em", fontSize:"clamp(0.6rem,1.5vw,0.72rem)", backgroundColor:ad.accent, color:ad.dark?"#000":"#fff", border:"none", cursor:"pointer", transition:"transform 0.2s", boxShadow:"0 8px 32px rgba(0,0,0,0.4)" }}
-            onMouseEnter={e => e.currentTarget.style.transform="scale(1.05)"}
-            onMouseLeave={e => e.currentTarget.style.transform="scale(1)"}
-          >
-            <span>{ad.cta}</span>
-            <i className="fa-solid fa-arrow-right" style={{ fontSize:11 }}></i>
-          </button>
-
-          {!isLast ? (
-            <button onClick={handleNext}
-              style={{ display:"flex", alignItems:"center", gap:8, background:"none", border:"none", color:"rgba(255,255,255,0.5)", fontWeight:900, textTransform:"uppercase", letterSpacing:"0.12em", fontSize:"clamp(0.6rem,1.5vw,0.7rem)", cursor:"pointer" }}
-            >
-              <span>Pub suivante</span>
-              <i className="fa-solid fa-chevron-right" style={{ fontSize:9 }}></i>
-            </button>
-          ) : canClose ? (
-            <button onClick={handleClose}
-              style={{ display:"flex", alignItems:"center", gap:8, background:"none", border:"none", color:"rgba(255,255,255,0.5)", fontWeight:900, textTransform:"uppercase", letterSpacing:"0.12em", fontSize:"clamp(0.6rem,1.5vw,0.7rem)", cursor:"pointer" }}
-            >
-              <i className="fa-solid fa-xmark" style={{ fontSize:10 }}></i>
-              <span>Fermer</span>
-            </button>
-          ) : null}
         </div>
 
-        <p style={{ fontSize:7, fontWeight:900, textTransform:"uppercase", letterSpacing:"0.3em", color:"rgba(255,255,255,0.15)", marginTop:20 }}>
-          OneFreestyle Elite · Publicité · Douala, Cameroun
-        </p>
+        {/* ── TEXT + CTA PANEL ── */}
+        <div style={{ padding: "20px 24px 24px", background: "#0F1111", flexShrink: 0 }}>
+          {/* OFS branding strip */}
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+            <div style={{ width: 3, height: 18, background: "#FF9900", borderRadius: 9999 }} />
+            <span style={{ fontSize: 8, fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.2em", color: "#FF9900" }}>
+              OneFreestyle · Douala, Cameroun 🇨🇲
+            </span>
+            <span style={{ fontSize: 7, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", color: "rgba(255,255,255,0.2)", marginLeft: "auto" }}>
+              Publicité
+            </span>
+          </div>
+
+          <h2 style={{
+            fontWeight: 900, letterSpacing: "-0.03em", lineHeight: 1.05,
+            color: "white", fontSize: "clamp(1.4rem, 4vw, 2rem)",
+            margin: "0 0 10px 0",
+          }}>
+            <span style={{ color: ad.accent }}>{ad.title.split(" ")[0]}</span>{" "}
+            {ad.title.split(" ").slice(1).join(" ")}
+          </h2>
+
+          <p style={{ color: "rgba(200,200,200,0.8)", fontSize: "clamp(0.78rem, 1.8vw, 0.9rem)", lineHeight: 1.6, marginBottom: 20, maxWidth: 520 }}>
+            {ad.sub}
+          </p>
+
+          <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+            <button onClick={handleCta} style={{
+              display: "flex", alignItems: "center", gap: 10,
+              padding: "12px 24px", borderRadius: 8, border: "none", cursor: "pointer",
+              fontWeight: 900, fontSize: "clamp(0.65rem, 1.5vw, 0.75rem)",
+              textTransform: "uppercase", letterSpacing: "0.1em",
+              background: ad.accent, color: "#0F1111",
+              boxShadow: `0 4px 20px ${ad.accent}55`,
+              transition: "transform 0.15s, box-shadow 0.15s",
+            }}
+              onMouseEnter={e => { e.currentTarget.style.transform = "scale(1.04)"; e.currentTarget.style.boxShadow = `0 6px 28px ${ad.accent}77`; }}
+              onMouseLeave={e => { e.currentTarget.style.transform = "scale(1)";    e.currentTarget.style.boxShadow = `0 4px 20px ${ad.accent}55`; }}
+            >
+              {ad.cta}
+              <i className={`fa-solid ${ad.external ? "fa-arrow-up-right-from-square" : "fa-arrow-right"}`} style={{ fontSize: 10 }}></i>
+            </button>
+
+            {!isLast ? (
+              <button onClick={goNext} style={{
+                display: "flex", alignItems: "center", gap: 7, background: "none", border: "1px solid rgba(255,255,255,0.15)",
+                padding: "11px 18px", borderRadius: 8, cursor: "pointer",
+                color: "rgba(255,255,255,0.5)", fontWeight: 800, fontSize: "clamp(0.62rem,1.4vw,0.7rem)",
+                textTransform: "uppercase", letterSpacing: "0.1em", transition: "border-color 0.2s, color 0.2s",
+              }}
+                onMouseEnter={e => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.35)"; e.currentTarget.style.color = "rgba(255,255,255,0.8)"; }}
+                onMouseLeave={e => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.15)"; e.currentTarget.style.color = "rgba(255,255,255,0.5)"; }}
+              >
+                Pub suivante
+                <i className="fa-solid fa-chevron-right" style={{ fontSize: 9 }}></i>
+              </button>
+            ) : canClose ? (
+              <button onClick={dismiss} style={{
+                display: "flex", alignItems: "center", gap: 7, background: "none", border: "1px solid rgba(255,255,255,0.15)",
+                padding: "11px 18px", borderRadius: 8, cursor: "pointer",
+                color: "rgba(255,255,255,0.5)", fontWeight: 800, fontSize: "clamp(0.62rem,1.4vw,0.7rem)",
+                textTransform: "uppercase", letterSpacing: "0.1em",
+              }}>
+                <i className="fa-solid fa-xmark" style={{ fontSize: 10 }}></i>
+                Fermer
+              </button>
+            ) : null}
+          </div>
+        </div>
       </div>
 
       <style>{`
-        @keyframes fsIn  { from { opacity:0; transform:scale(1.03); } to { opacity:1; transform:scale(1); } }
-        @keyframes fsOut { from { opacity:1; transform:scale(1); }   to { opacity:0; transform:scale(0.98); } }
+        @keyframes adIn  { from { opacity:0; transform:scale(0.96) translateY(8px); } to { opacity:1; transform:scale(1) translateY(0); } }
+        @keyframes adOut { from { opacity:1; transform:scale(1) translateY(0); }       to { opacity:0; transform:scale(0.97) translateY(4px); } }
       `}</style>
     </div>
   );
 };
 
-// ─── AD MANAGER HOOK ──────────────────────────────────────────────────────────
-const SERIES_DELAY = 8000;
-const REPEAT_DELAY = 25 * 60 * 1000;
-
+// ─── AD MANAGER HOOK — une seule fois par session ──────────────────────────────
 const useAdManager = () => {
-  const [adIndex,  setAdIndex]  = useState(null);
-  const lastSeries = useRef(0);
+  const [adIndex, setAdIndex] = useState(null);
 
   const startSeries = () => {
-    if (Date.now() - lastSeries.current < REPEAT_DELAY) return;
-    lastSeries.current = Date.now();
+    if (sessionStorage.getItem(SESSION_KEY)) return;
+    sessionStorage.setItem(SESSION_KEY, "1");
     setAdIndex(0);
   };
 
-  const close  = () => setAdIndex(null);
-  const next   = () => setAdIndex(prev => {
+  const close = () => setAdIndex(null);
+  const next  = () => setAdIndex(prev => {
     const n = (prev ?? 0) + 1;
     return n < FULLSCREEN_ADS.length ? n : null;
   });
 
   useEffect(() => {
-    const t = setTimeout(startSeries, SERIES_DELAY);
-    const r = setInterval(startSeries, REPEAT_DELAY);
-    return () => { clearTimeout(t); clearInterval(r); };
+    const t = setTimeout(startSeries, SHOW_DELAY);
+    return () => clearTimeout(t);
   }, []);
 
   const currentAd = adIndex !== null ? FULLSCREEN_ADS[adIndex] : null;
@@ -494,7 +521,16 @@ const Home = ({ openModal, addToCart }) => {
     <div className="bg-white dark:bg-black">
 
       {/* ── FULLSCREEN AD (portal-like, z-9000) ── */}
-      {currentAd && <FullscreenAd ad={currentAd} adIndex={adIndex} onClose={close} onNext={next} isLast={isLast} />}
+      {currentAd && (
+        <FullscreenAd
+          ad={currentAd}
+          adIndex={adIndex}
+          total={FULLSCREEN_ADS.length}
+          onClose={close}
+          onNext={next}
+          isLast={isLast}
+        />
+      )}
 
       {/* 1. HERO */}
       <HeroBanners />
