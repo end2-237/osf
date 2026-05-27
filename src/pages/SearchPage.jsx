@@ -456,7 +456,7 @@ const SearchPage = ({ openModal, addToCart }) => {
   const activeFiltersCount = (activeCategory !== "All" ? 1 : 0) + (activePriceRange !== null ? 1 : 0) + activeVendors.size + (memberOnly ? 1 : 0);
 
   return (
-    <div className="min-h-screen bg-[#EAEDED] pt-[166px] md:pt-[128px]">
+    <div className="min-h-screen bg-[#EAEDED]">
 
       <div className="max-w-[1600px] mx-auto px-4 md:px-8 py-5">
 

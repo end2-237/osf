@@ -444,7 +444,7 @@ const WishlistPage = ({ openModal, addToCart }) => {
   }, [items, filterCategory, searchQuery, sortBy]);
 
   return (
-    <div className="min-h-screen bg-[#EAEDED] text-[#0F1111]" style={{ paddingTop: 90 }}>
+    <div className="min-h-screen bg-[#EAEDED] text-[#0F1111]">
 
       {/* ── TOAST ── */}
       {toast && (
