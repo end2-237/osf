@@ -329,8 +329,9 @@ const useAdManager = () => {
 };
 
 // ─── FLASH DEALS ──────────────────────────────────────────────────────────────
-const FlashDeals = ({ products, loading, openModal }) => {
+const FlashDeals = ({ products, loading, openModal, addToCart }) => {
   const [timeLeft, setTimeLeft] = useState({ h: 5, m: 47, s: 30 });
+  const [addedId,  setAddedId]  = useState(null);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -349,66 +350,116 @@ const FlashDeals = ({ products, loading, openModal }) => {
   const deals = (products || []).slice(0, 6);
   const pad   = (n) => String(n).padStart(2, "0");
 
+  const handleAdd = (e, product) => {
+    e.stopPropagation();
+    addToCart({ ...product, selectedSize: "M", selectedColor: "Black", quantity: 1 });
+    setAddedId(product.id);
+    setTimeout(() => setAddedId(null), 2000);
+  };
+
   return (
-    <section className="py-8 px-4 md:px-8 bg-zinc-950 border-y border-white/5">
+    <section className="bg-white border-y border-[#D5D9D9] py-8 px-4 md:px-8">
       <div className="max-w-[1600px] mx-auto">
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2">
-              <i className="fa-solid fa-bolt text-primary text-xl"></i>
-              <h2 className="text-xl font-black uppercase tracking-tighter text-white">
-                Flash <span className="text-primary italic">Deals</span>
+
+        {/* HEADER */}
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-4 flex-wrap">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 bg-[#B12704] rounded flex items-center justify-center flex-shrink-0">
+                <i className="fa-solid fa-bolt text-white text-sm"></i>
+              </div>
+              <h2 className="text-xl font-black text-[#0F1111]">
+                Flash <span className="text-[#B12704]">Deals</span>
               </h2>
             </div>
-            <div className="flex items-center gap-1.5 bg-black border border-white/10 rounded-xl px-4 py-2">
+            {/* COUNTDOWN */}
+            <div className="flex items-center gap-1 bg-[#0F1111] rounded px-3 py-1.5">
+              <span className="text-[9px] font-bold text-[#ADBAC7] mr-1.5 hidden sm:inline">Se termine dans</span>
               {[pad(timeLeft.h), pad(timeLeft.m), pad(timeLeft.s)].map((val, i) => (
                 <React.Fragment key={i}>
-                  <span className="text-primary font-black text-sm font-mono">{val}</span>
-                  {i < 2 && <span className="text-zinc-600 font-black text-sm">:</span>}
+                  <span className="text-[#FF9900] font-black text-sm font-mono leading-none">{val}</span>
+                  {i < 2 && <span className="text-[#37475A] font-black text-sm">:</span>}
                 </React.Fragment>
               ))}
             </div>
           </div>
-          <Link to="/store" className="text-[10px] font-black uppercase tracking-widest text-primary flex items-center gap-2 hover:underline decoration-primary underline-offset-4">
+          <Link to="/store" className="text-[10px] font-black uppercase tracking-widest text-[#007185] flex items-center gap-2 hover:text-[#C45500] hover:underline transition-colors whitespace-nowrap">
             <span>Toutes les promos</span>
             <i className="fa-solid fa-arrow-right text-xs"></i>
           </Link>
         </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-          {(loading ? Array.from({ length: 6 }) : deals).map((product, i) => (
-            <div
-              key={product?.id || i}
-              onClick={() => product && openModal(product)}
-              className="bg-black border border-white/5 rounded-2xl overflow-hidden group cursor-pointer hover:border-primary/30 transition-all hover:shadow-[0_0_20px_rgba(0,255,136,0.1)]"
-            >
-              <div className="relative aspect-square overflow-hidden bg-zinc-900">
-                {loading ? (
-                  <div className="w-full h-full bg-zinc-800 animate-pulse" />
-                ) : (
-                  <>
-                    <img src={product.img} alt={product.name} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
-                    <div className="absolute top-2 left-2 bg-primary text-black text-[8px] font-black px-2 py-0.5 rounded-full uppercase">
-                      -{Math.floor(10 + (i * 7) % 30)}%
+        <div className="h-px bg-[#D5D9D9] mb-5" />
+
+        {/* CARDS */}
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+          {(loading ? Array.from({ length: 6 }) : deals).map((product, i) => {
+            const pct           = Math.floor(10 + (i * 7) % 30);
+            const price         = product ? Number(product.price) : 0;
+            const originalPrice = Math.round(price / (1 - pct / 100));
+            const isAdded       = addedId === product?.id;
+
+            return (
+              <div
+                key={product?.id || i}
+                onClick={() => product && openModal(product)}
+                className="bg-white border border-[#D5D9D9] hover:border-[#FF9900]/60 rounded group cursor-pointer transition-all duration-200 hover:shadow-md overflow-hidden flex flex-col"
+              >
+                {/* IMAGE */}
+                <div className="relative bg-[#EAEDED] aspect-square overflow-hidden flex items-center justify-center p-2">
+                  {loading ? (
+                    <div className="w-full h-full bg-[#D5D9D9] animate-pulse rounded" />
+                  ) : (
+                    <>
+                      <img
+                        src={product.img}
+                        alt={product.name}
+                        className="w-full h-full object-contain transition-transform duration-500 group-hover:scale-105"
+                      />
+                      <div className="absolute top-2 left-2 bg-[#B12704] text-white text-[8px] font-black px-2 py-0.5 rounded-full uppercase">
+                        -{pct}%
+                      </div>
+                    </>
+                  )}
+                </div>
+
+                {/* INFO */}
+                <div className="p-3 flex flex-col flex-1">
+                  {loading ? (
+                    <div className="space-y-2">
+                      <div className="h-2.5 bg-[#EAEDED] rounded w-3/4 animate-pulse" />
+                      <div className="h-3 bg-[#EAEDED] rounded w-1/2 animate-pulse" />
+                      <div className="h-7 bg-[#EAEDED] rounded animate-pulse mt-2" />
                     </div>
-                  </>
-                )}
+                  ) : (
+                    <>
+                      <p className="text-[10px] font-bold text-[#565959] truncate mb-1.5">{product.name}</p>
+                      <div className="mb-2">
+                        <p className="text-[#B12704] font-black text-base leading-none">{price.toLocaleString()} F</p>
+                        <p className="text-[9px] text-[#565959] line-through mt-0.5">{originalPrice.toLocaleString()} F</p>
+                      </div>
+                      <div className="mt-auto">
+                        <p className="text-[8px] text-[#007185] font-bold mb-2">
+                          <i className="fa-solid fa-truck-fast mr-1"></i>Livraison 2h · Douala 🇨🇲
+                        </p>
+                        <button
+                          onClick={(e) => handleAdd(e, product)}
+                          className={`w-full py-2 rounded text-[9px] font-black uppercase tracking-wider border transition-all active:scale-[0.97] ${
+                            isAdded
+                              ? "bg-[#007600] text-white border-[#007600]"
+                              : "bg-[#FFD814] hover:bg-[#F7CA00] text-[#0F1111] border-[#FCD200]"
+                          }`}
+                        >
+                          <i className={`fa-solid ${isAdded ? "fa-check" : "fa-cart-plus"} mr-1.5`}></i>
+                          {isAdded ? "Ajouté !" : "Au panier"}
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
               </div>
-              <div className="p-3">
-                {loading ? (
-                  <>
-                    <div className="h-2.5 bg-zinc-800 rounded w-3/4 mb-1.5 animate-pulse" />
-                    <div className="h-3 bg-zinc-800 rounded w-1/2 animate-pulse" />
-                  </>
-                ) : (
-                  <>
-                    <p className="text-zinc-300 font-black text-[10px] uppercase italic truncate mb-1">{product.name}</p>
-                    <p className="text-primary font-black text-sm">{Number(product.price).toLocaleString()} F</p>
-                  </>
-                )}
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
     </section>
