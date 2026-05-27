@@ -78,17 +78,16 @@ const PROMO_BANNERS = [
 
 /* ─────────────────── SKELETON ─────────────────── */
 const ProductSkeleton = () => (
-  <div className="animate-pulse">
-    <div className="aspect-[3/4] overflow-hidden bg-zinc-100 rounded-2xl mb-3 relative flex items-center justify-center">
-      <img src={ofsLogo} alt="" className="w-10 opacity-10 grayscale" />
-      <div className="absolute inset-0 bg-gradient-to-r from-transparent via-zinc-200/60 to-transparent -translate-x-full animate-[shimmer_2s_infinite]"></div>
+  <div className="animate-pulse bg-white border border-[#D5D9D9] rounded overflow-hidden">
+    <div className="aspect-square bg-[#F3F4F4] relative overflow-hidden">
+      <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/60 to-transparent -translate-x-full animate-[shimmer_2s_infinite]"></div>
     </div>
-    <div className="space-y-1.5">
-      <div className="h-2.5 bg-zinc-100 rounded w-3/4"></div>
-      <div className="flex justify-between">
-        <div className="h-2 bg-zinc-100 rounded w-1/3"></div>
-        <div className="h-2.5 bg-zinc-100 rounded w-1/4"></div>
-      </div>
+    <div className="p-3 space-y-2">
+      <div className="h-2.5 bg-[#F3F4F4] rounded w-1/3"></div>
+      <div className="h-3 bg-[#F3F4F4] rounded w-3/4"></div>
+      <div className="h-2 bg-[#F3F4F4] rounded w-1/2"></div>
+      <div className="h-4 bg-[#F3F4F4] rounded w-1/3"></div>
+      <div className="h-7 bg-[#F3F4F4] rounded w-full"></div>
     </div>
   </div>
 );
@@ -113,92 +112,60 @@ const MarketplaceHero = ({
   setSearchQuery,
   onSearch,
 }) => {
-  const [focused, setFocused] = useState(false);
-
   return (
-    <div className="relative overflow-hidden bg-gradient-to-br from-zinc-700 via-zinc-600 to-zinc-700 py-14 md:py-20 px-4 md:px-8">
-      {/* DECORATIVE GRID */}
-      <div
-        className="absolute inset-0 opacity-[0.06]"
-        style={{
-          backgroundImage:
-            "linear-gradient(rgba(0,255,136,1) 1px, transparent 1px), linear-gradient(90deg, rgba(0,255,136,1) 1px, transparent 1px)",
-          backgroundSize: "50px 50px",
-        }}
-      />
-      {/* GLOW BLOBS */}
-      <div className="absolute -top-20 -right-20 w-[400px] h-[400px] bg-primary/10 rounded-full blur-[100px]"></div>
-      <div className="absolute -bottom-10 left-1/3 w-[300px] h-[300px] bg-blue-500/5 rounded-full blur-[80px]"></div>
-
-      <div className="max-w-[1400px] mx-auto relative z-10">
+    <div className="bg-[#232F3E] py-8 md:py-10 px-4 md:px-8">
+      <div className="max-w-[1400px] mx-auto">
         <div className="max-w-2xl">
-          {/* BADGE */}
-          <div className="flex items-center gap-2 mb-4">
-            <div className="w-1.5 h-1.5 bg-primary rounded-full animate-pulse"></div>
-            <span className="text-primary text-[9px] font-black uppercase tracking-[0.4em]">
-              {totalProducts}+ produits disponibles · Douala 🇨🇲
-            </span>
-          </div>
-          <h1 className="text-4xl md:text-6xl font-black italic tracking-tighter leading-none text-white mb-3 uppercase">
-            La Marketplace
-            <br />
-            <span className="text-primary">Elite</span> de Douala
+          <p className="text-[#FF9900] text-xs font-bold uppercase tracking-wider mb-2 flex items-center gap-2">
+            <i className="fa-solid fa-store text-sm"></i>
+            {totalProducts}+ produits · Douala 🇨🇲
+          </p>
+          <h1 className="text-2xl md:text-4xl font-black text-white mb-1">
+            La Marketplace <span className="text-[#FF9900]">Elite</span> de Douala
           </h1>
-          <p className="text-zinc-400 font-bold text-sm mb-8 max-w-lg">
-            Audio, Streetwear, Tech & plus — boutiques certifiées, livraison
-            express, paiement sécurisé.
+          <p className="text-gray-400 text-sm mb-5">
+            Audio, Streetwear, Tech & plus — boutiques certifiées, livraison express, paiement sécurisé.
           </p>
 
-          {/* SEARCH BAR */}
-          <div
-            className={`flex items-center bg-white rounded-2xl overflow-hidden shadow-2xl transition-all duration-300 ${
-              focused
-                ? "ring-4 ring-primary/30 shadow-[0_0_30px_rgba(0,255,136,0.15)]"
-                : ""
-            }`}
-          >
-            <div className="flex items-center flex-1 px-5 py-1">
-              <i className="fa-solid fa-magnifying-glass text-zinc-400 text-sm mr-3"></i>
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                onFocus={() => setFocused(true)}
-                onBlur={() => setFocused(false)}
-                onKeyDown={(e) => e.key === "Enter" && onSearch()}
-                placeholder="Casque, sneakers, parfum, tech..."
-                className="flex-1 bg-transparent py-4 text-sm font-bold text-zinc-900 placeholder-zinc-400 outline-none"
-              />
-              {searchQuery && (
-                <button
-                  onClick={() => setSearchQuery("")}
-                  className="text-zinc-400 hover:text-zinc-700 transition"
-                >
-                  <i className="fa-solid fa-xmark"></i>
-                </button>
-              )}
-            </div>
-            <button
-              onClick={onSearch}
-              className="bg-primary text-black px-8 py-[21px] font-black text-[10px] uppercase tracking-widest hover:bg-black hover:text-primary transition-all flex items-center gap-2 flex-shrink-0"
+          {/* SEARCH BAR — Amazon style */}
+          <div className="flex h-11 rounded overflow-hidden ring-2 ring-[#FF9900] shadow-lg">
+            <select className="bg-[#F3F4F4] text-[#0F1111] text-[11px] px-2 border-r border-[#CDCDCD] outline-none cursor-pointer flex-shrink-0 font-medium min-w-[60px]">
+              <option>Tout</option>
+              <option>Audio</option>
+              <option>Streetwear</option>
+              <option>Sneakers</option>
+              <option>Tech</option>
+              <option>Parfums</option>
+            </select>
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && onSearch()}
+              placeholder="Casque, sneakers, parfum, tech..."
+              className="flex-grow bg-white text-[#0F1111] px-4 text-sm outline-none min-w-0"
+            />
+            {searchQuery && (
+              <button onClick={() => setSearchQuery("")}
+                className="bg-white px-2 text-gray-400 hover:text-gray-700 transition"
+              >
+                <i className="fa-solid fa-xmark text-sm"></i>
+              </button>
+            )}
+            <button onClick={onSearch}
+              className="bg-[#FF9900] hover:bg-[#E47911] text-[#0F1111] px-5 flex items-center gap-2 transition-colors flex-shrink-0"
             >
-              <span className="hidden md:inline">Rechercher</span>
-              <i className="fa-solid fa-arrow-right text-sm"></i>
+              <i className="fa-solid fa-magnifying-glass text-base"></i>
+              <span className="hidden md:inline font-bold text-sm">Rechercher</span>
             </button>
           </div>
 
           {/* QUICK TAGS */}
-          <div className="flex items-center gap-2 mt-4 flex-wrap">
-            <span className="text-[9px] font-black uppercase text-zinc-500 tracking-widest">
-              Tendances:
-            </span>
+          <div className="flex items-center gap-2 mt-3 flex-wrap">
+            <span className="text-xs text-gray-500">Tendances:</span>
             {["AirPods", "Sneakers", "Casque", "Hoodies"].map((tag) => (
-              <button
-                key={tag}
-                onClick={() => {
-                  setSearchQuery(tag);
-                }}
-                className="text-[9px] font-black uppercase px-3 py-1.5 rounded-full bg-white/15 text-zinc-200 hover:bg-primary hover:text-black transition-all border border-white/20 hover:border-primary"
+              <button key={tag} onClick={() => setSearchQuery(tag)}
+                className="text-xs px-3 py-1 rounded-full bg-white/10 text-gray-300 hover:bg-[#FF9900] hover:text-[#0F1111] transition-all border border-white/20 hover:border-[#FF9900]"
               >
                 {tag}
               </button>
@@ -206,50 +173,23 @@ const MarketplaceHero = ({
           </div>
         </div>
 
-        {/* STATS ROW */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-12">
+        {/* STATS */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-8">
           {[
-            {
-              icon: "fa-store",
-              val: "5+",
-              label: "Boutiques Certifiées",
-              color: "text-primary",
-            },
-            {
-              icon: "fa-truck-fast",
-              val: "2h",
-              label: "Livraison Douala",
-              color: "text-blue-400",
-            },
-            {
-              icon: "fa-shield-check",
-              val: "100%",
-              label: "Paiement Sécurisé",
-              color: "text-emerald-400",
-            },
-            {
-              icon: "fa-rotate-left",
-              val: "7j",
-              label: "Retour Gratuit",
-              color: "text-purple-400",
-            },
+            { icon: "fa-store",        val: "5+",   label: "Boutiques Certifiées", color: "text-[#FF9900]"  },
+            { icon: "fa-truck-fast",   val: "2h",   label: "Livraison Douala",     color: "text-blue-400"  },
+            { icon: "fa-shield-check", val: "100%", label: "Paiement Sécurisé",    color: "text-green-400" },
+            { icon: "fa-rotate-left",  val: "7j",   label: "Retour Gratuit",       color: "text-purple-400"},
           ].map((item) => (
-            <div
-              key={item.label}
-              className="bg-white/10 border border-white/15 rounded-2xl p-4 flex items-center gap-3 hover:border-white/25 transition-colors backdrop-blur-sm"
+            <div key={item.label}
+              className="bg-white/5 border border-white/10 rounded p-4 flex items-center gap-3 hover:border-white/20 transition-colors"
             >
-              <div className="w-9 h-9 bg-white/15 rounded-xl flex items-center justify-center flex-shrink-0">
-                <i
-                  className={`fa-solid ${item.icon} ${item.color} text-sm`}
-                ></i>
+              <div className="w-9 h-9 bg-white/10 rounded flex items-center justify-center flex-shrink-0">
+                <i className={`fa-solid ${item.icon} ${item.color} text-sm`}></i>
               </div>
               <div>
-                <p className={`font-black text-lg leading-none ${item.color}`}>
-                  {item.val}
-                </p>
-                <p className="text-[9px] font-bold text-zinc-500 uppercase tracking-wider mt-0.5">
-                  {item.label}
-                </p>
+                <p className={`font-black text-lg leading-none ${item.color}`}>{item.val}</p>
+                <p className="text-[9px] font-bold text-gray-500 uppercase tracking-wider mt-0.5">{item.label}</p>
               </div>
             </div>
           ))}
@@ -261,37 +201,35 @@ const MarketplaceHero = ({
 
 /* ─────────────────── PROMO BANNERS STRIP ─────────────────── */
 const PromoBanners = () => (
-  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 py-6 px-4 md:px-8 max-w-[1400px] mx-auto">
+  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 py-4 px-4 md:px-8 max-w-[1400px] mx-auto">
     {PROMO_BANNERS.map((b, i) => (
       <Link
         key={i}
         to="/store"
-        className={`relative overflow-hidden rounded-2xl bg-gradient-to-r ${b.bg} border border-zinc-100 p-5 flex items-center gap-4 group hover:shadow-lg transition-all hover:-translate-y-0.5`}
+        className="bg-white border border-[#D5D9D9] hover:border-[#FF9900] hover:shadow-md rounded p-4 flex items-center gap-4 group transition-all"
       >
         <div className="flex-1">
           <span
-            className="text-[9px] font-black uppercase tracking-[0.4em] px-2.5 py-1 rounded-full mb-2 inline-block"
-            style={{
-              backgroundColor: `${b.color}15`,
-              color: b.color,
-              border: `1px solid ${b.color}30`,
-            }}
+            className="text-[10px] font-bold uppercase px-2 py-0.5 rounded mb-2 inline-block"
+            style={{ backgroundColor: `${b.color}15`, color: b.color }}
           >
             {b.tag}
           </span>
-          <h3 className="font-black text-xl uppercase italic tracking-tighter text-zinc-900 leading-none">
+          <h3 className="font-bold text-base text-[#0F1111] group-hover:text-[#C45500] transition-colors">
             {b.title}
           </h3>
-          <p className="text-[10px] font-bold text-zinc-500 mt-1">{b.sub}</p>
+          <p className="text-[11px] text-[#565959] mt-0.5">{b.sub}</p>
+          <p className="text-[#007185] text-xs mt-1.5 group-hover:text-[#C45500] group-hover:underline transition-colors">
+            Voir les offres →
+          </p>
         </div>
-        <div className="w-20 h-20 rounded-xl overflow-hidden flex-shrink-0 relative">
+        <div className="w-20 h-20 rounded overflow-hidden flex-shrink-0">
           <img
             src={b.img}
             alt=""
-            className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
           />
         </div>
-        <i className="fa-solid fa-arrow-right absolute top-4 right-4 text-xs text-zinc-300 group-hover:text-zinc-600 group-hover:translate-x-1 transition-all"></i>
       </Link>
     ))}
   </div>
@@ -302,24 +240,17 @@ const VendorsSection = ({ vendors, loading, vendorProducts }) => {
   if (!loading && vendors.length === 0) return null;
 
   return (
-    <div className="bg-zinc-50 border-y border-zinc-100 py-8 px-4 md:px-8">
+    <div className="bg-white border-y border-[#D5D9D9] py-6 px-4 md:px-8">
       <div className="max-w-[1400px] mx-auto">
         <div className="flex items-center justify-between mb-5">
-          <div className="flex items-center gap-3">
-            <div className="w-1 h-8 bg-primary rounded-full"></div>
-            <div>
-              <h2 className="text-base font-black uppercase tracking-tighter text-zinc-900">
-                Boutiques{" "}
-                <span className="text-primary italic">Certifiées</span>
-              </h2>
-              <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest">
-                Vendeurs vérifiés OneFreestyle
-              </p>
-            </div>
+          <div>
+            <h2 className="text-lg font-bold text-[#0F1111]">
+              Boutiques <span className="text-[#FF9900]">Certifiées</span>
+            </h2>
+            <p className="text-xs text-[#565959]">Vendeurs vérifiés OneFreestyle</p>
           </div>
-          <Link
-            to="/register"
-            className="hidden md:flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-primary hover:underline decoration-primary underline-offset-4"
+          <Link to="/register"
+            className="hidden md:flex items-center gap-1.5 text-sm text-[#007185] hover:text-[#C45500] hover:underline transition-colors"
           >
             <span>Devenir vendeur</span>
             <i className="fa-solid fa-arrow-right text-xs"></i>
@@ -338,7 +269,7 @@ const VendorsSection = ({ vendors, loading, vendorProducts }) => {
                   <Link
                     key={vendor.id}
                     to={`/shop/${vendor.shop_name}`}
-                    className="bg-white border border-zinc-100 rounded-2xl p-5 group hover:border-primary/30 hover:shadow-[0_4px_24px_rgba(0,0,0,0.06)] transition-all duration-300 hover:-translate-y-0.5"
+                    className="bg-white border border-[#D5D9D9] rounded p-4 group hover:border-[#FF9900] hover:shadow-md transition-all duration-300"
                   >
                     <div className="flex items-center gap-3 mb-4">
                       {/* AVATAR */}
@@ -426,18 +357,17 @@ const VendorsSection = ({ vendors, loading, vendorProducts }) => {
 
           {/* BECOME VENDOR CTA */}
           {!loading && (
-            <Link
-              to="/register"
-              className="bg-gradient-to-br from-primary/8 to-primary/3 border-2 border-dashed border-primary/25 rounded-2xl p-5 flex flex-col items-center justify-center gap-3 group hover:border-primary/50 hover:bg-primary/10 transition-all min-h-[180px]"
+            <Link to="/register"
+              className="bg-[#FFF8F0] border-2 border-dashed border-[#FEBD69] rounded p-4 flex flex-col items-center justify-center gap-3 group hover:border-[#FF9900] hover:bg-[#FFF0D0] transition-all min-h-[160px]"
             >
-              <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center group-hover:bg-primary/20 transition-colors">
-                <i className="fa-solid fa-plus text-primary text-xl"></i>
+              <div className="w-12 h-12 bg-[#FF9900]/10 rounded flex items-center justify-center group-hover:bg-[#FF9900]/20 transition-colors">
+                <i className="fa-solid fa-plus text-[#FF9900] text-xl"></i>
               </div>
               <div className="text-center">
-                <p className="font-black text-sm uppercase italic tracking-tighter text-zinc-900">
+                <p className="font-bold text-sm text-[#0F1111] group-hover:text-[#C45500] transition-colors">
                   Ouvre ta boutique
                 </p>
-                <p className="text-[9px] font-bold text-zinc-400 mt-0.5">
+                <p className="text-xs text-[#565959] mt-0.5">
                   Rejoindre la marketplace Elite
                 </p>
               </div>
@@ -454,11 +384,11 @@ const CategoryTabs = ({ active, onChange, counts }) => {
   const scrollRef = useRef(null);
 
   return (
-    <div className="sticky top-[114px] z-30 bg-white border-b border-zinc-100 shadow-sm">
+    <div className="sticky top-[128px] md:top-[128px] z-30 bg-white border-b border-[#D5D9D9] shadow-sm">
       <div className="max-w-[1400px] mx-auto px-4 md:px-8">
         <div
           ref={scrollRef}
-          className="flex items-center gap-1 overflow-x-auto hide-scrollbar py-3"
+          className="flex items-center gap-1 overflow-x-auto hide-scrollbar py-2.5"
         >
           {CATEGORIES.map((cat) => {
             const count =
@@ -470,22 +400,22 @@ const CategoryTabs = ({ active, onChange, counts }) => {
               <button
                 key={cat.key}
                 onClick={() => onChange(cat.key)}
-                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-wider whitespace-nowrap transition-all flex-shrink-0 border ${
+                className={`flex items-center gap-1.5 px-4 py-2 rounded text-[12px] font-medium whitespace-nowrap transition-all flex-shrink-0 border ${
                   isActive
-                    ? "bg-zinc-700 text-white border-zinc-700 shadow-md"
-                    : "bg-white text-zinc-500 border-zinc-200 hover:border-zinc-300 hover:text-zinc-900 hover:bg-zinc-50"
+                    ? "bg-[#232F3E] text-white border-[#232F3E]"
+                    : "bg-white text-[#0F1111] border-[#D5D9D9] hover:border-[#FF9900] hover:bg-[#FFF8F0]"
                 }`}
               >
                 <i
                   className={`fa-solid ${cat.icon} text-xs`}
-                  style={{ color: isActive ? "#00ff88" : cat.color }}
+                  style={{ color: isActive ? "#FF9900" : cat.color }}
                 ></i>
                 <span>{cat.label}</span>
                 <span
-                  className={`text-[8px] px-1.5 py-0.5 rounded-full font-black ${
+                  className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ml-0.5 ${
                     isActive
-                      ? "bg-primary/20 text-primary"
-                      : "bg-zinc-100 text-zinc-400"
+                      ? "bg-[#FF9900]/20 text-[#FF9900]"
+                      : "bg-[#F3F4F4] text-[#565959]"
                   }`}
                 >
                   {count}
@@ -510,21 +440,19 @@ const SidebarFilters = ({
   setSelectedSize,
   category,
 }) => (
-  <aside className="w-56 flex-shrink-0 space-y-6">
+  <aside className="w-52 flex-shrink-0 space-y-4">
     {/* SORT */}
-    <div className="bg-white border border-zinc-100 rounded-2xl p-5">
-      <h4 className="text-[9px] font-black uppercase tracking-[0.3em] text-zinc-400 mb-3 flex items-center gap-2">
-        <i className="fa-solid fa-sort text-primary text-xs"></i>Trier par
+    <div className="bg-white border border-[#D5D9D9] rounded p-4">
+      <h4 className="text-xs font-bold uppercase text-[#565959] mb-3 flex items-center gap-2">
+        <i className="fa-solid fa-sort text-[#FF9900] text-xs"></i>Trier par
       </h4>
-      <div className="space-y-1">
+      <div className="space-y-0.5">
         {SORT_OPTIONS.map((opt) => (
-          <button
-            key={opt.value}
-            onClick={() => setSortBy(opt.value)}
-            className={`w-full text-left text-[11px] font-bold uppercase px-3 py-2 rounded-xl transition-all ${
+          <button key={opt.value} onClick={() => setSortBy(opt.value)}
+            className={`w-full text-left text-[12px] px-3 py-2 rounded transition-all ${
               sortBy === opt.value
-                ? "bg-zinc-700 text-primary"
-                : "text-zinc-500 hover:bg-zinc-50 hover:text-zinc-900"
+                ? "bg-[#232F3E] text-[#FF9900] font-bold"
+                : "text-[#565959] hover:bg-[#F3F4F4] hover:text-[#0F1111]"
             }`}
           >
             {opt.label}
@@ -534,18 +462,15 @@ const SidebarFilters = ({
     </div>
 
     {/* PRICE RANGE */}
-    <div className="bg-white border border-zinc-100 rounded-2xl p-5">
-      {/* <p className="font-black italic text-primary text-lg leading-none">
-  {Number(displayPrice).toLocaleString()}
-</p> */}
-      <h4 className="text-[9px] font-black uppercase tracking-[0.3em] text-zinc-400 mb-3 flex items-center gap-2">
-        <i className="fa-solid fa-tag text-primary text-xs"></i>Budget Max
+    <div className="bg-white border border-[#D5D9D9] rounded p-4">
+      <h4 className="text-xs font-bold uppercase text-[#565959] mb-3 flex items-center gap-2">
+        <i className="fa-solid fa-tag text-[#FF9900] text-xs"></i>Budget Max
       </h4>
       <div className="mb-3">
-        <span className="text-xl font-black italic text-zinc-900 tracking-tighter">
+        <span className="text-lg font-bold text-[#B12704]">
           {Number(maxPrice).toLocaleString()}
         </span>
-        <span className="text-[10px] font-bold text-zinc-400 ml-1">FCFA</span>
+        <span className="text-xs text-[#565959] ml-1">FCFA</span>
       </div>
       <input
         type="range"
@@ -554,10 +479,10 @@ const SidebarFilters = ({
         step="5000"
         value={maxPrice}
         onChange={(e) => setMaxPrice(Number(e.target.value))}
-        className="w-full accent-primary cursor-pointer"
-        style={{ accentColor: "#00ff88" }}
+        className="w-full cursor-pointer"
+        style={{ accentColor: "#FF9900" }}
       />
-      <div className="flex justify-between text-[8px] font-bold text-zinc-400 mt-1">
+      <div className="flex justify-between text-[10px] text-[#565959] mt-1">
         <span>0</span>
         <span>{priceMax.toLocaleString()} F</span>
       </div>
@@ -567,9 +492,9 @@ const SidebarFilters = ({
     {(category === "Clothing" ||
       category === "Shoes" ||
       category === "All") && (
-      <div className="bg-white border border-zinc-100 rounded-2xl p-5">
-        <h4 className="text-[9px] font-black uppercase tracking-[0.3em] text-zinc-400 mb-3 flex items-center gap-2">
-          <i className="fa-solid fa-ruler text-primary text-xs"></i>Taille
+      <div className="bg-white border border-[#D5D9D9] rounded p-4">
+        <h4 className="text-xs font-bold uppercase text-[#565959] mb-3 flex items-center gap-2">
+          <i className="fa-solid fa-ruler text-[#FF9900] text-xs"></i>Taille
         </h4>
         <div className="grid grid-cols-3 gap-1.5">
           {[
@@ -578,13 +503,11 @@ const SidebarFilters = ({
               ? ["40", "41", "42", "43", "44"]
               : ["XS", "S", "M", "L", "XL"]),
           ].map((s) => (
-            <button
-              key={s}
-              onClick={() => setSelectedSize(s)}
-              className={`py-2 text-[9px] font-black rounded-lg border transition-all ${
+            <button key={s} onClick={() => setSelectedSize(s)}
+              className={`py-1.5 text-xs rounded border transition-all ${
                 selectedSize === s
-                  ? "bg-zinc-700 text-primary border-zinc-700"
-                  : "border-zinc-200 text-zinc-400 hover:border-zinc-300 hover:text-zinc-700"
+                  ? "bg-[#232F3E] text-[#FF9900] border-[#232F3E]"
+                  : "border-[#D5D9D9] text-[#565959] hover:border-[#FF9900] hover:text-[#0F1111]"
               }`}
             >
               {s}
@@ -595,16 +518,14 @@ const SidebarFilters = ({
     )}
 
     {/* INFO CARD */}
-    <div className="bg-gradient-to-br from-primary/8 to-primary/3 border border-primary/15 rounded-2xl p-5">
-      <i className="fa-solid fa-bolt text-primary text-lg mb-3 block"></i>
-      <h4 className="font-black text-sm uppercase italic tracking-tighter text-zinc-900 leading-tight mb-1">
-        Bundle Deal
-      </h4>
-      <p className="text-[10px] font-bold text-zinc-500 leading-relaxed">
-        -15% automatiquement à partir de 2 articles dans le panier
+    <div className="bg-[#FFF8F0] border border-[#FEBD69]/40 rounded p-4">
+      <i className="fa-solid fa-tag text-[#FF9900] text-lg mb-2 block"></i>
+      <h4 className="font-bold text-sm text-[#0F1111] mb-1">Bundle Deal</h4>
+      <p className="text-xs text-[#565959]">
+        −15% automatiquement à partir de 2 articles dans le panier
       </p>
-      <div className="mt-3 bg-primary text-black text-[9px] font-black uppercase px-3 py-2 rounded-xl inline-flex items-center gap-1.5">
-        <i className="fa-solid fa-check text-[8px]"></i>
+      <div className="mt-3 bg-[#FF9900] text-[#0F1111] text-xs font-bold px-3 py-1.5 rounded inline-flex items-center gap-1.5">
+        <i className="fa-solid fa-check text-[10px]"></i>
         Actif sur tous les achats
       </div>
     </div>
@@ -615,36 +536,33 @@ const SidebarFilters = ({
 const ActiveFilters = ({ category, search, sortBy, count, onReset }) => {
   const hasFilters = category !== "All" || search;
   return (
-    <div className="flex items-center justify-between mb-5">
+    <div className="flex items-center justify-between mb-4 w-full">
       <div className="flex items-center gap-3 flex-wrap">
-        <span className="text-sm font-black text-zinc-900">
-          <span className="text-primary">{count}</span>
-          <span className="text-zinc-400 font-bold ml-1.5 text-xs">
-            produits
+        <span className="text-sm text-[#0F1111]">
+          <span className="text-[#007185] font-bold">{count}</span>
+          <span className="text-[#565959] ml-1.5">
+            résultats
           </span>
           {category !== "All" && (
-            <span className="text-zinc-400 font-bold ml-1.5 text-xs">
-              dans {category}
-            </span>
+            <span className="text-[#565959] ml-1.5">dans {category}</span>
           )}
         </span>
         {search && (
-          <span className="text-[9px] font-black uppercase px-3 py-1.5 rounded-full bg-zinc-800 text-primary border border-zinc-700 flex items-center gap-1.5">
-            <i className="fa-solid fa-magnifying-glass text-[8px]"></i>
+          <span className="text-xs px-2.5 py-1 rounded bg-[#FEBD69]/20 text-[#C45500] border border-[#FEBD69]/40 flex items-center gap-1.5">
+            <i className="fa-solid fa-magnifying-glass text-[10px]"></i>
             {search}
           </span>
         )}
         {hasFilters && (
-          <button
-            onClick={onReset}
-            className="text-[9px] font-black uppercase text-red-400 hover:text-red-600 flex items-center gap-1 border border-red-200 hover:border-red-300 px-2.5 py-1.5 rounded-lg transition-colors"
+          <button onClick={onReset}
+            className="text-xs text-[#007185] hover:text-[#C45500] hover:underline flex items-center gap-1 transition-colors"
           >
-            <i className="fa-solid fa-xmark"></i> Effacer
+            <i className="fa-solid fa-xmark text-[10px]"></i> Effacer les filtres
           </button>
         )}
       </div>
-      <div className="flex items-center gap-2 text-[9px] font-black uppercase text-zinc-400">
-        <i className="fa-solid fa-location-dot text-primary text-xs"></i>
+      <div className="hidden md:flex items-center gap-1.5 text-xs text-[#565959]">
+        <i className="fa-solid fa-location-dot text-[#FF9900] text-xs"></i>
         Douala, Cameroun
       </div>
     </div>
@@ -752,7 +670,7 @@ const Store = ({ openModal, addToCart }) => {
   };
 
   return (
-    <div className="min-h-screen bg-zinc-50 text-zinc-900">
+    <div className="min-h-screen bg-[#EAEDED] text-[#0F1111]">
       {/* ── HERO ── */}
       <MarketplaceHero
         totalProducts={products.length}
@@ -779,7 +697,7 @@ const Store = ({ openModal, addToCart }) => {
       />
 
       {/* ── MAIN CONTENT ── */}
-      <div className="max-w-[1400px] mx-auto px-4 md:px-8 py-8">
+      <div className="max-w-[1400px] mx-auto px-4 md:px-8 py-6">
         <div className="flex gap-8">
           {/* SIDEBAR */}
           <div className="hidden lg:block">
@@ -812,7 +730,7 @@ const Store = ({ openModal, addToCart }) => {
                 <select
                   value={sortBy}
                   onChange={(e) => setSortBy(e.target.value)}
-                  className="lg:hidden appearance-none bg-white border border-zinc-200 rounded-xl px-3 py-2.5 text-[10px] font-black uppercase text-zinc-600 outline-none focus:border-primary cursor-pointer"
+                  className="lg:hidden appearance-none bg-white border border-[#D5D9D9] rounded px-3 py-2 text-xs text-[#0F1111] outline-none focus:border-[#FF9900] cursor-pointer"
                 >
                   {SORT_OPTIONS.map((opt) => (
                     <option key={opt.value} value={opt.value}>
@@ -822,23 +740,23 @@ const Store = ({ openModal, addToCart }) => {
                 </select>
 
                 {/* VIEW TOGGLE */}
-                <div className="flex bg-white border border-zinc-200 rounded-xl overflow-hidden">
+                <div className="flex bg-white border border-[#D5D9D9] rounded overflow-hidden">
                   <button
                     onClick={() => setViewMode("grid")}
-                    className={`px-3 py-2.5 transition-all ${
+                    className={`px-3 py-2 transition-all ${
                       viewMode === "grid"
-                        ? "bg-zinc-700 text-primary"
-                        : "text-zinc-400 hover:text-zinc-700"
+                        ? "bg-[#232F3E] text-[#FF9900]"
+                        : "text-[#565959] hover:text-[#0F1111] hover:bg-[#F3F4F4]"
                     }`}
                   >
                     <i className="fa-solid fa-grid-2 text-xs"></i>
                   </button>
                   <button
                     onClick={() => setViewMode("list")}
-                    className={`px-3 py-2.5 transition-all ${
+                    className={`px-3 py-2 transition-all ${
                       viewMode === "list"
-                        ? "bg-zinc-700 text-primary"
-                        : "text-zinc-400 hover:text-zinc-700"
+                        ? "bg-[#232F3E] text-[#FF9900]"
+                        : "text-[#565959] hover:text-[#0F1111] hover:bg-[#F3F4F4]"
                     }`}
                   >
                     <i className="fa-solid fa-list text-xs"></i>
@@ -855,17 +773,16 @@ const Store = ({ openModal, addToCart }) => {
                 ))}
               </div>
             ) : filteredProducts.length === 0 ? (
-              <div className="py-32 text-center border-2 border-dashed border-zinc-200 rounded-3xl bg-white">
-                <i className="fa-solid fa-box-open text-4xl text-zinc-300 mb-4 block"></i>
-                <p className="font-black italic uppercase text-zinc-400 text-lg mb-2">
+              <div className="py-20 text-center border-2 border-dashed border-[#D5D9D9] rounded bg-white">
+                <i className="fa-solid fa-box-open text-4xl text-[#D5D9D9] mb-4 block"></i>
+                <p className="font-bold text-[#565959] text-lg mb-2">
                   Aucun produit trouvé
                 </p>
-                <p className="text-zinc-400 text-sm font-bold mb-6">
+                <p className="text-[#565959] text-sm mb-6">
                   Essayez de modifier vos filtres
                 </p>
-                <button
-                  onClick={handleReset}
-                  className="bg-zinc-700 text-primary px-8 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-primary hover:text-black transition-all"
+                <button onClick={handleReset}
+                  className="bg-[#FFD814] hover:bg-[#F7CA00] border border-[#FCD200] text-[#0F1111] px-6 py-2.5 rounded font-medium text-sm transition-colors"
                 >
                   Réinitialiser les filtres
                 </button>
@@ -885,7 +802,7 @@ const Store = ({ openModal, addToCart }) => {
                   return (
                     <div
                       key={product.id}
-                      className="bg-white border border-zinc-100 rounded-2xl p-4 flex items-center gap-4 group hover:border-primary/30 hover:shadow-md transition-all cursor-pointer"
+                      className="bg-white border border-[#D5D9D9] rounded p-4 flex items-center gap-4 group hover:border-[#FF9900] hover:shadow-md transition-all cursor-pointer"
                       onClick={() => openModal(product)}
                     >
                       <div className="w-20 h-20 rounded-xl overflow-hidden flex-shrink-0 bg-zinc-50">
@@ -897,46 +814,47 @@ const Store = ({ openModal, addToCart }) => {
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1 flex-wrap">
-                          <span className="text-[8px] font-black uppercase px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-[#CC0C39] text-white">
                             {product.status}
                           </span>
-                          <span className="text-[8px] font-black uppercase text-zinc-400">
+                          <span className="text-[10px] text-[#007185]">
                             {product.type}
                           </span>
                         </div>
-                        <h3 className="font-black uppercase italic tracking-tighter text-zinc-900 truncate text-sm group-hover:text-primary transition-colors">
+                        <h3 className="font-medium text-[#0F1111] truncate text-sm group-hover:text-[#C45500] transition-colors">
                           {product.name}
                         </h3>
                         {product.features?.length > 0 && (
-                          <p className="text-[9px] text-zinc-400 font-bold truncate mt-0.5">
+                          <p className="text-xs text-[#565959] truncate mt-0.5">
                             {product.features.slice(0, 2).join(" · ")}
                           </p>
                         )}
                       </div>
-                      <div className="flex items-center gap-4 flex-shrink-0">
+                      <div className="flex items-center gap-3 flex-shrink-0">
                         <div className="text-right">
-                          <p className="font-black italic text-primary text-lg leading-none">
-                            {Number(product.price).toLocaleString()}
+                          <p className="font-bold text-[#B12704] text-base leading-none">
+                            {Number(isMemberPrice ? displayPrice : product.price).toLocaleString()} F
                           </p>
-                          <p className="text-[8px] font-bold text-zinc-400">
-                            FCFA
-                          </p>
+                          {isMemberPrice && (
+                            <p className="text-xs text-[#565959] line-through">
+                              {Number(product.price).toLocaleString()} F
+                            </p>
+                          )}
                         </div>
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
                             addToCart({
                               ...product,
-                              // On envoie le prix original pour que le panier calcule la promo proprement
                               price: product.price,
                               selectedSize: "M",
                               selectedColor: "Black",
                               quantity: 1,
                             });
                           }}
-                          className="w-10 h-10 bg-zinc-700 text-primary rounded-xl flex items-center justify-center font-black hover:bg-primary hover:text-black transition-all hover:scale-110"
+                          className="px-3 py-1.5 bg-[#FFD814] hover:bg-[#F7CA00] border border-[#FCD200] text-[#0F1111] rounded text-sm font-medium transition-colors"
                         >
-                          <i className="fa-solid fa-plus text-sm"></i>
+                          + Panier
                         </button>
                       </div>
                     </div>
@@ -956,15 +874,11 @@ const Store = ({ openModal, addToCart }) => {
               </div>
             )}
 
-            {/* PAGINATION PLACEHOLDER */}
+            {/* RESULTS FOOTER */}
             {!loading && filteredProducts.length > 0 && (
-              <div className="mt-12 flex items-center justify-center gap-3">
-                <div className="flex items-center gap-2 text-[10px] font-black uppercase text-zinc-400">
-                  <i className="fa-solid fa-check-circle text-primary"></i>
-                  <span>
-                    Tous les {filteredProducts.length} produits affichés
-                  </span>
-                </div>
+              <div className="mt-8 flex items-center justify-center gap-2 text-sm text-[#565959]">
+                <i className="fa-solid fa-check-circle text-[#FF9900]"></i>
+                <span>Tous les {filteredProducts.length} produits affichés</span>
               </div>
             )}
           </div>

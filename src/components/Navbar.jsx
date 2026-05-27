@@ -10,66 +10,16 @@ const ScrollToTop = () => {
 };
 
 const CATEGORIES = [
-  {
-    name: "Audio", shortName: "Audio", icon: "fa-headphones", color: "text-primary",
-    activeClass: "text-primary bg-primary/5", iconBg: "bg-primary/10",
-    megaAccent: "text-primary", megaLine: "bg-primary",
-    megaCardBg: "from-primary/10 to-primary/5", megaCardBorder: "border-primary/20",
-    subs: ["Audio Lab", "Casques & Écouteurs", "Enceintes", "AirPods", "Wireless"],
-  },
-  {
-    name: "Mode Femme", shortName: "Femme", icon: "fa-person-dress", color: "text-pink-400",
-    activeClass: "text-pink-400 bg-pink-400/5", iconBg: "bg-pink-400/10",
-    megaAccent: "text-pink-400", megaLine: "bg-pink-400",
-    megaCardBg: "from-pink-500/10 to-pink-500/5", megaCardBorder: "border-pink-500/20",
-    subs: ["Robes & Jupes", "Tops & Blouses", "Sacs & Bijoux", "Chaussures Femme", "Parfums Femme"],
-  },
-  {
-    name: "Tech Lab", shortName: "Tech", icon: "fa-microchip", color: "text-blue-400",
-    activeClass: "text-blue-400 bg-blue-400/5", iconBg: "bg-blue-400/10",
-    megaAccent: "text-blue-400", megaLine: "bg-blue-400",
-    megaCardBg: "from-blue-500/10 to-blue-500/5", megaCardBorder: "border-blue-500/20",
-    subs: ["VR & AR", "Accessoires", "Gadgets", "Smart Watch", "Cables"],
-  },
-  {
-    name: "Streetwear", shortName: "Street", icon: "fa-shirt", color: "text-purple-400",
-    activeClass: "text-purple-400 bg-purple-400/5", iconBg: "bg-purple-400/10",
-    megaAccent: "text-purple-400", megaLine: "bg-purple-400",
-    megaCardBg: "from-purple-500/10 to-purple-500/5", megaCardBorder: "border-purple-500/20",
-    subs: ["T-Shirts", "Hoodies", "Vestes", "Shorts", "Accessoires"],
-  },
-  {
-    name: "Sneakers", shortName: "Shoes", icon: "fa-shoe-prints", color: "text-orange-400",
-    activeClass: "text-orange-400 bg-orange-400/5", iconBg: "bg-orange-400/10",
-    megaAccent: "text-orange-400", megaLine: "bg-orange-400",
-    megaCardBg: "from-orange-500/10 to-orange-500/5", megaCardBorder: "border-orange-500/20",
-    subs: ["Baskets", "Running", "Casual", "High-Top", "Limited"],
-  },
-  {
-    name: "Parfums", shortName: "Parfum", icon: "fa-spray-can-sparkles", color: "text-pink-400",
-    activeClass: "text-pink-400 bg-pink-400/5", iconBg: "bg-pink-400/10",
-    megaAccent: "text-pink-400", megaLine: "bg-pink-400",
-    megaCardBg: "from-pink-500/10 to-pink-500/5", megaCardBorder: "border-pink-500/20",
-    subs: ["Homme", "Femme", "Unisex", "Travel Size", "Gift Set"],
-  },
-  {
-    name: "Flash Deals", shortName: "Deals", icon: "fa-bolt", color: "text-yellow-400",
-    activeClass: "text-yellow-400 bg-yellow-400/5", iconBg: "bg-yellow-400/10",
-    megaAccent: "text-yellow-400", megaLine: "bg-yellow-400",
-    megaCardBg: "from-yellow-500/10 to-yellow-500/5", megaCardBorder: "border-yellow-500/20",
-    subs: ["Moins de 10K", "Moins de 25K", "Meilleures Ventes", "Nouveautés"],
-  },
+  { name: "Audio Lab",    icon: "fa-headphones",        isNew: false },
+  { name: "Mode Femme",   icon: "fa-person-dress",       isNew: true  },
+  { name: "Tech Lab",     icon: "fa-microchip",          isNew: false },
+  { name: "Streetwear",   icon: "fa-shirt",              isNew: false },
+  { name: "Sneakers",     icon: "fa-shoe-prints",        isNew: false },
+  { name: "Parfums",      icon: "fa-spray-can-sparkles", isNew: false },
+  { name: "Flash Deals",  icon: "fa-bolt",               isNew: false },
+  { name: "Accessoires",  icon: "fa-gem",                isNew: false },
 ];
 
-const ADS = [
-  { text: "LIVRAISON GRATUITE — 1 MOIS !", color: "text-primary" },
-  { text: "AIRPODS PRO 2 : 6.000 FCFA", color: "text-white" },
-  { text: "-15% BUNDLE (MIN. 2 ARTICLES)", color: "text-yellow-400" },
-  { text: "STUDIO LAB — PERSO TON ÉQUIPEMENT", color: "text-primary" },
-  { text: "MODE FEMME — NOUVELLE COLLECTION", color: "text-pink-400" },
-];
-
-// Mini dropdown profil desktop
 const ProfileDropdown = ({ user, profile, signOut }) => {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
@@ -81,58 +31,49 @@ const ProfileDropdown = ({ user, profile, signOut }) => {
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
-  const initial = (profile?.full_name || user?.email || "?")[0].toUpperCase();
-  const name    = profile?.full_name || user?.email?.split("@")[0] || "Mon compte";
+  const name = profile?.full_name || user?.email?.split("@")[0] || "Mon compte";
+  const firstName = name.split(" ")[0];
 
   return (
     <div ref={ref} className="relative">
       <button
         onClick={() => setOpen(!open)}
-        className="flex items-center gap-2 bg-white/5 border border-white/10 hover:border-primary/40 rounded-xl px-2.5 py-1.5 transition-all group"
+        className="flex flex-col items-start text-white border border-transparent hover:border-white rounded px-2 py-1 transition-all"
       >
-        {/* AVATAR */}
-        <div className="w-6 h-6 rounded-lg bg-primary/20 border border-primary/30 flex items-center justify-center overflow-hidden flex-shrink-0">
-          {profile?.avatar_url
-            ? <img src={profile.avatar_url} alt={name} className="w-full h-full object-cover" />
-            : <span className="text-primary font-black text-[10px]">{initial}</span>
-          }
-        </div>
-        <span className="hidden lg:block text-[9px] font-black uppercase tracking-widest text-zinc-300 group-hover:text-white transition-colors max-w-[80px] truncate">
-          {name}
+        <span className="text-[11px] text-gray-300 leading-none mb-0.5">Bonjour, {firstName}</span>
+        <span className="text-[13px] font-bold leading-none flex items-center gap-1">
+          Compte &amp; Listes
+          <i className={`fa-solid fa-caret-down text-[10px] transition-transform ${open ? "rotate-180" : ""}`}></i>
         </span>
-        <i className={`fa-solid fa-chevron-down text-zinc-500 text-[8px] transition-transform ${open ? "rotate-180" : ""}`}></i>
       </button>
 
       {open && (
-        <div className="absolute right-0 top-full mt-2 w-56 bg-zinc-950 border border-white/10 rounded-2xl shadow-[0_20px_60px_rgba(0,0,0,0.7)] overflow-hidden z-50">
-          {/* HEADER */}
-          <div className="px-4 py-3.5 border-b border-white/5 bg-white/2">
-            <p className="font-black text-[11px] text-white truncate">{name}</p>
-            <p className="text-[8px] text-zinc-500 font-bold truncate">{user?.email}</p>
+        <div className="absolute right-0 top-full mt-1 w-60 bg-white border border-[#D5D9D9] rounded shadow-2xl z-50">
+          <div className="px-4 py-3 border-b border-[#EAEDED]">
+            <p className="font-bold text-sm text-[#0F1111] truncate">{name}</p>
+            <p className="text-xs text-[#565959] truncate mt-0.5">{user?.email}</p>
           </div>
-
-          {/* LIENS */}
-          <div className="py-1.5">
+          <div className="py-1">
             {[
-              { to:"/profile",             icon:"fa-user",            label:"Mon profil"       },
-              { to:"/profile?tab=orders",  icon:"fa-bag-shopping",    label:"Mes commandes"    },
-              { to:"/profile?tab=wishlist",icon:"fa-heart",           label:"Mes favoris"      },
-              { to:"/profile?tab=referral",icon:"fa-user-plus",       label:"Parrainage"       },
+              { to: "/profile",              icon: "fa-user",        label: "Mon profil"    },
+              { to: "/profile?tab=orders",   icon: "fa-box",         label: "Mes commandes" },
+              { to: "/profile?tab=wishlist", icon: "fa-heart",       label: "Mes favoris"   },
+              { to: "/profile?tab=referral", icon: "fa-user-plus",   label: "Parrainage"    },
             ].map(l => (
               <Link key={l.to} to={l.to} onClick={() => setOpen(false)}
-                className="flex items-center gap-3 px-4 py-2.5 text-[10px] font-bold text-zinc-400 hover:text-white hover:bg-white/5 transition-all uppercase tracking-widest"
+                className="flex items-center gap-3 px-4 py-2.5 text-sm text-[#0F1111] hover:bg-[#EAEDED] transition-colors"
               >
-                <i className={`fa-solid ${l.icon} text-primary text-xs w-4`}></i>
+                <i className={`fa-solid ${l.icon} text-[#FF9900] w-4 text-sm`}></i>
                 <span>{l.label}</span>
               </Link>
             ))}
           </div>
-
-          <div className="border-t border-white/5 p-2">
-            <button onClick={() => { setOpen(false); signOut(); /* prop = handleSignOut de Navbar */ }}
-              className="w-full flex items-center gap-3 px-3 py-2.5 text-[10px] font-bold text-red-400 hover:bg-red-500/10 rounded-xl transition-all uppercase tracking-widest"
+          <div className="border-t border-[#EAEDED] p-2">
+            <button
+              onClick={() => { setOpen(false); signOut(); }}
+              className="w-full flex items-center gap-3 px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded transition-colors"
             >
-              <i className="fa-solid fa-right-from-bracket text-xs w-4"></i>
+              <i className="fa-solid fa-right-from-bracket w-4"></i>
               <span>Déconnexion</span>
             </button>
           </div>
@@ -143,28 +84,22 @@ const ProfileDropdown = ({ user, profile, signOut }) => {
 };
 
 const Navbar = ({ isDark, toggleTheme, cartCount, toggleCart, toggleVisualSearch }) => {
-  const { user, isMember, isVendor, signOut } = useAuth();
+  const { user, isMember, signOut } = useAuth();
 
-  const [mobileMenuOpen,  setMobileMenuOpen]  = useState(false);
-  const [searchQuery,     setSearchQuery]     = useState("");
-  const [searchFocused,   setSearchFocused]   = useState(false);
-  const [cartBump,        setCartBump]        = useState(false);
-  const [activeCategory,  setActiveCategory]  = useState(null);
-  const [megaMenuOpen,    setMegaMenuOpen]    = useState(false);
-  const [profile,         setProfile]         = useState(null);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [searchQuery,    setSearchQuery]    = useState("");
+  const [cartBump,       setCartBump]       = useState(false);
+  const [profile,        setProfile]        = useState(null);
 
   const prevCartCount = useRef(cartCount);
-  const closeTimer    = useRef(null);
   const location      = useLocation();
   const navigate      = useNavigate();
 
-  // ─── SIGN OUT avec redirection ───────────────────────────────────────────────
   const handleSignOut = async () => {
     try { await signOut(); } catch (e) { console.warn(e); }
     navigate("/");
   };
 
-  // Fetch profil minimal pour l'avatar navbar
   useEffect(() => {
     if (!user) { setProfile(null); return; }
     import("../lib/supabase").then(({ supabase }) => {
@@ -181,10 +116,7 @@ const Navbar = ({ isDark, toggleTheme, cartCount, toggleCart, toggleVisualSearch
     prevCartCount.current = cartCount;
   }, [cartCount]);
 
-  useEffect(() => {
-    setMobileMenuOpen(false);
-    setMegaMenuOpen(false);
-  }, [location.pathname]);
+  useEffect(() => { setMobileMenuOpen(false); }, [location.pathname]);
 
   useEffect(() => {
     document.body.style.overflow = mobileMenuOpen ? "hidden" : "";
@@ -200,422 +132,384 @@ const Navbar = ({ isDark, toggleTheme, cartCount, toggleCart, toggleVisualSearch
     }
   };
 
-  const handleCategoryHover = (idx) => {
-    if (closeTimer.current) clearTimeout(closeTimer.current);
-    setActiveCategory(idx);
-    setMegaMenuOpen(true);
-  };
-
-  const handleMegaLeave = () => {
-    closeTimer.current = setTimeout(() => {
-      setMegaMenuOpen(false);
-      setActiveCategory(null);
-    }, 200);
-  };
-
-  const activeCat = activeCategory !== null && activeCategory >= 0 ? CATEGORIES[activeCategory] : null;
+  const initial = (profile?.full_name || user?.email || "?")[0].toUpperCase();
 
   return (
     <>
       <ScrollToTop />
 
-      {/* TICKER */}
-      <div className="fixed top-0 left-0 right-0 z-[120] h-8 md:h-10 bg-black border-b border-white/10 overflow-hidden flex items-center">
-        <div className="ofs-ticker flex items-center whitespace-nowrap">
-          {[...ADS, ...ADS, ...ADS, ...ADS].map((ad, i) => (
-            <span key={i} className="inline-flex items-center gap-3 px-8 shrink-0">
-              <span className={"text-[8px] sm:text-[9px] md:text-[10px] font-black uppercase tracking-[0.15em] " + ad.color}>{ad.text}</span>
-              <span className="text-primary/40 font-black">///</span>
-            </span>
-          ))}
-        </div>
+      {/* PROMO STRIP */}
+      <div className="fixed top-0 left-0 right-0 z-[125] h-8 bg-[#232F3E] flex items-center justify-center">
+        <p className="text-[11px] text-white text-center">
+          <span className="text-[#FF9900] font-bold">Livraison gratuite</span>
+          {" · "}Paiement sécurisé{" · "}
+          <Link to="/register" className="text-[#FF9900] font-bold hover:underline">
+            Rejoignez l'Elite −20%
+          </Link>
+        </p>
       </div>
 
-      {/* NAVBAR ROW 1 */}
-      <nav className="fixed left-0 right-0 z-[110] bg-black border-b border-white/5 top-8 md:top-10">
-        <div className="h-12 md:h-16 flex items-center gap-2 md:gap-4 px-3 sm:px-4 md:px-8 max-w-[1600px] mx-auto">
+      {/* MAIN NAV */}
+      <nav className="fixed left-0 right-0 z-[110] bg-[#131921] top-8">
+        <div className="h-12 md:h-14 flex items-center gap-2 md:gap-3 px-3 md:px-6 max-w-[1600px] mx-auto">
 
           {/* LOGO */}
-          <Link to="/" className="flex items-center gap-2 flex-shrink-0 group">
-            <img src={ofsLogo} alt="OFS"
-              className="w-7 h-7 md:w-9 md:h-9 flex-shrink-0 drop-shadow-[0_0_8px_rgba(0,255,136,0.35)] group-hover:scale-110 transition-transform"
-            />
-            <div className="hidden min-[380px]:flex flex-col border-l border-primary/30 pl-2">
-              <span className="logo-font font-black text-[10px] sm:text-[11px] md:text-sm leading-none tracking-tighter uppercase text-white whitespace-nowrap">
-                OneFree<span className="text-primary italic">Style</span>
+          <Link to="/"
+            className="flex items-center gap-2 flex-shrink-0 border border-transparent hover:border-white rounded px-2 py-1 transition-all"
+          >
+            <img src={ofsLogo} alt="OFS" className="w-7 h-7 md:w-8 md:h-8 flex-shrink-0" />
+            <div className="hidden sm:flex flex-col leading-none">
+              <span className="logo-font font-black text-[10px] md:text-[11px] text-white whitespace-nowrap">
+                OneFree<span className="text-[#FF9900]">Style</span>
               </span>
-              <span className="hidden sm:block text-[5px] md:text-[6px] font-black tracking-[0.3em] text-primary uppercase">Elite Market</span>
+              <span className="text-[8px] text-gray-400 font-medium">Elite Market</span>
             </div>
           </Link>
 
-          {/* SEARCH desktop */}
-          <form onSubmit={handleSearch} className="hidden md:flex flex-grow max-w-2xl">
-            <div className={"flex items-center w-full bg-zinc-900 border-2 rounded-xl overflow-hidden transition-all duration-300 " + (searchFocused ? "border-primary shadow-[0_0_16px_rgba(0,255,136,0.2)]" : "border-white/10 hover:border-white/20")}>
-              <i className="fa-solid fa-magnifying-glass text-zinc-500 text-sm ml-4 flex-shrink-0"></i>
-              <input
-                type="text" value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
-                onFocus={() => setSearchFocused(true)} onBlur={() => setSearchFocused(false)}
-                placeholder="Rechercher un produit, une marque..."
-                className="flex-grow bg-transparent px-3 py-2.5 text-sm font-bold text-white placeholder-zinc-500 outline-none min-w-0"
-              />
-              {searchQuery && (
-                <button type="button" onClick={() => setSearchQuery("")} className="text-zinc-500 hover:text-white pr-2 transition">
-                  <i className="fa-solid fa-xmark text-xs"></i>
-                </button>
-              )}
-              <button type="button" onClick={toggleVisualSearch}
-                className="border-l border-white/10 px-3 lg:px-4 py-[10px] text-zinc-400 hover:text-primary transition-colors flex-shrink-0 group"
+          {/* DELIVER TO (desktop) */}
+          <div className="hidden lg:flex flex-col leading-none border border-transparent hover:border-white rounded px-2 py-1 transition-all cursor-pointer flex-shrink-0">
+            <span className="text-[11px] text-gray-400 flex items-center gap-1">
+              <i className="fa-solid fa-location-dot text-[10px]"></i> Livrer à
+            </span>
+            <span className="text-[13px] font-bold text-white">Douala</span>
+          </div>
+
+          {/* SEARCH — desktop */}
+          <form onSubmit={handleSearch} className="hidden md:flex flex-grow max-w-3xl">
+            <div className="flex w-full h-10 rounded overflow-hidden ring-0 focus-within:ring-2 focus-within:ring-[#FF9900] transition-all">
+              <select
+                className="bg-[#F3F4F4] text-[#0F1111] text-[11px] px-2 border-r border-[#CDCDCD] outline-none cursor-pointer flex-shrink-0 font-medium min-w-[60px]"
               >
-                <i className="fa-solid fa-camera text-sm group-hover:scale-110 transition-transform"></i>
+                <option>Tout</option>
+                {CATEGORIES.map(c => <option key={c.name}>{c.name}</option>)}
+              </select>
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                placeholder="Rechercher produits, marques..."
+                className="flex-grow bg-white text-[#0F1111] px-3 text-sm outline-none min-w-0"
+              />
+              <button type="button" onClick={toggleVisualSearch}
+                className="bg-white px-2.5 border-l border-[#CDCDCD] text-gray-500 hover:text-[#FF9900] transition-colors flex-shrink-0"
+              >
+                <i className="fa-solid fa-camera text-sm"></i>
               </button>
               <button type="submit"
-                className="bg-primary text-black px-4 lg:px-6 py-[10px] font-black text-[9px] lg:text-[10px] uppercase tracking-widest hover:bg-white transition-colors flex-shrink-0 flex items-center gap-1.5 h-full"
+                className="bg-[#FF9900] hover:bg-[#E47911] text-[#0F1111] px-4 flex items-center justify-center transition-colors flex-shrink-0"
               >
-                <i className="fa-solid fa-magnifying-glass text-xs lg:hidden"></i>
-                <span className="hidden lg:inline">Chercher</span>
+                <i className="fa-solid fa-magnifying-glass text-lg"></i>
               </button>
             </div>
           </form>
 
           <div className="flex-grow md:hidden" />
 
-          {/* ── ACTIONS ── */}
-          <div className="flex items-center gap-1 sm:gap-1.5 md:gap-2 flex-shrink-0">
+          {/* RIGHT ACTIONS */}
+          <div className="flex items-center gap-0.5 md:gap-1 flex-shrink-0">
 
+            {/* MEMBER BADGE */}
             {isMember && (
-              <span className="hidden lg:flex items-center gap-1 border border-primary/40 bg-primary/5 text-primary px-2.5 py-1 text-[7px] font-black uppercase tracking-widest whitespace-nowrap">
-                <i className="fa-solid fa-crown text-[8px]"></i>Prix −20%
+              <span className="hidden lg:flex items-center gap-1 bg-[#FF9900]/20 border border-[#FF9900]/40 text-[#FF9900] px-2 py-1 rounded text-[10px] font-bold whitespace-nowrap">
+                <i className="fa-solid fa-crown text-[9px]"></i>Elite −20%
               </span>
             )}
 
-            {!user && (
-              <Link to="/register"
-                className="hidden lg:flex items-center gap-1 border border-white/10 text-zinc-400 hover:border-primary/40 hover:text-primary px-2.5 py-1 text-[7px] font-black uppercase tracking-widest transition-all whitespace-nowrap"
-              >
-                <i className="fa-solid fa-tag text-[8px]"></i>−20% avec un compte
-              </Link>
-            )}
+            {/* ACCOUNT */}
+            <div className="hidden sm:block">
+              {user ? (
+                <ProfileDropdown user={user} profile={profile} signOut={handleSignOut} />
+              ) : (
+                <Link to="/login"
+                  className="flex flex-col items-start text-white border border-transparent hover:border-white rounded px-2 py-1 transition-all"
+                >
+                  <span className="text-[11px] text-gray-300 leading-none mb-0.5">Bonjour, connectez-vous</span>
+                  <span className="text-[13px] font-bold leading-none flex items-center gap-1">
+                    Compte &amp; Listes <i className="fa-solid fa-caret-down text-[10px]"></i>
+                  </span>
+                </Link>
+              )}
+            </div>
 
-            {/* THEME */}
-            <button onClick={toggleTheme}
-              className="w-8 h-8 md:w-9 md:h-9 flex items-center justify-center rounded-xl bg-white/5 border border-white/10 hover:border-primary/50 transition-all"
+            {/* RETURNS / ORDERS */}
+            <Link to="/profile?tab=orders"
+              className="hidden lg:flex flex-col items-start text-white border border-transparent hover:border-white rounded px-2 py-1 transition-all"
             >
-              <i className={"fa-solid text-xs " + (isDark ? "fa-sun text-yellow-400" : "fa-moon text-white")}></i>
-            </button>
+              <span className="text-[11px] text-gray-300 leading-none mb-0.5">Retours</span>
+              <span className="text-[13px] font-bold leading-none">&amp; Commandes</span>
+            </Link>
 
             {/* WISHLIST */}
             {user && (
               <Link to="/wishlist"
-                className="relative w-8 h-8 md:w-9 md:h-9 flex items-center justify-center rounded-xl bg-white/5 border border-white/10 hover:border-red-400/50 transition-all"
+                className="hidden sm:flex text-white border border-transparent hover:border-white rounded p-2 transition-all"
               >
-                <i className="fa-regular fa-heart text-sm text-white hover:text-red-400 transition-colors"></i>
+                <i className="fa-regular fa-heart text-xl"></i>
               </Link>
             )}
 
-            {/* PANIER */}
-            <button onClick={toggleCart}
-              className={"relative w-8 h-8 md:w-10 md:h-10 flex items-center justify-center rounded-xl transition-all duration-200 " + (cartCount > 0 ? "bg-primary text-black" : "bg-white/5 text-white border border-white/10 hover:border-primary/50") + (cartBump ? " scale-125" : " scale-100")}
+            {/* THEME TOGGLE */}
+            <button onClick={toggleTheme}
+              className="hidden md:flex text-white border border-transparent hover:border-white rounded p-2 transition-all"
             >
-              <i className="fa-solid fa-bag-shopping text-sm"></i>
-              {cartCount > 0 && (
-                <span className="absolute -top-1 -right-1 bg-black text-white text-[7px] font-black w-4 h-4 flex items-center justify-center rounded-full border-2 border-primary leading-none">
-                  {cartCount > 9 ? "9+" : cartCount}
-                </span>
-              )}
+              <i className={`fa-solid text-base ${isDark ? "fa-sun text-yellow-300" : "fa-moon"}`}></i>
             </button>
 
-            {/* PROFIL (connecté) ou LOGIN (déconnecté) */}
-            {user ? (
-              <ProfileDropdown user={user} profile={profile} signOut={handleSignOut} />
-            ) : (
-              <Link to="/login"
-                className="hidden sm:flex items-center gap-1.5 border border-white/10 text-zinc-400 hover:border-primary/40 hover:text-primary px-2.5 md:px-3 py-1.5 md:py-2 rounded-xl text-[8px] md:text-[9px] font-black uppercase tracking-widest transition-all whitespace-nowrap"
-              >
-                <i className="fa-solid fa-right-to-bracket text-xs"></i>
-                <span className="hidden md:inline">Connexion</span>
-              </Link>
-            )}
-
-            {/* VENDRE */}
-            <Link to="/admin"
-              className="hidden sm:flex items-center gap-1.5 bg-primary text-black px-3 md:px-4 py-2 md:py-2.5 rounded-xl text-[9px] md:text-[10px] font-black uppercase tracking-wide hover:bg-white transition-all whitespace-nowrap"
+            {/* CART */}
+            <button onClick={toggleCart}
+              className={`relative flex items-end gap-1 text-white border border-transparent hover:border-white rounded px-2 py-1 transition-all ${cartBump ? "scale-110" : "scale-100"}`}
             >
-              <i className="fa-solid fa-bolt text-xs"></i>
+              <div className="relative">
+                <i className="fa-solid fa-cart-shopping text-2xl md:text-[28px]"></i>
+                {cartCount > 0 && (
+                  <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 bg-[#FF9900] text-[#0F1111] text-[11px] font-black min-w-[20px] h-5 flex items-center justify-center rounded-full leading-none px-1">
+                    {cartCount > 9 ? "9+" : cartCount}
+                  </span>
+                )}
+              </div>
+              <span className="hidden md:block text-[13px] font-bold mb-0.5">Panier</span>
+            </button>
+
+            {/* SELL */}
+            <Link to="/admin"
+              className="hidden md:flex items-center gap-1.5 bg-[#FF9900] hover:bg-[#E47911] text-[#0F1111] px-3 py-2 rounded text-[12px] font-bold transition-colors whitespace-nowrap flex-shrink-0"
+            >
+              <i className="fa-solid fa-store text-xs"></i>
               <span>Vendre</span>
             </Link>
 
             {/* HAMBURGER */}
             <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="xl:hidden w-8 h-8 md:w-9 md:h-9 flex items-center justify-center rounded-xl bg-white/5 border border-white/10 hover:border-primary/40 transition-all"
+              className="xl:hidden text-white border border-transparent hover:border-white rounded p-2 transition-all"
             >
-              <i className={"fa-solid text-white text-sm " + (mobileMenuOpen ? "fa-xmark" : "fa-bars")}></i>
+              <i className={`fa-solid text-lg ${mobileMenuOpen ? "fa-xmark" : "fa-bars"}`}></i>
             </button>
           </div>
         </div>
 
-        {/* ROW 2 — Search mobile */}
-        <div className="md:hidden px-3 sm:px-4 pb-2">
+        {/* MOBILE SEARCH ROW */}
+        <div className="md:hidden px-3 pb-2">
           <form onSubmit={handleSearch}
-            className="flex items-center bg-zinc-900 border border-white/10 rounded-xl overflow-hidden focus-within:border-primary transition-colors"
+            className="flex h-10 rounded overflow-hidden ring-0 focus-within:ring-2 focus-within:ring-[#FF9900] transition-all"
           >
-            <i className="fa-solid fa-magnifying-glass text-zinc-500 text-xs mx-3 flex-shrink-0"></i>
             <input
-              type="text" value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
-              placeholder="Rechercher..."
-              className="flex-grow bg-transparent py-2.5 text-[13px] font-bold text-white placeholder-zinc-500 outline-none min-w-0"
+              type="text"
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              placeholder="Rechercher des produits..."
+              className="flex-grow bg-white text-[#0F1111] px-3 text-sm outline-none min-w-0"
             />
-            {searchQuery && (
-              <button type="button" onClick={() => setSearchQuery("")} className="px-2 text-zinc-500 hover:text-white transition flex-shrink-0">
-                <i className="fa-solid fa-xmark text-xs"></i>
-              </button>
-            )}
-            <button type="button" onClick={toggleVisualSearch} className="px-3 text-zinc-500 hover:text-primary transition-colors flex-shrink-0 border-l border-white/10">
-              <i className="fa-solid fa-camera text-xs"></i>
+            <button type="button" onClick={toggleVisualSearch}
+              className="bg-white px-2.5 border-l border-[#CDCDCD] text-gray-500 hover:text-[#FF9900] transition-colors flex-shrink-0"
+            >
+              <i className="fa-solid fa-camera text-sm"></i>
             </button>
-            <button type="submit" className="bg-primary text-black px-4 py-2.5 font-black uppercase flex-shrink-0">
-              <i className="fa-solid fa-arrow-right text-xs"></i>
+            <button type="submit"
+              className="bg-[#FF9900] hover:bg-[#E47911] text-[#0F1111] px-4 transition-colors flex-shrink-0"
+            >
+              <i className="fa-solid fa-magnifying-glass text-base"></i>
             </button>
           </form>
         </div>
       </nav>
 
-      {/* CATEGORIES BAR */}
-      <div id="ofs-catbar" className="fixed left-0 right-0 z-[105] bg-zinc-950 border-b border-white/5" onMouseLeave={handleMegaLeave}>
-        <div className="max-w-[1600px] mx-auto px-3 md:px-8">
-          <div className="flex items-center overflow-x-auto hide-scrollbar">
+      {/* CATEGORY BAR */}
+      <div id="amz-catbar" className="fixed left-0 right-0 z-[105] bg-[#232F3E]">
+        <div className="max-w-[1600px] mx-auto px-3 md:px-6">
+          <div className="flex items-center overflow-x-auto hide-scrollbar h-10 gap-0.5">
 
-            <button onClick={() => navigate("/store")} onMouseEnter={() => handleCategoryHover(-1)}
-              className="flex items-center gap-1.5 px-2.5 sm:px-3 md:px-4 py-2.5 md:py-3 font-black uppercase text-[8px] sm:text-[9px] md:text-[10px] tracking-wide text-white hover:text-primary transition-colors border-r border-white/5 flex-shrink-0"
+            {/* ALL MENU */}
+            <button onClick={() => navigate("/store")}
+              className="flex items-center gap-1.5 text-white text-[13px] font-bold hover:bg-[#37475A] px-3 h-8 rounded transition-colors flex-shrink-0"
             >
-              <i className="fa-solid fa-grid-2 text-primary text-[10px]"></i>
-              <span className="hidden sm:inline">Catégories</span>
+              <i className="fa-solid fa-bars text-[11px]"></i>
+              <span>Tout</span>
             </button>
 
-            {CATEGORIES.map((cat, idx) => (
-              <button key={cat.name} onMouseEnter={() => handleCategoryHover(idx)} onClick={() => navigate("/store")}
-                className={"flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 md:px-4 py-2.5 md:py-3 font-black uppercase text-[8px] sm:text-[9px] md:text-[10px] tracking-wide border-r border-white/5 flex-shrink-0 whitespace-nowrap transition-all " + (activeCategory === idx && megaMenuOpen ? cat.activeClass : "text-zinc-400 hover:text-white hover:bg-white/5")}
+            {/* CATEGORIES */}
+            {CATEGORIES.map(cat => (
+              <button key={cat.name}
+                onClick={() => navigate("/store")}
+                className="flex items-center gap-1.5 text-white text-[13px] hover:bg-[#37475A] px-3 h-8 rounded transition-colors flex-shrink-0 whitespace-nowrap"
               >
-                <i className={"fa-solid " + cat.icon + " " + cat.color + " text-[10px] flex-shrink-0"}></i>
-                <span className="sm:hidden">{cat.shortName}</span>
-                <span className="hidden sm:inline md:hidden">{cat.shortName}</span>
-                <span className="hidden md:inline">{cat.name}</span>
-                {cat.name === "Mode Femme" && (
-                  <span className="hidden md:inline ml-1 text-[6px] font-black uppercase bg-pink-500 text-white px-1 py-0.5 rounded leading-none">NEW</span>
+                {cat.name === "Flash Deals" ? (
+                  <span className="text-[#FF9900] font-bold">{cat.name}</span>
+                ) : (
+                  <span>
+                    {cat.name}
+                    {cat.isNew && (
+                      <span className="ml-1.5 text-[9px] bg-pink-500 text-white px-1.5 py-0.5 rounded font-bold">NEW</span>
+                    )}
+                  </span>
                 )}
               </button>
             ))}
 
-            <Link to="/studio"
-              className="flex items-center gap-1.5 px-2.5 sm:px-3 md:px-4 py-2.5 md:py-3 font-black uppercase text-[8px] sm:text-[9px] md:text-[10px] tracking-wide text-primary hover:bg-primary/10 transition-all flex-shrink-0 ml-auto whitespace-nowrap"
+            <div className="flex-grow min-w-2" />
+
+            {/* BOUTIQUES */}
+            <Link to="/boutiques"
+              className="flex items-center gap-1 text-white text-[13px] hover:bg-[#37475A] px-3 h-8 rounded transition-colors flex-shrink-0 whitespace-nowrap"
             >
-              <i className="fa-solid fa-wand-magic-sparkles text-[10px]"></i>
-              <span className="hidden min-[380px]:inline">Studio</span>
+              <i className="fa-solid fa-store text-[11px]"></i>
+              <span className="hidden sm:inline">Boutiques</span>
+            </Link>
+
+            {/* STUDIO */}
+            <Link to="/studio"
+              className="flex items-center gap-1.5 text-[#FF9900] text-[13px] font-bold hover:bg-[#37475A] px-3 h-8 rounded transition-colors flex-shrink-0 whitespace-nowrap"
+            >
+              <i className="fa-solid fa-wand-magic-sparkles text-[11px]"></i>
+              <span className="hidden sm:inline">Studio Lab</span>
             </Link>
           </div>
         </div>
-
-        {/* MEGA MENU */}
-        {megaMenuOpen && activeCat && (
-          <div
-            className="hidden xl:block absolute left-0 right-0 bg-zinc-950/98 backdrop-blur-xl border-t border-white/5 shadow-[0_20px_60px_rgba(0,0,0,0.8)] z-50"
-            onMouseEnter={() => { if (closeTimer.current) clearTimeout(closeTimer.current); }}
-            onMouseLeave={handleMegaLeave}
-          >
-            <div className="max-w-[1600px] mx-auto px-8 py-8">
-              <div className="grid grid-cols-5 gap-8">
-                <div className="col-span-1">
-                  <div className="flex items-center gap-3 mb-6">
-                    <div className={"w-12 h-12 rounded-xl flex items-center justify-center " + activeCat.iconBg}>
-                      <i className={"fa-solid " + activeCat.icon + " " + activeCat.color + " text-xl"}></i>
-                    </div>
-                    <div>
-                      <h3 className="font-black text-white uppercase text-sm">{activeCat.name}</h3>
-                      <p className="text-[9px] font-bold text-zinc-500 uppercase tracking-widest">OneFreestyle Elite</p>
-                    </div>
-                  </div>
-                  <Link to="/store" className="w-full text-[10px] font-black uppercase tracking-widest py-3 px-4 rounded-xl flex items-center justify-between transition-colors text-black bg-primary hover:bg-white">
-                    <span>Voir tout</span><i className="fa-solid fa-arrow-right"></i>
-                  </Link>
-                </div>
-                <div className="col-span-2">
-                  <h5 className={"text-[9px] font-black uppercase tracking-[0.4em] mb-4 pb-2 border-b border-white/5 " + activeCat.megaAccent}>Sous-catégories</h5>
-                  <div className="grid grid-cols-2 gap-1">
-                    {activeCat.subs.map(sub => (
-                      <Link key={sub} to="/store" className="text-[11px] font-bold text-zinc-400 hover:text-white flex items-center gap-2 group py-1.5">
-                        <span className={"w-0 group-hover:w-2 h-px transition-all rounded-full flex-shrink-0 " + activeCat.megaLine}></span>
-                        <span className="group-hover:translate-x-1 transition-transform">{sub}</span>
-                      </Link>
-                    ))}
-                  </div>
-                </div>
-                <div className="col-span-2">
-                  <div className={"bg-gradient-to-br border rounded-2xl p-6 h-full flex flex-col justify-between " + activeCat.megaCardBg + " " + activeCat.megaCardBorder}>
-                    <div>
-                      <span className={"text-[9px] font-black uppercase tracking-widest " + activeCat.megaAccent}>
-                        {activeCat.name === "Flash Deals" ? "Offre Limitée" : activeCat.name === "Mode Femme" ? "Nouvelle Collection" : "Flash Deal"}
-                      </span>
-                      <h4 className="text-2xl font-black italic text-white mt-2 leading-tight uppercase">
-                        {activeCat.name === "Mode Femme" ? <>Style<br />Sans Limites</> : <>-15%<br />sur 2 articles</>}
-                      </h4>
-                    </div>
-                    <Link to="/store" className="text-[10px] font-black uppercase text-black bg-primary px-4 py-2.5 rounded-xl hover:bg-white transition-colors w-fit mt-4">
-                      {activeCat.name === "Mode Femme" ? "Découvrir" : "Profiter"}
-                    </Link>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
 
       {/* MOBILE BACKDROP */}
       <div
-        className={"xl:hidden fixed inset-0 z-[200] bg-black/70 backdrop-blur-sm transition-opacity duration-300 " + (mobileMenuOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none")}
+        className={`xl:hidden fixed inset-0 z-[200] bg-black/60 transition-opacity duration-300 ${mobileMenuOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"}`}
         onClick={() => setMobileMenuOpen(false)}
       />
 
-      {/* MOBILE DRAWER */}
+      {/* MOBILE DRAWER (left side, Amazon-style) */}
       <div
-        className={"xl:hidden fixed right-0 top-0 bottom-0 z-[210] bg-zinc-950 border-l border-white/10 flex flex-col shadow-2xl transition-transform duration-300 " + (mobileMenuOpen ? "translate-x-0" : "translate-x-full")}
-        style={{ width: "min(320px, 85vw)" }}
+        className={`xl:hidden fixed left-0 top-0 bottom-0 z-[210] bg-[#131921] border-r border-[#232F3E] flex flex-col shadow-2xl transition-transform duration-300 ${mobileMenuOpen ? "translate-x-0" : "-translate-x-full"}`}
+        style={{ width: "min(300px, 85vw)" }}
       >
         {/* DRAWER HEADER */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-white/5 flex-shrink-0 bg-black">
-          <Link to="/" onClick={() => setMobileMenuOpen(false)} className="flex items-center gap-2">
-            <img src={ofsLogo} alt="OFS" className="w-7 h-7" />
-            <span className="logo-font font-black text-[11px] uppercase text-white">OneFree<span className="text-primary italic">Style</span></span>
-          </Link>
-          <button onClick={() => setMobileMenuOpen(false)} className="w-8 h-8 flex items-center justify-center rounded-xl bg-white/5 border border-white/10">
-            <i className="fa-solid fa-xmark text-white text-sm"></i>
+        <div className="flex items-center justify-between px-4 py-3 bg-[#232F3E] flex-shrink-0">
+          <div className="flex items-center gap-2">
+            {user ? (
+              <div className="w-8 h-8 rounded-full bg-[#FF9900] flex items-center justify-center overflow-hidden">
+                {profile?.avatar_url
+                  ? <img src={profile.avatar_url} alt="" className="w-full h-full object-cover" />
+                  : <span className="text-[#0F1111] font-black text-sm">{initial}</span>
+                }
+              </div>
+            ) : (
+              <i className="fa-solid fa-user-circle text-white text-2xl"></i>
+            )}
+            <span className="text-white font-bold text-sm">
+              {user
+                ? (profile?.full_name || user?.email?.split("@")[0] || "Mon compte")
+                : "Bonjour, identifiez-vous"}
+            </span>
+          </div>
+          <button onClick={() => setMobileMenuOpen(false)} className="text-white p-1 hover:text-[#FF9900] transition-colors">
+            <i className="fa-solid fa-xmark text-lg"></i>
           </button>
         </div>
 
-        {/* PROFIL MOBILE BAND */}
-        {user ? (
-          <Link to="/profile" onClick={() => setMobileMenuOpen(false)}
-            className="flex items-center gap-3 px-5 py-3.5 border-b border-white/5 bg-white/2 hover:bg-white/5 transition-colors"
-          >
-            <div className="w-9 h-9 rounded-xl bg-primary/20 border border-primary/30 flex items-center justify-center overflow-hidden flex-shrink-0">
-              {profile?.avatar_url
-                ? <img src={profile.avatar_url} alt="" className="w-full h-full object-cover" />
-                : <span className="text-primary font-black text-sm">{(profile?.full_name || user?.email || "?")[0].toUpperCase()}</span>
-              }
-            </div>
-            <div className="flex-grow min-w-0">
-              <p className="font-black text-[11px] text-white truncate">{profile?.full_name || user?.email?.split("@")[0]}</p>
-              <p className="text-[8px] text-zinc-500 font-bold truncate">{user?.email}</p>
-            </div>
-            <i className="fa-solid fa-chevron-right text-zinc-600 text-xs flex-shrink-0"></i>
-          </Link>
-        ) : (
-          <>
-            {isMember && (
-              <div className="flex items-center gap-2 px-5 py-2.5 bg-primary/10 border-b border-primary/20">
-                <i className="fa-solid fa-crown text-primary text-[9px]"></i>
-                <span className="text-[8px] font-black uppercase text-primary tracking-widest">Prix membre actifs — −25% sur tout</span>
-              </div>
-            )}
-            <Link to="/register" onClick={() => setMobileMenuOpen(false)}
-              className="flex items-center gap-2 px-5 py-2.5 bg-primary/5 border-b border-primary/10 hover:bg-primary/10 transition-colors"
-            >
-              <i className="fa-solid fa-tag text-primary text-[9px]"></i>
-              <span className="text-[8px] font-black uppercase text-zinc-400 tracking-widest">Créer un compte — prix −25%</span>
-              <i className="fa-solid fa-arrow-right text-[7px] text-primary ml-auto"></i>
-            </Link>
-          </>
-        )}
-
         {/* DRAWER BODY */}
-        <div className="flex-grow overflow-y-auto py-3 px-3">
-          <div className="space-y-1 mb-4">
+        <div className="flex-grow overflow-y-auto">
+
+          {isMember && (
+            <div className="flex items-center gap-2 px-4 py-2.5 bg-[#FF9900]/10 border-b border-[#FF9900]/20">
+              <i className="fa-solid fa-crown text-[#FF9900] text-xs"></i>
+              <span className="text-xs font-bold text-[#FF9900]">Membre Elite — −20% sur tout</span>
+            </div>
+          )}
+
+          {!user && (
+            <div className="px-4 py-3 border-b border-[#232F3E]">
+              <Link to="/login" onClick={() => setMobileMenuOpen(false)}
+                className="block w-full text-center bg-[#FFD814] hover:bg-[#F7CA00] text-[#0F1111] py-2 rounded text-sm font-bold mb-2 transition-colors"
+              >
+                Se connecter
+              </Link>
+              <Link to="/register" onClick={() => setMobileMenuOpen(false)}
+                className="block w-full text-center border border-[#D5D9D9] text-white py-2 rounded text-sm transition-colors hover:bg-[#232F3E]"
+              >
+                Créer un compte
+              </Link>
+            </div>
+          )}
+
+          {/* NAV LINKS */}
+          <div className="py-2 border-b border-[#232F3E]">
+            <p className="text-[#FF9900] text-[10px] font-bold uppercase tracking-wider px-4 py-1.5">Menu principal</p>
             {[
-              { to:"/",        icon:"fa-house",                label:"Accueil"            },
-              { to:"/store",   icon:"fa-bag-shopping",         label:"Store"              },
-              { to:"/studio",  icon:"fa-wand-magic-sparkles",  label:"Studio Lab",  accent:true },
+              { to: "/",      icon: "fa-house",               label: "Accueil"     },
+              { to: "/store", icon: "fa-bag-shopping",         label: "Store"       },
+              { to: "/studio",icon: "fa-wand-magic-sparkles",  label: "Studio Lab"  },
               ...(user ? [
-                { to:"/profile",          icon:"fa-user",       label:"Mon profil",  accent:true },
-                { to:"/profile?tab=orders",icon:"fa-bag-shopping",label:"Commandes"          },
-                { to:"/wishlist",          icon:"fa-heart",      label:"Wishlist",    accent:true },
+                { to: "/profile",           icon: "fa-user",  label: "Mon profil"  },
+                { to: "/profile?tab=orders",icon: "fa-box",   label: "Commandes"   },
+                { to: "/wishlist",          icon: "fa-heart", label: "Wishlist"    },
               ] : []),
             ].map(link => (
               <Link key={link.to} to={link.to} onClick={() => setMobileMenuOpen(false)}
-                className={"flex items-center gap-3 px-4 py-3.5 rounded-2xl font-black uppercase text-[10px] tracking-widest transition-all " + (link.accent ? "bg-primary/10 text-primary border border-primary/20" : "text-zinc-300 hover:text-white hover:bg-white/5")}
+                className="flex items-center gap-3 px-4 py-3 text-white hover:bg-[#232F3E] transition-colors text-sm"
               >
-                <div className={"w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 " + (link.accent ? "bg-primary/20" : "bg-white/5")}>
-                  <i className={"fa-solid text-xs text-primary " + link.icon}></i>
-                </div>
-                <span className="flex-grow">{link.label}</span>
+                <i className={`fa-solid ${link.icon} text-[#FF9900] w-4`}></i>
+                <span>{link.label}</span>
               </Link>
             ))}
           </div>
 
-          <div className="flex items-center gap-3 px-2 py-2 mb-1">
-            <div className="flex-1 h-px bg-white/5"></div>
-            <span className="text-[7px] font-black uppercase text-zinc-600 tracking-widest shrink-0">Catégories</span>
-            <div className="flex-1 h-px bg-white/5"></div>
-          </div>
-
-          <div className="space-y-0.5">
+          {/* CATEGORIES */}
+          <div className="py-2 border-b border-[#232F3E]">
+            <p className="text-[#FF9900] text-[10px] font-bold uppercase tracking-wider px-4 py-1.5">Catégories</p>
             {CATEGORIES.map(cat => (
               <Link key={cat.name} to="/store" onClick={() => setMobileMenuOpen(false)}
-                className="flex items-center gap-3 px-3 py-3 rounded-xl font-bold text-[10px] uppercase tracking-wide text-zinc-400 hover:text-white hover:bg-white/5 transition-all group"
+                className="flex items-center gap-3 px-4 py-2.5 text-white hover:bg-[#232F3E] transition-colors text-sm"
               >
-                <div className={"w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 " + cat.iconBg}>
-                  <i className={"fa-solid text-[10px] " + cat.icon + " " + cat.color}></i>
-                </div>
-                <span className="flex-grow">{cat.name}</span>
-                {cat.name === "Mode Femme" && (
-                  <span className="text-[6px] font-black uppercase bg-pink-500 text-white px-1.5 py-0.5 rounded">NEW</span>
+                <i className={`fa-solid ${cat.icon} text-[#FF9900] w-4`}></i>
+                <span>{cat.name}</span>
+                {cat.isNew && (
+                  <span className="ml-1 text-[9px] bg-pink-500 text-white px-1.5 py-0.5 rounded font-bold">NEW</span>
                 )}
-                <i className="fa-solid fa-chevron-right text-[7px] text-zinc-700 group-hover:text-zinc-500 transition-colors"></i>
               </Link>
             ))}
+          </div>
+
+          {/* THEME */}
+          <div className="py-2">
+            <button onClick={toggleTheme}
+              className="flex items-center gap-3 px-4 py-3 text-white hover:bg-[#232F3E] transition-colors text-sm w-full"
+            >
+              <i className={`fa-solid ${isDark ? "fa-sun text-yellow-300" : "fa-moon"} w-4`}></i>
+              <span>{isDark ? "Mode clair" : "Mode sombre"}</span>
+            </button>
           </div>
         </div>
 
         {/* DRAWER FOOTER */}
-        <div className="flex-shrink-0 border-t border-white/5 p-4 space-y-2 bg-black/50">
+        <div className="flex-shrink-0 border-t border-[#232F3E] p-4 space-y-2">
           <Link to="/admin" onClick={() => setMobileMenuOpen(false)}
-            className="flex items-center justify-center gap-2 bg-primary text-black p-3.5 rounded-2xl font-black uppercase text-[10px] tracking-widest w-full hover:bg-white transition-all active:scale-95"
+            className="flex items-center justify-center gap-2 bg-[#FF9900] hover:bg-[#E47911] text-[#0F1111] p-3 rounded font-bold text-sm w-full transition-colors"
           >
-            <i className="fa-solid fa-bolt text-xs"></i><span>Devenir Vendeur</span>
+            <i className="fa-solid fa-store text-xs"></i>
+            <span>Devenir Vendeur</span>
           </Link>
-
           {user ? (
             <button onClick={() => { setMobileMenuOpen(false); handleSignOut(); }}
-              className="flex items-center justify-center gap-2 border border-white/10 text-zinc-400 p-3 rounded-2xl font-black uppercase text-[9px] tracking-widest w-full hover:border-red-500/40 hover:text-red-400 transition-all"
+              className="flex items-center justify-center gap-2 border border-[#444] text-gray-400 p-2.5 rounded text-sm w-full hover:border-red-400 hover:text-red-400 transition-all"
             >
-              <i className="fa-solid fa-right-from-bracket text-xs"></i><span>Se déconnecter</span>
+              <i className="fa-solid fa-right-from-bracket text-xs"></i>
+              <span>Se déconnecter</span>
             </button>
           ) : (
-            <>
-              <Link to="/login" onClick={() => setMobileMenuOpen(false)}
-                className="flex items-center justify-center gap-2 border border-white/10 text-zinc-400 p-3 rounded-2xl font-black uppercase text-[9px] tracking-widest w-full hover:border-primary/40 hover:text-white transition-all"
-              >
-                <i className="fa-solid fa-right-to-bracket text-xs"></i><span>Connexion</span>
-              </Link>
-              <Link to="/register" onClick={() => setMobileMenuOpen(false)}
-                className="flex items-center justify-center gap-2 border border-primary/20 text-primary/80 p-2.5 rounded-2xl font-black uppercase text-[8px] tracking-widest w-full hover:border-primary/50 hover:text-primary transition-all"
-              >
-                <i className="fa-solid fa-crown text-[9px]"></i><span>Compte membre — Prix −25%</span>
-              </Link>
-            </>
+            <Link to="/rewards" onClick={() => setMobileMenuOpen(false)}
+              className="flex items-center justify-center gap-2 border border-[#FF9900]/30 text-[#FF9900]/80 p-2.5 rounded text-sm w-full hover:border-[#FF9900] hover:text-[#FF9900] transition-all"
+            >
+              <i className="fa-solid fa-crown text-xs"></i>
+              <span>Programme fidélité</span>
+            </Link>
           )}
         </div>
       </div>
 
       {/* SPACER */}
-      <div className="h-[158px] md:h-[148px]" aria-hidden="true" />
+      <div className="h-[166px] md:h-[128px]" aria-hidden="true" />
 
       <style>{`
-        @keyframes ofs-ticker { 0% { transform:translateX(0); } 100% { transform:translateX(-50%); } }
-        .ofs-ticker { display:inline-flex; animation:ofs-ticker 28s linear infinite; will-change:transform; }
-        #ofs-catbar { top: 128px; }
-        @media (min-width:768px) { #ofs-catbar { top: 104px; } }
-        .hide-scrollbar::-webkit-scrollbar { display:none; }
-        .hide-scrollbar { -ms-overflow-style:none; scrollbar-width:none; }
-        .logo-font { font-family:'Syncopate',sans-serif; }
+        #amz-catbar { top: 126px; }
+        @media (min-width: 768px) { #amz-catbar { top: 88px; } }
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
+        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        .logo-font { font-family: 'Syncopate', sans-serif; }
       `}</style>
     </>
   );

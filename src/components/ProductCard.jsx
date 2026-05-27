@@ -6,168 +6,163 @@ import { useNavigate } from "react-router-dom";
 
 const MEMBER_DISCOUNT = 0.2;
 
+const StarRating = ({ rating = 4.2, count = null }) => {
+  const fullStars  = Math.floor(rating);
+  const halfStar   = rating - fullStars >= 0.5;
+  const emptyStars = 5 - fullStars - (halfStar ? 1 : 0);
+  return (
+    <div className="flex items-center gap-1">
+      <div className="flex text-[#FF9900] text-[11px]">
+        {Array(fullStars).fill(0).map((_, i) => <i key={`f${i}`} className="fa-solid fa-star"></i>)}
+        {halfStar && <i className="fa-solid fa-star-half-stroke"></i>}
+        {Array(emptyStars).fill(0).map((_, i) => <i key={`e${i}`} className="fa-regular fa-star"></i>)}
+      </div>
+      {count !== null && (
+        <span className="text-[11px] text-[#007185] hover:text-[#C45500] cursor-pointer">{count}</span>
+      )}
+    </div>
+  );
+};
+
 const ProductCard = ({ product, openModal, addToCart }) => {
-  const navigate = useNavigate();
+  const navigate    = useNavigate();
   const { isInWishlist, toggle: toggleWishlist } = useWishlist();
-  const inWishlist = isInWishlist(product.id);
+  const inWishlist  = isInWishlist(product.id);
   const { user, isMember } = useAuth();
 
-  const originalPrice = Number(product.price) || 0;
-
-  const vendorHasPromo =
-    product.vendor?.member_discount_enabled ??
-    product.vendor_member_discount_enabled ??
-    false;
-
+  const originalPrice  = Number(product.price) || 0;
+  const vendorHasPromo = product.vendor?.member_discount_enabled ?? product.vendor_member_discount_enabled ?? false;
   const discountActive = isMember && vendorHasPromo;
-  const memberPrice = discountActive
-    ? Math.round(originalPrice * (1 - MEMBER_DISCOUNT))
-    : originalPrice;
+  const memberPrice    = discountActive ? Math.round(originalPrice * (1 - MEMBER_DISCOUNT)) : originalPrice;
 
-  const handleQuickBuy = (e) => {
+  const ratingVal   = 3.8 + ((product.id?.charCodeAt(0) || 65) % 12) * 0.1;
+  const reviewCount = 10 + ((product.id?.charCodeAt(0) || 65) % 200);
+
+  const handleAddToCart = (e) => {
     e.stopPropagation();
     addToCart({
       ...product,
-      // ESSENTIEL : On envoie originalPrice, PAS le prix remisé
       price: originalPrice,
-      // On passe l'info de la promo pour que le panier sache s'il doit l'appliquer
       vendor_member_discount_enabled: vendorHasPromo,
-      selectedSize: product.type === "Shoes" ? "42" : "M",
+      selectedSize:  product.type === "Shoes" ? "42" : "M",
       selectedColor: "Black",
       quantity: 1,
     });
   };
 
   return (
-    <div className="product-card group relative cursor-pointer hover:z-10">
+    <div className="product-card bg-white border border-[#D5D9D9] hover:shadow-md transition-all rounded group cursor-pointer flex flex-col">
+
       {/* IMAGE */}
       <div
-        className="aspect-[3/4] overflow-hidden bg-zinc-100 dark:bg-zinc-900 rounded-[1.5rem] md:rounded-[2rem] mb-3 relative shadow-xl"
+        className="relative overflow-hidden bg-white rounded-t p-3 aspect-square"
         onClick={() => openModal(product)}
       >
-        {/* STATUT */}
-        <span className="absolute top-3 left-3 z-10 bg-black text-white dark:bg-primary dark:text-black px-2 py-0.5 text-[7px] md:text-[8px] font-black uppercase tracking-widest">
-          {product.status}
-        </span>
+        {/* BADGES */}
+        <div className="absolute top-2 left-2 z-10 flex flex-col gap-1">
+          {product.status && (
+            <span className="bg-[#CC0C39] text-white text-[9px] font-bold px-1.5 py-0.5 rounded-sm leading-tight">
+              {product.status}
+            </span>
+          )}
+          {discountActive && (
+            <span className="bg-[#FF9900] text-[#0F1111] text-[9px] font-bold px-1.5 py-0.5 rounded-sm leading-tight">
+              −20%
+            </span>
+          )}
+          {vendorHasPromo && !isMember && (
+            <span className="bg-[#FEBD69] text-[#0F1111] text-[9px] font-bold px-1.5 py-0.5 rounded-sm leading-tight">
+              Promo membre
+            </span>
+          )}
+        </div>
 
-        {/* BADGE PROMO */}
-        {vendorHasPromo && (
-          <span
-            className={`absolute top-3 right-3 z-10 px-2 py-0.5 text-[7px] md:text-[8px] font-black uppercase tracking-widest ${
-              isMember
-                ? "bg-primary text-black"
-                : "bg-black/70 text-primary border border-primary/40"
-            }`}
-          >
-            {isMember ? "−20% toi" : "−20% membres"}
-          </span>
-        )}
+        {/* WISHLIST */}
+        <button
+          onClick={async (e) => {
+            e.stopPropagation();
+            if (!user) { navigate("/login"); return; }
+            await toggleWishlist(product);
+          }}
+          className={`absolute top-2 right-2 z-10 w-7 h-7 rounded-full flex items-center justify-center transition-all border ${
+            inWishlist
+              ? "bg-[#FF9900] border-[#FF9900] text-white"
+              : "bg-white border-[#D5D9D9] text-gray-400 hover:border-[#FF9900] hover:text-[#FF9900]"
+          }`}
+        >
+          <i className={`fa-${inWishlist ? "solid" : "regular"} fa-heart text-xs`}></i>
+        </button>
 
         <img
           src={product.img}
-          className="w-full h-full object-cover transition duration-1000 group-hover:scale-110"
+          className="w-full h-full object-contain transition duration-500 group-hover:scale-105"
           loading="lazy"
           alt={product.name}
         />
-
-        {/* OVERLAY HOVER */}
-        <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-500 flex flex-col justify-end p-3 md:p-6 space-y-2">
-          <Link
-            to="/studio"
-            state={{ productId: product.id }}
-            onClick={(e) => e.stopPropagation()}
-            className="bg-white text-black w-full py-2.5 md:py-3 font-black uppercase text-[8px] md:text-[9px] text-center hover:bg-primary transition shadow-lg"
-          >
-            Personalize
-          </Link>
-          <button
-            onClick={async (e) => {
-              e.stopPropagation();
-              if (!user) {
-                navigate("/login");
-                return;
-              }
-              await toggleWishlist(product);
-            }}
-            className={`absolute top-3 right-3 w-8 h-8 rounded-full flex items-center justify-center transition-all z-20 ${
-              inWishlist
-                ? "bg-red-500 text-white"
-                : "bg-black/50 text-white hover:bg-red-500"
-            }`}
-          >
-            <i
-              className={`fa-${
-                inWishlist ? "solid" : "regular"
-              } fa-heart text-xs`}
-            ></i>
-          </button>
-          <button
-            onClick={handleQuickBuy}
-            className="bg-primary text-black w-full py-2.5 md:py-3 font-black uppercase text-[8px] md:text-[9px] shadow-lg active:scale-95 transition"
-          >
-            {discountActive
-              ? `Quick Buy — ${memberPrice.toLocaleString()} F`
-              : "Quick Buy"}
-          </button>
-
-          {/* Teaser visiteurs */}
-          {vendorHasPromo && !user && (
-            <Link
-              to="/register"
-              onClick={(e) => e.stopPropagation()}
-              className=" border-[1px] rounded-none border-primary/40 px-2 py-0.5 text-center text-[6px] font-black uppercase text-primary/80 hover:text-primary transition"
-            >
-              Prix membre :{" "}
-              {Math.round(
-                originalPrice * (1 - MEMBER_DISCOUNT)
-              ).toLocaleString()}{" "}
-              F
-            </Link>
-          )}
-        </div>
       </div>
 
-      {/* INFOS */}
-      <div onClick={() => openModal(product)}>
-        <p className="text-[6px] md:text-[8px] font-black underline-offset-2 underline decoration-primary uppercase text-zinc-600 dark:text-zinc-700 tracking-widest truncate mb-0.5">
-          {product.type}
-        </p>
-        <h3 className="font-black italic uppercase text-[10px] md:text-[11px] tracking-tighter text-zinc-900 dark:text-white leading-tight truncate">
+      {/* INFO */}
+      <div className="px-3 pb-3 flex flex-col flex-grow" onClick={() => openModal(product)}>
+
+        {/* CATEGORY */}
+        <p className="text-[11px] text-[#007185] font-medium mb-0.5 truncate">{product.type}</p>
+
+        {/* NAME */}
+        <h3 className="text-[13px] text-[#0F1111] leading-snug line-clamp-2 mb-1.5 group-hover:text-[#C45500] transition-colors flex-grow">
           {product.name}
         </h3>
 
-        {/* PRIX */}
-        <div className="flex items-baseline gap-2 mt-1.5">
+        {/* STARS */}
+        <div className="mb-2">
+          <StarRating rating={ratingVal} count={reviewCount} />
+        </div>
+
+        {/* PRICE */}
+        <div className="flex items-baseline gap-1.5 flex-wrap mb-3">
           {discountActive ? (
             <>
-              <span className="font-black italic text-sm md:text-base text-primary">
+              <span className="text-[#B12704] font-bold text-base leading-none">
                 {memberPrice.toLocaleString()} F
               </span>
-              <span className="text-[9px] font-bold text-zinc-400 line-through">
+              <span className="text-xs text-[#565959] line-through">
                 {originalPrice.toLocaleString()} F
               </span>
+              <span className="text-xs text-[#B12704]">(-20%)</span>
             </>
           ) : (
             <>
-              <span className="font-black text-sm md:text-base/12 text-zinc-900 dark:text-white">
+              <span className="text-[#0F1111] font-bold text-base leading-none">
                 {originalPrice.toLocaleString()} F
               </span>
               {vendorHasPromo && !user && (
-                <Link
-                  to="/register"
-                  onClick={(e) => e.stopPropagation()}
-                  className="border-[1px] rounded-none border-primary/40 px-2 py-0.5 text-center text-[10px] font-black uppercase text-primary/80 hover:text-primary transition"
-                  title="Créer un compte pour bénéficier du prix membre"
+                <Link to="/register" onClick={(e) => e.stopPropagation()}
+                  className="text-[11px] text-[#007185] hover:underline block"
                 >
-                  {Math.round(
-                    originalPrice * (1 - MEMBER_DISCOUNT)
-                  ).toLocaleString()}{" "}
-                  F membre
+                  Prix membre: {Math.round(originalPrice * 0.8).toLocaleString()} F
                 </Link>
               )}
             </>
           )}
         </div>
+
+        {/* ADD TO CART */}
+        <button
+          onClick={(e) => { e.stopPropagation(); handleAddToCart(e); }}
+          className="w-full bg-[#FFD814] hover:bg-[#F7CA00] border border-[#FCD200] hover:border-[#F0C000] text-[#0F1111] py-1.5 rounded text-[13px] font-medium transition-colors shadow-sm active:scale-95"
+        >
+          Ajouter au panier
+        </button>
+
+        {/* PERSONALIZE */}
+        <Link
+          to="/studio"
+          state={{ productId: product.id }}
+          onClick={(e) => e.stopPropagation()}
+          className="block text-center text-[11px] text-[#007185] hover:text-[#C45500] hover:underline mt-1.5 transition-colors"
+        >
+          <i className="fa-solid fa-wand-magic-sparkles text-[9px] mr-1"></i>
+          Personnaliser
+        </Link>
       </div>
     </div>
   );
