@@ -5,110 +5,124 @@ import { useAuth } from "../context/AuthContext";
 
 // ─── CONFIG ────────────────────────────────────────────────────────────────────
 const TABS = [
-  { key:"overview",       label:"Accueil",      icon:"fa-house"              },
-  { key:"orders",         label:"Commandes",    icon:"fa-bag-shopping"       },
-  { key:"wishlist",       label:"Favoris",      icon:"fa-heart"              },
-  { key:"addresses",      label:"Adresses",     icon:"fa-location-dot"       },
-  { key:"reviews",        label:"Avis",         icon:"fa-star"               },
-  { key:"referral",       label:"Parrainage",   icon:"fa-user-plus"          },
-  { key:"notifications",  label:"Notifications",icon:"fa-bell"               },
-  { key:"security",       label:"Sécurité",     icon:"fa-shield-halved"      },
-  { key:"settings",       label:"Mon Profil",   icon:"fa-pen-to-square"      },
+  { key: "overview",      label: "Accueil",       icon: "fa-house"          },
+  { key: "orders",        label: "Commandes",     icon: "fa-bag-shopping"   },
+  { key: "wishlist",      label: "Favoris",       icon: "fa-heart"          },
+  { key: "addresses",     label: "Adresses",      icon: "fa-location-dot"   },
+  { key: "reviews",       label: "Mes avis",      icon: "fa-star"           },
+  { key: "referral",      label: "Parrainage",    icon: "fa-user-plus"      },
+  { key: "notifications", label: "Notifications", icon: "fa-bell"           },
+  { key: "security",      label: "Sécurité",      icon: "fa-shield-halved"  },
+  { key: "settings",      label: "Mon profil",    icon: "fa-pen-to-square"  },
 ];
 
 const ORDER_STATUS = {
-  pending:   { label:"En attente", color:"text-yellow-400", bg:"bg-yellow-400/10", border:"border-yellow-400/20", icon:"fa-clock"        },
-  confirmed: { label:"Confirmée",  color:"text-blue-400",   bg:"bg-blue-400/10",   border:"border-blue-400/20",   icon:"fa-circle-check" },
-  shipped:   { label:"Expédiée",   color:"text-purple-400", bg:"bg-purple-400/10", border:"border-purple-400/20", icon:"fa-truck"        },
-  delivered: { label:"Livrée",     color:"text-primary",    bg:"bg-primary/10",    border:"border-primary/20",    icon:"fa-box-open"     },
-  cancelled: { label:"Annulée",    color:"text-red-400",    bg:"bg-red-400/10",    border:"border-red-400/20",    icon:"fa-xmark"        },
+  pending:   { label: "En attente", color: "text-[#FF9900]", bg: "bg-[#FFF3CD]", border: "border-[#FCD200]/60", icon: "fa-clock"        },
+  confirmed: { label: "Confirmée",  color: "text-[#007185]", bg: "bg-[#E6F3F5]", border: "border-[#007185]/40", icon: "fa-circle-check" },
+  shipped:   { label: "Expédiée",   color: "text-[#565959]", bg: "bg-[#EAEDED]", border: "border-[#D5D9D9]",   icon: "fa-truck"        },
+  delivered: { label: "Livrée",     color: "text-[#007600]", bg: "bg-[#E8F5E8]", border: "border-[#007600]/40", icon: "fa-box-open"    },
+  cancelled: { label: "Annulée",    color: "text-[#B12704]", bg: "bg-[#FEE7E5]", border: "border-[#B12704]/40", icon: "fa-xmark"       },
 };
 
 const TIER_CONFIG = {
-  bronze:   { label:"Bronze",  color:"text-orange-400", bg:"from-orange-400/20 to-orange-400/5", icon:"fa-medal", min:0,    max:500   },
-  silver:   { label:"Argent",  color:"text-zinc-300",   bg:"from-zinc-300/20 to-zinc-300/5",     icon:"fa-medal", min:500,  max:2000  },
-  gold:     { label:"Or",      color:"text-yellow-400", bg:"from-yellow-400/20 to-yellow-400/5", icon:"fa-crown", min:2000, max:5000  },
-  platinum: { label:"Platine", color:"text-primary",    bg:"from-primary/20 to-primary/5",       icon:"fa-gem",   min:5000, max:99999 },
+  bronze:   { label: "Bronze",  color: "#c97c4a", icon: "fa-medal", min: 0,    max: 500   },
+  silver:   { label: "Argent",  color: "#ADBAC7", icon: "fa-medal", min: 500,  max: 2000  },
+  gold:     { label: "Or",      color: "#FF9900", icon: "fa-crown", min: 2000, max: 5000  },
+  platinum: { label: "Platine", color: "#FFD814", icon: "fa-gem",   min: 5000, max: 99999 },
 };
 const getTier = (pts) => pts >= 5000 ? "platinum" : pts >= 2000 ? "gold" : pts >= 500 ? "silver" : "bronze";
 
-// ─── UTILITAIRE : GÉNÉRATION CODE PARRAINAGE ──────────────────────────────────
 const generateReferralCode = (userId) =>
   "OFS-" + userId.replace(/-/g, "").slice(0, 6).toUpperCase();
 
-// ─── UTILITAIRE : SYNC POINTS DEPUIS COMMANDES ───────────────────────────────
-/**
- * Compare les commandes livrées avec les transactions existantes.
- * Crée les transactions manquantes et met à jour loyalty_points.
- * Retourne le nb de nouveaux points crédités.
- */
 const syncOrderPoints = async (userId, deliveredOrders) => {
   if (!deliveredOrders.length) return 0;
-
-  // Récup des transactions déjà enregistrées pour ce user (type purchase)
   const { data: existingTxs } = await supabase
-    .from("loyalty_transactions")
-    .select("reference_id")
-    .eq("user_id", userId)
-    .eq("type", "purchase");
-
+    .from("loyalty_transactions").select("reference_id")
+    .eq("user_id", userId).eq("type", "purchase");
   const existingRefs = new Set((existingTxs || []).map((t) => t.reference_id));
-
   const newTxs = [];
   let newPts = 0;
-
   for (const order of deliveredOrders) {
     if (!existingRefs.has(order.id)) {
       const pts = Math.floor(Number(order.total_amount || 0) / 100);
       if (pts > 0) {
         newPts += pts;
-        newTxs.push({
-          user_id:      userId,
-          type:         "purchase",
-          points:       pts,
-          reference_id: order.id,
-          description:  `Achat #${order.id.slice(-8).toUpperCase()} — ${Number(order.total_amount).toLocaleString()} F`,
-        });
+        newTxs.push({ user_id: userId, type: "purchase", points: pts, reference_id: order.id,
+          description: `Achat #${order.id.slice(-8).toUpperCase()} — ${Number(order.total_amount).toLocaleString()} F` });
       }
     }
   }
-
   if (!newTxs.length) return 0;
-
-  // Insérer les nouvelles transactions
   await supabase.from("loyalty_transactions").insert(newTxs);
-
-  // Recalculer le total depuis toutes les transactions (plus fiable que +=)
-  const { data: allTxs } = await supabase
-    .from("loyalty_transactions")
-    .select("points")
-    .eq("user_id", userId);
-
+  const { data: allTxs } = await supabase.from("loyalty_transactions").select("points").eq("user_id", userId);
   const total = (allTxs || []).reduce((sum, t) => sum + (t.points || 0), 0);
-  await supabase
-    .from("profiles")
-    .update({ loyalty_points: Math.max(0, total) })
-    .eq("id", userId);
-
+  await supabase.from("profiles").update({ loyalty_points: Math.max(0, total) }).eq("id", userId);
   return newPts;
 };
 
-// ─── COMPOSANTS PARTAGÉS ──────────────────────────────────────────────────────
+// ─── SHARED ────────────────────────────────────────────────────────────────────
+const AmzCard = ({ children, className = "" }) => (
+  <div className={`bg-white border border-[#D5D9D9] rounded overflow-hidden ${className}`}>{children}</div>
+);
+
+const AmzCardHeader = ({ title, icon, action }) => (
+  <div className="bg-[#232F3E] px-4 py-3 flex items-center justify-between">
+    <p className="text-[10px] font-black uppercase tracking-widest text-[#FF9900] flex items-center gap-2">
+      {icon && <i className={`fa-solid ${icon} text-[9px]`}></i>}{title}
+    </p>
+    {action}
+  </div>
+);
+
+const AmzInput = ({ label, className = "", ...props }) => (
+  <div className={className}>
+    {label && <label className="text-[9px] font-black uppercase tracking-widest text-[#565959] mb-1.5 block">{label}</label>}
+    <input
+      className="w-full bg-white border border-[#D5D9D9] rounded px-3 py-2.5 text-sm text-[#0F1111] focus:border-[#FF9900] focus:outline-none transition-colors placeholder-[#adb5bd]"
+      {...props}
+    />
+  </div>
+);
+
+const AmzSelect = ({ label, children, ...props }) => (
+  <div>
+    {label && <label className="text-[9px] font-black uppercase tracking-widest text-[#565959] mb-1.5 block">{label}</label>}
+    <select
+      className="w-full bg-white border border-[#D5D9D9] rounded px-3 py-2.5 text-sm text-[#0F1111] focus:border-[#FF9900] focus:outline-none transition-colors"
+      {...props}
+    >{children}</select>
+  </div>
+);
+
+const PrimaryBtn = ({ children, className = "", ...props }) => (
+  <button
+    className={`inline-flex items-center justify-center gap-2 bg-[#FFD814] hover:bg-[#F7CA00] text-[#0F1111] border border-[#FCD200] font-black text-[10px] uppercase tracking-widest rounded px-4 py-2.5 transition-colors disabled:opacity-50 ${className}`}
+    {...props}
+  >{children}</button>
+);
+
+const SecondaryBtn = ({ children, className = "", ...props }) => (
+  <button
+    className={`inline-flex items-center justify-center gap-2 border border-[#D5D9D9] text-[#0F1111] hover:bg-[#EAEDED] font-black text-[10px] uppercase tracking-widest rounded px-4 py-2.5 transition-colors ${className}`}
+    {...props}
+  >{children}</button>
+);
+
 const Avatar = ({ url, name, size = 20, onClick }) => (
   <div
     onClick={onClick}
-    className={`relative rounded-2xl overflow-hidden flex-shrink-0 bg-gradient-to-br from-primary/20 to-primary/5 border-2 border-primary/30 ${onClick ? "cursor-pointer" : ""}`}
+    className={`relative rounded overflow-hidden flex-shrink-0 border-2 border-[#FF9900] bg-[#232F3E] ${onClick ? "cursor-pointer" : ""}`}
     style={{ width: size * 4, height: size * 4 }}
   >
-    {url ? (
-      <img src={url} alt={name} className="w-full h-full object-cover" />
-    ) : (
-      <div className="w-full h-full flex items-center justify-center">
-        <span className="font-black text-primary" style={{ fontSize: size * 1.4 }}>
-          {(name || "?")[0].toUpperCase()}
-        </span>
-      </div>
-    )}
+    {url
+      ? <img src={url} alt={name} className="w-full h-full object-cover" />
+      : <div className="w-full h-full flex items-center justify-center">
+          <span className="font-black text-[#FF9900]" style={{ fontSize: size * 1.4 }}>
+            {(name || "?")[0].toUpperCase()}
+          </span>
+        </div>
+    }
     {onClick && (
       <div className="absolute inset-0 bg-black/50 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center">
         <i className="fa-solid fa-camera text-white text-lg"></i>
@@ -117,32 +131,15 @@ const Avatar = ({ url, name, size = 20, onClick }) => (
   </div>
 );
 
-const Stat = ({ icon, value, label, color = "text-primary" }) => (
-  <div className="bg-zinc-950 border border-white/5 rounded-2xl p-4 text-center hover:border-primary/20 transition-colors">
-    <i className={`fa-solid ${icon} ${color} text-sm mb-2 block`}></i>
-    <p className={`font-black text-xl ${color}`}>{value}</p>
-    <p className="text-[8px] font-black uppercase tracking-widest text-zinc-500 mt-0.5">{label}</p>
-  </div>
-);
-
 const Toast = ({ message, type = "success", onClose }) => {
-  useEffect(() => {
-    const t = setTimeout(onClose, 3500);
-    return () => clearTimeout(t);
-  }, [onClose]);
-
-  const styles = {
-    success: "bg-primary/15 border-primary/40 text-primary",
-    error:   "bg-red-500/15 border-red-500/40 text-red-400",
-    info:    "bg-blue-500/15 border-blue-500/40 text-blue-400",
-  };
-  const icons  = { success: "fa-circle-check", error: "fa-triangle-exclamation", info: "fa-circle-info" };
-
+  useEffect(() => { const t = setTimeout(onClose, 3500); return () => clearTimeout(t); }, [onClose]);
+  const icons = { success: "fa-circle-check", error: "fa-triangle-exclamation", info: "fa-circle-info" };
+  const colors = { success: "text-[#007600]", error: "text-[#B12704]", info: "text-[#007185]" };
   return (
-    <div className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 border rounded-2xl px-5 py-3.5 shadow-2xl ${styles[type]}`}>
-      <i className={`fa-solid ${icons[type]} text-sm`}></i>
-      <span className="font-black text-[11px] uppercase tracking-widest whitespace-nowrap">{message}</span>
-      <button onClick={onClose} className="ml-2 opacity-60 hover:opacity-100 transition-opacity">
+    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[300] flex items-center gap-3 bg-[#0F1111] border border-[#232F3E] rounded shadow-2xl px-5 py-3.5">
+      <i className={`fa-solid ${icons[type]} ${colors[type]} text-sm`}></i>
+      <span className="font-black text-[11px] uppercase tracking-widest text-white whitespace-nowrap">{message}</span>
+      <button onClick={onClose} className="ml-2 text-[#565959] hover:text-white transition-colors">
         <i className="fa-solid fa-xmark text-xs"></i>
       </button>
     </div>
@@ -151,112 +148,118 @@ const Toast = ({ message, type = "success", onClose }) => {
 
 // ─── OVERVIEW ─────────────────────────────────────────────────────────────────
 const Overview = ({ profile, orders, wishlist, reviews, setTab, loyaltyPoints }) => {
-  const pts     = loyaltyPoints ?? (profile?.loyalty_points || 0);
-  const tier    = getTier(pts);
-  const cfg     = TIER_CONFIG[tier];
-  const pct     = Math.min(((pts - cfg.min) / (cfg.max - cfg.min)) * 100, 100);
-  const recent  = (orders || []).slice(0, 3);
+  const pts    = loyaltyPoints ?? (profile?.loyalty_points || 0);
+  const tier   = getTier(pts);
+  const cfg    = TIER_CONFIG[tier];
+  const pct    = Math.min(((pts - cfg.min) / (cfg.max - cfg.min)) * 100, 100);
+  const recent = (orders || []).slice(0, 3);
 
   return (
-    <div className="space-y-6">
-      {/* Carte tier / points */}
-      <div className={`bg-gradient-to-br ${cfg.bg} border border-white/10 rounded-3xl p-6 relative overflow-hidden`}>
-        <div className="absolute -right-8 -top-8 opacity-[0.06]">
-          <i className={`fa-solid ${cfg.icon} text-[10rem] ${cfg.color}`}></i>
-        </div>
-        <div className="relative z-10">
-          <div className="flex items-center justify-between mb-4">
+    <div className="space-y-4">
+      {/* TIER CARD */}
+      <AmzCard>
+        <div className="bg-[#131921] p-5 relative overflow-hidden">
+          <div className="absolute right-4 top-1/2 -translate-y-1/2 opacity-10">
+            <i className={`fa-solid ${cfg.icon} text-[80px]`} style={{ color: cfg.color }}></i>
+          </div>
+          <div className="relative z-10 flex items-center justify-between flex-wrap gap-4">
             <div>
-              <p className="text-[8px] font-black uppercase tracking-[0.3em] text-zinc-500 mb-1">Statut membre</p>
+              <p className="text-[9px] font-black uppercase tracking-widest text-[#ADBAC7] mb-1">Statut membre</p>
               <div className="flex items-center gap-2">
-                <i className={`fa-solid ${cfg.icon} ${cfg.color} text-xl`}></i>
-                <span className={`font-black text-2xl uppercase italic ${cfg.color}`}>{cfg.label}</span>
+                <i className={`fa-solid ${cfg.icon} text-xl`} style={{ color: cfg.color }}></i>
+                <span className="font-black text-2xl text-white uppercase">{cfg.label}</span>
               </div>
             </div>
             <div className="text-right">
-              <p className={`font-black text-3xl ${cfg.color}`}>{pts.toLocaleString()}</p>
-              <p className="text-[8px] font-black uppercase text-zinc-500 tracking-widest">points OFS</p>
+              <p className="font-black text-3xl text-white">{pts.toLocaleString()}</p>
+              <p className="text-[9px] font-black uppercase text-[#ADBAC7] tracking-widest">points OFS</p>
             </div>
           </div>
-          <div className="h-2 bg-white/10 rounded-full overflow-hidden mb-2">
-            <div
-              className={`h-full rounded-full transition-all duration-1000 ${cfg.color.replace("text-", "bg-")}`}
-              style={{ width: pct + "%" }}
-            />
-          </div>
-          <div className="flex justify-between items-center">
-            <span className="text-[8px] font-bold text-zinc-500">{pts.toLocaleString()} pts</span>
-            <span className="text-[8px] font-bold text-zinc-500">
-              {cfg.max < 99999 ? `${cfg.max.toLocaleString()} pts pour le niveau suivant` : "Niveau max 🎉"}
-            </span>
-          </div>
-          <div className="mt-4 flex gap-2">
-            <Link
-              to="/rewards"
-              className="flex items-center gap-2 bg-white/10 hover:bg-primary/20 border border-white/10 hover:border-primary/30 text-white hover:text-primary px-4 py-2 rounded-xl font-black text-[9px] uppercase tracking-widest transition-all"
-            >
-              <i className="fa-solid fa-gift text-xs"></i> OFS Rewards
-            </Link>
+          <div className="relative z-10 mt-4">
+            <div className="h-2 bg-[#232F3E] rounded-full overflow-hidden mb-1.5">
+              <div className="h-full rounded-full transition-all duration-700" style={{ width: pct + "%", background: cfg.color }} />
+            </div>
+            <div className="flex justify-between">
+              <span className="text-[9px] text-[#ADBAC7]">{pts.toLocaleString()} pts</span>
+              <span className="text-[9px] text-[#ADBAC7]">
+                {cfg.max < 99999 ? `${cfg.max.toLocaleString()} pts pour le prochain niveau` : "Niveau maximum 🎉"}
+              </span>
+            </div>
           </div>
         </div>
-      </div>
+        <div className="px-5 py-3 border-t border-[#D5D9D9] bg-[#F7F8F8]">
+          <Link to="/rewards"
+            className="inline-flex items-center gap-2 text-[#007185] hover:text-[#C45500] text-[10px] font-black uppercase hover:underline"
+          >
+            <i className="fa-solid fa-gift text-[9px]"></i>OFS Rewards →
+          </Link>
+        </div>
+      </AmzCard>
 
-      {/* Stats */}
+      {/* STATS */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <Stat icon="fa-bag-shopping" value={orders?.length || 0}  label="Commandes" color="text-primary"   />
-        <Stat icon="fa-heart"        value={wishlist?.length || 0} label="Favoris"   color="text-red-400"  />
-        <Stat icon="fa-star"         value={reviews?.length || 0}  label="Avis"      color="text-yellow-400"/>
-        <Stat icon="fa-crown"        value="−20%"                  label="Réduction" color="text-yellow-300"/>
+        {[
+          { icon: "fa-bag-shopping", value: orders?.length || 0,   label: "Commandes",  color: "#FF9900"  },
+          { icon: "fa-heart",        value: wishlist?.length || 0,  label: "Favoris",    color: "#B12704"  },
+          { icon: "fa-star",         value: reviews?.length || 0,   label: "Avis",       color: "#FF9900"  },
+          { icon: "fa-crown",        value: "−20%",                 label: "Réduction",  color: "#FFD814"  },
+        ].map(s => (
+          <AmzCard key={s.label} className="p-4 text-center hover:border-[#FF9900]/40 transition-colors">
+            <i className={`fa-solid ${s.icon} text-sm mb-2 block`} style={{ color: s.color }}></i>
+            <p className="font-black text-xl text-[#0F1111]">{s.value}</p>
+            <p className="text-[9px] font-black uppercase tracking-widest text-[#565959] mt-0.5">{s.label}</p>
+          </AmzCard>
+        ))}
       </div>
 
-      {/* Commandes récentes */}
+      {/* RECENT ORDERS */}
       {recent.length > 0 && (
-        <div className="bg-zinc-950 border border-white/5 rounded-3xl overflow-hidden">
-          <div className="flex items-center justify-between p-5 border-b border-white/5">
-            <span className="font-black text-sm uppercase tracking-tight text-white">Commandes récentes</span>
-            <button onClick={() => setTab("orders")} className="text-[9px] font-black uppercase text-primary hover:underline">
-              Voir tout →
-            </button>
-          </div>
-          <div className="divide-y divide-white/5">
-            {recent.map((o) => {
+        <AmzCard>
+          <AmzCardHeader title="Commandes récentes" icon="fa-bag-shopping"
+            action={
+              <button onClick={() => setTab("orders")}
+                className="text-[10px] font-black uppercase text-[#007185] hover:text-[#C45500] hover:underline">
+                Voir tout →
+              </button>
+            }
+          />
+          <div className="divide-y divide-[#F0F2F2]">
+            {recent.map(o => {
               const st = ORDER_STATUS[o.status] || ORDER_STATUS.pending;
               return (
-                <div key={o.id} className="flex items-center gap-4 p-4 hover:bg-white/2 transition-colors">
-                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${st.bg} border ${st.border} flex-shrink-0`}>
-                    <i className={`fa-solid ${st.icon} ${st.color} text-xs`}></i>
+                <div key={o.id} className="flex items-center gap-4 px-4 py-3 hover:bg-[#F7F8F8] transition-colors">
+                  <div className={`w-9 h-9 rounded flex items-center justify-center border flex-shrink-0 ${st.bg} ${st.border}`}>
+                    <i className={`fa-solid ${st.icon} text-xs ${st.color}`}></i>
                   </div>
                   <div className="flex-grow min-w-0">
-                    <p className="font-black text-[11px] text-white truncate">#{o.id?.slice(-8).toUpperCase()}</p>
-                    <p className="text-[9px] text-zinc-500 font-bold">{new Date(o.created_at).toLocaleDateString("fr-FR")}</p>
+                    <p className="font-black text-[11px] text-[#0F1111] truncate">#{o.id?.slice(-8).toUpperCase()}</p>
+                    <p className="text-[9px] text-[#565959] font-bold">{new Date(o.created_at).toLocaleDateString("fr-FR")}</p>
                   </div>
                   <div className="text-right flex-shrink-0">
-                    <p className="font-black text-[11px] text-white">{Number(o.total_amount || 0).toLocaleString()} F</p>
+                    <p className="font-black text-[11px] text-[#B12704]">{Number(o.total_amount || 0).toLocaleString()} F</p>
                     <span className={`text-[8px] font-black uppercase ${st.color}`}>{st.label}</span>
                   </div>
                 </div>
               );
             })}
           </div>
-        </div>
+        </AmzCard>
       )}
 
-      {/* Liens rapides */}
+      {/* QUICK LINKS */}
       <div className="grid grid-cols-2 gap-3">
         {[
-          { icon: "fa-location-dot",  label: "Mes adresses",  tab: "addresses",     color: "text-orange-400", bg: "bg-orange-400/8 border-orange-400/15"   },
-          { icon: "fa-user-plus",     label: "Parrainer",     tab: "referral",      color: "text-blue-400",   bg: "bg-blue-400/8 border-blue-400/15"       },
-          { icon: "fa-bell",          label: "Notifications", tab: "notifications", color: "text-purple-400", bg: "bg-purple-400/8 border-purple-400/15"   },
-          { icon: "fa-shield-halved", label: "Sécurité",      tab: "security",      color: "text-primary",    bg: "bg-primary/8 border-primary/15"         },
-        ].map((l) => (
-          <button
-            key={l.tab}
-            onClick={() => setTab(l.tab)}
-            className={`flex items-center gap-3 p-4 rounded-2xl border text-left hover:scale-[1.02] transition-transform ${l.bg}`}
+          { icon: "fa-location-dot",  label: "Mes adresses",  tab: "addresses",     color: "#FF9900"  },
+          { icon: "fa-user-plus",     label: "Parrainer",     tab: "referral",      color: "#007185"  },
+          { icon: "fa-bell",          label: "Notifications", tab: "notifications", color: "#232F3E"  },
+          { icon: "fa-shield-halved", label: "Sécurité",      tab: "security",      color: "#565959"  },
+        ].map(l => (
+          <button key={l.tab} onClick={() => setTab(l.tab)}
+            className="bg-white border border-[#D5D9D9] hover:border-[#FF9900]/50 rounded p-4 flex items-center gap-3 text-left transition-all group"
           >
-            <i className={`fa-solid ${l.icon} ${l.color} text-base`}></i>
-            <span className="font-black text-[11px] uppercase tracking-wide text-white">{l.label}</span>
-            <i className="fa-solid fa-chevron-right text-zinc-600 text-[9px] ml-auto"></i>
+            <i className={`fa-solid ${l.icon} text-base`} style={{ color: l.color }}></i>
+            <span className="font-black text-[11px] uppercase text-[#0F1111] group-hover:text-[#C45500] transition-colors">{l.label}</span>
+            <i className="fa-solid fa-chevron-right text-[#D5D9D9] text-[9px] ml-auto group-hover:text-[#FF9900] transition-colors"></i>
           </button>
         ))}
       </div>
@@ -264,93 +267,101 @@ const Overview = ({ profile, orders, wishlist, reviews, setTab, loyaltyPoints })
   );
 };
 
-// ─── COMMANDES ────────────────────────────────────────────────────────────────
+// ─── ORDERS ───────────────────────────────────────────────────────────────────
 const Orders = ({ orders, loading }) => {
   const [filter, setFilter] = useState("all");
-  const filtered = filter === "all" ? orders : orders.filter((o) => o.status === filter);
+  const filtered = filter === "all" ? orders : orders.filter(o => o.status === filter);
 
   return (
     <div className="space-y-4">
+      {/* Filter tabs */}
       <div className="flex gap-2 flex-wrap">
         {[["all","Toutes"],["pending","En attente"],["delivered","Livrées"],["cancelled","Annulées"]].map(([k, l]) => (
-          <button
-            key={k}
-            onClick={() => setFilter(k)}
-            className={`px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all border ${
-              filter === k ? "bg-primary text-black border-primary" : "border-white/10 text-zinc-400 hover:border-white/20"
+          <button key={k} onClick={() => setFilter(k)}
+            className={`px-3 py-1.5 rounded text-[9px] font-black uppercase tracking-widest border transition-all ${
+              filter === k
+                ? "bg-[#232F3E] text-[#FF9900] border-[#232F3E]"
+                : "bg-white border-[#D5D9D9] text-[#565959] hover:border-[#FF9900]/50"
             }`}
           >{l}</button>
         ))}
       </div>
 
       {loading ? (
-        <div className="space-y-3">{[...Array(3)].map((_, i) => <div key={i} className="h-20 bg-zinc-900 rounded-2xl animate-pulse" />)}</div>
+        <div className="space-y-3">{[...Array(3)].map((_, i) => (
+          <div key={i} className="h-24 bg-white border border-[#D5D9D9] rounded animate-pulse" />
+        ))}</div>
       ) : filtered.length === 0 ? (
-        <div className="text-center py-16 border border-white/5 rounded-3xl">
-          <i className="fa-solid fa-bag-shopping text-zinc-700 text-4xl mb-3 block"></i>
-          <p className="font-black text-white uppercase text-sm">Aucune commande</p>
-          <Link to="/store" className="mt-3 inline-flex items-center gap-2 bg-primary text-black px-6 py-2.5 rounded-xl font-black text-[9px] uppercase tracking-widest hover:bg-white transition">Explorer →</Link>
-        </div>
+        <AmzCard className="text-center py-16 px-4">
+          <i className="fa-solid fa-bag-shopping text-[#D5D9D9] text-4xl mb-3 block"></i>
+          <p className="font-black text-[#0F1111] uppercase text-sm">Aucune commande</p>
+          <Link to="/store"
+            className="mt-4 inline-flex items-center gap-2 bg-[#FFD814] hover:bg-[#F7CA00] text-[#0F1111] border border-[#FCD200] px-6 py-2.5 rounded font-black text-[9px] uppercase tracking-widest transition-colors"
+          >Explorer le store →</Link>
+        </AmzCard>
       ) : (
         <div className="space-y-3">
-          {filtered.map((o) => {
+          {filtered.map(o => {
             const st    = ORDER_STATUS[o.status] || ORDER_STATUS.pending;
             const items = o.items || [];
             const pts   = Math.floor(Number(o.total_amount || 0) / 100);
             return (
-              <div key={o.id} className="bg-zinc-950 border border-white/5 rounded-2xl overflow-hidden hover:border-white/10 transition-colors">
-                <div className="flex items-center justify-between px-5 py-3 border-b border-white/5">
+              <AmzCard key={o.id}>
+                {/* Header */}
+                <div className="flex items-center justify-between px-4 py-3 bg-[#F7F8F8] border-b border-[#D5D9D9]">
                   <div className="flex items-center gap-3">
-                    <span className={`text-[8px] font-black uppercase px-2.5 py-1 rounded-full border ${st.bg} ${st.border} ${st.color}`}>
+                    <span className={`text-[8px] font-black uppercase px-2.5 py-1 rounded border ${st.bg} ${st.border} ${st.color}`}>
                       <i className={`fa-solid ${st.icon} mr-1`}></i>{st.label}
                     </span>
-                    <span className="text-[9px] font-black text-zinc-400 uppercase">#{o.id?.slice(-8).toUpperCase()}</span>
+                    <span className="text-[9px] font-black text-[#565959] uppercase">#{o.id?.slice(-8).toUpperCase()}</span>
                   </div>
                   <div className="flex items-center gap-3">
                     {o.status === "delivered" && pts > 0 && (
-                      <span className="text-[8px] font-black text-amber-400 flex items-center gap-1">
-                        <i className="fa-solid fa-coins text-xs"></i>+{pts} pts
+                      <span className="text-[8px] font-black text-[#FF9900] flex items-center gap-1">
+                        <i className="fa-solid fa-coins text-[9px]"></i>+{pts} pts
                       </span>
                     )}
-                    <span className="text-[9px] text-zinc-500 font-bold">{new Date(o.created_at).toLocaleDateString("fr-FR")}</span>
+                    <span className="text-[9px] text-[#565959] font-bold">{new Date(o.created_at).toLocaleDateString("fr-FR")}</span>
                   </div>
                 </div>
 
-                <div className="px-5 py-4">
+                {/* Items */}
+                <div className="px-4 py-3">
                   {items.slice(0, 2).map((item, i) => (
                     <div key={i} className="flex items-center gap-3 mb-2 last:mb-0">
-                      <div className="w-10 h-10 bg-zinc-800 rounded-xl overflow-hidden flex-shrink-0">
+                      <div className="w-10 h-10 bg-[#EAEDED] rounded overflow-hidden flex-shrink-0">
                         {(item.product_img || item.img) && (
-                          <img src={item.product_img || item.img} alt="" className="w-full h-full object-cover" />
+                          <img src={item.product_img || item.img} alt="" className="w-full h-full object-contain" />
                         )}
                       </div>
                       <div className="flex-grow min-w-0">
-                        <p className="font-black text-[10px] text-white truncate">{item.product_name || item.name}</p>
-                        <p className="text-[8px] text-zinc-500">Qté: {item.quantity}</p>
+                        <p className="font-black text-[10px] text-[#0F1111] truncate">{item.product_name || item.name}</p>
+                        <p className="text-[9px] text-[#565959]">Qté: {item.quantity}</p>
                       </div>
-                      <p className="font-black text-[11px] text-white flex-shrink-0">{Number(item.unit_price || 0).toLocaleString()} F</p>
+                      <p className="font-black text-[11px] text-[#B12704] flex-shrink-0">{Number(item.unit_price || 0).toLocaleString()} F</p>
                     </div>
                   ))}
-                  {items.length > 2 && <p className="text-[8px] text-zinc-500 font-bold mt-1">+{items.length - 2} autre(s)</p>}
+                  {items.length > 2 && <p className="text-[9px] text-[#565959] font-bold mt-1">+{items.length - 2} autre(s)</p>}
                 </div>
 
-                <div className="flex items-center justify-between px-5 py-3 border-t border-white/5 bg-white/[0.02]">
+                {/* Footer */}
+                <div className="flex items-center justify-between px-4 py-3 border-t border-[#D5D9D9] bg-[#F7F8F8]">
                   <div>
-                    <p className="text-[8px] text-zinc-500 font-bold uppercase">Total</p>
-                    <p className="font-black text-primary text-base">{Number(o.total_amount || 0).toLocaleString()} <span className="text-xs text-zinc-400">FCFA</span></p>
+                    <p className="text-[9px] text-[#565959] font-bold uppercase">Total commande</p>
+                    <p className="font-black text-[#B12704] text-base">{Number(o.total_amount || 0).toLocaleString()} <span className="text-xs text-[#565959]">FCFA</span></p>
                   </div>
                   <div className="flex gap-2">
                     {o.status === "delivered" && (
-                      <button className="flex items-center gap-1.5 border border-yellow-400/30 text-yellow-400 px-3 py-2 rounded-xl text-[8px] font-black uppercase hover:bg-yellow-400/10 transition">
-                        <i className="fa-solid fa-star"></i> Avis
+                      <button className="flex items-center gap-1.5 border border-[#FF9900]/40 text-[#FF9900] px-3 py-2 rounded text-[8px] font-black uppercase hover:bg-[#FF9900]/5 transition-colors">
+                        <i className="fa-solid fa-star text-[9px]"></i>Avis
                       </button>
                     )}
-                    <button className="flex items-center gap-1.5 border border-white/10 text-zinc-400 px-3 py-2 rounded-xl text-[8px] font-black uppercase hover:border-primary/30 hover:text-primary transition">
-                      <i className="fa-solid fa-eye"></i> Détails
+                    <button className="flex items-center gap-1.5 border border-[#D5D9D9] text-[#565959] px-3 py-2 rounded text-[8px] font-black uppercase hover:border-[#FF9900]/50 hover:text-[#C45500] transition-colors">
+                      <i className="fa-solid fa-eye text-[9px]"></i>Détails
                     </button>
                   </div>
                 </div>
-              </div>
+              </AmzCard>
             );
           })}
         </div>
@@ -359,52 +370,53 @@ const Orders = ({ orders, loading }) => {
   );
 };
 
-// ─── WISHLIST ─────────────────────────────────────────────────────────────────
+// ─── WISHLIST TAB ─────────────────────────────────────────────────────────────
 const WishlistTab = ({ items, loading, onRemove, addToCart }) => (
   <div className="space-y-4">
     {loading ? (
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-        {[...Array(6)].map((_, i) => <div key={i} className="aspect-[3/4] bg-zinc-900 rounded-2xl animate-pulse" />)}
+        {[...Array(6)].map((_, i) => <div key={i} className="aspect-[3/4] bg-[#EAEDED] rounded animate-pulse" />)}
       </div>
     ) : !items?.length ? (
-      <div className="text-center py-16 border border-white/5 rounded-3xl">
-        <i className="fa-regular fa-heart text-zinc-700 text-5xl mb-3 block"></i>
-        <p className="font-black text-white uppercase text-sm">Aucun favori</p>
-        <Link to="/store" className="mt-3 inline-flex items-center gap-2 bg-primary text-black px-6 py-2.5 rounded-xl font-black text-[9px] uppercase hover:bg-white transition">Explorer →</Link>
-      </div>
+      <AmzCard className="text-center py-16 px-4">
+        <i className="fa-regular fa-heart text-[#D5D9D9] text-5xl mb-3 block"></i>
+        <p className="font-black text-[#0F1111] uppercase text-sm">Aucun favori</p>
+        <Link to="/store"
+          className="mt-4 inline-flex items-center gap-2 bg-[#FFD814] hover:bg-[#F7CA00] text-[#0F1111] border border-[#FCD200] px-6 py-2.5 rounded font-black text-[9px] uppercase tracking-widest transition-colors"
+        >Explorer →</Link>
+      </AmzCard>
     ) : (
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-        {items.map((item) => (
-          <div key={item.id} className="bg-zinc-950 border border-white/5 rounded-2xl overflow-hidden group hover:border-primary/20 transition-all">
-            <div className="relative aspect-square overflow-hidden bg-zinc-900">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+        {items.map(item => (
+          <AmzCard key={item.id} className="group hover:border-[#FF9900]/60 hover:shadow-md transition-all">
+            <div className="relative aspect-square overflow-hidden bg-[#EAEDED]">
               {item.product?.img && (
-                <img src={item.product.img} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                <img src={item.product.img} alt="" className="w-full h-full object-contain p-2 transition-transform duration-500 group-hover:scale-105" />
               )}
-              <button
-                onClick={() => onRemove(item.id)}
-                className="absolute top-2 right-2 w-7 h-7 rounded-full bg-black/60 border border-white/10 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-500/20"
+              <button onClick={() => onRemove(item.id)}
+                className="absolute top-2 right-2 w-7 h-7 rounded-full bg-white border border-[#D5D9D9] flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:border-[#B12704] hover:text-[#B12704] text-[#565959]"
               >
-                <i className="fa-solid fa-xmark text-white text-[9px]"></i>
+                <i className="fa-solid fa-xmark text-[9px]"></i>
               </button>
             </div>
             <div className="p-3">
-              <p className="font-black text-[10px] text-white truncate mb-1">{item.product?.name}</p>
-              <p className="font-black text-primary text-sm mb-2">{Number(item.product?.price || 0).toLocaleString()} F</p>
-              <button
-                onClick={() => addToCart(item.product)}
-                className="w-full bg-primary/10 hover:bg-primary text-primary hover:text-black border border-primary/20 hover:border-primary rounded-xl py-2 text-[8px] font-black uppercase tracking-widest transition-all"
+              <p className="font-black text-[10px] text-[#0F1111] truncate mb-1">{item.product?.name}</p>
+              <p className="font-black text-[#B12704] text-sm mb-2">{Number(item.product?.price || 0).toLocaleString()} F</p>
+              <p className="text-[8px] text-[#007185] font-bold mb-2"><i className="fa-solid fa-truck-fast mr-1"></i>Livraison 2h · Douala 🇨🇲</p>
+              <button onClick={() => addToCart?.(item.product)}
+                className="w-full bg-[#FFD814] hover:bg-[#F7CA00] text-[#0F1111] border border-[#FCD200] rounded py-2 text-[8px] font-black uppercase tracking-widest transition-colors"
               >
-                <i className="fa-solid fa-bag-shopping mr-1"></i>Ajouter
+                <i className="fa-solid fa-cart-plus mr-1"></i>Au panier
               </button>
             </div>
-          </div>
+          </AmzCard>
         ))}
       </div>
     )}
   </div>
 );
 
-// ─── ADRESSES ─────────────────────────────────────────────────────────────────
+// ─── ADDRESSES ────────────────────────────────────────────────────────────────
 const EMPTY_ADDR = { label: "Maison", full_name: "", phone: "", city: "Douala", neighborhood: "", street: "", extra: "", is_default: false };
 
 const Addresses = ({ addresses, onSave, onDelete }) => {
@@ -423,170 +435,106 @@ const Addresses = ({ addresses, onSave, onDelete }) => {
       await onSave(form);
       setForm(EMPTY_ADDR); setShowForm(false);
       setSuccess(true); setTimeout(() => setSuccess(false), 3000);
-    } catch (e) {
-      setError(e.message || "Erreur lors de l'enregistrement.");
-    } finally {
-      setSaving(false);
-    }
+    } catch (e) { setError(e.message || "Erreur."); } finally { setSaving(false); }
   };
-
-  const set = (k, v) => setForm((p) => ({ ...p, [k]: v }));
+  const set = (k, v) => setForm(p => ({ ...p, [k]: v }));
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <p className="text-[9px] font-black uppercase tracking-widest text-zinc-500">{addresses?.length || 0} adresse(s)</p>
-        <button
-          onClick={() => { setShowForm(!showForm); setError(""); }}
-          className="flex items-center gap-2 bg-primary text-black px-4 py-2 rounded-xl font-black text-[9px] uppercase tracking-widest hover:bg-white transition"
-        >
+        <p className="text-[10px] font-black uppercase tracking-widest text-[#565959]">{addresses?.length || 0} adresse(s)</p>
+        <PrimaryBtn onClick={() => { setShowForm(!showForm); setError(""); }}>
           <i className={`fa-solid ${showForm ? "fa-xmark" : "fa-plus"} text-xs`}></i>
           {showForm ? "Annuler" : "Ajouter"}
-        </button>
+        </PrimaryBtn>
       </div>
 
       {success && (
-        <div className="flex items-center gap-3 bg-primary/10 border border-primary/30 rounded-xl px-4 py-3">
-          <i className="fa-solid fa-circle-check text-primary"></i>
-          <span className="text-[10px] font-black uppercase text-primary tracking-widest">Adresse enregistrée !</span>
+        <div className="flex items-center gap-3 bg-[#E8F5E8] border border-[#007600]/30 rounded px-4 py-3">
+          <i className="fa-solid fa-circle-check text-[#007600]"></i>
+          <span className="text-[10px] font-black uppercase text-[#007600] tracking-widest">Adresse enregistrée !</span>
         </div>
       )}
 
       {showForm && (
-        <div className="bg-zinc-950 border border-primary/20 rounded-2xl p-5 space-y-4">
-          <p className="font-black text-sm uppercase tracking-tight text-white">Nouvelle adresse</p>
-
-          {error && (
-            <div className="flex items-center gap-2 bg-red-500/10 border border-red-500/25 rounded-xl px-3 py-2.5">
-              <i className="fa-solid fa-triangle-exclamation text-red-400 text-xs"></i>
-              <span className="text-[9px] font-bold text-red-400">{error}</span>
-            </div>
-          )}
-
-          <div>
-            <label className="text-[8px] font-black uppercase tracking-widest text-zinc-500 mb-1.5 block">Libellé</label>
-            <div className="flex gap-2 flex-wrap mb-2">
-              {["Maison", "Bureau", "Famille", "Autre"].map((l) => (
-                <button key={l} type="button" onClick={() => set("label", l)}
-                  className={`px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest border transition ${
-                    form.label === l ? "bg-primary text-black border-primary" : "border-white/10 text-zinc-400 hover:border-white/20"
-                  }`}
-                >{l}</button>
-              ))}
-            </div>
-            <input
-              value={form.label}
-              onChange={(e) => set("label", e.target.value)}
-              placeholder="Libellé personnalisé..."
-              className="w-full bg-zinc-900 border border-white/8 rounded-xl px-4 py-3 text-[11px] text-white font-bold placeholder-zinc-600 focus:border-primary/40 focus:outline-none transition"
-            />
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {[{ k: "full_name", label: "Nom complet *", type: "text", ph: "Nom de la personne" },
-              { k: "phone",     label: "Téléphone *",   type: "tel",  ph: "+237 6XX XXX XXX"   }].map((f) => (
-              <div key={f.k}>
-                <label className="text-[8px] font-black uppercase tracking-widest text-zinc-500 mb-1.5 block">{f.label}</label>
-                <input
-                  type={f.type} value={form[f.k]}
-                  onChange={(e) => set(f.k, e.target.value)}
-                  placeholder={f.ph}
-                  className="w-full bg-zinc-900 border border-white/8 rounded-xl px-4 py-3 text-[11px] text-white font-bold placeholder-zinc-600 focus:border-primary/40 focus:outline-none transition"
-                />
+        <AmzCard>
+          <AmzCardHeader title="Nouvelle adresse" icon="fa-location-dot" />
+          <div className="p-4 space-y-4">
+            {error && (
+              <div className="flex items-center gap-2 bg-[#FEE7E5] border border-[#B12704]/30 rounded px-3 py-2.5">
+                <i className="fa-solid fa-triangle-exclamation text-[#B12704] text-xs"></i>
+                <span className="text-[9px] font-bold text-[#B12704]">{error}</span>
               </div>
-            ))}
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {[{ k: "city", label: "Ville", ph: "Douala" }, { k: "neighborhood", label: "Quartier", ph: "Bonamoussadi, Akwa..." }].map((f) => (
-              <div key={f.k}>
-                <label className="text-[8px] font-black uppercase tracking-widest text-zinc-500 mb-1.5 block">{f.label}</label>
-                <input
-                  value={form[f.k]} onChange={(e) => set(f.k, e.target.value)} placeholder={f.ph}
-                  className="w-full bg-zinc-900 border border-white/8 rounded-xl px-4 py-3 text-[11px] text-white font-bold placeholder-zinc-600 focus:border-primary/40 focus:outline-none transition"
-                />
-              </div>
-            ))}
-          </div>
-
-          <div>
-            <label className="text-[8px] font-black uppercase tracking-widest text-zinc-500 mb-1.5 block">Rue / Avenue *</label>
-            <input
-              value={form.street} onChange={(e) => set("street", e.target.value)}
-              placeholder="Ex: Rue Njo Njo, Avenue Kennedy..."
-              className="w-full bg-zinc-900 border border-white/8 rounded-xl px-4 py-3 text-[11px] text-white font-bold placeholder-zinc-600 focus:border-primary/40 focus:outline-none transition"
-            />
-          </div>
-
-          <div>
-            <label className="text-[8px] font-black uppercase tracking-widest text-zinc-500 mb-1.5 block">Infos supplémentaires</label>
-            <input
-              value={form.extra} onChange={(e) => set("extra", e.target.value)}
-              placeholder="Bâtiment, étage, code d'entrée..."
-              className="w-full bg-zinc-900 border border-white/8 rounded-xl px-4 py-3 text-[11px] text-white font-bold placeholder-zinc-600 focus:border-primary/40 focus:outline-none transition"
-            />
-          </div>
-
-          <label className="flex items-center gap-3 cursor-pointer p-3 bg-zinc-900/50 rounded-xl border border-white/5 hover:border-primary/20 transition">
-            <input
-              type="checkbox" checked={form.is_default}
-              onChange={(e) => set("is_default", e.target.checked)}
-              className="accent-primary w-4 h-4"
-            />
+            )}
             <div>
-              <span className="text-[10px] font-black text-white uppercase tracking-wide">Adresse par défaut</span>
-              <p className="text-[8px] text-zinc-500 font-bold mt-0.5">Pré-sélectionnée à chaque commande</p>
+              <p className="text-[9px] font-black uppercase tracking-widest text-[#565959] mb-2">Libellé</p>
+              <div className="flex gap-2 flex-wrap mb-2">
+                {["Maison","Bureau","Famille","Autre"].map(l => (
+                  <button key={l} type="button" onClick={() => set("label", l)}
+                    className={`px-3 py-1.5 rounded text-[9px] font-black uppercase tracking-widest border transition-all ${
+                      form.label === l ? "bg-[#232F3E] text-[#FF9900] border-[#232F3E]" : "bg-white border-[#D5D9D9] text-[#565959] hover:border-[#FF9900]/50"
+                    }`}
+                  >{l}</button>
+                ))}
+              </div>
+              <input value={form.label} onChange={e => set("label", e.target.value)} placeholder="Libellé personnalisé..."
+                className="w-full bg-white border border-[#D5D9D9] rounded px-3 py-2.5 text-sm text-[#0F1111] focus:border-[#FF9900] focus:outline-none transition-colors placeholder-[#adb5bd]"
+              />
             </div>
-          </label>
-
-          <div className="flex gap-2">
-            <button
-              onClick={handleSave} disabled={saving}
-              className="flex items-center gap-2 bg-primary text-black px-6 py-3 rounded-xl font-black text-[9px] uppercase tracking-widest hover:bg-white transition disabled:opacity-50"
-            >
-              {saving ? <><i className="fa-solid fa-spinner fa-spin text-xs"></i>Enregistrement...</> : <><i className="fa-solid fa-check text-xs"></i>Enregistrer</>}
-            </button>
-            <button
-              onClick={() => { setShowForm(false); setForm(EMPTY_ADDR); setError(""); }}
-              className="border border-white/10 text-zinc-400 px-5 py-3 rounded-xl font-black text-[9px] uppercase tracking-widest hover:border-white/20 transition"
-            >
-              Annuler
-            </button>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <AmzInput label="Nom complet *" value={form.full_name} onChange={e => set("full_name", e.target.value)} placeholder="Nom de la personne" />
+              <AmzInput label="Téléphone *" type="tel" value={form.phone} onChange={e => set("phone", e.target.value)} placeholder="+237 6XX XXX XXX" />
+              <AmzInput label="Ville" value={form.city} onChange={e => set("city", e.target.value)} placeholder="Douala" />
+              <AmzInput label="Quartier" value={form.neighborhood} onChange={e => set("neighborhood", e.target.value)} placeholder="Bonamoussadi, Akwa..." />
+            </div>
+            <AmzInput label="Rue / Avenue *" value={form.street} onChange={e => set("street", e.target.value)} placeholder="Ex: Rue Njo Njo, Avenue Kennedy..." />
+            <AmzInput label="Infos supplémentaires" value={form.extra} onChange={e => set("extra", e.target.value)} placeholder="Bâtiment, étage, code d'entrée..." />
+            <label className="flex items-center gap-3 cursor-pointer p-3 bg-[#F7F8F8] border border-[#D5D9D9] rounded hover:border-[#FF9900]/50 transition-colors">
+              <input type="checkbox" checked={form.is_default} onChange={e => set("is_default", e.target.checked)} className="accent-[#FF9900] w-4 h-4" />
+              <div>
+                <span className="text-[10px] font-black text-[#0F1111] uppercase">Adresse par défaut</span>
+                <p className="text-[9px] text-[#565959] font-bold">Pré-sélectionnée à chaque commande</p>
+              </div>
+            </label>
+            <div className="flex gap-2">
+              <PrimaryBtn onClick={handleSave} disabled={saving}>
+                {saving ? <><i className="fa-solid fa-spinner fa-spin text-xs"></i>Enregistrement...</> : <><i className="fa-solid fa-check text-xs"></i>Enregistrer</>}
+              </PrimaryBtn>
+              <SecondaryBtn onClick={() => { setShowForm(false); setForm(EMPTY_ADDR); setError(""); }}>Annuler</SecondaryBtn>
+            </div>
           </div>
-        </div>
+        </AmzCard>
       )}
 
       {!addresses?.length && !showForm ? (
-        <div className="text-center py-16 border border-white/5 rounded-3xl">
-          <i className="fa-solid fa-location-dot text-zinc-700 text-4xl mb-3 block"></i>
-          <p className="font-black text-white uppercase text-sm">Aucune adresse</p>
-          <p className="text-[10px] text-zinc-500 mt-1 font-bold">Ajoutez une adresse pour un checkout plus rapide</p>
-        </div>
+        <AmzCard className="text-center py-14 px-4">
+          <i className="fa-solid fa-location-dot text-[#D5D9D9] text-4xl mb-3 block"></i>
+          <p className="font-black text-[#0F1111] uppercase text-sm">Aucune adresse</p>
+          <p className="text-[10px] text-[#565959] mt-1">Ajoutez une adresse pour un checkout plus rapide</p>
+        </AmzCard>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          {(addresses || []).map((a) => (
-            <div
-              key={a.id}
-              className={`bg-zinc-950 border rounded-2xl p-5 relative hover:border-white/10 transition-colors ${a.is_default ? "border-primary/30" : "border-white/5"}`}
-            >
+          {(addresses || []).map(a => (
+            <AmzCard key={a.id} className={`relative ${a.is_default ? "border-[#FF9900]/50" : ""}`}>
               {a.is_default && (
-                <span className="absolute top-3 right-3 text-[7px] font-black uppercase bg-primary/15 text-primary border border-primary/25 px-2 py-0.5 rounded-full">Défaut</span>
+                <span className="absolute top-3 right-3 text-[7px] font-black uppercase bg-[#FFF3CD] text-[#FF9900] border border-[#FCD200]/60 px-2 py-0.5 rounded-full">Défaut</span>
               )}
-              <div className="flex items-center gap-2 mb-3">
-                <i className="fa-solid fa-location-dot text-primary text-xs"></i>
-                <span className="font-black text-[12px] text-white uppercase">{a.label || "Adresse"}</span>
+              <div className="p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <i className="fa-solid fa-location-dot text-[#FF9900] text-xs"></i>
+                  <span className="font-black text-[12px] text-[#0F1111] uppercase">{a.label || "Adresse"}</span>
+                </div>
+                <p className="text-[11px] font-bold text-[#0F1111]">{a.full_name}</p>
+                <p className="text-[10px] text-[#565959] font-bold">{a.phone}</p>
+                <p className="text-[10px] text-[#565959] mt-1">{[a.street, a.neighborhood, a.city].filter(Boolean).join(", ")}</p>
+                {a.extra && <p className="text-[9px] text-[#ADBAC7] italic mt-1">{a.extra}</p>}
+                <button onClick={() => onDelete(a.id)}
+                  className="mt-3 text-[9px] font-black uppercase text-[#565959] hover:text-[#B12704] transition-colors border border-[#D5D9D9] hover:border-[#B12704]/30 px-3 py-1.5 rounded"
+                >
+                  <i className="fa-solid fa-trash mr-1"></i>Supprimer
+                </button>
               </div>
-              <p className="text-[11px] font-bold text-zinc-300">{a.full_name}</p>
-              <p className="text-[10px] text-zinc-500 font-bold">{a.phone}</p>
-              <p className="text-[10px] text-zinc-400 font-bold mt-1">{[a.street, a.neighborhood, a.city].filter(Boolean).join(", ")}</p>
-              {a.extra && <p className="text-[9px] text-zinc-600 italic mt-1">{a.extra}</p>}
-              <button
-                onClick={() => onDelete(a.id)}
-                className="mt-4 text-[8px] font-black uppercase text-zinc-400 hover:text-red-400 transition border border-white/8 hover:border-red-400/30 px-3 py-1.5 rounded-lg"
-              >
-                <i className="fa-solid fa-trash mr-1"></i>Supprimer
-              </button>
-            </div>
+            </AmzCard>
           ))}
         </div>
       )}
@@ -594,60 +542,53 @@ const Addresses = ({ addresses, onSave, onDelete }) => {
   );
 };
 
-// ─── AVIS ─────────────────────────────────────────────────────────────────────
+// ─── REVIEWS ──────────────────────────────────────────────────────────────────
 const ReviewsTab = ({ reviews }) => (
   <div className="space-y-3">
     {!reviews?.length ? (
-      <div className="text-center py-12 border border-white/5 rounded-3xl">
-        <i className="fa-solid fa-star text-zinc-700 text-4xl mb-3 block"></i>
-        <p className="font-black text-white uppercase text-sm">Aucun avis publié</p>
-      </div>
-    ) : (
-      reviews.map((r) => (
-        <div key={r.id} className="bg-zinc-950 border border-white/5 rounded-2xl p-5 hover:border-white/10 transition-colors">
-          <div className="flex items-start justify-between mb-3">
+      <AmzCard className="text-center py-14 px-4">
+        <i className="fa-solid fa-star text-[#D5D9D9] text-4xl mb-3 block"></i>
+        <p className="font-black text-[#0F1111] uppercase text-sm">Aucun avis publié</p>
+      </AmzCard>
+    ) : reviews.map(r => (
+      <AmzCard key={r.id}>
+        <div className="p-4">
+          <div className="flex items-start justify-between mb-2">
             <div>
-              <p className="font-black text-[12px] text-white">{r.product?.name || "Produit"}</p>
-              <p className="text-[9px] text-zinc-500">{new Date(r.created_at).toLocaleDateString("fr-FR")}</p>
+              <p className="font-black text-[12px] text-[#0F1111]">{r.product?.name || "Produit"}</p>
+              <p className="text-[9px] text-[#565959]">{new Date(r.created_at).toLocaleDateString("fr-FR")}</p>
             </div>
             <div className="flex gap-0.5">
               {[...Array(5)].map((_, i) => (
-                <i key={i} className={`fa-solid fa-star text-xs ${i < r.stars ? "text-yellow-400" : "text-zinc-700"}`}></i>
+                <i key={i} className={`fa-solid fa-star text-xs ${i < r.stars ? "text-[#FF9900]" : "text-[#D5D9D9]"}`}></i>
               ))}
             </div>
           </div>
-          {r.comment && <p className="text-[11px] text-zinc-400 font-bold leading-relaxed">{r.comment}</p>}
+          {r.comment && <p className="text-[11px] text-[#565959] leading-relaxed">{r.comment}</p>}
         </div>
-      ))
-    )}
+      </AmzCard>
+    ))}
   </div>
 );
 
-// ─── PARRAINAGE ───────────────────────────────────────────────────────────────
+// ─── REFERRAL ─────────────────────────────────────────────────────────────────
 const Referral = ({ profile, userId, onToast }) => {
   const [copied,    setCopied]    = useState(false);
   const [referrals, setReferrals] = useState([]);
   const [loading,   setLoading]   = useState(true);
-
-  // Code parrainage depuis le profil (garanti d'exister car auto-généré au chargement)
   const code   = profile?.referral_code || "—";
   const refUrl = `${window.location.origin}/register?ref=${code}`;
 
   useEffect(() => {
     if (!userId) return;
-    supabase
-      .from("referrals")
-      .select("id, created_at, referred:profiles!referred_id(full_name, avatar_url)")
-      .eq("referrer_id", userId)
-      .order("created_at", { ascending: false })
+    supabase.from("referrals").select("id, created_at, referred:profiles!referred_id(full_name, avatar_url)")
+      .eq("referrer_id", userId).order("created_at", { ascending: false })
       .then(({ data }) => { setReferrals(data || []); setLoading(false); });
   }, [userId]);
 
   const handleCopy = (val, label = "Copié !") => {
     navigator.clipboard.writeText(val).then(() => {
-      setCopied(true);
-      onToast?.(label, "success");
-      setTimeout(() => setCopied(false), 2000);
+      setCopied(true); onToast?.(label, "success"); setTimeout(() => setCopied(false), 2000);
     });
   };
 
@@ -658,128 +599,113 @@ const Referral = ({ profile, userId, onToast }) => {
   ];
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-4">
       {/* Hero */}
-      <div className="bg-gradient-to-br from-blue-500/15 to-blue-500/5 border border-blue-400/20 rounded-3xl p-7 text-center relative overflow-hidden">
-        <div
-          className="absolute inset-0 opacity-[0.04]"
-          style={{ backgroundImage: "radial-gradient(circle, #3b82f6 1px, transparent 1px)", backgroundSize: "24px 24px" }}
-        />
-        <i className="fa-solid fa-user-plus text-blue-400 text-3xl mb-4 block relative z-10"></i>
-        <h3 className="font-black text-2xl italic tracking-tighter text-white mb-2 relative z-10">
-          Parraine. Gagne. <span className="text-blue-400">Repeat.</span>
-        </h3>
-        <p className="text-zinc-400 font-bold text-sm mb-6 relative z-10">
-          Gagne <span className="text-primary font-black">200 pts</span> par ami parrainé · Bonus aux paliers
-        </p>
-
-        {/* Code parrainage — affiché automatiquement, pas de champ de saisie */}
-        <div className="flex items-center gap-2 bg-black/40 border border-white/10 rounded-2xl p-4 max-w-sm mx-auto relative z-10 mb-3">
-          <div className="flex-grow text-left">
-            <p className="text-[8px] font-black uppercase tracking-widest text-zinc-500 mb-0.5">Votre code</p>
-            <span className="font-black text-primary text-lg font-mono tracking-[0.2em]">{code}</span>
-          </div>
-          <button
-            onClick={() => handleCopy(code, "Code copié !")}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl font-black text-[9px] uppercase tracking-widest transition-all flex-shrink-0 ${
-              copied ? "bg-primary text-black" : "bg-blue-500/20 border border-blue-400/30 text-blue-300 hover:bg-blue-500/30"
-            }`}
-          >
-            <i className={`fa-solid ${copied ? "fa-check" : "fa-copy"} text-xs`}></i>
-            {copied ? "Copié !" : "Copier"}
-          </button>
-        </div>
-
-        {/* Lien complet */}
-        <div className="flex items-center gap-2 bg-black/20 border border-white/8 rounded-xl p-3 max-w-sm mx-auto relative z-10">
-          <p className="flex-grow text-[9px] font-medium text-zinc-400 truncate text-left">{refUrl}</p>
-          <button
-            onClick={() => handleCopy(refUrl, "Lien copié !")}
-            className="flex-shrink-0 text-[9px] font-black uppercase text-zinc-400 hover:text-primary transition-colors px-2"
-          >
-            <i className={`fa-solid ${copied ? "fa-check" : "fa-link"} text-xs`}></i>
-          </button>
-        </div>
-
-        {/* Partage réseaux */}
-        <div className="flex gap-2 justify-center mt-4 relative z-10">
-          {[
-            { icon: "fa-brands fa-whatsapp", label: "WhatsApp", href: `https://wa.me/?text=Rejoins%20OFS%20Elite%20avec%20mon%20code%20${code}%20%3A%20${encodeURIComponent(refUrl)}`, color: "hover:text-green-500 hover:border-green-500/30" },
-            { icon: "fa-brands fa-instagram", label: "Instagram", href: "#", color: "hover:text-pink-500 hover:border-pink-500/30" },
-            { icon: "fa-brands fa-tiktok",    label: "TikTok",    href: "#", color: "hover:text-white hover:border-white/30"         },
-          ].map((n) => (
-            <a
-              key={n.label} href={n.href} target="_blank" rel="noopener noreferrer"
-              className={`flex items-center gap-2 flex-1 justify-center py-2.5 rounded-xl border border-white/8 text-zinc-400 ${n.color} transition-all text-[10px] font-black uppercase tracking-widest max-w-[110px]`}
+      <AmzCard>
+        <div className="bg-[#131921] p-6 text-center relative overflow-hidden">
+          <div className="absolute inset-0 opacity-[0.03]" style={{ backgroundImage: "radial-gradient(circle, #FF9900 1px, transparent 1px)", backgroundSize: "24px 24px" }} />
+          <i className="fa-solid fa-user-plus text-[#FF9900] text-3xl mb-3 block relative z-10"></i>
+          <h3 className="font-black text-2xl text-white mb-1 relative z-10">Parraine. Gagne.</h3>
+          <p className="text-[#ADBAC7] text-sm mb-5 relative z-10">
+            Gagne <span className="text-[#FF9900] font-black">200 pts</span> par ami parrainé · Bonus aux paliers
+          </p>
+          {/* Code */}
+          <div className="flex items-center gap-3 bg-[#232F3E] border border-[#37475A] rounded p-4 max-w-sm mx-auto relative z-10 mb-3">
+            <div className="flex-grow text-left">
+              <p className="text-[8px] font-black uppercase tracking-widest text-[#ADBAC7] mb-0.5">Votre code</p>
+              <span className="font-black text-[#FF9900] text-lg font-mono tracking-[0.2em]">{code}</span>
+            </div>
+            <button onClick={() => handleCopy(code, "Code copié !")}
+              className={`flex items-center gap-2 px-4 py-2 rounded font-black text-[9px] uppercase tracking-widest transition-all flex-shrink-0 ${
+                copied ? "bg-[#007600] text-white" : "bg-[#FFD814] hover:bg-[#F7CA00] text-[#0F1111] border border-[#FCD200]"
+              }`}
             >
-              <i className={`${n.icon} text-sm`}></i>
-              <span className="hidden sm:inline">{n.label}</span>
-            </a>
-          ))}
+              <i className={`fa-solid ${copied ? "fa-check" : "fa-copy"} text-xs`}></i>{copied ? "Copié !" : "Copier"}
+            </button>
+          </div>
+          {/* Full URL */}
+          <div className="flex items-center gap-2 bg-[#232F3E] border border-[#37475A] rounded px-3 py-2 max-w-sm mx-auto relative z-10">
+            <p className="flex-grow text-[9px] text-[#ADBAC7] truncate text-left">{refUrl}</p>
+            <button onClick={() => handleCopy(refUrl, "Lien copié !")}
+              className="flex-shrink-0 text-[#565959] hover:text-[#FF9900] transition-colors px-2"
+            >
+              <i className={`fa-solid ${copied ? "fa-check" : "fa-link"} text-xs`}></i>
+            </button>
+          </div>
+          {/* Share */}
+          <div className="flex gap-2 justify-center mt-4 relative z-10">
+            {[
+              { icon: "fa-brands fa-whatsapp", label: "WhatsApp", href: `https://wa.me/?text=Rejoins%20OFS%20Elite%20avec%20mon%20code%20${code}%20%3A%20${encodeURIComponent(refUrl)}`, color: "#25D366" },
+              { icon: "fa-brands fa-instagram", label: "Instagram", href: "#", color: "#E1306C" },
+              { icon: "fa-brands fa-tiktok",    label: "TikTok",    href: "#", color: "#ffffff" },
+            ].map(n => (
+              <a key={n.label} href={n.href} target="_blank" rel="noopener noreferrer"
+                className="flex items-center gap-2 flex-1 justify-center py-2.5 rounded border border-[#37475A] text-[#ADBAC7] hover:border-white/30 transition-all text-[10px] font-black uppercase tracking-widest max-w-[110px]"
+                style={{ "--hover-color": n.color }}
+              >
+                <i className={`${n.icon} text-sm`} style={{ color: n.color }}></i>
+                <span className="hidden sm:inline">{n.label}</span>
+              </a>
+            ))}
+          </div>
         </div>
-      </div>
+      </AmzCard>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {/* Paliers */}
-        <div className="bg-zinc-950 border border-white/5 rounded-2xl p-5">
-          <p className="text-[9px] font-black uppercase tracking-[0.3em] text-zinc-400 mb-4">Paliers de parrainage</p>
-          <div className="space-y-3">
-            {PALIERS.map((p) => {
+        <AmzCard>
+          <AmzCardHeader title="Paliers de parrainage" icon="fa-trophy" />
+          <div className="divide-y divide-[#F0F2F2]">
+            {PALIERS.map(p => {
               const done = referrals.length >= p.n;
               return (
-                <div
-                  key={p.n}
-                  className={`flex items-center gap-4 p-3 rounded-xl transition-colors ${
-                    done ? "bg-emerald-500/8 border border-emerald-500/20" : "bg-zinc-900"
-                  }`}
-                >
-                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${done ? "bg-emerald-500/20" : "bg-zinc-800"}`}>
-                    <i className={`fa-solid fa-user-group text-xs ${done ? "text-emerald-400" : "text-zinc-400"}`}></i>
+                <div key={p.n} className={`flex items-center gap-4 px-4 py-3 ${done ? "bg-[#E8F5E8]" : ""}`}>
+                  <div className={`w-8 h-8 rounded flex items-center justify-center flex-shrink-0 border ${done ? "bg-[#007600]/10 border-[#007600]/30" : "bg-[#EAEDED] border-[#D5D9D9]"}`}>
+                    <i className={`fa-solid fa-user-group text-xs ${done ? "text-[#007600]" : "text-[#565959]"}`}></i>
                   </div>
                   <div className="flex-grow">
-                    <p className={`text-[11px] font-black uppercase ${done ? "text-emerald-300" : "text-zinc-300"}`}>{p.label}</p>
-                    <p className="text-[9px] font-bold text-zinc-500">+{p.pts.toLocaleString()} pts de bonus</p>
+                    <p className={`text-[11px] font-black uppercase ${done ? "text-[#007600]" : "text-[#0F1111]"}`}>{p.label}</p>
+                    <p className="text-[9px] font-bold text-[#565959]">+{p.pts.toLocaleString()} pts de bonus</p>
                   </div>
                   {done
-                    ? <i className="fa-solid fa-circle-check text-emerald-500 text-sm flex-shrink-0"></i>
-                    : <span className="text-[8px] font-black text-zinc-400">{p.n - referrals.length} restants</span>
+                    ? <i className="fa-solid fa-circle-check text-[#007600] text-sm flex-shrink-0"></i>
+                    : <span className="text-[9px] font-black text-[#565959]">{p.n - referrals.length} restant{p.n - referrals.length > 1 ? "s" : ""}</span>
                   }
                 </div>
               );
             })}
           </div>
-        </div>
+        </AmzCard>
 
         {/* Filleuls */}
-        <div className="bg-zinc-950 border border-white/5 rounded-2xl p-5">
-          <div className="flex items-center justify-between mb-4">
-            <p className="text-[9px] font-black uppercase tracking-[0.3em] text-zinc-400">Mes filleuls</p>
-            <span className="text-[10px] font-black text-zinc-500">{referrals.length} inscrits</span>
-          </div>
-          {loading ? (
-            <div className="space-y-2">{[...Array(3)].map((_, i) => <div key={i} className="h-10 bg-zinc-900 rounded-xl animate-pulse" />)}</div>
-          ) : referrals.length === 0 ? (
-            <div className="text-center py-6">
-              <i className="fa-solid fa-user-group text-zinc-700 text-2xl mb-2 block"></i>
-              <p className="text-[10px] font-medium text-zinc-500">Partagez votre lien pour commencer !</p>
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {referrals.slice(0, 6).map((r) => (
-                <div key={r.id} className="flex items-center gap-3 py-1">
-                  <div className="w-8 h-8 rounded-xl bg-zinc-800 flex items-center justify-center overflow-hidden flex-shrink-0">
-                    {r.referred?.avatar_url
-                      ? <img src={r.referred.avatar_url} alt="" className="w-full h-full object-cover" />
-                      : <span className="text-xs font-black text-zinc-400">{(r.referred?.full_name || "?")[0].toUpperCase()}</span>
-                    }
+        <AmzCard>
+          <AmzCardHeader title={`Mes filleuls (${referrals.length})`} icon="fa-users" />
+          <div className="p-4">
+            {loading ? (
+              <div className="space-y-2">{[...Array(3)].map((_, i) => <div key={i} className="h-10 bg-[#EAEDED] rounded animate-pulse" />)}</div>
+            ) : referrals.length === 0 ? (
+              <div className="text-center py-6">
+                <i className="fa-solid fa-user-group text-[#D5D9D9] text-2xl mb-2 block"></i>
+                <p className="text-[10px] font-bold text-[#565959]">Partagez votre lien pour commencer !</p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {referrals.slice(0, 6).map(r => (
+                  <div key={r.id} className="flex items-center gap-3 py-1">
+                    <div className="w-8 h-8 rounded bg-[#EAEDED] border border-[#D5D9D9] flex items-center justify-center overflow-hidden flex-shrink-0">
+                      {r.referred?.avatar_url
+                        ? <img src={r.referred.avatar_url} alt="" className="w-full h-full object-cover" />
+                        : <span className="text-xs font-black text-[#565959]">{(r.referred?.full_name || "?")[0].toUpperCase()}</span>
+                      }
+                    </div>
+                    <p className="text-xs font-bold text-[#0F1111] flex-grow">{r.referred?.full_name || "Membre OFS"}</p>
+                    <span className="text-[9px] font-black text-[#007600]">+200 pts</span>
                   </div>
-                  <p className="text-xs font-bold text-zinc-300 flex-grow">{r.referred?.full_name || "Membre OFS"}</p>
-                  <span className="text-[9px] font-black text-emerald-400">+200 pts</span>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </AmzCard>
       </div>
     </div>
   );
@@ -787,24 +713,19 @@ const Referral = ({ profile, userId, onToast }) => {
 
 // ─── NOTIFICATIONS ────────────────────────────────────────────────────────────
 const NotificationsTab = ({ prefs, onSave }) => {
-  const [p,    setP]    = useState(prefs || { order_updates: true, promotions: true, new_products: true, price_drops: true, reviews: true, newsletter: false, sms: false, push: true });
+  const [p,     setP]     = useState(prefs || { order_updates: true, promotions: true, new_products: true, price_drops: true, reviews: true, newsletter: false, sms: false, push: true });
   const [saved, setSaved] = useState(false);
 
-  const handle = async () => {
-    await onSave(p);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2500);
-  };
+  const handle = async () => { await onSave(p); setSaved(true); setTimeout(() => setSaved(false), 2500); };
 
   const Toggle = ({ k, label, sub }) => (
-    <div className="flex items-center justify-between py-3.5 border-b border-white/5 last:border-0">
+    <div className="flex items-center justify-between py-3.5 border-b border-[#F0F2F2] last:border-0">
       <div>
-        <p className="font-black text-[12px] text-white">{label}</p>
-        {sub && <p className="text-[9px] text-zinc-500 font-bold mt-0.5">{sub}</p>}
+        <p className="font-black text-[12px] text-[#0F1111]">{label}</p>
+        {sub && <p className="text-[9px] text-[#565959] font-bold mt-0.5">{sub}</p>}
       </div>
-      <button
-        onClick={() => setP((prev) => ({ ...prev, [k]: !prev[k] }))}
-        className={`relative w-12 h-6 rounded-full transition-colors duration-300 flex-shrink-0 ${p[k] ? "bg-primary" : "bg-zinc-700"}`}
+      <button onClick={() => setP(prev => ({ ...prev, [k]: !prev[k] }))}
+        className={`relative w-12 h-6 rounded-full transition-colors duration-300 flex-shrink-0 ${p[k] ? "bg-[#FF9900]" : "bg-[#D5D9D9]"}`}
       >
         <span className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-all duration-300 ${p[k] ? "left-6" : "left-0.5"}`} />
       </button>
@@ -813,241 +734,189 @@ const NotificationsTab = ({ prefs, onSave }) => {
 
   return (
     <div className="space-y-4">
-      <div className="bg-zinc-950 border border-white/5 rounded-2xl p-5">
-        <p className="text-[9px] font-black uppercase tracking-widest text-zinc-500 mb-4">Notifications email</p>
-        <Toggle k="order_updates" label="Mises à jour commandes"  sub="Confirmation, expédition, livraison" />
-        <Toggle k="promotions"    label="Promotions & Flash Deals" sub="Offres exclusives et ventes flash" />
-        <Toggle k="new_products"  label="Nouveaux produits"        sub="Alertes nouvelles arrivées" />
-        <Toggle k="price_drops"   label="Baisse de prix"           sub="Sur vos articles en favoris" />
-        <Toggle k="reviews"       label="Avis & feedback"          sub="Demandes d'avis après achat" />
-        <Toggle k="newsletter"    label="Newsletter OFS"           sub="Actualités et tendances" />
-      </div>
-      <div className="bg-zinc-950 border border-white/5 rounded-2xl p-5">
-        <p className="text-[9px] font-black uppercase tracking-widest text-zinc-500 mb-4">Autres canaux</p>
-        <Toggle k="sms"  label="SMS"                sub="Mises à jour livraison par SMS" />
-        <Toggle k="push" label="Notifications push" sub="Alertes instantanées navigateur" />
-      </div>
-      <button
-        onClick={handle}
-        className={`w-full py-4 rounded-2xl font-black uppercase tracking-widest text-[10px] transition-all flex items-center justify-center gap-2 ${
-          saved ? "bg-emerald-500 text-white" : "bg-primary text-black hover:bg-white"
-        }`}
-      >
-        <i className={`fa-solid ${saved ? "fa-check" : "fa-floppy-disk"}`}></i>
+      <AmzCard>
+        <AmzCardHeader title="Notifications email" icon="fa-envelope" />
+        <div className="px-4">
+          <Toggle k="order_updates" label="Mises à jour commandes"  sub="Confirmation, expédition, livraison" />
+          <Toggle k="promotions"    label="Promotions & Flash Deals" sub="Offres exclusives et ventes flash"   />
+          <Toggle k="new_products"  label="Nouveaux produits"        sub="Alertes nouvelles arrivées"          />
+          <Toggle k="price_drops"   label="Baisse de prix"           sub="Sur vos articles en favoris"        />
+          <Toggle k="reviews"       label="Avis & feedback"          sub="Demandes d'avis après achat"        />
+          <Toggle k="newsletter"    label="Newsletter OFS"           sub="Actualités et tendances"             />
+        </div>
+      </AmzCard>
+      <AmzCard>
+        <AmzCardHeader title="Autres canaux" icon="fa-mobile-screen" />
+        <div className="px-4">
+          <Toggle k="sms"  label="SMS"                sub="Mises à jour livraison par SMS"    />
+          <Toggle k="push" label="Notifications push" sub="Alertes instantanées navigateur"   />
+        </div>
+      </AmzCard>
+      <PrimaryBtn onClick={handle} className="w-full py-3">
+        <i className={`fa-solid ${saved ? "fa-check" : "fa-floppy-disk"} text-xs`}></i>
         {saved ? "Préférences enregistrées !" : "Enregistrer les préférences"}
-      </button>
+      </PrimaryBtn>
     </div>
   );
 };
 
-// ─── SÉCURITÉ ─────────────────────────────────────────────────────────────────
+// ─── SECURITY ─────────────────────────────────────────────────────────────────
 const Security = ({ user, onToast }) => {
   const [pw,      setPw]      = useState({ current: "", next: "", confirm: "" });
   const [msg,     setMsg]     = useState(null);
   const [loading, setLoading] = useState(false);
+  const [delConfirm, setDelConfirm] = useState(false);
+  const [delLoading, setDelLoading] = useState(false);
 
   const handlePw = async () => {
     setMsg(null);
     if (!pw.current.trim()) { setMsg({ type: "error", text: "Veuillez saisir votre mot de passe actuel." }); return; }
     if (pw.next.length < 8) { setMsg({ type: "error", text: "Le nouveau mot de passe doit faire min. 8 caractères." }); return; }
     if (pw.next !== pw.confirm) { setMsg({ type: "error", text: "Les mots de passe ne correspondent pas." }); return; }
-
     setLoading(true);
     try {
-      // Vérifier le mot de passe actuel via re-signin
-      const { error: signInError } = await supabase.auth.signInWithPassword({
-        email:    user.email,
-        password: pw.current,
-      });
+      const { error: signInError } = await supabase.auth.signInWithPassword({ email: user.email, password: pw.current });
       if (signInError) { setMsg({ type: "error", text: "Mot de passe actuel incorrect." }); setLoading(false); return; }
-
-      // Mettre à jour le mot de passe
       const { error } = await supabase.auth.updateUser({ password: pw.next });
       if (error) throw error;
-
       setMsg({ type: "ok", text: "Mot de passe mis à jour avec succès !" });
       setPw({ current: "", next: "", confirm: "" });
       onToast?.("Mot de passe mis à jour !", "success");
-    } catch (e) {
-      setMsg({ type: "error", text: e.message || "Une erreur est survenue." });
-    } finally {
-      setLoading(false);
-    }
+    } catch (e) { setMsg({ type: "error", text: e.message || "Une erreur est survenue." }); } finally { setLoading(false); }
   };
-
-  const [delConfirm, setDelConfirm] = useState(false);
-  const [delLoading, setDelLoading] = useState(false);
 
   const handleDelete = async () => {
     setDelLoading(true);
     try {
-      await supabase.auth.admin?.deleteUser(user.id); // nécessite service role côté serveur
+      await supabase.auth.admin?.deleteUser(user.id);
       await supabase.auth.signOut();
-    } catch (e) {
-      setMsg({ type: "error", text: "La suppression doit être effectuée via le support OFS." });
-    } finally {
-      setDelLoading(false);
-      setDelConfirm(false);
-    }
+    } catch (e) { setMsg({ type: "error", text: "La suppression doit être effectuée via le support OFS." }); }
+    finally { setDelLoading(false); setDelConfirm(false); }
   };
 
   return (
     <div className="space-y-4">
-      {/* Changer le mot de passe */}
-      <div className="bg-zinc-950 border border-white/5 rounded-2xl p-5">
-        <p className="font-black text-sm uppercase tracking-tight text-white mb-1 flex items-center gap-2">
-          <i className="fa-solid fa-lock text-primary"></i>Changer le mot de passe
-        </p>
-        <p className="text-[9px] text-zinc-500 font-bold mb-5">Connecté en tant que <span className="text-zinc-300">{user?.email}</span></p>
-
-        <div className="space-y-3">
+      {/* Password */}
+      <AmzCard>
+        <AmzCardHeader title="Changer le mot de passe" icon="fa-lock" />
+        <div className="p-4 space-y-3">
+          <p className="text-[10px] text-[#565959] font-bold">Connecté en tant que <span className="text-[#0F1111] font-black">{user?.email}</span></p>
           {[
-            { k: "current", label: "Mot de passe actuel",    ph: "Votre mot de passe actuel"    },
-            { k: "next",    label: "Nouveau mot de passe",   ph: "Min. 8 caractères"             },
-            { k: "confirm", label: "Confirmer le nouveau",   ph: "Répétez le nouveau mot de passe" },
-          ].map((f) => (
-            <div key={f.k}>
-              <label className="text-[8px] font-black uppercase tracking-widest text-zinc-500 mb-1.5 block">{f.label}</label>
-              <input
-                type="password" value={pw[f.k]}
-                onChange={(e) => setPw((p) => ({ ...p, [f.k]: e.target.value }))}
-                placeholder={f.ph}
-                onKeyDown={(e) => e.key === "Enter" && handlePw()}
-                className="w-full bg-zinc-900 border border-white/8 rounded-xl px-4 py-3 text-[11px] text-white font-bold placeholder-zinc-600 focus:border-primary/40 focus:outline-none transition"
-              />
-            </div>
+            { k: "current", label: "Mot de passe actuel",  ph: "Votre mot de passe actuel"     },
+            { k: "next",    label: "Nouveau mot de passe",  ph: "Min. 8 caractères"              },
+            { k: "confirm", label: "Confirmer le nouveau",  ph: "Répétez le nouveau mot de passe"},
+          ].map(f => (
+            <AmzInput key={f.k} label={f.label} type="password" value={pw[f.k]}
+              onChange={e => setPw(p => ({ ...p, [f.k]: e.target.value }))}
+              placeholder={f.ph} onKeyDown={e => e.key === "Enter" && handlePw()}
+            />
           ))}
-        </div>
 
-        {/* Indicateur de force du password */}
-        {pw.next && (
-          <div className="mt-3 space-y-1">
-            <p className="text-[8px] font-black uppercase tracking-widest text-zinc-500">Force du mot de passe</p>
-            <div className="flex gap-1">
-              {[8, 12, 16].map((len, i) => (
-                <div
-                  key={i}
-                  className={`flex-1 h-1 rounded-full transition-all ${
+          {pw.next && (
+            <div className="space-y-1">
+              <p className="text-[9px] font-black uppercase tracking-widest text-[#565959]">Force du mot de passe</p>
+              <div className="flex gap-1">
+                {[8, 12, 16].map((len, i) => (
+                  <div key={i} className={`flex-1 h-1.5 rounded-full transition-all ${
                     pw.next.length >= len
-                      ? i === 0 ? "bg-red-500" : i === 1 ? "bg-yellow-400" : "bg-primary"
-                      : "bg-zinc-800"
-                  }`}
-                />
-              ))}
+                      ? i === 0 ? "bg-[#B12704]" : i === 1 ? "bg-[#FF9900]" : "bg-[#007600]"
+                      : "bg-[#EAEDED]"
+                  }`} />
+                ))}
+              </div>
+              <p className="text-[9px] text-[#565959]">
+                {pw.next.length < 8 ? "Trop court" : pw.next.length < 12 ? "Faible" : pw.next.length < 16 ? "Moyen" : "Fort"}
+              </p>
             </div>
-            <p className="text-[8px] text-zinc-500">
-              {pw.next.length < 8 ? "Trop court" : pw.next.length < 12 ? "Faible" : pw.next.length < 16 ? "Moyen" : "Fort"}
-            </p>
-          </div>
-        )}
+          )}
 
-        {msg && (
-          <div className={`flex items-center gap-2 mt-4 p-3 rounded-xl text-[10px] font-bold border ${
-            msg.type === "ok"
-              ? "bg-primary/10 text-primary border-primary/20"
-              : "bg-red-500/10 text-red-400 border-red-400/20"
-          }`}>
-            <i className={`fa-solid ${msg.type === "ok" ? "fa-check" : "fa-triangle-exclamation"}`}></i>
-            {msg.text}
-          </div>
-        )}
-
-        <button
-          onClick={handlePw} disabled={loading}
-          className="mt-4 w-full bg-primary text-black py-3.5 rounded-xl font-black uppercase tracking-widest text-[10px] hover:bg-white transition disabled:opacity-50 flex items-center justify-center gap-2"
-        >
-          {loading ? <i className="fa-solid fa-spinner fa-spin"></i> : <i className="fa-solid fa-shield-check"></i>}
-          Mettre à jour le mot de passe
-        </button>
-      </div>
-
-      {/* Sessions actives */}
-      <div className="bg-zinc-950 border border-white/5 rounded-2xl p-5">
-        <p className="font-black text-sm uppercase tracking-tight text-white mb-4 flex items-center gap-2">
-          <i className="fa-solid fa-mobile-screen text-blue-400"></i>Session active
-        </p>
-        <div className="flex items-center justify-between p-3 bg-zinc-900 rounded-xl">
-          <div className="flex items-center gap-3">
-            <i className="fa-solid fa-globe text-zinc-400 text-sm"></i>
-            <div>
-              <p className="text-[11px] font-black text-white">Navigateur web</p>
-              <p className="text-[9px] text-zinc-500">{user?.email}</p>
+          {msg && (
+            <div className={`flex items-center gap-2 p-3 rounded text-[10px] font-bold border ${
+              msg.type === "ok" ? "bg-[#E8F5E8] text-[#007600] border-[#007600]/30" : "bg-[#FEE7E5] text-[#B12704] border-[#B12704]/30"
+            }`}>
+              <i className={`fa-solid ${msg.type === "ok" ? "fa-check" : "fa-triangle-exclamation"}`}></i>
+              {msg.text}
             </div>
-          </div>
-          <span className="text-[8px] font-black text-primary bg-primary/10 border border-primary/20 px-2 py-1 rounded-full uppercase">Actif</span>
+          )}
+
+          <PrimaryBtn onClick={handlePw} disabled={loading} className="w-full py-3 mt-2">
+            {loading ? <i className="fa-solid fa-spinner fa-spin text-xs"></i> : <i className="fa-solid fa-shield-check text-xs"></i>}
+            Mettre à jour le mot de passe
+          </PrimaryBtn>
         </div>
-      </div>
+      </AmzCard>
 
-      {/* Zone de danger */}
-      <div className="bg-red-500/5 border border-red-500/15 rounded-2xl p-5">
-        <p className="font-black text-sm uppercase tracking-tight text-red-400 mb-1 flex items-center gap-2">
-          <i className="fa-solid fa-triangle-exclamation"></i>Zone de danger
-        </p>
-        <p className="text-[10px] text-zinc-500 font-bold mb-4">Ces actions sont irréversibles. Procédez avec précaution.</p>
-
-        {!delConfirm ? (
-          <button
-            onClick={() => setDelConfirm(true)}
-            className="border border-red-500/30 text-red-400 px-5 py-2.5 rounded-xl font-black text-[9px] uppercase tracking-widest hover:bg-red-500/10 transition"
-          >
-            <i className="fa-solid fa-trash-can mr-2"></i>Supprimer mon compte
-          </button>
-        ) : (
-          <div className="space-y-3 bg-red-500/10 border border-red-500/25 rounded-xl p-4">
-            <p className="text-[10px] font-black text-red-300 uppercase">Êtes-vous sûr ? Cette action est irréversible.</p>
-            <div className="flex gap-2">
-              <button
-                onClick={handleDelete} disabled={delLoading}
-                className="flex items-center gap-2 bg-red-500 text-white px-4 py-2 rounded-xl font-black text-[9px] uppercase tracking-widest hover:bg-red-600 transition disabled:opacity-50"
-              >
-                {delLoading ? <i className="fa-solid fa-spinner fa-spin text-xs"></i> : <i className="fa-solid fa-trash-can text-xs"></i>}
-                Oui, supprimer
-              </button>
-              <button
-                onClick={() => setDelConfirm(false)}
-                className="border border-white/10 text-zinc-400 px-4 py-2 rounded-xl font-black text-[9px] uppercase tracking-widest hover:border-white/20 transition"
-              >
-                Annuler
-              </button>
+      {/* Session */}
+      <AmzCard>
+        <AmzCardHeader title="Session active" icon="fa-mobile-screen" />
+        <div className="p-4">
+          <div className="flex items-center justify-between p-3 bg-[#F7F8F8] border border-[#D5D9D9] rounded">
+            <div className="flex items-center gap-3">
+              <i className="fa-solid fa-globe text-[#565959] text-sm"></i>
+              <div>
+                <p className="text-[11px] font-black text-[#0F1111]">Navigateur web</p>
+                <p className="text-[9px] text-[#565959]">{user?.email}</p>
+              </div>
             </div>
+            <span className="text-[8px] font-black text-[#007600] bg-[#E8F5E8] border border-[#007600]/30 px-2 py-1 rounded-full uppercase">Actif</span>
           </div>
-        )}
+        </div>
+      </AmzCard>
+
+      {/* Danger zone */}
+      <div className="bg-white border border-[#B12704]/30 rounded overflow-hidden">
+        <div className="bg-[#FEE7E5] px-4 py-3 border-b border-[#B12704]/20">
+          <p className="text-[10px] font-black uppercase tracking-widest text-[#B12704] flex items-center gap-2">
+            <i className="fa-solid fa-triangle-exclamation text-[9px]"></i>Zone de danger
+          </p>
+        </div>
+        <div className="p-4">
+          <p className="text-[10px] text-[#565959] font-bold mb-4">Ces actions sont irréversibles. Procédez avec précaution.</p>
+          {!delConfirm ? (
+            <button onClick={() => setDelConfirm(true)}
+              className="border border-[#B12704]/40 text-[#B12704] px-5 py-2.5 rounded font-black text-[9px] uppercase tracking-widest hover:bg-[#FEE7E5] transition-colors"
+            >
+              <i className="fa-solid fa-trash-can mr-2"></i>Supprimer mon compte
+            </button>
+          ) : (
+            <div className="space-y-3 bg-[#FEE7E5] border border-[#B12704]/30 rounded p-4">
+              <p className="text-[10px] font-black text-[#B12704] uppercase">Êtes-vous sûr ? Cette action est irréversible.</p>
+              <div className="flex gap-2">
+                <button onClick={handleDelete} disabled={delLoading}
+                  className="flex items-center gap-2 bg-[#B12704] text-white px-4 py-2 rounded font-black text-[9px] uppercase tracking-widest hover:bg-red-700 transition-colors disabled:opacity-50"
+                >
+                  {delLoading ? <i className="fa-solid fa-spinner fa-spin text-xs"></i> : <i className="fa-solid fa-trash-can text-xs"></i>}
+                  Oui, supprimer
+                </button>
+                <SecondaryBtn onClick={() => setDelConfirm(false)}>Annuler</SecondaryBtn>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
 };
 
-// ─── PARAMÈTRES / PROFIL ──────────────────────────────────────────────────────
+// ─── SETTINGS ─────────────────────────────────────────────────────────────────
 const Settings = ({ profile, user, onSave, onToast }) => {
-  const [form,    setForm]    = useState({
-    full_name: profile?.full_name || "",
-    phone:     profile?.phone     || "",
-    bio:       profile?.bio       || "",
-    city:      profile?.city      || "Douala",
-    birthday:  profile?.birthday  || "",
-    gender:    profile?.gender    || "",
-    instagram: profile?.instagram || "",
-    whatsapp:  profile?.whatsapp  || "",
+  const [form, setForm] = useState({
+    full_name: profile?.full_name || "", phone: profile?.phone || "", bio: profile?.bio || "",
+    city: profile?.city || "Douala", birthday: profile?.birthday || "", gender: profile?.gender || "",
+    instagram: profile?.instagram || "", whatsapp: profile?.whatsapp || "",
   });
-  const [saving,       setSaving]       = useState(false);
-  const [saved,        setSaved]        = useState(false);
-  const [avatar,       setAvatar]       = useState(null);
-  const [avatarPreview,setAvatarPreview]= useState(null);
-  const [uploadPct,    setUploadPct]    = useState(0);
-  const [error,        setError]        = useState("");
+  const [saving,        setSaving]        = useState(false);
+  const [saved,         setSaved]         = useState(false);
+  const [avatar,        setAvatar]        = useState(null);
+  const [avatarPreview, setAvatarPreview] = useState(null);
+  const [error,         setError]         = useState("");
   const fileRef = useRef(null);
 
-  // Sync form si profile change (ex: rechargement)
   useEffect(() => {
     setForm({
-      full_name: profile?.full_name || "",
-      phone:     profile?.phone     || "",
-      bio:       profile?.bio       || "",
-      city:      profile?.city      || "Douala",
-      birthday:  profile?.birthday  || "",
-      gender:    profile?.gender    || "",
-      instagram: profile?.instagram || "",
-      whatsapp:  profile?.whatsapp  || "",
+      full_name: profile?.full_name || "", phone: profile?.phone || "", bio: profile?.bio || "",
+      city: profile?.city || "Douala", birthday: profile?.birthday || "", gender: profile?.gender || "",
+      instagram: profile?.instagram || "", whatsapp: profile?.whatsapp || "",
     });
   }, [profile?.id]);
 
@@ -1055,195 +924,130 @@ const Settings = ({ profile, user, onSave, onToast }) => {
     const file = e.target.files[0];
     if (!file) return;
     if (file.size > 2 * 1024 * 1024) { setError("Photo trop lourde (max 2 MB)."); return; }
-    setError("");
-    setAvatar(file);
-    setAvatarPreview(URL.createObjectURL(file));
+    setError(""); setAvatar(file); setAvatarPreview(URL.createObjectURL(file));
   };
 
   const handleSave = async () => {
     if (!form.full_name?.trim()) { setError("Le nom complet est requis."); return; }
     setError(""); setSaving(true);
-
     try {
       const updates = { ...form };
-
-      // Upload avatar si sélectionné
       if (avatar) {
         const ext  = avatar.name.split(".").pop();
         const path = `avatars/${user.id}.${ext}`;
-
-        const { error: upErr } = await supabase.storage
-          .from("profiles")
-          .upload(path, avatar, { upsert: true });
-
+        const { error: upErr } = await supabase.storage.from("profiles").upload(path, avatar, { upsert: true });
         if (upErr) throw upErr;
-
         const { data: { publicUrl } } = supabase.storage.from("profiles").getPublicUrl(path);
-        updates.avatar_url = publicUrl + `?t=${Date.now()}`; // cache bust
+        updates.avatar_url = publicUrl + `?t=${Date.now()}`;
       }
-
       await onSave(updates);
-      setSaved(true);
-      onToast?.("Profil mis à jour !", "success");
+      setSaved(true); onToast?.("Profil mis à jour !", "success");
       setTimeout(() => setSaved(false), 2500);
-
-      // Reset avatar state
-      setAvatar(null);
-      setAvatarPreview(null);
-    } catch (e) {
-      setError(e.message || "Erreur lors de la sauvegarde.");
-      onToast?.(e.message || "Erreur", "error");
-    } finally {
-      setSaving(false);
-    }
+      setAvatar(null); setAvatarPreview(null);
+    } catch (e) { setError(e.message || "Erreur."); onToast?.(e.message || "Erreur", "error"); } finally { setSaving(false); }
   };
 
-  const set = (k, v) => setForm((p) => ({ ...p, [k]: v }));
+  const set = (k, v) => setForm(p => ({ ...p, [k]: v }));
   const currentAvatar = avatarPreview || profile?.avatar_url;
 
   return (
-    <div className="space-y-5">
-      {/* Photo de profil */}
-      <div className="bg-zinc-950 border border-white/5 rounded-2xl p-5">
-        <p className="font-black text-sm uppercase tracking-tight text-white mb-4 flex items-center gap-2">
-          <i className="fa-solid fa-user-circle text-primary"></i>Photo de profil
-        </p>
-        <div className="flex items-center gap-5">
-          <div
-            onClick={() => fileRef.current?.click()}
-            className="relative w-20 h-20 rounded-2xl overflow-hidden bg-gradient-to-br from-primary/20 to-primary/5 border-2 border-primary/30 cursor-pointer flex-shrink-0 group"
+    <div className="space-y-4">
+      {/* Photo */}
+      <AmzCard>
+        <AmzCardHeader title="Photo de profil" icon="fa-user-circle" />
+        <div className="p-4 flex items-center gap-5">
+          <div onClick={() => fileRef.current?.click()}
+            className="relative w-20 h-20 rounded overflow-hidden border-2 border-[#FF9900] bg-[#232F3E] cursor-pointer flex-shrink-0 group"
           >
-            {currentAvatar ? (
-              <img src={currentAvatar} alt="" className="w-full h-full object-cover" />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center">
-                <span className="font-black text-primary text-2xl">{(form.full_name || "?")[0].toUpperCase()}</span>
-              </div>
-            )}
+            {currentAvatar
+              ? <img src={currentAvatar} alt="" className="w-full h-full object-cover" />
+              : <div className="w-full h-full flex items-center justify-center">
+                  <span className="font-black text-[#FF9900] text-2xl">{(form.full_name || "?")[0].toUpperCase()}</span>
+                </div>
+            }
             <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
               <i className="fa-solid fa-camera text-white text-lg"></i>
             </div>
           </div>
-
           <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleFileChange} />
-
           <div>
-            <button
-              onClick={() => fileRef.current?.click()}
-              className="flex items-center gap-2 border border-primary/30 text-primary px-4 py-2 rounded-xl font-black text-[9px] uppercase tracking-widest hover:bg-primary/10 transition mb-2"
+            <button onClick={() => fileRef.current?.click()}
+              className="flex items-center gap-2 border border-[#D5D9D9] text-[#0F1111] hover:border-[#FF9900]/50 px-4 py-2 rounded font-black text-[9px] uppercase tracking-widest transition-colors mb-2"
             >
-              <i className="fa-solid fa-upload text-xs"></i>
-              {avatar ? "Changer la sélection" : "Changer la photo"}
+              <i className="fa-solid fa-upload text-xs"></i>{avatar ? "Changer la sélection" : "Changer la photo"}
             </button>
-            <p className="text-[8px] text-zinc-600 font-bold">JPG, PNG, WebP · Max 2 MB</p>
-            {avatar && (
-              <p className="text-[8px] text-primary font-bold mt-1">
-                <i className="fa-solid fa-check mr-1"></i>{avatar.name} sélectionné
-              </p>
-            )}
+            <p className="text-[8px] text-[#565959] font-bold">JPG, PNG, WebP · Max 2 MB</p>
+            {avatar && <p className="text-[8px] text-[#007600] font-bold mt-1"><i className="fa-solid fa-check mr-1"></i>{avatar.name} sélectionné</p>}
           </div>
         </div>
-      </div>
+      </AmzCard>
 
       {/* Infos personnelles */}
-      <div className="bg-zinc-950 border border-white/5 rounded-2xl p-5 space-y-4">
-        <p className="font-black text-sm uppercase tracking-tight text-white flex items-center gap-2">
-          <i className="fa-solid fa-id-card text-primary"></i>Informations personnelles
-        </p>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {[
-            { k: "full_name", label: "Nom complet *", type: "text", ph: "Votre nom complet"    },
-            { k: "phone",     label: "Téléphone",     type: "tel",  ph: "+237 6XX XXX XXX"      },
-            { k: "city",      label: "Ville",         type: "text", ph: "Douala"                },
-            { k: "birthday",  label: "Date de naissance", type: "date", ph: ""                  },
-          ].map((f) => (
-            <div key={f.k}>
-              <label className="text-[8px] font-black uppercase tracking-widest text-zinc-500 mb-1.5 block">{f.label}</label>
-              <input
-                type={f.type} value={form[f.k]}
-                onChange={(e) => set(f.k, e.target.value)}
-                placeholder={f.ph}
-                className="w-full bg-zinc-900 border border-white/8 rounded-xl px-4 py-3 text-[11px] text-white font-bold placeholder-zinc-600 focus:border-primary/40 focus:outline-none transition"
-              />
-            </div>
-          ))}
-
-          <div>
-            <label className="text-[8px] font-black uppercase tracking-widest text-zinc-500 mb-1.5 block">Genre</label>
-            <select
-              value={form.gender}
-              onChange={(e) => set("gender", e.target.value)}
-              className="w-full bg-zinc-900 border border-white/8 rounded-xl px-4 py-3 text-[11px] text-white font-bold focus:border-primary/40 focus:outline-none transition"
-            >
+      <AmzCard>
+        <AmzCardHeader title="Informations personnelles" icon="fa-id-card" />
+        <div className="p-4 space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <AmzInput label="Nom complet *" value={form.full_name} onChange={e => set("full_name", e.target.value)} placeholder="Votre nom complet" />
+            <AmzInput label="Téléphone" type="tel" value={form.phone} onChange={e => set("phone", e.target.value)} placeholder="+237 6XX XXX XXX" />
+            <AmzInput label="Ville" value={form.city} onChange={e => set("city", e.target.value)} placeholder="Douala" />
+            <AmzInput label="Date de naissance" type="date" value={form.birthday} onChange={e => set("birthday", e.target.value)} />
+            <AmzSelect label="Genre" value={form.gender} onChange={e => set("gender", e.target.value)}>
               <option value="">Non précisé</option>
               <option value="H">Homme</option>
               <option value="F">Femme</option>
               <option value="autre">Autre</option>
-            </select>
+            </AmzSelect>
           </div>
-        </div>
-
-        <div>
-          <label className="text-[8px] font-black uppercase tracking-widest text-zinc-500 mb-1.5 block">Bio</label>
-          <textarea
-            value={form.bio}
-            onChange={(e) => set("bio", e.target.value)}
-            rows={3}
-            placeholder="Quelques mots sur vous..."
-            className="w-full bg-zinc-900 border border-white/8 rounded-xl px-4 py-3 text-[11px] text-white font-bold placeholder-zinc-600 focus:border-primary/40 focus:outline-none transition resize-none"
-          />
-        </div>
-      </div>
-
-      {/* Réseaux sociaux */}
-      <div className="bg-zinc-950 border border-white/5 rounded-2xl p-5 space-y-3">
-        <p className="font-black text-sm uppercase tracking-tight text-white flex items-center gap-2">
-          <i className="fa-solid fa-share-nodes text-primary"></i>Réseaux sociaux
-        </p>
-        {[
-          { k: "instagram", icon: "fa-brands fa-instagram", label: "Instagram", ph: "@votre_handle", color: "text-pink-400" },
-          { k: "whatsapp",  icon: "fa-brands fa-whatsapp",  label: "WhatsApp",  ph: "+237 6XX XXX XXX", color: "text-green-400" },
-        ].map((f) => (
-          <div key={f.k} className="flex items-center gap-3">
-            <i className={`${f.icon} ${f.color} text-base w-5 flex-shrink-0`}></i>
-            <input
-              value={form[f.k]}
-              onChange={(e) => set(f.k, e.target.value)}
-              placeholder={f.ph}
-              className="flex-grow bg-zinc-900 border border-white/8 rounded-xl px-4 py-3 text-[11px] text-white font-bold placeholder-zinc-600 focus:border-primary/40 focus:outline-none transition"
+          <div>
+            <label className="text-[9px] font-black uppercase tracking-widest text-[#565959] mb-1.5 block">Bio</label>
+            <textarea value={form.bio} onChange={e => set("bio", e.target.value)} rows={3}
+              placeholder="Quelques mots sur vous..."
+              className="w-full bg-white border border-[#D5D9D9] rounded px-3 py-2.5 text-sm text-[#0F1111] focus:border-[#FF9900] focus:outline-none transition-colors placeholder-[#adb5bd] resize-none"
             />
           </div>
-        ))}
-      </div>
-
-      {/* Email (lecture seule) */}
-      <div className="bg-zinc-950 border border-white/5 rounded-2xl p-5">
-        <p className="font-black text-sm uppercase tracking-tight text-white flex items-center gap-2 mb-3">
-          <i className="fa-solid fa-envelope text-primary"></i>Email
-        </p>
-        <div className="flex items-center gap-3 bg-zinc-900/60 border border-white/5 rounded-xl px-4 py-3">
-          <span className="text-[11px] font-bold text-zinc-400 flex-grow">{user?.email}</span>
-          <span className="text-[7px] font-black uppercase text-primary bg-primary/10 border border-primary/20 px-2 py-0.5 rounded-full">Vérifié</span>
         </div>
-      </div>
+      </AmzCard>
+
+      {/* Réseaux */}
+      <AmzCard>
+        <AmzCardHeader title="Réseaux sociaux" icon="fa-share-nodes" />
+        <div className="p-4 space-y-3">
+          {[
+            { k: "instagram", icon: "fa-brands fa-instagram", label: "Instagram", ph: "@votre_handle", color: "#E1306C" },
+            { k: "whatsapp",  icon: "fa-brands fa-whatsapp",  label: "WhatsApp",  ph: "+237 6XX XXX XXX", color: "#25D366" },
+          ].map(f => (
+            <div key={f.k} className="flex items-center gap-3">
+              <i className={`${f.icon} text-base w-5 flex-shrink-0`} style={{ color: f.color }}></i>
+              <input value={form[f.k]} onChange={e => set(f.k, e.target.value)} placeholder={f.ph}
+                className="flex-grow bg-white border border-[#D5D9D9] rounded px-3 py-2.5 text-sm text-[#0F1111] focus:border-[#FF9900] focus:outline-none transition-colors placeholder-[#adb5bd]"
+              />
+            </div>
+          ))}
+        </div>
+      </AmzCard>
+
+      {/* Email */}
+      <AmzCard>
+        <AmzCardHeader title="Email" icon="fa-envelope" />
+        <div className="p-4">
+          <div className="flex items-center gap-3 bg-[#F7F8F8] border border-[#D5D9D9] rounded px-4 py-3">
+            <span className="text-sm font-bold text-[#565959] flex-grow">{user?.email}</span>
+            <span className="text-[7px] font-black uppercase text-[#007600] bg-[#E8F5E8] border border-[#007600]/30 px-2 py-0.5 rounded-full">Vérifié</span>
+          </div>
+        </div>
+      </AmzCard>
 
       {error && (
-        <div className="flex items-center gap-2 bg-red-500/10 border border-red-500/25 rounded-xl px-4 py-3">
-          <i className="fa-solid fa-triangle-exclamation text-red-400 text-xs"></i>
-          <span className="text-[9px] font-bold text-red-400">{error}</span>
+        <div className="flex items-center gap-2 bg-[#FEE7E5] border border-[#B12704]/30 rounded px-4 py-3">
+          <i className="fa-solid fa-triangle-exclamation text-[#B12704] text-xs"></i>
+          <span className="text-[9px] font-bold text-[#B12704]">{error}</span>
         </div>
       )}
 
-      <button
-        onClick={handleSave} disabled={saving}
-        className={`w-full py-4 rounded-2xl font-black uppercase tracking-widest text-[10px] transition-all flex items-center justify-center gap-2 ${
-          saved ? "bg-emerald-500 text-white" : "bg-primary text-black hover:bg-white"
-        } disabled:opacity-60`}
-      >
-        {saving ? <i className="fa-solid fa-spinner fa-spin"></i> : <i className={`fa-solid ${saved ? "fa-check" : "fa-floppy-disk"}`}></i>}
+      <PrimaryBtn onClick={handleSave} disabled={saving} className={`w-full py-3 ${saved ? "!bg-[#007600] !border-[#007600] !text-white" : ""}`}>
+        {saving ? <i className="fa-solid fa-spinner fa-spin text-xs"></i> : <i className={`fa-solid ${saved ? "fa-check" : "fa-floppy-disk"} text-xs`}></i>}
         {saving ? "Enregistrement..." : saved ? "Profil mis à jour !" : "Enregistrer les modifications"}
-      </button>
+      </PrimaryBtn>
     </div>
   );
 };
@@ -1265,18 +1069,11 @@ const ProfilePage = ({ addToCart }) => {
   const [mobileNav,     setMobileNav]     = useState(false);
   const [toast,         setToast]         = useState(null);
 
-  const showToast = useCallback((message, type = "success") => {
-    setToast({ message, type });
-  }, []);
-
+  const showToast = useCallback((message, type = "success") => setToast({ message, type }), []);
   const hideToast = useCallback(() => setToast(null), []);
 
-  // Redirect si non authentifié
-  useEffect(() => {
-    if (!authLoading && !user) navigate("/login", { state: { from: "/profile" } });
-  }, [user, authLoading]);
+  useEffect(() => { if (!authLoading && !user) navigate("/login", { state: { from: "/profile" } }); }, [user, authLoading]);
 
-  // Chargement initial
   useEffect(() => {
     if (!user) return;
     (async () => {
@@ -1289,101 +1086,55 @@ const ProfilePage = ({ addToCart }) => {
           supabase.from("reviews").select("*,product:products(name,img)").eq("user_id", user.id).order("created_at", { ascending: false }),
           supabase.from("user_addresses").select("*").eq("user_id", user.id).order("is_default", { ascending: false }),
         ]);
-
         let profileData = pR.data || {};
-
-        // ── Auto-générer le code de parrainage si absent ──────────────────────
         if (!profileData.referral_code) {
           const code = generateReferralCode(user.id);
           await supabase.from("profiles").update({ referral_code: code }).eq("id", user.id);
           profileData = { ...profileData, referral_code: code };
         }
-
-        setProfile(profileData);
-        setOrders(oR.data || []);
-        setWishlist(wR.data || []);
-        setReviews(rR.data || []);
-        setAddresses(aR.data || []);
-
-        // ── Sync points depuis commandes livrées ──────────────────────────────
-        const delivered = (oR.data || []).filter((o) => o.status === "delivered");
+        setProfile(profileData); setOrders(oR.data || []); setWishlist(wR.data || []);
+        setReviews(rR.data || []); setAddresses(aR.data || []);
+        const delivered = (oR.data || []).filter(o => o.status === "delivered");
         const newPts    = await syncOrderPoints(user.id, delivered);
-
-        // Rafraîchir les points depuis le profil mis à jour
-        const { data: freshProfile } = await supabase
-          .from("profiles")
-          .select("loyalty_points")
-          .eq("id", user.id)
-          .single();
-
+        const { data: freshProfile } = await supabase.from("profiles").select("loyalty_points").eq("id", user.id).single();
         const totalPts = freshProfile?.loyalty_points || profileData.loyalty_points || 0;
         setLoyaltyPoints(totalPts);
-
-        if (newPts > 0) {
-          showToast(`+${newPts} pts OFS crédités pour vos achats !`, "info");
-        }
-      } catch (e) {
-        console.error("ProfilePage load error:", e);
-      } finally {
-        setLoading(false);
-      }
+        if (newPts > 0) showToast(`+${newPts} pts OFS crédités pour vos achats !`, "info");
+      } catch (e) { console.error("ProfilePage load error:", e); } finally { setLoading(false); }
     })();
   }, [user]);
 
-  // ── Actions ────────────────────────────────────────────────────────────────
-
   const saveProfile = async (data) => {
-    const { error } = await supabase
-      .from("profiles")
-      .upsert({ id: user.id, ...data, updated_at: new Date().toISOString() });
+    const { error } = await supabase.from("profiles").upsert({ id: user.id, ...data, updated_at: new Date().toISOString() });
     if (error) throw error;
-    setProfile((p) => ({ ...p, ...data }));
+    setProfile(p => ({ ...p, ...data }));
   };
-
   const saveAddress = async (data) => {
-    const { data: res, error } = await supabase
-      .from("user_addresses")
-      .insert({ user_id: user.id, ...data })
-      .select()
-      .single();
+    const { data: res, error } = await supabase.from("user_addresses").insert({ user_id: user.id, ...data }).select().single();
     if (error) throw new Error(error.message);
     if (res.is_default) {
       await supabase.from("user_addresses").update({ is_default: false }).eq("user_id", user.id).neq("id", res.id);
-      setAddresses((prev) => [res, ...prev.map((a) => ({ ...a, is_default: false }))]);
-    } else {
-      setAddresses((prev) => [...prev, res]);
-    }
+      setAddresses(prev => [res, ...prev.map(a => ({ ...a, is_default: false }))]);
+    } else { setAddresses(prev => [...prev, res]); }
   };
+  const deleteAddress  = async (id) => { const { error } = await supabase.from("user_addresses").delete().eq("id", id); if (!error) setAddresses(prev => prev.filter(a => a.id !== id)); };
+  const removeWishlist = async (id) => { await supabase.from("wishlists").delete().eq("id", id); setWishlist(prev => prev.filter(w => w.id !== id)); };
+  const saveNotifPrefs = async (prefs) => { await supabase.from("profiles").upsert({ id: user.id, notification_prefs: prefs }); showToast("Préférences enregistrées !", "success"); };
 
-  const deleteAddress = async (id) => {
-    const { error } = await supabase.from("user_addresses").delete().eq("id", id);
-    if (!error) setAddresses((prev) => prev.filter((a) => a.id !== id));
-  };
-
-  const removeWishlist = async (id) => {
-    await supabase.from("wishlists").delete().eq("id", id);
-    setWishlist((prev) => prev.filter((w) => w.id !== id));
-  };
-
-  const saveNotifPrefs = async (prefs) => {
-    await supabase.from("profiles").upsert({ id: user.id, notification_prefs: prefs });
-    showToast("Préférences enregistrées !", "success");
-  };
-
-  // ── Loading / Guard ────────────────────────────────────────────────────────
   if (authLoading) return (
-    <div className="min-h-screen bg-black flex items-center justify-center">
-      <div className="flex flex-col items-center gap-4">
-        <i className="fa-solid fa-spinner fa-spin text-primary text-3xl"></i>
-        <p className="text-[10px] font-black uppercase tracking-widest text-zinc-500">Chargement...</p>
+    <div className="min-h-screen bg-[#EAEDED] flex items-center justify-center">
+      <div className="flex flex-col items-center gap-3">
+        <i className="fa-solid fa-spinner fa-spin text-[#FF9900] text-3xl"></i>
+        <p className="text-[10px] font-black uppercase tracking-widest text-[#565959]">Chargement...</p>
       </div>
     </div>
   );
   if (!user) return null;
 
-  const tier      = getTier(loyaltyPoints || profile?.loyalty_points || 0);
-  const tierCfg   = TIER_CONFIG[tier];
-  const activeTab = TABS.find((t) => t.key === tab);
+  const tier    = getTier(loyaltyPoints || profile?.loyalty_points || 0);
+  const tierCfg = TIER_CONFIG[tier];
+  const activeTab = TABS.find(t => t.key === tab);
+  const pendingCount = orders.filter(o => o.status === "pending").length;
 
   const CONTENT = {
     overview:      <Overview profile={profile} orders={orders} wishlist={wishlist} reviews={reviews} setTab={setTab} loyaltyPoints={loyaltyPoints} />,
@@ -1398,62 +1149,57 @@ const ProfilePage = ({ addToCart }) => {
   };
 
   return (
-    <div className="min-h-screen bg-black text-white pt-[148px] pb-20">
-      {/* Toast global */}
+    <div className="min-h-screen bg-[#EAEDED] text-[#0F1111]">
       {toast && <Toast message={toast.message} type={toast.type} onClose={hideToast} />}
 
-      <div className="max-w-[1400px] mx-auto px-4 md:px-8">
+      <div className="max-w-[1400px] mx-auto px-4 md:px-8 py-5">
 
-        {/* ── HEADER PROFIL ── */}
-        <div className="bg-zinc-950 border border-white/5 rounded-3xl overflow-hidden mb-6">
-          <div className="h-28 bg-gradient-to-r from-primary/20 via-blue-500/10 to-purple-500/15 relative overflow-hidden">
-            <div
-              className="absolute inset-0 opacity-[0.04]"
-              style={{ backgroundImage: "linear-gradient(rgba(0,217,126,1) 1px,transparent 1px),linear-gradient(90deg,rgba(0,217,126,1) 1px,transparent 1px)", backgroundSize: "40px 40px" }}
+        {/* ── PROFILE HEADER ── */}
+        <div className="bg-[#131921] rounded overflow-hidden mb-4">
+          {/* Banner */}
+          <div className="h-20 bg-[#232F3E] relative overflow-hidden">
+            <div className="absolute inset-0 opacity-[0.06]"
+              style={{ backgroundImage: "linear-gradient(rgba(255,153,0,1) 1px,transparent 1px),linear-gradient(90deg,rgba(255,153,0,1) 1px,transparent 1px)", backgroundSize: "30px 30px" }}
             />
+            <div className="absolute right-6 top-1/2 -translate-y-1/2 opacity-15">
+              <i className={`fa-solid ${tierCfg.icon} text-[60px]`} style={{ color: tierCfg.color }}></i>
+            </div>
           </div>
-          <div className="px-6 pb-5 -mt-10 flex flex-col sm:flex-row sm:items-end gap-4">
-            <Avatar
-              url={profile?.avatar_url}
-              name={profile?.full_name || user?.email}
-              size={20}
-              onClick={() => setTab("settings")}
-            />
+          {/* Info */}
+          <div className="px-6 pb-5 -mt-8 flex flex-col sm:flex-row sm:items-end gap-4">
+            <Avatar url={profile?.avatar_url} name={profile?.full_name || user?.email} size={20} onClick={() => setTab("settings")} />
             <div className="flex-grow min-w-0 pb-1">
-              <div className="flex items-center gap-2 flex-wrap">
-                <h1 className="font-black text-xl uppercase italic tracking-tighter text-white leading-none">
+              <div className="flex items-center gap-2 flex-wrap mt-1">
+                <h1 className="font-black text-xl text-white uppercase leading-none">
                   {profile?.full_name || user?.email?.split("@")[0]}
                 </h1>
-                <span className={`text-[8px] font-black uppercase px-2.5 py-1 rounded-full border ${tierCfg.color} bg-gradient-to-br ${tierCfg.bg}`}>
-                  <i className={`fa-solid ${tierCfg.icon} mr-1`}></i>{tierCfg.label}
+                <span className="text-[8px] font-black uppercase px-2.5 py-1 rounded-full border border-current"
+                  style={{ color: tierCfg.color, borderColor: tierCfg.color + "55", background: tierCfg.color + "22" }}>
+                  <i className={`fa-solid ${tierCfg.icon} mr-1 text-[7px]`}></i>{tierCfg.label}
                 </span>
-                {/* Points badge */}
-                <span className="text-[8px] font-black text-amber-400 bg-amber-400/10 border border-amber-400/20 px-2.5 py-1 rounded-full flex items-center gap-1">
+                <span className="text-[8px] font-black text-[#FF9900] bg-[#FF9900]/15 border border-[#FF9900]/30 px-2.5 py-1 rounded-full flex items-center gap-1">
                   <i className="fa-solid fa-coins text-[8px]"></i>
                   {(loyaltyPoints || profile?.loyalty_points || 0).toLocaleString()} pts
                 </span>
               </div>
-              <p className="text-[10px] text-zinc-500 font-bold mt-1">{user?.email}</p>
-              {profile?.bio && <p className="text-[11px] text-zinc-400 mt-1 font-bold italic">"{profile.bio}"</p>}
+              <p className="text-[10px] text-[#ADBAC7] font-bold mt-1">{user?.email}</p>
+              {profile?.bio && <p className="text-[11px] text-[#ADBAC7] mt-1 italic">"{profile.bio}"</p>}
             </div>
-            <div className="flex gap-2 flex-shrink-0">
-              <Link
-                to="/rewards"
-                className="flex items-center gap-2 border border-primary/30 text-primary hover:bg-primary/10 px-4 py-2 rounded-xl font-black text-[9px] uppercase tracking-widest transition"
+            <div className="flex gap-2 flex-shrink-0 flex-wrap">
+              <Link to="/rewards"
+                className="flex items-center gap-2 bg-[#FFD814] hover:bg-[#F7CA00] text-[#0F1111] border border-[#FCD200] px-3 py-2 rounded font-black text-[9px] uppercase tracking-widest transition-colors"
               >
                 <i className="fa-solid fa-gift text-xs"></i>
                 <span className="hidden sm:inline">Rewards</span>
               </Link>
-              <button
-                onClick={() => setTab("settings")}
-                className="flex items-center gap-2 border border-white/10 text-zinc-400 hover:text-primary hover:border-primary/30 px-4 py-2 rounded-xl font-black text-[9px] uppercase tracking-widest transition"
+              <button onClick={() => setTab("settings")}
+                className="flex items-center gap-2 border border-[#37475A] text-[#ADBAC7] hover:text-white hover:border-[#FF9900]/50 px-3 py-2 rounded font-black text-[9px] uppercase tracking-widest transition-colors"
               >
                 <i className="fa-solid fa-pen-to-square text-xs"></i>
                 <span className="hidden sm:inline">Modifier</span>
               </button>
-              <button
-                onClick={signOut}
-                className="flex items-center gap-2 border border-red-500/20 text-red-400 hover:bg-red-500/10 px-4 py-2 rounded-xl font-black text-[9px] uppercase tracking-widest transition"
+              <button onClick={signOut}
+                className="flex items-center gap-2 border border-[#B12704]/30 text-[#B12704] hover:bg-[#B12704]/10 px-3 py-2 rounded font-black text-[9px] uppercase tracking-widest transition-colors"
               >
                 <i className="fa-solid fa-right-from-bracket text-xs"></i>
                 <span className="hidden sm:inline">Déconnexion</span>
@@ -1462,58 +1208,89 @@ const ProfilePage = ({ addToCart }) => {
           </div>
         </div>
 
-        <div className="flex gap-6">
-          {/* ── SIDEBAR ── */}
-          <aside className="hidden lg:flex flex-col gap-1 w-52 flex-shrink-0">
-            {TABS.map((t) => (
-              <button
-                key={t.key}
-                onClick={() => setTab(t.key)}
-                className={`flex items-center gap-3 px-4 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest text-left transition-all ${
-                  tab === t.key ? "bg-primary text-black" : "text-zinc-400 hover:text-white hover:bg-white/5"
-                }`}
-              >
-                <i className={`fa-solid ${t.icon} text-xs w-4`}></i>
-                <span>{t.label}</span>
-                {t.key === "orders" && orders.filter((o) => o.status === "pending").length > 0 && (
-                  <span className="ml-auto bg-primary/20 text-primary text-[7px] font-black rounded-full px-1.5 py-0.5">
-                    {orders.filter((o) => o.status === "pending").length}
-                  </span>
-                )}
-              </button>
-            ))}
-            <div className="mt-3 pt-3 border-t border-white/5">
-              <Link to="/store"     className="flex items-center gap-3 px-4 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest text-zinc-500 hover:text-primary transition"><i className="fa-solid fa-bag-shopping text-xs w-4"></i><span>Store</span></Link>
-              <Link to="/rewards"   className="flex items-center gap-3 px-4 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest text-zinc-500 hover:text-primary transition"><i className="fa-solid fa-gift text-xs w-4"></i><span>OFS Rewards</span></Link>
-              <Link to="/boutiques" className="flex items-center gap-3 px-4 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest text-zinc-500 hover:text-primary transition"><i className="fa-solid fa-store text-xs w-4"></i><span>Boutiques</span></Link>
+        <div className="flex gap-4 items-start">
+
+          {/* ── SIDEBAR desktop ── */}
+          <aside className="hidden lg:block w-52 flex-shrink-0">
+            <AmzCard className="mb-3">
+              <div className="bg-[#232F3E] px-4 py-3">
+                <p className="text-[9px] font-black uppercase tracking-widest text-[#FF9900]">Mon Compte</p>
+              </div>
+              {TABS.map(t => (
+                <button key={t.key} onClick={() => setTab(t.key)}
+                  className={`w-full flex items-center gap-3 px-4 py-3 text-[11px] font-bold border-b border-[#F0F2F2] last:border-0 transition-colors ${
+                    tab === t.key ? "bg-[#FFF8D3] text-[#C45500] font-black" : "text-[#0F1111] hover:bg-[#EAEDED]"
+                  }`}
+                >
+                  <i className={`fa-solid ${t.icon} text-xs w-4`} style={{ color: tab === t.key ? "#FF9900" : "#565959" }}></i>
+                  <span>{t.label}</span>
+                  {t.key === "orders" && pendingCount > 0 && (
+                    <span className="ml-auto bg-[#FF9900] text-[#0F1111] text-[7px] font-black rounded-full px-1.5 py-0.5">{pendingCount}</span>
+                  )}
+                </button>
+              ))}
+            </AmzCard>
+            <AmzCard>
+              <div className="bg-[#232F3E] px-4 py-3">
+                <p className="text-[9px] font-black uppercase tracking-widest text-[#FF9900]">Explorer</p>
+              </div>
+              {[
+                { to: "/store",     icon: "fa-bag-shopping", label: "Store"        },
+                { to: "/rewards",   icon: "fa-gift",         label: "OFS Rewards"  },
+                { to: "/boutiques", icon: "fa-store",        label: "Boutiques"    },
+              ].map(l => (
+                <Link key={l.to} to={l.to}
+                  className="flex items-center gap-3 px-4 py-3 text-[11px] font-bold text-[#007185] hover:text-[#C45500] hover:bg-[#EAEDED] border-b border-[#F0F2F2] last:border-0 transition-colors"
+                >
+                  <i className={`fa-solid ${l.icon} text-xs w-4`}></i><span>{l.label}</span>
+                </Link>
+              ))}
+            </AmzCard>
+            {/* Trust block */}
+            <div className="bg-[#131921] border border-[#232F3E] rounded p-4 mt-3">
+              <p className="text-[9px] font-black uppercase tracking-widest text-[#FF9900] mb-3">
+                <i className="fa-solid fa-shield-check mr-1.5"></i>Achat sécurisé
+              </p>
+              {[
+                { icon: "fa-truck-fast",    text: "Livraison 2h · Douala"    },
+                { icon: "fa-mobile-screen", text: "Orange Money · MTN MoMo"  },
+                { icon: "fa-rotate-left",   text: "Retour sous 7 jours"      },
+                { icon: "fa-headset",       text: "Support WhatsApp 7j/7"    },
+              ].map(i => (
+                <div key={i.text} className="flex items-center gap-2 mb-2">
+                  <i className={`fa-solid ${i.icon} text-[#FF9900] text-[10px] w-3.5 flex-shrink-0`}></i>
+                  <span className="text-[10px] text-[#ADBAC7]">{i.text}</span>
+                </div>
+              ))}
+              <div className="mt-3 pt-3 border-t border-[#232F3E] text-center">
+                <span className="text-[9px] font-black uppercase text-[#37475A]">OneFreestyle · Douala 🇨🇲</span>
+              </div>
             </div>
           </aside>
 
-          {/* ── CONTENU ── */}
+          {/* ── CONTENT ── */}
           <div className="flex-grow min-w-0">
-            {/* Nav mobile */}
+
+            {/* Mobile nav */}
             <div className="lg:hidden mb-4">
-              <button
-                onClick={() => setMobileNav(!mobileNav)}
-                className="w-full flex items-center justify-between bg-zinc-950 border border-white/8 rounded-2xl px-5 py-3"
+              <button onClick={() => setMobileNav(!mobileNav)}
+                className="w-full flex items-center justify-between bg-white border border-[#D5D9D9] rounded px-4 py-3"
               >
                 <div className="flex items-center gap-3">
-                  <i className={`fa-solid ${activeTab?.icon} text-primary text-sm`}></i>
-                  <span className="font-black text-[11px] uppercase tracking-widest text-white">{activeTab?.label}</span>
+                  <i className={`fa-solid ${activeTab?.icon} text-[#FF9900] text-sm`}></i>
+                  <span className="font-black text-[11px] uppercase text-[#0F1111]">{activeTab?.label}</span>
                 </div>
-                <i className={`fa-solid fa-chevron-down text-zinc-400 text-xs transition-transform ${mobileNav ? "rotate-180" : ""}`}></i>
+                <i className={`fa-solid fa-chevron-down text-[#565959] text-xs transition-transform ${mobileNav ? "rotate-180" : ""}`}></i>
               </button>
               {mobileNav && (
-                <div className="bg-zinc-950 border border-white/8 rounded-2xl mt-1 overflow-hidden">
-                  {TABS.map((t) => (
-                    <button
-                      key={t.key}
-                      onClick={() => { setTab(t.key); setMobileNav(false); }}
-                      className={`w-full flex items-center gap-3 px-5 py-3 text-left border-b border-white/5 last:border-0 font-black text-[10px] uppercase tracking-widest transition ${
-                        tab === t.key ? "text-primary bg-primary/5" : "text-zinc-400 hover:text-white"
+                <div className="bg-white border border-[#D5D9D9] rounded mt-1 overflow-hidden border-t-0 rounded-t-none">
+                  {TABS.map(t => (
+                    <button key={t.key} onClick={() => { setTab(t.key); setMobileNav(false); }}
+                      className={`w-full flex items-center gap-3 px-4 py-3 text-left border-b border-[#F0F2F2] last:border-0 font-bold text-[11px] transition-colors ${
+                        tab === t.key ? "bg-[#FFF8D3] text-[#C45500] font-black" : "text-[#0F1111] hover:bg-[#EAEDED]"
                       }`}
                     >
-                      <i className={`fa-solid ${t.icon} text-xs w-4`}></i>
+                      <i className={`fa-solid ${t.icon} text-xs w-4`} style={{ color: tab === t.key ? "#FF9900" : "#565959" }}></i>
                       <span>{t.label}</span>
                     </button>
                   ))}
@@ -1521,15 +1298,15 @@ const ProfilePage = ({ addToCart }) => {
               )}
             </div>
 
-            {/* Titre de section */}
-            <div className="flex items-center gap-3 mb-5">
-              <div className="w-1 h-7 bg-primary rounded-full"></div>
-              <h2 className="font-black text-lg uppercase tracking-tighter text-white">{activeTab?.label}</h2>
+            {/* Section title */}
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-1 h-6 bg-[#FF9900] rounded-full"></div>
+              <h2 className="font-black text-lg uppercase text-[#0F1111]">{activeTab?.label}</h2>
             </div>
 
-            {/* Contenu */}
-            {loading && !["settings", "security", "notifications", "addresses", "referral"].includes(tab)
-              ? <div className="space-y-3">{[...Array(4)].map((_, i) => <div key={i} className="h-20 bg-zinc-900 rounded-2xl animate-pulse" />)}</div>
+            {/* Tab content */}
+            {loading && !["settings","security","notifications","addresses","referral"].includes(tab)
+              ? <div className="space-y-3">{[...Array(4)].map((_, i) => <div key={i} className="h-20 bg-white border border-[#D5D9D9] rounded animate-pulse" />)}</div>
               : CONTENT[tab]
             }
           </div>
