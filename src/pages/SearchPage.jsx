@@ -20,6 +20,36 @@ const TRENDING = [
   "iPhone accessoires", "Sac à main", "Montre connectée", "Streetwear Douala",
 ];
 
+const HERO_SLIDES = [
+  {
+    tag: "Flash Drop",
+    title: "Audio Lab Exclusive",
+    sub: "Casques premium · Livraison 2h Douala",
+    cta: "Découvrir",
+    img: "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?q=80&w=800",
+    accent: "#FF9900",
+    cat: "Audio Lab",
+  },
+  {
+    tag: "New Drop",
+    title: "Sneakers Édition Limitée",
+    sub: "Streetwear camerounais · Paiement MoMo",
+    cta: "Voir les sneakers",
+    img: "https://images.unsplash.com/photo-1549298916-f52d724204b4?q=80&w=800",
+    accent: "#FFD814",
+    cat: "Shoes",
+  },
+  {
+    tag: "Promo −20%",
+    title: "Mode Femme",
+    sub: "Sélection printemps · OFS Cameroun 🇨🇲",
+    cta: "Explorer",
+    img: "https://images.unsplash.com/photo-1483985988355-763728e1935b?q=80&w=800",
+    accent: "#FF9900",
+    cat: "Femme",
+  },
+];
+
 const SORT_OPTIONS = [
   { value: "recent",     label: "Plus récents" },
   { value: "price-asc",  label: "Prix croissant" },
@@ -322,6 +352,70 @@ const FilterSidebar = ({ activeCategory, setActiveCategory, activePriceRange, se
   </aside>
 );
 
+// ─── SEARCH HERO ──────────────────────────────────────────────────────────────
+const SearchHero = ({ onSearch }) => {
+  const [slide, setSlide] = useState(0);
+
+  useEffect(() => {
+    const t = setInterval(() => setSlide(s => (s + 1) % HERO_SLIDES.length), 6000);
+    return () => clearInterval(t);
+  }, []);
+
+  const sl = HERO_SLIDES[slide];
+
+  return (
+    <div className="relative overflow-hidden bg-[#131921] rounded mb-6" style={{ minHeight: 240 }}>
+      {HERO_SLIDES.map((s, i) => (
+        <div
+          key={i}
+          className={`absolute inset-0 transition-opacity duration-700 ${i === slide ? "opacity-100" : "opacity-0 pointer-events-none"}`}
+        >
+          <img src={s.img} alt={s.title} className="absolute inset-0 w-full h-full object-cover opacity-25" />
+        </div>
+      ))}
+      <div className="absolute inset-0 bg-gradient-to-r from-[#131921] via-[#131921]/85 to-transparent" />
+
+      <div className="relative z-10 p-6 md:p-10 flex flex-col justify-between" style={{ minHeight: 240 }}>
+        <div>
+          <span
+            className="inline-flex items-center gap-1.5 text-[8px] font-black uppercase tracking-widest px-3 py-1 rounded-full mb-3 border"
+            style={{ color: sl.accent, borderColor: sl.accent + "55", background: sl.accent + "22" }}
+          >
+            <i className="fa-solid fa-bolt text-[7px]"></i>{sl.tag}
+          </span>
+          <h2 className="text-2xl md:text-3xl font-black text-white leading-none mb-2">{sl.title}</h2>
+          <p className="text-sm text-[#ADBAC7] mb-5 max-w-sm">{sl.sub}</p>
+          <button
+            onClick={() => onSearch(sl.cat)}
+            className="inline-flex items-center gap-2 bg-[#FFD814] hover:bg-[#F7CA00] text-[#0F1111] px-5 py-2.5 rounded border border-[#FCD200] font-black text-[10px] uppercase tracking-widest transition-all active:scale-[0.97]"
+          >
+            {sl.cta} <i className="fa-solid fa-arrow-right text-[9px]"></i>
+          </button>
+        </div>
+        <div className="flex items-center gap-2.5 mt-5 flex-wrap">
+          <span className="text-[9px] text-[#565959]">OneFreestyle 🇨🇲</span>
+          <span className="w-1 h-1 rounded-full bg-[#37475A]" />
+          <span className="text-[9px] text-[#565959]">Livraison 2h · Douala</span>
+          <span className="w-1 h-1 rounded-full bg-[#37475A]" />
+          <span className="text-[9px] font-bold" style={{ color: sl.accent }}>Orange Money · MTN MoMo</span>
+        </div>
+      </div>
+
+      {/* Slide dots */}
+      <div className="absolute bottom-5 right-6 flex items-center gap-2 z-20">
+        {HERO_SLIDES.map((_, i) => (
+          <button
+            key={i}
+            onClick={() => setSlide(i)}
+            className="rounded-full transition-all"
+            style={{ width: i === slide ? 20 : 6, height: 6, background: i === slide ? sl.accent : "#37475A" }}
+          />
+        ))}
+      </div>
+    </div>
+  );
+};
+
 // ─── EMPTY STATE ──────────────────────────────────────────────────────────────
 const NoResults = ({ query, onClear }) => (
   <div className="py-16 text-center">
@@ -463,6 +557,9 @@ const SearchPage = ({ openModal, addToCart }) => {
         {/* ═══ NO QUERY: LANDING STATE ═══ */}
         {!isSearching && (
           <>
+            {/* ── HERO BANNER ── */}
+            <SearchHero onSearch={submitSearch} />
+
             {/* ── TRENDING ── */}
             <div className="flex items-center gap-2 mb-6 overflow-x-auto hide-scrollbar">
               <span className="text-[10px] font-black uppercase tracking-widest text-[#565959] whitespace-nowrap">Tendances :</span>

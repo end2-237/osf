@@ -91,7 +91,12 @@ const Navbar = ({ isDark, toggleTheme, cartCount, toggleCart, toggleVisualSearch
   const [cartBump,       setCartBump]       = useState(false);
   const [profile,        setProfile]        = useState(null);
 
-  const prevCartCount = useRef(cartCount);
+  const [suggestions,      setSuggestions]      = useState([]);
+  const [showSugg,         setShowSugg]         = useState(false);
+
+  const prevCartCount      = useRef(cartCount);
+  const searchContainerRef = useRef(null);
+  const debounceT          = useRef(null);
   const location      = useLocation();
   const navigate      = useNavigate();
   const [searchParams]  = useSearchParams();
@@ -131,9 +136,42 @@ const Navbar = ({ isDark, toggleTheme, cartCount, toggleCart, toggleVisualSearch
     return () => { document.body.style.overflow = ""; };
   }, [mobileMenuOpen]);
 
+  // Close suggestions on outside click
+  useEffect(() => {
+    const handler = (e) => {
+      if (searchContainerRef.current && !searchContainerRef.current.contains(e.target)) {
+        setShowSugg(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  // Debounced suggestions
+  useEffect(() => {
+    if (debounceT.current) clearTimeout(debounceT.current);
+    const q = searchQuery.trim();
+    if (q.length < 2) { setSuggestions([]); setShowSugg(false); return; }
+    debounceT.current = setTimeout(() => {
+      import("../lib/supabase").then(({ supabase }) => {
+        supabase
+          .from("products")
+          .select("id, name, type, price, img")
+          .ilike("name", `%${q}%`)
+          .limit(6)
+          .then(({ data }) => {
+            setSuggestions(data || []);
+            setShowSugg((data?.length ?? 0) > 0);
+          });
+      });
+    }, 250);
+    return () => clearTimeout(debounceT.current);
+  }, [searchQuery]);
+
   const handleSearch = (e) => {
     if (e) e.preventDefault();
     if (searchQuery.trim()) {
+      setShowSugg(false);
       navigate("/search?q=" + encodeURIComponent(searchQuery.trim()));
       setMobileMenuOpen(false);
     }
@@ -182,33 +220,69 @@ const Navbar = ({ isDark, toggleTheme, cartCount, toggleCart, toggleVisualSearch
           </div>
 
           {/* SEARCH — desktop */}
-          <form onSubmit={handleSearch} className="hidden md:flex flex-grow max-w-3xl">
-            <div className="flex w-full h-10 rounded overflow-hidden ring-0 focus-within:ring-2 focus-within:ring-[#FF9900] transition-all">
-              <select
-                className="bg-[#F3F4F4] text-[#0F1111] text-[11px] px-2 border-r border-[#CDCDCD] outline-none cursor-pointer flex-shrink-0 font-medium min-w-[60px]"
-              >
-                <option>Tout</option>
-                {CATEGORIES.map(c => <option key={c.name}>{c.name}</option>)}
-              </select>
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-                placeholder="Rechercher produits, marques..."
-                className="flex-grow bg-white text-[#0F1111] px-3 text-sm outline-none min-w-0"
-              />
-              <button type="button" onClick={toggleVisualSearch}
-                className="bg-white px-2.5 border-l border-[#CDCDCD] text-gray-500 hover:text-[#FF9900] transition-colors flex-shrink-0"
-              >
-                <i className="fa-solid fa-camera text-sm"></i>
-              </button>
-              <button type="submit"
-                className="bg-[#FF9900] hover:bg-[#E47911] text-[#0F1111] px-4 flex items-center justify-center transition-colors flex-shrink-0"
-              >
-                <i className="fa-solid fa-magnifying-glass text-lg"></i>
-              </button>
-            </div>
-          </form>
+          <div ref={searchContainerRef} className="relative hidden md:flex flex-grow max-w-3xl">
+            <form onSubmit={handleSearch} className="flex w-full">
+              <div className="flex w-full h-10 rounded overflow-hidden ring-0 focus-within:ring-2 focus-within:ring-[#FF9900] transition-all">
+                <select
+                  className="bg-[#F3F4F4] text-[#0F1111] text-[11px] px-2 border-r border-[#CDCDCD] outline-none cursor-pointer flex-shrink-0 font-medium min-w-[60px]"
+                >
+                  <option>Tout</option>
+                  {CATEGORIES.map(c => <option key={c.name}>{c.name}</option>)}
+                </select>
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={e => { setSearchQuery(e.target.value); setShowSugg(true); }}
+                  onFocus={() => suggestions.length > 0 && setShowSugg(true)}
+                  placeholder="Rechercher produits, marques..."
+                  className="flex-grow bg-white text-[#0F1111] px-3 text-sm outline-none min-w-0"
+                />
+                <button type="button" onClick={toggleVisualSearch}
+                  className="bg-white px-2.5 border-l border-[#CDCDCD] text-gray-500 hover:text-[#FF9900] transition-colors flex-shrink-0"
+                >
+                  <i className="fa-solid fa-camera text-sm"></i>
+                </button>
+                <button type="submit"
+                  className="bg-[#FF9900] hover:bg-[#E47911] text-[#0F1111] px-4 flex items-center justify-center transition-colors flex-shrink-0"
+                >
+                  <i className="fa-solid fa-magnifying-glass text-lg"></i>
+                </button>
+              </div>
+            </form>
+
+            {/* SUGGESTIONS DROPDOWN */}
+            {showSugg && suggestions.length > 0 && (
+              <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-[#D5D9D9] rounded shadow-2xl z-[150] overflow-hidden">
+                {suggestions.map(s => (
+                  <button
+                    key={s.id}
+                    type="button"
+                    onMouseDown={() => { setShowSugg(false); navigate(`/search?q=${encodeURIComponent(s.name)}`); }}
+                    className="flex items-center gap-3 w-full px-4 py-2.5 hover:bg-[#EAEDED] transition-colors text-left"
+                  >
+                    <div className="w-9 h-9 bg-[#EAEDED] rounded overflow-hidden flex-shrink-0">
+                      {s.img && <img src={s.img} alt={s.name} className="w-full h-full object-contain" />}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[11px] font-bold text-[#0F1111] truncate">{s.name}</p>
+                      <p className="text-[9px] text-[#565959]">{s.type} · {Number(s.price).toLocaleString()} F</p>
+                    </div>
+                    <i className="fa-solid fa-arrow-up-left text-[#ADBAC7] text-[10px] flex-shrink-0"></i>
+                  </button>
+                ))}
+                <div className="px-4 py-2.5 border-t border-[#F0F2F2] bg-[#F7F8F8]">
+                  <button
+                    type="button"
+                    onMouseDown={() => { setShowSugg(false); navigate(`/search?q=${encodeURIComponent(searchQuery.trim())}`); }}
+                    className="text-[10px] font-black text-[#007185] hover:text-[#C45500] flex items-center gap-1.5"
+                  >
+                    <i className="fa-solid fa-magnifying-glass text-[9px]"></i>
+                    Voir tous les résultats pour "{searchQuery}"
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
 
           <div className="flex-grow md:hidden" />
 
