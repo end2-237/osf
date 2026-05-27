@@ -102,7 +102,7 @@ function AppContent() {
       )}
 
       {/* ZONE DE CONTENU PRINCIPALE */}
-      <main className={`flex-grow ${isAuthPage ? 'h-screen overflow-hidden' : ''}`}>
+      <main className="flex-grow">
         <Routes>
           <Route path="/" element={<Home openModal={openModal} addToCart={addToCart} />} />
           <Route path="/store" element={<Store openModal={openModal} addToCart={addToCart} />} />
