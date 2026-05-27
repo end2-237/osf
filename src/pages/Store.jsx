@@ -700,7 +700,7 @@ const Store = ({ openModal, addToCart }) => {
       <div className="max-w-[1400px] mx-auto px-4 md:px-8 py-6">
         <div className="flex gap-8">
           {/* SIDEBAR */}
-          <div className="hidden lg:block">
+          <div className="hidden lg:block sticky top-[128px] self-start max-h-[calc(100vh-148px)] overflow-y-auto">
             <SidebarFilters
               maxPrice={maxPrice}
               setMaxPrice={setMaxPrice}

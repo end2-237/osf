@@ -790,7 +790,7 @@ const SearchPage = ({ openModal, addToCart }) => {
             <div className="flex gap-5">
 
               {/* SIDEBAR (desktop) */}
-              <div className="hidden lg:block">
+              <div className="hidden lg:block sticky top-[128px] self-start max-h-[calc(100vh-148px)] overflow-y-auto">
                 <FilterSidebar
                   activeCategory={activeCategory}
                   setActiveCategory={setActiveCategory}
