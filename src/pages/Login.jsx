@@ -1,24 +1,20 @@
 import React, { useState } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import ofsLogo from '../assets/ofs.png'; 
+import ofsLogo from '../assets/ofs.png';
 import { supabase } from '../lib/supabase';
-
-const Icons = {
-  Key: () => <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" /></svg>,
-  Check: () => <svg className="w-3 h-3 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" /></svg>
-};
 
 const Login = () => {
   const navigate          = useNavigate();
   const location          = useLocation();
   const { signIn }        = useAuth();
-  const [email, setEmail]       = useState('');
-  const [password, setPassword] = useState('');
-  const [loading, setLoading]   = useState(false);
-  const [error, setError]       = useState('');
+  const [email, setEmail]           = useState('');
+  const [password, setPassword]     = useState('');
+  const [showPass, setShowPass]     = useState(false);
+  const [loading, setLoading]       = useState(false);
+  const [error, setError]           = useState('');
+  const [forgotSent, setForgotSent] = useState(false);
 
-  // Page depuis laquelle l'utilisateur a été redirigé (ex: /profile)
   const from = location.state?.from || null;
 
   const handleSubmit = async (e) => {
@@ -30,17 +26,11 @@ const Login = () => {
         email: email.trim(),
         password,
       });
-
       if (signInError) throw signInError;
       const user = authData.user;
 
-      // Si on vient d'une page précise (ex: /profile), on y retourne
-      if (from) {
-        navigate(from, { replace: true });
-        return;
-      }
+      if (from) { navigate(from, { replace: true }); return; }
 
-      // Sinon redirection intelligente : vendeur → admin, client → accueil
       const { data: vendorData } = await supabase
         .from('vendors')
         .select('id')
@@ -53,121 +43,202 @@ const Login = () => {
         navigate('/', { replace: true });
       }
     } catch (err) {
-      console.error("Login Error:", err);
-      setError("Identifiants invalides ou accès refusé.");
+      console.error('Login Error:', err);
+      setError('Email ou mot de passe incorrect.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleForgot = async () => {
+    if (!email.trim()) { setError('Entrez votre email pour réinitialiser.'); return; }
+    setLoading(true); setError('');
+    try {
+      await supabase.auth.resetPasswordForEmail(email.trim());
+      setForgotSent(true);
+    } catch {
+      setError('Erreur lors de l\'envoi. Réessayez.');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="h-screen w-full bg-white flex overflow-hidden font-sans select-none">
-      
-      {/* PANEL GAUCHE */}
-      <div className="hidden lg:flex lg:w-[40%] relative flex-col justify-between p-10 overflow-hidden bg-[#0a0a0a] border-r border-zinc-800">
+    <div className="min-h-screen w-full bg-[#EAEDED] flex overflow-hidden font-sans select-none">
+
+      {/* PANEL GAUCHE — Amazon navy */}
+      <div className="hidden lg:flex lg:w-[38%] relative flex-col justify-between p-10 overflow-hidden bg-[#131921]">
         <div className="absolute inset-0 z-0">
-          <img 
-            src="https://images.unsplash.com/photo-1490481651871-ab68de25d43d?auto=format&fit=crop&q=80" 
-            className="w-full h-full object-cover opacity-20 grayscale transition-transform duration-[20s] hover:scale-110"
+          <img
+            src="https://images.unsplash.com/photo-1490481651871-ab68de25d43d?auto=format&fit=crop&q=80"
+            className="w-full h-full object-cover opacity-10 grayscale"
             alt="OFS Brand"
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent"></div>
+          <div className="absolute inset-0 bg-gradient-to-t from-[#131921] via-[#131921]/60 to-transparent" />
         </div>
-        
-        <Link to="/" className="relative z-10 flex items-center gap-2 animate-in fade-in duration-700">
-          <img src={ofsLogo} alt="Logo" className="w-6 h-6 object-contain brightness-100 invert" />
-          <span className="text-white text-xs font-black tracking-[0.3em] uppercase italic">OFS Elite</span>
+
+        <Link to="/" className="relative z-10 flex items-center gap-2">
+          <img src={ofsLogo} alt="Logo" className="w-6 h-6 object-contain invert" />
+          <span className="text-white text-sm font-bold tracking-wide">
+            One<span className="text-[#FF9900]">Freestyle</span>
+          </span>
         </Link>
 
-        <div className="relative z-10 space-y-3">
-          <h2 className="text-3xl font-bold text-white tracking-tighter leading-tight animate-in slide-in-from-left duration-500">
-            Welcome Back <br />
-            <span className="text-primary italic">Elite Member.</span>
+        <div className="relative z-10 space-y-5">
+          <h2 className="text-3xl font-bold text-white leading-tight">
+            Bon retour<br /><span className="text-[#FF9900]">parmi nous.</span>
           </h2>
-          {/* Message contextuel si redirection depuis /profile */}
           {from === '/profile' && (
-            <div className="flex items-center gap-2 bg-primary/10 border border-primary/20 rounded-xl px-4 py-2.5">
-              <i className="fa-solid fa-user text-primary text-xs"></i>
-              <span className="text-[9px] font-black uppercase tracking-widest text-primary">Connectez-vous pour accéder à votre profil</span>
+            <div className="flex items-center gap-2 bg-[#FF9900]/10 border border-[#FF9900]/20 rounded px-4 py-2.5">
+              <i className="fa-solid fa-user text-[#FF9900] text-xs"></i>
+              <span className="text-xs font-bold text-[#FF9900]">Connexion requise pour accéder à votre profil</span>
             </div>
           )}
-          <div className="space-y-1.5">
+          <div className="space-y-2">
             {['Accès Dashboard Vendeur', 'Gestion de Stock Temps Réel', 'Analytiques Avancées'].map((text, i) => (
-              <div key={i} className="flex items-center gap-2 text-zinc-500 text-[10px] font-bold uppercase tracking-widest">
-                <Icons.Check /> {text}
+              <div key={i} className="flex items-center gap-2 text-[#ADBAC7] text-sm">
+                <i className="fa-solid fa-check text-[#FF9900] text-xs"></i> {text}
               </div>
             ))}
           </div>
         </div>
 
         <div className="relative z-10">
-          <div className="h-[1px] w-6 bg-primary mb-2"></div>
-          <p className="text-zinc-600 text-[8px] font-bold tracking-[0.4em] uppercase">© 2026 OFS System</p>
+          <div className="h-px w-8 bg-[#FF9900] mb-2" />
+          <p className="text-[#37475A] text-xs tracking-widest uppercase">© 2026 OFS System</p>
         </div>
       </div>
 
       {/* PANEL DROIT */}
-      <div className="w-full lg:w-[60%] h-full flex flex-col justify-center items-center bg-white p-4 relative overflow-hidden">
-        
-        <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-[0.03]">
-           <img src={ofsLogo} alt="" className="w-96 h-96 object-contain" />
-        </div>
+      <div className="w-full lg:w-[62%] flex flex-col justify-center items-center bg-white p-6 relative overflow-y-auto">
 
-        <div className="w-full max-w-[320px] z-10 animate-in fade-in zoom-in-95 duration-500">
-          
-          <header className="mb-8 text-center lg:text-left">
-            <h1 className="text-xl font-black italic uppercase tracking-tighter text-zinc-900 leading-none">
-              Sign In
-            </h1>
-            <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-[0.3em] mt-1">
-              {from === '/profile' ? 'Connexion requise · Profil' : 'Authorized Personnel Only'}
+        <div className="w-full max-w-[380px]">
+
+          {/* Mobile logo */}
+          <div className="flex lg:hidden items-center gap-2 mb-6">
+            <img src={ofsLogo} alt="Logo" className="w-6 h-6 object-contain" />
+            <span className="text-[#0F1111] text-sm font-bold">
+              One<span className="text-[#FF9900]">Freestyle</span>
+            </span>
+          </div>
+
+          <header className="mb-6">
+            <h1 className="text-2xl font-bold text-[#0F1111] leading-none mb-1">Se connecter</h1>
+            <p className="text-sm text-[#565959]">
+              {from === '/profile' ? 'Connexion requise · Profil' : 'Accédez à votre espace OneFreestyle'}
             </p>
           </header>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-1">
-              <label className="text-[8px] font-black text-zinc-500 uppercase tracking-widest ml-1">Security Mail</label>
-              <input
-                type="email" 
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full bg-zinc-50/50 border border-zinc-100 focus:border-zinc-900 p-3 rounded-lg text-xs font-bold outline-none transition-all placeholder:text-zinc-300"
-                placeholder="PRO@OFS.COM"
-              />
+          {forgotSent ? (
+            <div className="bg-green-50 border border-green-200 rounded p-4 text-center">
+              <i className="fa-solid fa-envelope-circle-check text-[#007600] text-2xl mb-2 block"></i>
+              <p className="font-bold text-[#007600] text-sm mb-1">Email envoyé !</p>
+              <p className="text-xs text-[#565959]">Vérifiez votre boîte mail pour réinitialiser votre mot de passe.</p>
+              <button onClick={() => setForgotSent(false)} className="mt-3 text-xs text-[#007185] hover:underline">
+                Retour à la connexion
+              </button>
             </div>
+          ) : (
+            <form onSubmit={handleSubmit} className="space-y-4">
+              {/* EMAIL */}
+              <div>
+                <label className="block text-[10px] font-bold uppercase tracking-widest text-[#565959] mb-1.5">
+                  Adresse email
+                </label>
+                <input
+                  type="email"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="w-full bg-white border border-[#D5D9D9] focus:border-[#FF9900] focus:outline-none rounded px-3 py-2.5 text-sm text-[#0F1111] placeholder-[#adb5bd] transition-colors"
+                  placeholder="votre@email.com"
+                  autoComplete="email"
+                />
+              </div>
 
-            <div className="space-y-1">
-              <label className="text-[8px] font-black text-zinc-500 uppercase tracking-widest ml-1">Access Key</label>
-              <input
-                type="password" 
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full bg-zinc-50/50 border border-zinc-100 focus:border-zinc-900 p-3 rounded-lg text-xs font-bold outline-none transition-all"
-                placeholder="••••••••"
-              />
-            </div>
+              {/* MOT DE PASSE */}
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-[10px] font-bold uppercase tracking-widest text-[#565959]">
+                    Mot de passe
+                  </label>
+                  <button
+                    type="button"
+                    onClick={handleForgot}
+                    className="text-xs text-[#007185] hover:text-[#C45500] hover:underline transition-colors"
+                  >
+                    Mot de passe oublié ?
+                  </button>
+                </div>
+                <div className="relative">
+                  <input
+                    type={showPass ? 'text' : 'password'}
+                    required
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="w-full bg-white border border-[#D5D9D9] focus:border-[#FF9900] focus:outline-none rounded px-3 py-2.5 pr-10 text-sm text-[#0F1111] transition-colors"
+                    placeholder="••••••••"
+                    autoComplete="current-password"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPass(!showPass)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-[#adb5bd] hover:text-[#565959] transition-colors"
+                  >
+                    <i className={`fa-solid ${showPass ? 'fa-eye-slash' : 'fa-eye'} text-sm`}></i>
+                  </button>
+                </div>
+              </div>
 
-            {error && (
-              <p className="text-[8px] font-bold text-red-500 bg-red-50 p-2.5 rounded border border-red-100 text-center uppercase tracking-widest">
-                {error}
-              </p>
-            )}
+              {/* ERREUR */}
+              {error && (
+                <div className="bg-red-50 border border-red-200 rounded p-3 flex items-center gap-2">
+                  <i className="fa-solid fa-circle-exclamation text-red-400 text-sm flex-shrink-0"></i>
+                  <p className="text-sm text-red-600">{error}</p>
+                </div>
+              )}
 
-            <button
-              disabled={loading}
-              className="w-full py-4 rounded-xl text-[9px] font-black uppercase tracking-[0.3em] transition-all relative overflow-hidden group shadow-lg active:scale-[0.97] mt-4 bg-zinc-900 text-white"
-            >
-              <div className="absolute inset-0 bg-white/20 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-500"></div>
-              {loading ? "AUTHENTICATING..." : "START SESSION"}
-            </button>
-          </form>
+              {/* CTA */}
+              <button
+                disabled={loading}
+                className="w-full py-3.5 rounded font-bold text-sm transition-all bg-[#FFD814] hover:bg-[#F7CA00] text-[#0F1111] border border-[#FCD200] shadow-sm active:scale-[0.98] disabled:opacity-50 mt-1"
+              >
+                {loading ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <i className="fa-solid fa-spinner fa-spin text-xs"></i> Connexion...
+                  </span>
+                ) : 'Se connecter'}
+              </button>
 
-          <footer className="mt-8 text-center text-[9px] font-bold text-zinc-400 tracking-tight">
-            NOT REGISTERED YET ?{' '}
-            <Link to="/register" className="text-zinc-900 border-b border-primary pb-0.5 ml-1 transition-all hover:text-primary">CREATE ACCESS</Link>
-          </footer>
+              {/* Séparateur */}
+              <div className="relative flex items-center gap-3 py-1">
+                <div className="flex-1 h-px bg-[#D5D9D9]" />
+                <span className="text-xs text-[#adb5bd]">ou</span>
+                <div className="flex-1 h-px bg-[#D5D9D9]" />
+              </div>
+
+              {/* Devenir vendeur */}
+              <Link to="/register"
+                className="w-full flex items-center justify-center gap-2 py-3 border border-[#D5D9D9] hover:border-[#FF9900] rounded font-bold text-sm text-[#565959] hover:text-[#FF9900] transition-all"
+              >
+                <i className="fa-solid fa-store text-xs"></i>
+                Devenir vendeur
+              </Link>
+            </form>
+          )}
+
+          <div className="mt-5 pt-5 border-t border-[#D5D9D9] text-center">
+            <span className="text-sm text-[#565959]">Nouveau sur OneFreestyle ? </span>
+            <Link to="/register" className="text-sm text-[#007185] hover:text-[#C45500] hover:underline font-bold">
+              Créer un compte
+            </Link>
+          </div>
+
+          <p className="mt-4 text-center text-xs text-[#adb5bd] leading-relaxed">
+            En vous connectant, vous acceptez nos{' '}
+            <span className="text-[#007185] underline cursor-pointer">conditions</span> et notre{' '}
+            <span className="text-[#007185] underline cursor-pointer">politique de confidentialité</span>.
+          </p>
         </div>
       </div>
     </div>

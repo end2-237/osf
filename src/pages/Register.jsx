@@ -7,7 +7,7 @@ import ofsLogo from '../assets/ofs.png';
 // ─── PLANS ───────────────────────────────────────────────────────────────────
 const PLANS = [
   {
-    id: 'starter', name: 'Starter', price: 0, period: 'Gratuit', badge: null, color: 'zinc',
+    id: 'starter', name: 'Starter', price: 0, period: 'Gratuit', badge: null,
     features: [
       { text: '5 produits max', ok: true },
       { text: 'Boutique personnalisée', ok: true },
@@ -20,7 +20,7 @@ const PLANS = [
     ],
   },
   {
-    id: 'pro', name: 'Pro', price: 5000, period: '/ mois', badge: 'Populaire', color: 'primary',
+    id: 'pro', name: 'Pro', price: 5000, period: '/ mois', badge: 'Populaire',
     features: [
       { text: '30 produits', ok: true },
       { text: 'Boutique personnalisée', ok: true },
@@ -33,7 +33,7 @@ const PLANS = [
     ],
   },
   {
-    id: 'elite', name: 'Elite', price: 15000, period: '/ mois', badge: 'Max', color: 'yellow',
+    id: 'elite', name: 'Elite', price: 15000, period: '/ mois', badge: 'Max',
     features: [
       { text: 'Produits illimités', ok: true },
       { text: 'Boutique personnalisée', ok: true },
@@ -63,11 +63,11 @@ const VENDOR_STEPS = [
 ];
 
 const LIVENESS_STEPS = [
-  { id: 'center',  icon: 'fa-crosshairs', label: 'Centrez votre visage',        color: 'text-blue-400'   },
-  { id: 'blink',   icon: 'fa-eye-slash',  label: 'Clignez des yeux 2x',         color: 'text-yellow-400' },
-  { id: 'smile',   icon: 'fa-face-smile', label: 'Souriez',                     color: 'text-green-400'  },
-  { id: 'left',    icon: 'fa-arrow-left', label: 'Tournez legerement a gauche', color: 'text-purple-400' },
-  { id: 'capture', icon: 'fa-camera',     label: 'Maintenez la position...',    color: 'text-primary'    },
+  { id: 'center',  icon: 'fa-crosshairs', label: 'Centrez votre visage',        color: 'text-blue-500'   },
+  { id: 'blink',   icon: 'fa-eye-slash',  label: 'Clignez des yeux 2x',         color: 'text-yellow-600' },
+  { id: 'smile',   icon: 'fa-face-smile', label: 'Souriez',                     color: 'text-green-600'  },
+  { id: 'left',    icon: 'fa-arrow-left', label: 'Tournez légèrement à gauche', color: 'text-purple-600' },
+  { id: 'capture', icon: 'fa-camera',     label: 'Maintenez la position...',    color: 'text-[#FF9900]'  },
 ];
 
 const SHOP_CATEGORIES = [
@@ -79,7 +79,7 @@ const SHOP_CATEGORIES = [
 const Ico = {
   User:     () => <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>,
   Business: () => <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745V20a2 2 0 002 2h14a2 2 0 002-2v-6.745zM16 8V5a2 2 0 00-2-2H10a2 2 0 00-2 2v3H4a2 2 0 00-2 2v3a2 2 0 002 2h16a2 2 0 002-2v-3a2 2 0 00-2-2h-4zM10 8h4V5h-4v3z"/></svg>,
-  Check:    () => <svg className="w-3 h-3 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7"/></svg>,
+  Check:    () => <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7"/></svg>,
   Gift:     () => <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 8v13m0-13V6a2 2 0 112 2h-2zm0 0V5.5A2.5 2.5 0 109.5 8H12zm-7 4h14M5 12a2 2 0 110-4h14a2 2 0 110 4M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7"/></svg>,
   X:        () => <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M6 18L18 6M6 6l12 12"/></svg>,
   Star:     () => <svg className="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87L18.18 21 12 17.77 5.82 21 7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>,
@@ -121,7 +121,7 @@ const UploadZone = ({ label, sub, onChange, preview }) => {
   const handleDrop = (e) => { e.preventDefault(); setDrag(false); const f = e.dataTransfer.files[0]; if (f) onChange(f); };
   return (
     <div
-      className={`relative border-2 border-dashed rounded-xl transition-all duration-200 cursor-pointer ${drag ? 'border-primary bg-primary/5' : preview ? 'border-primary/40' : 'border-white/10 hover:border-primary/30'}`}
+      className={`relative border-2 border-dashed rounded transition-all duration-200 cursor-pointer ${drag ? 'border-[#FF9900] bg-[#FF9900]/5' : preview ? 'border-[#FF9900]/50' : 'border-[#D5D9D9] hover:border-[#FF9900]'}`}
       onDragOver={e => { e.preventDefault(); setDrag(true); }}
       onDragLeave={() => setDrag(false)}
       onDrop={handleDrop}
@@ -130,18 +130,18 @@ const UploadZone = ({ label, sub, onChange, preview }) => {
       <input ref={ref} type="file" accept="image/*,.pdf" className="hidden" onChange={e => e.target.files[0] && onChange(e.target.files[0])} />
       {preview ? (
         <div className="relative">
-          <img src={preview} alt="" className="w-full h-28 object-cover rounded-xl" />
-          <div className="absolute inset-0 bg-black/50 rounded-xl flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity">
-            <span className="text-[8px] font-black uppercase text-white bg-black/60 px-2 py-1 rounded-full">Changer</span>
+          <img src={preview} alt="" className="w-full h-28 object-cover rounded" />
+          <div className="absolute inset-0 bg-black/40 rounded flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity">
+            <span className="text-[9px] font-bold uppercase text-white bg-black/60 px-2 py-1 rounded">Changer</span>
           </div>
-          <div className="absolute top-1.5 right-1.5 bg-primary text-black text-[7px] font-black px-1.5 py-0.5 rounded-full">OK</div>
+          <div className="absolute top-1.5 right-1.5 bg-[#FF9900] text-[#0F1111] text-[8px] font-bold px-1.5 py-0.5 rounded">OK</div>
         </div>
       ) : (
-        <div className="py-5 text-center px-3">
-          <i className="fa-solid fa-cloud-arrow-up text-zinc-600 text-xl mb-2 block"></i>
-          <p className="font-black text-[10px] text-white uppercase">{label}</p>
-          <p className="text-[8px] text-zinc-600 font-bold mt-0.5">{sub}</p>
-          <p className="text-[7px] text-zinc-700 mt-0.5">JPG / PNG / PDF - Max 5MB</p>
+        <div className="py-6 text-center px-3">
+          <i className="fa-solid fa-cloud-arrow-up text-[#adb5bd] text-2xl mb-2 block"></i>
+          <p className="font-bold text-[11px] text-[#0F1111]">{label}</p>
+          <p className="text-[10px] text-[#565959] mt-0.5">{sub}</p>
+          <p className="text-[9px] text-[#adb5bd] mt-0.5">JPG / PNG / PDF — Max 5MB</p>
         </div>
       )}
     </div>
@@ -150,17 +150,19 @@ const UploadZone = ({ label, sub, onChange, preview }) => {
 
 // ─── STEPPER ─────────────────────────────────────────────────────────────────
 const VendorStepper = ({ steps, currentIndex }) => (
-  <div className="relative mb-8">
-    <div className="absolute top-4 left-0 right-0 h-px bg-white/5" />
+  <div className="relative mb-6">
+    <div className="absolute top-4 left-0 right-0 h-px bg-[#D5D9D9]" />
     <div className="flex items-start justify-between relative">
       {steps.map((s, i) => {
         const done = i < currentIndex, active = i === currentIndex;
         return (
           <div key={s.key} className="flex flex-col items-center gap-1.5">
-            <div className={`w-8 h-8 rounded-full flex items-center justify-center border-2 transition-all duration-500 ${done ? 'bg-primary border-primary' : active ? 'bg-primary/15 border-primary shadow-[0_0_14px_rgba(0,255,136,0.25)]' : 'bg-zinc-950 border-white/10'}`}>
-              {done ? <i className="fa-solid fa-check text-black text-[9px]"></i> : <i className={`fa-solid ${s.icon} text-[9px] ${active ? 'text-primary' : 'text-zinc-600'}`}></i>}
+            <div className={`w-8 h-8 rounded-full flex items-center justify-center border-2 transition-all duration-500 ${done ? 'bg-[#FF9900] border-[#FF9900]' : active ? 'bg-[#FF9900]/10 border-[#FF9900]' : 'bg-white border-[#D5D9D9]'}`}>
+              {done
+                ? <i className="fa-solid fa-check text-[#0F1111] text-[9px]"></i>
+                : <i className={`fa-solid ${s.icon} text-[9px] ${active ? 'text-[#FF9900]' : 'text-[#adb5bd]'}`}></i>}
             </div>
-            <span className={`text-[6px] font-black uppercase tracking-widest whitespace-nowrap hidden sm:block ${active ? 'text-primary' : done ? 'text-zinc-400' : 'text-zinc-700'}`}>{s.label}</span>
+            <span className={`text-[7px] font-bold uppercase tracking-widest whitespace-nowrap hidden sm:block ${active ? 'text-[#FF9900]' : done ? 'text-[#565959]' : 'text-[#adb5bd]'}`}>{s.label}</span>
           </div>
         );
       })}
@@ -170,54 +172,65 @@ const VendorStepper = ({ steps, currentIndex }) => (
 
 // ─── NAV BUTTONS ─────────────────────────────────────────────────────────────
 const NavBtns = ({ onBack, onNext, nextLabel = 'Continuer', nextDisabled = false, loading = false }) => (
-  <div className="flex justify-between pt-3">
+  <div className="flex justify-between pt-4 border-t border-[#D5D9D9] mt-2">
     {onBack
-      ? <button type="button" onClick={onBack} className="flex items-center gap-2 border border-white/10 text-zinc-400 px-5 py-2.5 rounded-xl font-black text-[9px] uppercase tracking-widest hover:border-white/20 transition">
-          <i className="fa-solid fa-arrow-left text-[9px]"></i> Retour
+      ? <button type="button" onClick={onBack} className="flex items-center gap-2 border border-[#D5D9D9] text-[#565959] px-5 py-2.5 rounded font-bold text-sm hover:border-[#adb5bd] transition">
+          <i className="fa-solid fa-arrow-left text-xs"></i> Retour
         </button>
       : <div />}
     <button type="button" onClick={onNext} disabled={nextDisabled || loading}
-      className="flex items-center gap-2 bg-primary text-black px-7 py-2.5 rounded-xl font-black text-[9px] uppercase tracking-widest hover:bg-white transition-all disabled:opacity-30 disabled:cursor-not-allowed hover:scale-105">
-      {loading ? <><i className="fa-solid fa-spinner fa-spin text-[9px]"></i> Traitement...</> : <>{nextLabel} <i className="fa-solid fa-arrow-right text-[9px]"></i></>}
+      className="flex items-center gap-2 bg-[#FFD814] hover:bg-[#F7CA00] text-[#0F1111] border border-[#FCD200] px-7 py-2.5 rounded font-bold text-sm transition-all disabled:opacity-40 disabled:cursor-not-allowed active:scale-95">
+      {loading ? <><i className="fa-solid fa-spinner fa-spin text-xs"></i> Traitement...</> : <>{nextLabel} <i className="fa-solid fa-arrow-right text-xs"></i></>}
     </button>
   </div>
 );
 
 // ─── REFERRAL INPUT ───────────────────────────────────────────────────────────
-const ReferralInput = ({ refInput, setRefInput, refStatus, refOwner, clearRef, dark = false }) => (
+const ReferralInput = ({ refInput, setRefInput, refStatus, refOwner, clearRef }) => (
   <div className="space-y-1.5">
     <div className="flex items-center justify-between">
-      <label className={`text-[8px] font-black uppercase tracking-widest flex items-center gap-1 ${dark ? 'text-zinc-500' : 'text-zinc-500'}`}>
-        <Ico.Gift /> Code Parrainage <span className="text-zinc-700 normal-case font-bold">(optionnel)</span>
+      <label className="text-[10px] font-bold uppercase tracking-widest text-[#565959] flex items-center gap-1.5">
+        <Ico.Gift /> Code Parrainage <span className="text-[#adb5bd] normal-case font-normal">(optionnel)</span>
       </label>
-      {refStatus === 'valid' && <span className={`text-[7px] font-black uppercase ${dark ? 'text-primary' : 'text-emerald-600'}`}>+50 pts offerts</span>}
+      {refStatus === 'valid' && <span className="text-[10px] font-bold text-[#007600]">+50 pts offerts</span>}
     </div>
     <div className="relative">
       <input
         type="text" value={refInput} onChange={e => setRefInput(e.target.value)}
-        className={`w-full border rounded-lg p-2.5 pr-9 text-xs font-bold outline-none transition-all uppercase tracking-wider placeholder:normal-case
-          ${dark
-            ? `bg-zinc-900 ${refStatus === 'valid' ? 'border-primary/50 text-primary' : refStatus === 'invalid' ? 'border-red-500/40 text-red-400' : 'border-white/8 text-white focus:border-primary/30'}`
-            : `bg-zinc-50/50 placeholder:text-zinc-300 ${refStatus === 'valid' ? 'border-emerald-300 bg-emerald-50/30 text-emerald-700' : refStatus === 'invalid' ? 'border-red-200 bg-red-50/30 text-red-600' : 'border-zinc-100 focus:border-zinc-900'}`
-          }`}
+        className={`w-full border rounded px-3 py-2.5 text-sm font-bold outline-none transition-all uppercase tracking-wider placeholder:normal-case placeholder:text-[#adb5bd]
+          ${refStatus === 'valid' ? 'border-[#007600] bg-green-50/30 text-[#007600]' : refStatus === 'invalid' ? 'border-red-300 bg-red-50/30 text-red-600' : 'border-[#D5D9D9] text-[#0F1111] focus:border-[#FF9900]'}`}
         placeholder="OFS-XXXXXX" maxLength={12}
       />
       <div className="absolute right-2.5 top-1/2 -translate-y-1/2">
-        {refStatus === 'checking' && <div className={`w-3 h-3 border-2 rounded-full animate-spin ${dark ? 'border-zinc-600 border-t-primary' : 'border-zinc-300 border-t-zinc-700'}`} />}
-        {refStatus === 'valid'    && <div className={`w-4 h-4 rounded-full flex items-center justify-center ${dark ? 'bg-primary' : 'bg-emerald-500'}`}><svg className={`w-2.5 h-2.5 ${dark ? 'text-black' : 'text-white'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7"/></svg></div>}
+        {refStatus === 'checking' && <div className="w-3 h-3 border-2 border-[#D5D9D9] border-t-[#FF9900] rounded-full animate-spin" />}
+        {refStatus === 'valid'    && <div className="w-4 h-4 bg-[#007600] rounded-full flex items-center justify-center"><svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7"/></svg></div>}
         {refStatus === 'invalid'  && <div className="w-4 h-4 bg-red-400 rounded-full flex items-center justify-center cursor-pointer" onClick={clearRef}><Ico.X /></div>}
       </div>
     </div>
     {refStatus === 'valid' && refOwner && (
-      <div className={`flex items-center justify-between rounded-lg px-2.5 py-1.5 border ${dark ? 'bg-primary/8 border-primary/20' : 'bg-emerald-50 border-emerald-100'}`}>
+      <div className="flex items-center justify-between rounded px-2.5 py-2 border bg-green-50 border-green-100">
         <div className="flex items-center gap-1.5">
-          <div className="w-4 h-4 bg-primary rounded-full flex items-center justify-center flex-shrink-0"><Ico.Star /></div>
-          <span className={`text-[8px] font-black uppercase tracking-wider ${dark ? 'text-primary' : 'text-emerald-800'}`}>Parraine par <span className={dark ? 'text-white' : 'text-primary'}>{refOwner.full_name}</span></span>
+          <div className="w-4 h-4 bg-[#FF9900] rounded-full flex items-center justify-center flex-shrink-0"><Ico.Star /></div>
+          <span className="text-[10px] font-bold text-green-800">Parrainé par <span className="text-[#0F1111]">{refOwner.full_name}</span></span>
         </div>
-        <button type="button" onClick={clearRef} className="text-zinc-400 hover:text-zinc-600 transition"><Ico.X /></button>
+        <button type="button" onClick={clearRef} className="text-[#adb5bd] hover:text-[#565959] transition"><Ico.X /></button>
       </div>
     )}
-    {refStatus === 'invalid' && refInput.length > 0 && <p className={`text-[8px] font-bold ml-1 ${dark ? 'text-red-400' : 'text-red-500'}`}>Code introuvable. Verifiez et reessayez.</p>}
+    {refStatus === 'invalid' && refInput.length > 0 && <p className="text-[10px] font-bold ml-1 text-red-500">Code introuvable. Vérifiez et réessayez.</p>}
+  </div>
+);
+
+// ─── FIELD INPUT ─────────────────────────────────────────────────────────────
+const Field = ({ label, icon, ...props }) => (
+  <div>
+    <label className="block text-[10px] font-bold uppercase tracking-widest text-[#565959] mb-1.5">{label}</label>
+    <div className="relative">
+      {icon && <i className={`fa-solid ${icon} absolute left-3 top-1/2 -translate-y-1/2 text-[#adb5bd] text-sm`}></i>}
+      <input
+        className={`w-full bg-white border border-[#D5D9D9] focus:border-[#FF9900] focus:outline-none rounded ${icon ? 'pl-9' : 'pl-3'} pr-3 py-2.5 text-sm text-[#0F1111] placeholder-[#adb5bd] transition-colors`}
+        {...props}
+      />
+    </div>
   </div>
 );
 
@@ -266,7 +279,6 @@ export default function Register() {
   const [refStatus, setRefStatus] = useState('idle');
   const [rgpdOk,    setRgpdOk]    = useState(false);
 
-  // Auto-detect referral on mount
   useEffect(() => {
     const detected = detectReferralCode(searchParams, location);
     if (detected) {
@@ -279,7 +291,6 @@ export default function Register() {
     }
   }, []);
 
-  // Debounced referral validation
   useEffect(() => {
     if (!refInput || refInput === refCode) return;
     const fmt = refInput.toUpperCase().trim();
@@ -304,7 +315,6 @@ export default function Register() {
     else                  { setBackPreview(url);  setVF('id_back',  file); }
   };
 
-  // Camera
   const stopCamera = () => { streamRef.current?.getTracks().forEach(t => t.stop()); streamRef.current = null; };
   useEffect(() => () => stopCamera(), []);
 
@@ -326,7 +336,7 @@ export default function Register() {
           return idx;
         });
       }, 1800);
-    } catch (e) { setCamError("Acces a la camera refuse. Autorisez l'acces dans les parametres du navigateur."); setLivenessPhase('error'); }
+    } catch (e) { setCamError("Accès à la caméra refusé. Autorisez l'accès dans les paramètres du navigateur."); setLivenessPhase('error'); }
   }, []);
 
   const captureFrame = () => {
@@ -342,7 +352,6 @@ export default function Register() {
 
   const retryLiveness = () => { setSelfieUrl(null); setSelfieBlob(null); setLivenessPhase('intro'); setLivenessIdx(0); setCountdown(null); };
 
-  // Step validations
   const vValid = [
     !!(vForm.email && vForm.password && vForm.confirm && vForm.password === vForm.confirm),
     !!(vForm.shop_name && vForm.full_name && vForm.phone && vForm.category),
@@ -352,7 +361,6 @@ export default function Register() {
     rgpdOk,
   ];
 
-  // Member submit
   async function handleMemberSubmit(e) {
     e.preventDefault(); setError('');
     if (mForm.password !== mForm.confirm) return setError('Mots de passe non identiques.');
@@ -361,12 +369,11 @@ export default function Register() {
       const result = await signUpMember(mForm.email, mForm.password, mForm.displayName);
       const uid = result?.user?.id ?? result?.id ?? null;
       if (uid && refStatus === 'valid' && refOwner) { await processReferral(refOwner.id, uid); localStorage.removeItem('ofs_referral_code'); }
-      setSuccess('Profil cree ! Verifiez votre boite mail.');
+      setSuccess('Profil créé ! Vérifiez votre boîte mail.');
     } catch (err) { setError(err.message); }
     finally { setLoading(false); }
   }
 
-  // Vendor submit
   async function handleVendorSubmit() {
     setLoading(true); setError('');
     try {
@@ -406,24 +413,24 @@ export default function Register() {
 
   const currentLivenessStep = LIVENESS_STEPS[Math.min(livenessIdx, LIVENESS_STEPS.length - 1)];
 
-  // ─── VENDOR SUBMITTED ────────────────────────────────────────────
+  // ─── SUCCESS PAGE ────────────────────────────────────────────────
   if (submitted) {
     return (
-      <div className="min-h-screen bg-black flex items-center justify-center px-4">
-        <div className="text-center max-w-sm">
-          <div className="w-20 h-20 bg-primary/15 border-2 border-primary/40 rounded-full flex items-center justify-center mx-auto mb-5 animate-pulse">
-            <i className="fa-solid fa-paper-plane text-primary text-3xl"></i>
+      <div className="min-h-screen bg-[#EAEDED] flex items-center justify-center px-4">
+        <div className="bg-white border border-[#D5D9D9] rounded p-10 max-w-sm w-full text-center shadow-sm">
+          <div className="w-16 h-16 bg-[#FF9900]/10 border-2 border-[#FF9900]/30 rounded-full flex items-center justify-center mx-auto mb-5">
+            <i className="fa-solid fa-paper-plane text-[#FF9900] text-2xl"></i>
           </div>
-          <h2 className="font-black text-2xl italic uppercase tracking-tighter text-white mb-2">Demande soumise !</h2>
-          <p className="text-zinc-500 font-bold text-sm mb-1 leading-relaxed">
-            Votre dossier est en cours d'examen. Reponse par email dans <strong className="text-white">24 a 48h</strong>.
+          <h2 className="font-bold text-2xl text-[#0F1111] mb-2">Demande soumise !</h2>
+          <p className="text-[#565959] text-sm mb-1 leading-relaxed">
+            Votre dossier est en cours d'examen. Réponse par email dans <strong className="text-[#0F1111]">24 à 48h</strong>.
           </p>
-          <p className="text-zinc-700 text-[9px] font-bold mb-6">Plan choisi : <span className="text-primary uppercase">{vForm.plan}</span></p>
+          <p className="text-[#565959] text-xs mb-6">Plan choisi : <span className="text-[#FF9900] font-bold uppercase">{vForm.plan}</span></p>
           <div className="flex flex-col gap-2">
-            <Link to="/" className="flex items-center justify-center gap-2 bg-primary text-black px-8 py-3 rounded-xl font-black text-[9px] uppercase tracking-widest hover:bg-white transition">
-              <i className="fa-solid fa-house text-xs"></i> Retour a l'accueil
+            <Link to="/" className="flex items-center justify-center gap-2 bg-[#FFD814] hover:bg-[#F7CA00] text-[#0F1111] border border-[#FCD200] px-8 py-3 rounded font-bold text-sm transition">
+              <i className="fa-solid fa-house text-xs"></i> Retour à l'accueil
             </Link>
-            <Link to="/login" className="flex items-center justify-center gap-2 border border-white/10 text-zinc-400 px-8 py-3 rounded-xl font-black text-[9px] uppercase tracking-widest hover:border-white/20 transition">
+            <Link to="/login" className="flex items-center justify-center gap-2 border border-[#D5D9D9] text-[#565959] hover:border-[#adb5bd] px-8 py-3 rounded font-bold text-sm transition">
               Se connecter
             </Link>
           </div>
@@ -432,151 +439,143 @@ export default function Register() {
     );
   }
 
-  // ─── VENDOR FLOW (dark full-page) ────────────────────────────────
+  // ─── VENDOR FLOW ────────────────────────────────────────────────
   if (flow === 'vendor') {
     return (
-      <div className="min-h-screen bg-black text-white font-sans select-none overflow-y-auto">
-        <div className="max-w-[680px] mx-auto px-4 py-10">
+      <div className="min-h-screen bg-[#EAEDED] text-[#0F1111]">
 
-          {/* Top bar */}
-          <div className="flex items-center justify-between mb-8">
-            <div className="flex items-center gap-3">
-              <img src={ofsLogo} alt="Logo" className="w-5 h-5 object-contain invert" />
-              <span className="text-white text-[10px] font-black tracking-[0.3em] uppercase italic">OFS Elite</span>
-            </div>
-            <button onClick={() => { setFlow('member'); setVStep(0); setError(''); }}
-              className="flex items-center gap-2 text-zinc-500 hover:text-white text-[8px] font-black uppercase tracking-widest transition">
-              <Ico.X /> Annuler
-            </button>
-          </div>
+        {/* Amazon-style top nav */}
+        <header className="bg-[#131921] px-4 py-3 flex items-center justify-between">
+          <Link to="/" className="flex items-center gap-2">
+            <img src={ofsLogo} alt="Logo" className="w-6 h-6 object-contain invert" />
+            <span className="text-white text-sm font-bold">One<span className="text-[#FF9900]">Freestyle</span></span>
+          </Link>
+          <button onClick={() => { setFlow('member'); setVStep(0); setError(''); }}
+            className="flex items-center gap-2 text-[#adb5bd] hover:text-white text-xs font-bold transition">
+            <Ico.X /> Annuler
+          </button>
+        </header>
 
-          {/* Title */}
-          <div className="mb-6 flex items-center gap-4">
-            <div className="w-11 h-11 bg-primary/15 border border-primary/30 rounded-2xl flex items-center justify-center flex-shrink-0">
-              <i className="fa-solid fa-store-check text-primary text-lg"></i>
-            </div>
-            <div>
-              <h1 className="text-xl font-black italic uppercase tracking-tighter text-white leading-none">Ouvrir une Boutique Elite</h1>
-              <p className="text-zinc-500 text-[9px] font-bold mt-0.5">KYC requis - Donnees chiffrees AES-256</p>
+        <div className="max-w-[700px] mx-auto px-4 py-8">
+
+          {/* Page title */}
+          <div className="mb-6">
+            <div className="flex items-center gap-3 mb-1">
+              <div className="w-10 h-10 bg-[#FF9900]/10 border border-[#FF9900]/30 rounded flex items-center justify-center flex-shrink-0">
+                <i className="fa-solid fa-store text-[#FF9900] text-lg"></i>
+              </div>
+              <div>
+                <h1 className="text-xl font-bold text-[#0F1111] leading-none">Ouvrir une Boutique Elite</h1>
+                <p className="text-[#565959] text-xs mt-0.5">KYC requis · Données chiffrées AES-256</p>
+              </div>
             </div>
           </div>
 
           {/* Stepper */}
           <VendorStepper steps={VENDOR_STEPS} currentIndex={vStep} />
 
-          {/* Step content */}
-          <div className="bg-zinc-950 border border-white/5 rounded-3xl p-6">
+          {/* Step card */}
+          <div className="bg-white border border-[#D5D9D9] rounded p-6 shadow-sm">
 
-            {/* STEP 0 - COMPTE */}
+            {/* ── STEP 0 — COMPTE ── */}
             {vStep === 0 && (
               <div className="space-y-5">
-                <div>
-                  <h2 className="text-lg font-black italic uppercase tracking-tighter text-white mb-1">Creez votre acces</h2>
-                  <p className="text-zinc-500 text-[11px] font-bold">Email et mot de passe pour vous connecter a votre boutique.</p>
+                <div className="pb-4 border-b border-[#D5D9D9]">
+                  <h2 className="text-lg font-bold text-[#0F1111] mb-1">Créez votre accès</h2>
+                  <p className="text-[#565959] text-sm">Email et mot de passe pour vous connecter à votre boutique.</p>
                 </div>
-                <div className="space-y-3">
-                  <div className="space-y-1">
-                    <label className="text-[8px] font-black uppercase tracking-widest text-zinc-500">Email professionnel</label>
-                    <input type="email" value={vForm.email} onChange={e => setVF('email', e.target.value)}
-                      className="w-full bg-zinc-900 border border-white/8 focus:border-primary/40 rounded-xl px-4 py-3 text-xs text-white font-bold placeholder-zinc-700 outline-none transition"
-                      placeholder="pro@boutique.cm" />
-                  </div>
+                <div className="space-y-4">
+                  <Field label="Email professionnel *" icon="fa-envelope" type="email" value={vForm.email}
+                    onChange={e => setVF('email', e.target.value)} placeholder="pro@boutique.cm" />
                   <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-1">
-                      <label className="text-[8px] font-black uppercase tracking-widest text-zinc-500">Mot de passe</label>
-                      <input type="password" value={vForm.password} onChange={e => setVF('password', e.target.value)}
-                        className="w-full bg-zinc-900 border border-white/8 focus:border-primary/40 rounded-xl px-4 py-3 text-xs text-white font-bold outline-none transition"
-                        placeholder="••••••••" />
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-[8px] font-black uppercase tracking-widest text-zinc-500">Confirmer</label>
+                    <Field label="Mot de passe *" type="password" value={vForm.password}
+                      onChange={e => setVF('password', e.target.value)} placeholder="••••••••" />
+                    <div>
+                      <label className="block text-[10px] font-bold uppercase tracking-widest text-[#565959] mb-1.5">Confirmer *</label>
                       <input type="password" value={vForm.confirm} onChange={e => setVF('confirm', e.target.value)}
-                        className={`w-full bg-zinc-900 border rounded-xl px-4 py-3 text-xs text-white font-bold outline-none transition ${vForm.confirm && vForm.confirm !== vForm.password ? 'border-red-500/50' : 'border-white/8 focus:border-primary/40'}`}
+                        className={`w-full border rounded px-3 py-2.5 text-sm text-[#0F1111] placeholder-[#adb5bd] outline-none transition-colors ${vForm.confirm && vForm.confirm !== vForm.password ? 'border-red-300 focus:border-red-400' : 'border-[#D5D9D9] focus:border-[#FF9900]'}`}
                         placeholder="••••••••" />
                     </div>
                   </div>
-                  {vForm.confirm && vForm.confirm !== vForm.password && <p className="text-[8px] font-bold text-red-400">Mots de passe non identiques.</p>}
-                  <ReferralInput refInput={refInput} setRefInput={setRefInput} refStatus={refStatus} refOwner={refOwner} clearRef={clearRef} dark={true} />
+                  {vForm.confirm && vForm.confirm !== vForm.password && (
+                    <p className="text-sm text-red-500 font-bold">Mots de passe non identiques.</p>
+                  )}
+                  <ReferralInput refInput={refInput} setRefInput={setRefInput} refStatus={refStatus} refOwner={refOwner} clearRef={clearRef} />
                 </div>
-                {error && <p className="text-[8px] font-bold text-red-400 bg-red-500/8 border border-red-500/20 p-2 rounded-lg text-center uppercase">{error}</p>}
+                {error && <p className="text-sm text-red-600 bg-red-50 border border-red-200 p-3 rounded text-center">{error}</p>}
                 <NavBtns onNext={() => { setError(''); setVStep(1); }} nextDisabled={!vValid[0]} />
               </div>
             )}
 
-            {/* STEP 1 - BOUTIQUE */}
+            {/* ── STEP 1 — BOUTIQUE ── */}
             {vStep === 1 && (
               <div className="space-y-5">
-                <div>
-                  <h2 className="text-lg font-black italic uppercase tracking-tighter text-white mb-1">Infos de la boutique</h2>
-                  <p className="text-zinc-500 text-[11px] font-bold">Ces informations seront visibles par vos clients.</p>
+                <div className="pb-4 border-b border-[#D5D9D9]">
+                  <h2 className="text-lg font-bold text-[#0F1111] mb-1">Infos de la boutique</h2>
+                  <p className="text-[#565959] text-sm">Ces informations seront visibles par vos clients.</p>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {[
-                    { k: 'shop_name', label: 'Nom boutique *', ph: 'Ex: SoundElite',   icon: 'fa-store'        },
-                    { k: 'full_name', label: 'Nom du gerant *',ph: 'Nom et prenom',    icon: 'fa-user'         },
-                    { k: 'phone',     label: 'Telephone *',    ph: '+237 6XX XXX XXX', icon: 'fa-phone'        },
-                    { k: 'city',      label: 'Ville',          ph: 'Douala',            icon: 'fa-location-dot' },
-                  ].map(f => (
-                    <div key={f.k}>
-                      <label className="text-[8px] font-black uppercase tracking-widest text-zinc-500 mb-1.5 block">{f.label}</label>
-                      <div className="relative">
-                        <i className={`fa-solid ${f.icon} absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-600 text-xs`}></i>
-                        <input value={vForm[f.k] || ''} onChange={e => setVF(f.k, e.target.value)} placeholder={f.ph}
-                          className="w-full bg-zinc-900 border border-white/8 focus:border-primary/40 rounded-xl pl-9 pr-4 py-2.5 text-xs text-white font-bold placeholder-zinc-700 outline-none transition" />
-                      </div>
-                    </div>
-                  ))}
+                  <Field label="Nom boutique *" icon="fa-store"        type="text"  value={vForm.shop_name || ''} onChange={e => setVF('shop_name', e.target.value)} placeholder="Ex: SoundElite" />
+                  <Field label="Nom du gérant *" icon="fa-user"        type="text"  value={vForm.full_name || ''} onChange={e => setVF('full_name', e.target.value)} placeholder="Nom et prénom" />
+                  <Field label="Téléphone *"     icon="fa-phone"       type="tel"   value={vForm.phone || ''}     onChange={e => setVF('phone', e.target.value)}     placeholder="+237 6XX XXX XXX" />
+                  <Field label="Ville"           icon="fa-location-dot" type="text" value={vForm.city || ''}      onChange={e => setVF('city', e.target.value)}      placeholder="Douala" />
                 </div>
                 <div>
-                  <label className="text-[8px] font-black uppercase tracking-widest text-zinc-500 mb-2 block">Categorie *</label>
+                  <label className="block text-[10px] font-bold uppercase tracking-widest text-[#565959] mb-2">Catégorie *</label>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                     {SHOP_CATEGORIES.map(cat => (
                       <button key={cat} type="button" onClick={() => setVF('category', cat)}
-                        className={`py-2 px-2 rounded-xl text-[8px] font-black uppercase border-2 transition-all ${vForm.category === cat ? 'border-primary bg-primary/15 text-primary' : 'border-white/8 text-zinc-500 hover:border-white/20 hover:text-white'}`}>
+                        className={`py-2 px-3 rounded border-2 text-xs font-bold transition-all ${vForm.category === cat ? 'border-[#232F3E] bg-[#232F3E] text-[#FF9900]' : 'border-[#D5D9D9] text-[#565959] bg-white hover:border-[#FF9900] hover:text-[#FF9900]'}`}>
                         {cat}
                       </button>
                     ))}
                   </div>
                 </div>
                 <div>
-                  <label className="text-[8px] font-black uppercase tracking-widest text-zinc-500 mb-1.5 block">Description</label>
-                  <textarea value={vForm.description || ''} onChange={e => setVF('description', e.target.value)} rows={3} placeholder="Decrivez votre boutique, vos produits..."
-                    className="w-full bg-zinc-900 border border-white/8 focus:border-primary/40 rounded-xl px-4 py-3 text-xs text-white font-bold placeholder-zinc-700 outline-none transition resize-none" />
+                  <label className="block text-[10px] font-bold uppercase tracking-widest text-[#565959] mb-1.5">Description</label>
+                  <textarea value={vForm.description || ''} onChange={e => setVF('description', e.target.value)} rows={3}
+                    placeholder="Décrivez votre boutique, vos produits..."
+                    className="w-full bg-white border border-[#D5D9D9] focus:border-[#FF9900] focus:outline-none rounded px-3 py-2.5 text-sm text-[#0F1111] placeholder-[#adb5bd] transition-colors resize-none" />
                 </div>
                 <NavBtns onBack={() => setVStep(0)} onNext={() => setVStep(2)} nextDisabled={!vValid[1]} />
               </div>
             )}
 
-            {/* STEP 2 - PLAN */}
+            {/* ── STEP 2 — PLAN ── */}
             {vStep === 2 && (
               <div className="space-y-5">
-                <div>
-                  <h2 className="text-lg font-black italic uppercase tracking-tighter text-white mb-1">Choisissez votre plan</h2>
-                  <p className="text-zinc-500 text-[11px] font-bold">Modifiable a tout moment depuis votre dashboard.</p>
+                <div className="pb-4 border-b border-[#D5D9D9]">
+                  <h2 className="text-lg font-bold text-[#0F1111] mb-1">Choisissez votre plan</h2>
+                  <p className="text-[#565959] text-sm">Modifiable à tout moment depuis votre dashboard.</p>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   {PLANS.map(plan => {
                     const sel = vForm.plan === plan.id;
-                    const border = { zinc: sel ? 'border-zinc-400' : 'border-white/8', primary: sel ? 'border-primary' : 'border-white/8', yellow: sel ? 'border-yellow-400' : 'border-white/8' }[plan.color];
-                    const glow   = { zinc: '', primary: sel ? 'shadow-[0_0_20px_rgba(0,255,136,0.12)]' : '', yellow: sel ? 'shadow-[0_0_20px_rgba(250,204,21,0.12)]' : '' }[plan.color];
-                    const bStyle = { zinc: 'bg-zinc-800 text-zinc-300', primary: 'bg-primary/15 text-primary', yellow: 'bg-yellow-400/15 text-yellow-300' }[plan.color];
                     return (
                       <button key={plan.id} type="button" onClick={() => setVF('plan', plan.id)}
-                        className={`relative text-left rounded-2xl border-2 p-4 flex flex-col gap-3 transition-all bg-zinc-900 hover:border-white/20 ${border} ${glow}`}>
-                        {plan.badge && <span className={`absolute -top-2.5 left-4 text-[7px] font-black uppercase px-2 py-0.5 rounded-full border ${bStyle} border-current`}>{plan.badge}</span>}
-                        {sel && <div className="absolute top-3 right-3 w-5 h-5 bg-primary rounded-full flex items-center justify-center"><i className="fa-solid fa-check text-black text-[8px]"></i></div>}
+                        className={`relative text-left rounded border-2 p-4 flex flex-col gap-3 transition-all bg-white hover:border-[#FF9900] ${sel ? 'border-[#232F3E] shadow-md' : 'border-[#D5D9D9]'}`}>
+                        {plan.badge && (
+                          <span className={`absolute -top-2.5 left-4 text-[9px] font-bold uppercase px-2 py-0.5 rounded-full border ${plan.id === 'pro' ? 'bg-[#FF9900]/10 text-[#FF9900] border-[#FF9900]/30' : 'bg-[#FFD814]/20 text-yellow-700 border-yellow-300'}`}>
+                            {plan.badge}
+                          </span>
+                        )}
+                        {sel && (
+                          <div className="absolute top-3 right-3 w-5 h-5 bg-[#FF9900] rounded-full flex items-center justify-center">
+                            <i className="fa-solid fa-check text-[#0F1111] text-[8px]"></i>
+                          </div>
+                        )}
                         <div>
-                          <p className="text-[7px] font-black uppercase tracking-widest text-zinc-500 mb-0.5">{plan.name}</p>
+                          <p className="text-[10px] font-bold uppercase tracking-widest text-[#565959] mb-0.5">{plan.name}</p>
                           <div className="flex items-baseline gap-1">
-                            <span className="text-2xl font-black italic text-white">{plan.price === 0 ? '0' : plan.price.toLocaleString()}</span>
-                            <span className="text-[10px] text-zinc-500 font-bold">FCFA {plan.period}</span>
+                            <span className="text-2xl font-bold text-[#0F1111]">{plan.price === 0 ? '0' : plan.price.toLocaleString()}</span>
+                            <span className="text-xs text-[#565959]">FCFA {plan.period}</span>
                           </div>
                         </div>
                         <div className="space-y-1.5">
                           {plan.features.map((f, i) => (
                             <div key={i} className="flex items-center gap-1.5">
-                              <i className={`fa-solid ${f.ok ? 'fa-check text-primary' : 'fa-xmark text-zinc-700'} text-[9px] flex-shrink-0`}></i>
-                              <span className={`text-[9px] font-bold ${f.ok ? 'text-zinc-300' : 'text-zinc-600'}`}>{f.text}</span>
+                              <i className={`fa-solid ${f.ok ? 'fa-check text-[#007600]' : 'fa-xmark text-[#adb5bd]'} text-[10px] flex-shrink-0`}></i>
+                              <span className={`text-[11px] ${f.ok ? 'text-[#0F1111]' : 'text-[#adb5bd]'}`}>{f.text}</span>
                             </div>
                           ))}
                         </div>
@@ -584,31 +583,31 @@ export default function Register() {
                     );
                   })}
                 </div>
-                <div className="bg-blue-500/8 border border-blue-500/15 rounded-xl p-3 flex items-start gap-2">
-                  <i className="fa-solid fa-circle-info text-blue-400 text-xs flex-shrink-0 mt-0.5"></i>
-                  <p className="text-[9px] font-bold text-zinc-500">Le paiement se fait apres validation de votre identite. Vous pouvez commencer avec le plan Gratuit et upgrader a tout moment.</p>
+                <div className="bg-blue-50 border border-blue-100 rounded p-3 flex items-start gap-2">
+                  <i className="fa-solid fa-circle-info text-blue-500 text-sm flex-shrink-0 mt-0.5"></i>
+                  <p className="text-sm text-[#565959]">Le paiement se fait après validation de votre identité. Vous pouvez commencer avec le plan Gratuit et upgrader à tout moment.</p>
                 </div>
                 <NavBtns onBack={() => setVStep(1)} onNext={() => setVStep(3)} nextDisabled={!vValid[2]} />
               </div>
             )}
 
-            {/* STEP 3 - IDENTITE */}
+            {/* ── STEP 3 — IDENTITÉ ── */}
             {vStep === 3 && (
               <div className="space-y-5">
-                <div>
-                  <h2 className="text-lg font-black italic uppercase tracking-tighter text-white mb-1">Verification d'identite</h2>
-                  <p className="text-zinc-500 text-[11px] font-bold">Documents chiffres - supprimes apres validation.</p>
+                <div className="pb-4 border-b border-[#D5D9D9]">
+                  <h2 className="text-lg font-bold text-[#0F1111] mb-1">Vérification d'identité</h2>
+                  <p className="text-[#565959] text-sm">Documents chiffrés — supprimés après validation.</p>
                 </div>
-                <div className="bg-blue-500/8 border border-blue-500/20 rounded-xl p-4 flex items-start gap-3">
-                  <i className="fa-solid fa-shield-halved text-blue-400 text-sm flex-shrink-0 mt-0.5"></i>
-                  <p className="text-[9px] font-bold text-zinc-500 leading-relaxed">Vos documents sont stockes sur un serveur chiffre AES-256, accessibles uniquement par notre equipe. Conforme a la loi camerounaise N°2010/012.</p>
+                <div className="bg-blue-50 border border-blue-100 rounded p-4 flex items-start gap-3">
+                  <i className="fa-solid fa-shield-halved text-blue-500 text-sm flex-shrink-0 mt-0.5"></i>
+                  <p className="text-sm text-[#565959] leading-relaxed">Vos documents sont stockés sur un serveur chiffré AES-256, accessibles uniquement par notre équipe. Conforme à la loi camerounaise N°2010/012.</p>
                 </div>
                 <div>
-                  <label className="text-[8px] font-black uppercase tracking-widest text-zinc-500 mb-2 block">Type de document *</label>
+                  <label className="block text-[10px] font-bold uppercase tracking-widest text-[#565959] mb-2">Type de document *</label>
                   <div className="grid grid-cols-3 gap-2">
                     {ID_TYPES.map(t => (
                       <button key={t.value} type="button" onClick={() => setVF('id_type', t.value)}
-                        className={`py-3 px-3 rounded-xl border-2 text-[9px] font-black uppercase text-center transition-all ${vForm.id_type === t.value ? 'border-primary bg-primary/15 text-primary' : 'border-white/8 text-zinc-500 hover:border-white/20'}`}>
+                        className={`py-3 px-3 rounded border-2 text-xs font-bold uppercase text-center transition-all ${vForm.id_type === t.value ? 'border-[#232F3E] bg-[#232F3E] text-[#FF9900]' : 'border-[#D5D9D9] text-[#565959] bg-white hover:border-[#FF9900]'}`}>
                         {t.short}
                       </button>
                     ))}
@@ -616,21 +615,25 @@ export default function Register() {
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="text-[8px] font-black uppercase tracking-widest text-zinc-500 mb-1.5 block"><span className="text-primary">+</span> Recto *</label>
+                    <label className="block text-[10px] font-bold uppercase tracking-widest text-[#565959] mb-1.5">
+                      <span className="text-[#FF9900]">+</span> Recto *
+                    </label>
                     <UploadZone label="Face avant" sub="Avec votre photo" onChange={f => handleDocFile('front', f)} preview={frontPreview} />
                   </div>
                   <div>
-                    <label className="text-[8px] font-black uppercase tracking-widest text-zinc-500 mb-1.5 block"><span className="text-primary">+</span> Verso *</label>
-                    <UploadZone label="Face arriere" sub="Dos du document" onChange={f => handleDocFile('back', f)} preview={backPreview} />
+                    <label className="block text-[10px] font-bold uppercase tracking-widest text-[#565959] mb-1.5">
+                      <span className="text-[#FF9900]">+</span> Verso *
+                    </label>
+                    <UploadZone label="Face arrière" sub="Dos du document" onChange={f => handleDocFile('back', f)} preview={backPreview} />
                   </div>
                 </div>
-                <div className="bg-zinc-900 border border-white/5 rounded-xl p-3 grid grid-cols-2 sm:grid-cols-4 gap-3">
-                  {[['fa-sun','Bonne lumiere'],['fa-eye','Texte lisible'],['fa-crop','Doc entier'],['fa-hand','Pas de reflet']].map(([icon, label]) => (
+                <div className="bg-[#F3F4F4] border border-[#D5D9D9] rounded p-3 grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  {[['fa-sun','Bonne lumière'],['fa-eye','Texte lisible'],['fa-crop','Doc entier'],['fa-hand','Pas de reflet']].map(([icon, label]) => (
                     <div key={label} className="flex items-center gap-2">
-                      <div className="w-6 h-6 bg-primary/10 rounded-lg flex items-center justify-center flex-shrink-0">
-                        <i className={`fa-solid ${icon} text-primary text-[9px]`}></i>
+                      <div className="w-6 h-6 bg-[#FF9900]/10 rounded flex items-center justify-center flex-shrink-0">
+                        <i className={`fa-solid ${icon} text-[#FF9900] text-[10px]`}></i>
                       </div>
-                      <span className="text-[8px] font-bold text-zinc-500">{label}</span>
+                      <span className="text-xs text-[#565959]">{label}</span>
                     </div>
                   ))}
                 </div>
@@ -638,96 +641,99 @@ export default function Register() {
               </div>
             )}
 
-            {/* STEP 4 - LIVENESS */}
+            {/* ── STEP 4 — LIVENESS ── */}
             {vStep === 4 && (
               <div className="space-y-5">
-                <div>
-                  <h2 className="text-lg font-black italic uppercase tracking-tighter text-white mb-1">Verification faciale en direct</h2>
-                  <p className="text-zinc-500 text-[11px] font-bold">Un selfie guide pour confirmer que vous etes le detenteur du document.</p>
+                <div className="pb-4 border-b border-[#D5D9D9]">
+                  <h2 className="text-lg font-bold text-[#0F1111] mb-1">Vérification faciale en direct</h2>
+                  <p className="text-[#565959] text-sm">Un selfie guidé pour confirmer que vous êtes le détenteur du document.</p>
                 </div>
 
                 {livenessPhase === 'intro' && !selfieUrl && (
                   <div className="space-y-4">
-                    <div className="bg-zinc-900 border border-white/5 rounded-2xl overflow-hidden">
-                      <div className="p-4 border-b border-white/5 space-y-2.5">
+                    <div className="bg-[#F3F4F4] border border-[#D5D9D9] rounded overflow-hidden">
+                      <div className="p-4 border-b border-[#D5D9D9] space-y-2.5">
                         {LIVENESS_STEPS.map((s, i) => (
                           <div key={s.id} className="flex items-center gap-3">
-                            <div className="w-7 h-7 bg-white/5 rounded-lg flex items-center justify-center flex-shrink-0">
+                            <div className="w-7 h-7 bg-white border border-[#D5D9D9] rounded flex items-center justify-center flex-shrink-0">
                               <i className={`fa-solid ${s.icon} ${s.color} text-xs`}></i>
                             </div>
-                            <p className="text-[10px] font-bold text-zinc-400">{i + 1}. {s.label}</p>
+                            <p className="text-sm text-[#565959]">{i + 1}. {s.label}</p>
                           </div>
                         ))}
                       </div>
                       <div className="p-4 grid grid-cols-3 gap-3">
-                        {[['fa-lightbulb','Bonne lumiere','Face a une fenetre'],['fa-glasses','Lunettes OK','Pas de masque'],['fa-wifi','Connexion stable','WiFi recommande']].map(([icon, label, sub]) => (
+                        {[['fa-lightbulb','Bonne lumière','Face à une fenêtre'],['fa-glasses','Lunettes OK','Pas de masque'],['fa-wifi','Connexion stable','WiFi recommandé']].map(([icon, label, sub]) => (
                           <div key={label} className="text-center">
-                            <div className="w-9 h-9 bg-primary/10 rounded-xl flex items-center justify-center mx-auto mb-1.5">
-                              <i className={`fa-solid ${icon} text-primary text-sm`}></i>
+                            <div className="w-9 h-9 bg-[#FF9900]/10 border border-[#FF9900]/20 rounded flex items-center justify-center mx-auto mb-1.5">
+                              <i className={`fa-solid ${icon} text-[#FF9900] text-sm`}></i>
                             </div>
-                            <p className="text-[8px] font-black text-white uppercase">{label}</p>
-                            <p className="text-[7px] text-zinc-600 font-bold">{sub}</p>
+                            <p className="text-xs font-bold text-[#0F1111]">{label}</p>
+                            <p className="text-[10px] text-[#565959]">{sub}</p>
                           </div>
                         ))}
                       </div>
                     </div>
                     <button onClick={startCamera}
-                      className="w-full flex items-center justify-center gap-3 bg-primary text-black py-3.5 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-white transition">
-                      <i className="fa-solid fa-camera text-sm"></i> Demarrer la verification
+                      className="w-full flex items-center justify-center gap-3 bg-[#FFD814] hover:bg-[#F7CA00] text-[#0F1111] border border-[#FCD200] py-3.5 rounded font-bold text-sm transition active:scale-95">
+                      <i className="fa-solid fa-camera text-sm"></i> Démarrer la vérification
                     </button>
                   </div>
                 )}
 
                 {livenessPhase === 'stream' && (
                   <div className="space-y-3">
-                    <div className="relative bg-black rounded-2xl overflow-hidden aspect-video">
+                    <div className="relative bg-black rounded overflow-hidden aspect-video">
                       <video ref={videoRef} autoPlay muted playsInline className="w-full h-full object-cover scale-x-[-1]" />
                       <canvas ref={canvasRef} className="hidden" />
                       <div className="absolute inset-0 flex items-center justify-center">
-                        <div className="w-40 h-52 border-4 border-primary/70 rounded-full opacity-70" style={{ boxShadow: '0 0 0 9999px rgba(0,0,0,0.45)' }} />
+                        <div className="w-40 h-52 border-4 border-[#FF9900]/70 rounded-full opacity-80" style={{ boxShadow: '0 0 0 9999px rgba(0,0,0,0.45)' }} />
                       </div>
                       <div className="absolute top-3 left-0 right-0 flex justify-center">
-                        <div className={`flex items-center gap-2 bg-black/70 border border-white/10 px-3 py-2 rounded-full ${currentLivenessStep.color}`}>
+                        <div className={`flex items-center gap-2 bg-black/70 border border-white/20 px-3 py-2 rounded-full text-white ${currentLivenessStep.color}`}>
                           <i className={`fa-solid ${currentLivenessStep.icon} text-sm`}></i>
-                          <span className="text-[10px] font-black uppercase">{currentLivenessStep.label}</span>
+                          <span className="text-xs font-bold">{currentLivenessStep.label}</span>
                         </div>
                       </div>
                       {countdown !== null && (
                         <div className="absolute inset-0 flex items-center justify-center bg-black/30 backdrop-blur-sm">
-                          <div className="text-7xl font-black text-primary animate-pulse">{countdown}</div>
+                          <div className="text-7xl font-bold text-[#FF9900] animate-pulse">{countdown}</div>
                         </div>
                       )}
                       <div className="absolute bottom-3 left-0 right-0 flex justify-center gap-1.5">
                         {LIVENESS_STEPS.map((_, i) => (
-                          <div key={i} className={`w-1.5 h-1.5 rounded-full transition-all ${i <= livenessIdx ? 'bg-primary scale-125' : 'bg-white/30'}`} />
+                          <div key={i} className={`w-1.5 h-1.5 rounded-full transition-all ${i <= livenessIdx ? 'bg-[#FF9900] scale-125' : 'bg-white/30'}`} />
                         ))}
                       </div>
                     </div>
-                    <p className="text-[8px] font-bold text-zinc-600 text-center">Suivez les instructions - Capture automatique</p>
+                    <p className="text-xs text-[#565959] text-center">Suivez les instructions — Capture automatique</p>
                   </div>
                 )}
 
                 {(livenessPhase === 'done' || selfieUrl) && selfieUrl && (
                   <div className="space-y-3">
-                    <div className="relative rounded-2xl overflow-hidden">
+                    <div className="relative rounded overflow-hidden">
                       <img src={selfieUrl} alt="Selfie" className="w-full max-h-64 object-cover scale-x-[-1]" />
-                      <div className="absolute top-2.5 right-2.5 bg-primary text-black text-[7px] font-black px-2.5 py-1 rounded-full uppercase flex items-center gap-1">
-                        <i className="fa-solid fa-check text-[8px]"></i> Selfie capture
+                      <div className="absolute top-2.5 right-2.5 bg-[#FF9900] text-[#0F1111] text-xs font-bold px-2.5 py-1 rounded flex items-center gap-1">
+                        <i className="fa-solid fa-check text-xs"></i> Selfie capturé
                       </div>
                     </div>
                     <button onClick={retryLiveness}
-                      className="w-full flex items-center justify-center gap-2 border border-white/10 text-zinc-400 py-2.5 rounded-xl font-black text-[9px] uppercase tracking-widest hover:border-primary/30 hover:text-primary transition">
+                      className="w-full flex items-center justify-center gap-2 border border-[#D5D9D9] text-[#565959] py-2.5 rounded font-bold text-sm hover:border-[#FF9900] hover:text-[#FF9900] transition">
                       <i className="fa-solid fa-rotate-left text-xs"></i> Reprendre le selfie
                     </button>
                   </div>
                 )}
 
                 {livenessPhase === 'error' && (
-                  <div className="bg-red-500/8 border border-red-500/20 rounded-2xl p-5 text-center">
+                  <div className="bg-red-50 border border-red-200 rounded p-5 text-center">
                     <i className="fa-solid fa-camera-slash text-red-400 text-2xl mb-2 block"></i>
-                    <p className="font-black text-red-300 text-sm mb-1">Acces camera requis</p>
-                    <p className="text-[9px] text-zinc-500 font-bold mb-4">{camError}</p>
-                    <button onClick={startCamera} className="bg-primary text-black px-5 py-2 rounded-xl font-black text-[9px] uppercase tracking-widest hover:bg-white transition">Reessayer</button>
+                    <p className="font-bold text-red-600 text-sm mb-1">Accès caméra requis</p>
+                    <p className="text-xs text-[#565959] mb-4">{camError}</p>
+                    <button onClick={startCamera}
+                      className="bg-[#FFD814] hover:bg-[#F7CA00] text-[#0F1111] border border-[#FCD200] px-5 py-2 rounded font-bold text-sm transition">
+                      Réessayer
+                    </button>
                   </div>
                 )}
 
@@ -736,76 +742,90 @@ export default function Register() {
               </div>
             )}
 
-            {/* STEP 5 - REVIEW */}
+            {/* ── STEP 5 — RÉCAPITULATIF ── */}
             {vStep === 5 && (
               <div className="space-y-5">
-                <div>
-                  <h2 className="text-lg font-black italic uppercase tracking-tighter text-white mb-1">Recapitulatif</h2>
-                  <p className="text-zinc-500 text-[11px] font-bold">Verifiez vos informations avant de soumettre.</p>
+                <div className="pb-4 border-b border-[#D5D9D9]">
+                  <h2 className="text-lg font-bold text-[#0F1111] mb-1">Récapitulatif</h2>
+                  <p className="text-[#565959] text-sm">Vérifiez vos informations avant de soumettre.</p>
                 </div>
-                <div className="bg-zinc-900 border border-white/5 rounded-2xl overflow-hidden divide-y divide-white/5">
+                <div className="bg-[#F3F4F4] border border-[#D5D9D9] rounded overflow-hidden divide-y divide-[#D5D9D9]">
                   <div className="p-4">
-                    <p className="text-[7px] font-black uppercase tracking-widest text-zinc-600 mb-2">Boutique</p>
-                    <div className="grid grid-cols-2 gap-2">
-                      {[['Nom', vForm.shop_name],['Gerant', vForm.full_name],['Telephone', vForm.phone],['Ville', vForm.city],['Categorie', vForm.category],['Plan', vForm.plan.toUpperCase()]].map(([k, v]) => (
-                        <div key={k}><p className="text-[7px] text-zinc-600 font-bold uppercase">{k}</p><p className="text-[10px] font-black text-white mt-0.5">{v || 'N/A'}</p></div>
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-[#565959] mb-3">Boutique</p>
+                    <div className="grid grid-cols-2 gap-3">
+                      {[['Nom', vForm.shop_name],['Gérant', vForm.full_name],['Téléphone', vForm.phone],['Ville', vForm.city],['Catégorie', vForm.category],['Plan', vForm.plan.toUpperCase()]].map(([k, v]) => (
+                        <div key={k}>
+                          <p className="text-[10px] text-[#565959] font-bold uppercase">{k}</p>
+                          <p className="text-sm font-bold text-[#0F1111] mt-0.5">{v || 'N/A'}</p>
+                        </div>
                       ))}
                     </div>
                   </div>
                   <div className="p-4 flex items-center justify-between">
-                    <div><p className="text-[7px] font-black uppercase tracking-widest text-zinc-600 mb-0.5">Plan choisi</p><p className="font-black text-primary text-base uppercase italic">{PLANS.find(p => p.id === vForm.plan)?.name}</p></div>
-                    <p className="font-black text-white text-lg italic">{vForm.plan === 'starter' ? 'Gratuit' : `${PLANS.find(p=>p.id===vForm.plan)?.price?.toLocaleString()} FCFA/mois`}</p>
+                    <div>
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-[#565959] mb-0.5">Plan choisi</p>
+                      <p className="font-bold text-[#FF9900] text-base uppercase">{PLANS.find(p => p.id === vForm.plan)?.name}</p>
+                    </div>
+                    <p className="font-bold text-[#0F1111] text-lg">{vForm.plan === 'starter' ? 'Gratuit' : `${PLANS.find(p=>p.id===vForm.plan)?.price?.toLocaleString()} FCFA/mois`}</p>
                   </div>
                   <div className="p-4">
-                    <p className="text-[7px] font-black uppercase tracking-widest text-zinc-600 mb-3">Documents soumis</p>
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-[#565959] mb-3">Documents soumis</p>
                     <div className="flex gap-4">
                       {[['fa-id-card','Recto'],['fa-id-card','Verso'],['fa-face-smile','Selfie']].map(([icon, label], i) => (
                         <div key={label} className="text-center">
                           {i === 2 && selfieUrl
-                            ? <img src={selfieUrl} alt="" className="w-10 h-10 object-cover rounded-xl mx-auto mb-1 scale-x-[-1]" />
-                            : <div className="w-10 h-10 bg-primary/10 border border-primary/20 rounded-xl flex items-center justify-center mx-auto mb-1"><i className={`fa-solid ${icon} text-primary text-sm`}></i></div>}
-                          <p className="text-[7px] font-black text-primary uppercase">{label} v</p>
+                            ? <img src={selfieUrl} alt="" className="w-10 h-10 object-cover rounded mx-auto mb-1 scale-x-[-1]" />
+                            : <div className="w-10 h-10 bg-[#FF9900]/10 border border-[#FF9900]/20 rounded flex items-center justify-center mx-auto mb-1"><i className={`fa-solid ${icon} text-[#FF9900] text-sm`}></i></div>}
+                          <p className="text-[9px] font-bold text-[#FF9900] uppercase">{label} ✓</p>
                         </div>
                       ))}
                     </div>
                   </div>
                   <div className="p-4">
-                    <p className="text-[7px] font-black uppercase tracking-widest text-zinc-600 mb-3">Prochaines etapes</p>
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-[#565959] mb-3">Prochaines étapes</p>
                     <div className="space-y-2.5">
-                      {[['fa-paper-plane','Soumission','Maintenant','text-primary'],['fa-eye','Verification identite','24-48h','text-blue-400'],['fa-store','Activation boutique','Apres validation','text-yellow-400'],['fa-credit-card','Paiement plan','Si Pro / Elite','text-purple-400']].map(([icon,label,time,color]) => (
+                      {[
+                        ['fa-paper-plane','Soumission','Maintenant','text-[#FF9900]'],
+                        ['fa-eye','Vérification identité','24–48h','text-blue-500'],
+                        ['fa-store','Activation boutique','Après validation','text-yellow-600'],
+                        ['fa-credit-card','Paiement plan','Si Pro / Elite','text-purple-500']
+                      ].map(([icon,label,time,color]) => (
                         <div key={label} className="flex items-center gap-2.5">
-                          <div className="w-7 h-7 bg-white/5 rounded-lg flex items-center justify-center flex-shrink-0">
-                            <i className={`fa-solid ${icon} ${color} text-[9px]`}></i>
+                          <div className="w-7 h-7 bg-white border border-[#D5D9D9] rounded flex items-center justify-center flex-shrink-0">
+                            <i className={`fa-solid ${icon} ${color} text-xs`}></i>
                           </div>
-                          <div><p className="text-[9px] font-black text-white uppercase">{label}</p><p className="text-[7px] text-zinc-600 font-bold">{time}</p></div>
+                          <div>
+                            <p className="text-sm font-bold text-[#0F1111]">{label}</p>
+                            <p className="text-[10px] text-[#565959]">{time}</p>
+                          </div>
                         </div>
                       ))}
                     </div>
                   </div>
                 </div>
 
-                <label className="flex items-start gap-3 cursor-pointer p-3 bg-zinc-900 border border-white/5 rounded-xl hover:border-primary/20 transition">
-                  <input type="checkbox" checked={rgpdOk} onChange={e => setRgpdOk(e.target.checked)} className="accent-primary w-4 h-4 mt-0.5 flex-shrink-0" />
-                  <p className="text-[9px] font-bold text-zinc-400 leading-relaxed">
+                <label className="flex items-start gap-3 cursor-pointer p-3 bg-[#F3F4F4] border border-[#D5D9D9] rounded hover:border-[#FF9900] transition">
+                  <input type="checkbox" checked={rgpdOk} onChange={e => setRgpdOk(e.target.checked)}
+                    className="w-4 h-4 mt-0.5 flex-shrink-0 accent-[#FF9900]" />
+                  <p className="text-sm text-[#565959] leading-relaxed">
                     J'atteste que les informations sont exactes et que les documents m'appartiennent. J'accepte les{' '}
-                    <span className="text-primary underline cursor-pointer">conditions d'utilisation</span> et la{' '}
-                    <span className="text-primary underline cursor-pointer">politique de confidentialite</span> d'OFS Elite.
+                    <span className="text-[#007185] underline cursor-pointer">conditions d'utilisation</span> et la{' '}
+                    <span className="text-[#007185] underline cursor-pointer">politique de confidentialité</span> d'OFS Elite.
                   </p>
                 </label>
 
-                {error && <p className="text-[8px] font-bold text-red-400 bg-red-500/8 border border-red-500/20 p-2 rounded-lg text-center uppercase">{error}</p>}
-
+                {error && <p className="text-sm text-red-600 bg-red-50 border border-red-200 p-3 rounded text-center">{error}</p>}
                 <NavBtns onBack={() => setVStep(4)} onNext={handleVendorSubmit} nextLabel="Soumettre la demande" nextDisabled={!rgpdOk} loading={loading} />
               </div>
             )}
           </div>
 
-          <p className="mt-5 text-center text-[7px] font-bold text-zinc-700 leading-relaxed">
-            OneFreestyle Elite - Verification KYC conforme a la loi camerounaise N 2010/012 - support@onefreestyle.cm
+          <p className="mt-4 text-center text-xs text-[#565959]">
+            OneFreestyle Elite · Vérification KYC conforme à la loi camerounaise N°2010/012 · support@onefreestyle.cm
           </p>
-          <p className="mt-3 text-center text-[9px] font-bold text-zinc-600">
-            Deja inscrit ?{' '}
-            <Link to="/login" className="text-primary border-b border-primary pb-0.5 ml-1 hover:text-white transition">Se connecter</Link>
+          <p className="mt-2 text-center text-sm text-[#565959]">
+            Déjà inscrit ?{' '}
+            <Link to="/login" className="text-[#007185] hover:text-[#C45500] hover:underline ml-1">Se connecter</Link>
           </p>
         </div>
       </div>
@@ -814,105 +834,124 @@ export default function Register() {
 
   // ─── MEMBER FLOW ─────────────────────────────────────────────────
   return (
-    <div className="h-screen w-full bg-white flex overflow-hidden font-sans select-none">
+    <div className="min-h-screen w-full bg-[#EAEDED] flex overflow-hidden font-sans select-none">
 
-      {/* Panel gauche */}
-      <div className="hidden lg:flex lg:w-[40%] relative flex-col justify-between p-10 overflow-hidden bg-[#0a0a0a] border-r border-zinc-800">
+      {/* Panel gauche — Amazon navy */}
+      <div className="hidden lg:flex lg:w-[38%] relative flex-col justify-between p-10 overflow-hidden bg-[#131921]">
         <div className="absolute inset-0 z-0">
           <img src="https://images.unsplash.com/photo-1490481651871-ab68de25d43d?auto=format&fit=crop&q=80"
-            className="w-full h-full object-cover opacity-20 grayscale transition-transform duration-[20s] hover:scale-110" alt="" />
-          <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent" />
+            className="w-full h-full object-cover opacity-10 grayscale" alt="" />
+          <div className="absolute inset-0 bg-gradient-to-t from-[#131921] via-[#131921]/60 to-transparent" />
         </div>
         <Link to="/" className="relative z-10 flex items-center gap-2">
           <img src={ofsLogo} alt="Logo" className="w-6 h-6 object-contain invert" />
-          <span className="text-white text-xs font-black tracking-[0.3em] uppercase italic">OFS Elite</span>
+          <span className="text-white text-sm font-bold tracking-wide">One<span className="text-[#FF9900]">Freestyle</span></span>
         </Link>
-        <div className="relative z-10 space-y-4">
-          <h2 className="text-3xl font-bold text-white tracking-tighter leading-tight">
-            The Access<br /><span className="text-primary italic">Redefined.</span>
+        <div className="relative z-10 space-y-5">
+          <h2 className="text-3xl font-bold text-white leading-tight">
+            Rejoignez<br /><span className="text-[#FF9900]">l'élite.</span>
           </h2>
           {refStatus === 'valid' && refOwner && (
-            <div className="bg-primary/10 border border-primary/30 rounded-xl p-3 space-y-1">
-              <div className="flex items-center gap-1.5"><Ico.Gift /><span className="text-primary text-[8px] font-black uppercase tracking-widest">Offre Parrainage Active</span></div>
-              <p className="text-white/70 text-[9px] leading-relaxed">Invite par <span className="text-white font-bold">{refOwner.full_name}</span> — recevez <span className="text-primary font-black">+50 pts</span> a l'inscription.</p>
+            <div className="bg-[#FF9900]/10 border border-[#FF9900]/30 rounded p-3 space-y-1">
+              <div className="flex items-center gap-1.5">
+                <Ico.Gift />
+                <span className="text-[#FF9900] text-xs font-bold uppercase tracking-widest">Offre Parrainage Active</span>
+              </div>
+              <p className="text-[#ADBAC7] text-xs leading-relaxed">
+                Invité par <span className="text-white font-bold">{refOwner.full_name}</span> — recevez <span className="text-[#FF9900] font-bold">+50 pts</span> à l'inscription.
+              </p>
             </div>
           )}
-          <div className="space-y-1.5">
-            {['Standard de Qualite Global', 'Reseau de Logistique Integree', 'Securite Transactionnelle SSL'].map((t, i) => (
-              <div key={i} className="flex items-center gap-2 text-zinc-500 text-[10px] font-bold uppercase tracking-widest">
-                <Ico.Check /> {t}
+          <div className="space-y-2">
+            {['Qualité Elite Certifiée', 'Livraison Express Douala', 'Paiement Sécurisé SSL'].map((t, i) => (
+              <div key={i} className="flex items-center gap-2 text-[#ADBAC7] text-sm">
+                <i className="fa-solid fa-check text-[#FF9900] text-xs"></i> {t}
               </div>
             ))}
           </div>
         </div>
         <div className="relative z-10">
-          <div className="h-[1px] w-6 bg-primary mb-2" />
-          <p className="text-zinc-600 text-[8px] font-bold tracking-[0.4em] uppercase">2026 OFS System</p>
+          <div className="h-px w-8 bg-[#FF9900] mb-2" />
+          <p className="text-[#37475A] text-xs tracking-widest uppercase">© 2026 OFS System</p>
         </div>
       </div>
 
       {/* Panel droit */}
-      <div className="w-full lg:w-[60%] h-full flex flex-col justify-center items-center bg-white p-4 relative overflow-hidden">
-        <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-[0.03]">
-          <img src={ofsLogo} alt="" className="w-96 h-96 object-contain" />
-        </div>
-        <div className="w-full max-w-[320px] z-10">
-          <header className="mb-6 text-center lg:text-left">
-            <h1 className="text-xl font-black italic uppercase tracking-tighter text-zinc-900 leading-none">Create Profile</h1>
-            <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-[0.3em] mt-1">Marketplace Tier-1 Protocol</p>
+      <div className="w-full lg:w-[62%] flex flex-col justify-center items-center bg-white p-6 relative overflow-y-auto">
+        <div className="w-full max-w-[380px]">
+
+          {/* Mobile logo */}
+          <div className="flex lg:hidden items-center gap-2 mb-6">
+            <img src={ofsLogo} alt="Logo" className="w-6 h-6 object-contain" />
+            <span className="text-[#0F1111] text-sm font-bold">One<span className="text-[#FF9900]">Freestyle</span></span>
+          </div>
+
+          <header className="mb-6">
+            <h1 className="text-2xl font-bold text-[#0F1111] leading-none mb-1">Créer un compte</h1>
+            <p className="text-sm text-[#565959]">Accès gratuit · Avantages membres immédiats</p>
           </header>
 
-          {/* Selector */}
-          <div className="flex bg-zinc-50 p-1 rounded-xl mb-5 border border-zinc-100">
-            {['member','vendor'].map(f => (
-              <button key={f} onClick={() => setFlow(f)}
-                className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-[8px] font-black uppercase tracking-widest transition-all duration-300 ${flow === f ? 'bg-white text-zinc-900 shadow-sm border border-zinc-100' : 'text-zinc-400 hover:text-zinc-500'}`}>
-                {f === 'member' ? <Ico.User /> : <Ico.Business />}
-                {f === 'member' ? 'Personal' : 'Business'}
+          {/* Type selector */}
+          <div className="flex bg-[#F3F4F4] p-1 rounded border border-[#D5D9D9] mb-5">
+            {[
+              { key: 'member',  label: 'Client',   icon: <Ico.User />,     desc: 'Acheter & profiter' },
+              { key: 'vendor',  label: 'Vendeur',  icon: <Ico.Business />, desc: 'Vendre sur OFS'    },
+            ].map(f => (
+              <button key={f.key} onClick={() => f.key === 'vendor' ? setFlow('vendor') : setFlow('member')}
+                className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded text-sm font-bold transition-all ${flow === f.key ? 'bg-white text-[#0F1111] shadow border border-[#D5D9D9]' : 'text-[#565959] hover:text-[#0F1111]'}`}>
+                {f.icon}
+                <span>{f.label}</span>
               </button>
             ))}
           </div>
 
-          <form onSubmit={handleMemberSubmit} className="space-y-3 max-h-[65vh] overflow-y-auto pr-1">
-            <div className="space-y-1">
-              <label className="text-[8px] font-black text-zinc-500 uppercase tracking-widest ml-1">Identity</label>
-              <input type="text" required value={mForm.displayName} onChange={e => setMForm(p => ({ ...p, displayName: e.target.value }))}
-                className="w-full bg-zinc-50/50 border border-zinc-100 focus:border-zinc-900 p-2.5 rounded-lg text-xs font-bold outline-none transition-all placeholder:text-zinc-300"
-                placeholder="NOM COMPLET" />
+          <form onSubmit={handleMemberSubmit} className="space-y-4">
+            <div>
+              <label className="block text-[10px] font-bold uppercase tracking-widest text-[#565959] mb-1.5">Nom complet *</label>
+              <input type="text" required value={mForm.displayName}
+                onChange={e => setMForm(p => ({ ...p, displayName: e.target.value }))}
+                className="w-full bg-white border border-[#D5D9D9] focus:border-[#FF9900] focus:outline-none rounded px-3 py-2.5 text-sm text-[#0F1111] placeholder-[#adb5bd] transition-colors"
+                placeholder="Votre nom et prénom" />
             </div>
-            <div className="space-y-1">
-              <label className="text-[8px] font-black text-zinc-500 uppercase tracking-widest ml-1">Security Mail</label>
-              <input type="email" required value={mForm.email} onChange={e => setMForm(p => ({ ...p, email: e.target.value }))}
-                className="w-full bg-zinc-50/50 border border-zinc-100 focus:border-zinc-900 p-2.5 rounded-lg text-xs font-bold outline-none transition-all placeholder:text-zinc-300"
-                placeholder="PRO@OFS.CM" />
+            <div>
+              <label className="block text-[10px] font-bold uppercase tracking-widest text-[#565959] mb-1.5">Adresse email *</label>
+              <input type="email" required value={mForm.email}
+                onChange={e => setMForm(p => ({ ...p, email: e.target.value }))}
+                className="w-full bg-white border border-[#D5D9D9] focus:border-[#FF9900] focus:outline-none rounded px-3 py-2.5 text-sm text-[#0F1111] placeholder-[#adb5bd] transition-colors"
+                placeholder="votre@email.com" />
             </div>
-            <div className="grid grid-cols-2 gap-2">
-              {[['password','Key'],['confirm','Verify']].map(([k, label]) => (
-                <div key={k} className="space-y-1">
-                  <label className="text-[8px] font-black text-zinc-500 uppercase tracking-widest ml-1">{label}</label>
-                  <input type="password" required value={mForm[k]} onChange={e => setMForm(p => ({ ...p, [k]: e.target.value }))}
-                    className="w-full bg-zinc-50/50 border border-zinc-100 focus:border-zinc-900 p-2.5 rounded-lg text-xs font-bold outline-none transition-all"
+            <div className="grid grid-cols-2 gap-3">
+              {[['password','Mot de passe *'],['confirm','Confirmer *']].map(([k, label]) => (
+                <div key={k}>
+                  <label className="block text-[10px] font-bold uppercase tracking-widest text-[#565959] mb-1.5">{label}</label>
+                  <input type="password" required value={mForm[k]}
+                    onChange={e => setMForm(p => ({ ...p, [k]: e.target.value }))}
+                    className="w-full bg-white border border-[#D5D9D9] focus:border-[#FF9900] focus:outline-none rounded px-3 py-2.5 text-sm text-[#0F1111] transition-colors"
                     placeholder="••••••••" />
                 </div>
               ))}
             </div>
 
-            <ReferralInput refInput={refInput} setRefInput={setRefInput} refStatus={refStatus} refOwner={refOwner} clearRef={clearRef} dark={false} />
+            <ReferralInput refInput={refInput} setRefInput={setRefInput} refStatus={refStatus} refOwner={refOwner} clearRef={clearRef} />
 
-            {error   && <p className="text-[8px] font-bold text-red-500 bg-red-50 p-2 rounded border border-red-100 text-center uppercase tracking-widest">{error}</p>}
-            {success && <p className="text-[8px] font-bold text-emerald-600 bg-emerald-50 p-2 rounded border border-emerald-100 text-center uppercase tracking-widest">{success}</p>}
+            {error   && <p className="text-sm text-red-600 bg-red-50 border border-red-200 p-3 rounded text-center">{error}</p>}
+            {success && <p className="text-sm text-[#007600] bg-green-50 border border-green-200 p-3 rounded text-center">{success}</p>}
 
             <button disabled={loading}
-              className="w-full py-3.5 rounded-xl text-[9px] font-black uppercase tracking-[0.3em] transition-all relative overflow-hidden group shadow-lg active:scale-[0.97] mt-2 bg-zinc-900 text-white disabled:opacity-50">
-              <div className="absolute inset-0 bg-white/20 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-500" />
-              {loading ? 'PROCESSING...' : 'INITIALIZE ACCESS'}
+              className="w-full py-3.5 rounded font-bold text-sm transition-all bg-[#FFD814] hover:bg-[#F7CA00] text-[#0F1111] border border-[#FCD200] shadow-sm active:scale-[0.98] disabled:opacity-50 mt-1">
+              {loading ? 'Création en cours...' : 'Créer mon compte'}
             </button>
           </form>
 
-          <footer className="mt-5 text-center text-[9px] font-bold text-zinc-400 tracking-tight">
-            ALREADY REGISTERED ?{' '}
-            <Link to="/login" className="text-zinc-900 border-b border-primary pb-0.5 ml-1 hover:text-primary transition">SIGN IN</Link>
-          </footer>
+          <p className="text-xs text-[#565959] mt-3 text-center leading-relaxed">
+            En créant un compte, vous acceptez nos{' '}
+            <span className="text-[#007185] underline cursor-pointer">conditions d'utilisation</span>.
+          </p>
+
+          <div className="mt-5 pt-5 border-t border-[#D5D9D9] text-center">
+            <span className="text-sm text-[#565959]">Déjà un compte ? </span>
+            <Link to="/login" className="text-sm text-[#007185] hover:text-[#C45500] hover:underline font-bold">Se connecter</Link>
+          </div>
         </div>
       </div>
     </div>
