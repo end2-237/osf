@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { Link, useSearchParams, useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../context/AuthContext";
@@ -360,15 +360,9 @@ const SearchPage = ({ openModal, addToCart }) => {
   const navigate = useNavigate();
   const { isMember } = useAuth();
 
-  const initialQuery = searchParams.get("q") || "";
-
-  const [inputVal,       setInputVal]       = useState(initialQuery);
-  const [query,          setQuery]          = useState(initialQuery);
-  const [suggestions,    setSuggestions]    = useState([]);
-  const [showSugg,       setShowSugg]       = useState(false);
+  const [query,          setQuery]          = useState(searchParams.get("q") || "");
   const [products,       setProducts]       = useState([]);
   const [vendors,        setVendors]        = useState([]);
-  const [loading,        setLoading]        = useState(false);
   const [activeCategory, setActiveCategory] = useState("All");
   const [activePriceRange, setActivePriceRange] = useState(null);
   const [activeVendors,  setActiveVendors]  = useState(new Set());
@@ -377,76 +371,39 @@ const SearchPage = ({ openModal, addToCart }) => {
   const [flashDeals,     setFlashDeals]     = useState([]);
   const [showMobileFilters, setShowMobileFilters] = useState(false);
 
-  const inputRef  = useRef(null);
-  const suggRef   = useRef(null);
-  const debounceT = useRef(null);
-
-  // ── FETCH ALL PRODUCTS (pour suggestions et résultats) ─────────────────────
+  // ── FETCH PRODUCTS ────────────────────────────────────────────────────────
   useEffect(() => {
-    const fetchAll = async () => {
-      const { data } = await supabase
-        .from("products")
-        .select("*, vendor:vendors!vendor_id(id, shop_name, member_discount_enabled)")
-        .order("created_at", { ascending: false });
-      setProducts(data || []);
-      setFlashDeals((data || []).slice(0, 8));
-
-      const uniqueVendors = [];
-      const seen = new Set();
-      (data || []).forEach(p => {
-        if (p.vendor && !seen.has(p.vendor.id)) {
-          seen.add(p.vendor.id);
-          uniqueVendors.push(p.vendor);
-        }
+    supabase
+      .from("products")
+      .select("*, vendor:vendors!vendor_id(id, shop_name, member_discount_enabled)")
+      .order("created_at", { ascending: false })
+      .then(({ data }) => {
+        setProducts(data || []);
+        setFlashDeals((data || []).slice(0, 8));
+        const seen = new Set();
+        const uniqueVendors = [];
+        (data || []).forEach(p => {
+          if (p.vendor && !seen.has(p.vendor.id)) {
+            seen.add(p.vendor.id);
+            uniqueVendors.push(p.vendor);
+          }
+        });
+        setVendors(uniqueVendors);
       });
-      setVendors(uniqueVendors);
-    };
-    fetchAll();
   }, []);
 
-  // ── SYNC query depuis URL ──────────────────────────────────────────────────
+  // ── SYNC query depuis URL ─────────────────────────────────────────────────
   useEffect(() => {
-    const q = searchParams.get("q") || "";
-    setQuery(q);
-    setInputVal(q);
-  }, [searchParams]);
-
-  // ── LIVE SUGGESTIONS ──────────────────────────────────────────────────────
-  useEffect(() => {
-    clearTimeout(debounceT.current);
-    if (!inputVal.trim() || inputVal.length < 2) { setSuggestions([]); return; }
-    debounceT.current = setTimeout(() => {
-      const q = inputVal.toLowerCase();
-      const matched = products
-        .filter(p => p.name.toLowerCase().includes(q) || p.type?.toLowerCase().includes(q))
-        .slice(0, 6);
-      setSuggestions(matched);
-      setShowSugg(matched.length > 0);
-    }, 200);
-    return () => clearTimeout(debounceT.current);
-  }, [inputVal, products]);
-
-  // ── CLOSE suggestions on outside click ────────────────────────────────────
-  useEffect(() => {
-    const handler = (e) => {
-      if (!suggRef.current?.contains(e.target) && !inputRef.current?.contains(e.target)) {
-        setShowSugg(false);
-      }
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, []);
-
-  const submitSearch = (q) => {
-    const trimmed = (q ?? inputVal).trim();
-    if (!trimmed) return;
-    setSearchParams({ q: trimmed });
-    setQuery(trimmed);
-    setInputVal(trimmed);
-    setShowSugg(false);
+    setQuery(searchParams.get("q") || "");
     setActiveCategory("All");
     setActivePriceRange(null);
     setActiveVendors(new Set());
+  }, [searchParams]);
+
+  const submitSearch = (q) => {
+    const trimmed = String(q ?? "").trim();
+    if (!trimmed) return;
+    setSearchParams({ q: trimmed });
   };
 
   const toggleVendor = (id) => {
@@ -499,107 +456,25 @@ const SearchPage = ({ openModal, addToCart }) => {
   const activeFiltersCount = (activeCategory !== "All" ? 1 : 0) + (activePriceRange !== null ? 1 : 0) + activeVendors.size + (memberOnly ? 1 : 0);
 
   return (
-    <div className="min-h-screen bg-[#EAEDED]" style={{ paddingTop: 90 }}>
+    <div className="min-h-screen bg-[#EAEDED] pt-[166px] md:pt-[128px]">
 
-      {/* ═══ SEARCH HERO ═══ */}
-      <div className="bg-[#131921] border-b border-[#232F3E] sticky top-[90px] z-40">
-        <div className="max-w-[1600px] mx-auto px-4 md:px-8 py-4">
-          <div className="relative max-w-3xl mx-auto" ref={suggRef}>
-            <form onSubmit={(e) => { e.preventDefault(); submitSearch(); }} className="flex">
-              {/* CATEGORY SELECT */}
-              <div className="hidden md:flex items-center">
-                <select
-                  value={activeCategory}
-                  onChange={e => { setActiveCategory(e.target.value); }}
-                  className="h-full bg-[#EAEDED] border-y border-l border-[#D5D9D9] rounded-l px-3 py-0 text-[10px] font-bold text-[#0F1111] focus:outline-none cursor-pointer"
-                  style={{ height: 44 }}
-                >
-                  <option value="All">Toutes catégories</option>
-                  {CATEGORIES.filter(c => c.key !== "All").map(c => (
-                    <option key={c.key} value={c.key}>{c.label}</option>
-                  ))}
-                </select>
-                <div className="w-px bg-[#D5D9D9] self-stretch" />
-              </div>
-
-              {/* INPUT */}
-              <div className="relative flex-1">
-                <input
-                  ref={inputRef}
-                  type="text"
-                  value={inputVal}
-                  onChange={e => { setInputVal(e.target.value); setShowSugg(true); }}
-                  onFocus={() => suggestions.length && setShowSugg(true)}
-                  placeholder="Rechercher un produit, une marque, une catégorie..."
-                  className="w-full h-11 bg-white border-y border-[#D5D9D9] md:border-l-0 px-4 text-sm text-[#0F1111] placeholder-[#adb5bd] focus:outline-none focus:border-[#FF9900]"
-                />
-                {inputVal && (
-                  <button type="button" onClick={() => { setInputVal(""); setQuery(""); setSearchParams({}); setSuggestions([]); }}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-[#adb5bd] hover:text-[#565959] transition-colors"
-                  >
-                    <i className="fa-solid fa-xmark text-sm"></i>
-                  </button>
-                )}
-              </div>
-
-              {/* SUBMIT */}
-              <button type="submit"
-                className="bg-[#FF9900] hover:bg-[#E47911] h-11 px-5 rounded-r flex items-center justify-center transition-colors flex-shrink-0"
-              >
-                <i className="fa-solid fa-magnifying-glass text-[#0F1111] text-base"></i>
-              </button>
-            </form>
-
-            {/* SUGGESTIONS DROPDOWN */}
-            {showSugg && suggestions.length > 0 && (
-              <div className="absolute top-full left-0 right-0 bg-white border border-[#D5D9D9] rounded-b shadow-xl z-50 overflow-hidden">
-                {suggestions.map(p => (
-                  <button
-                    key={p.id}
-                    onClick={() => { submitSearch(p.name); }}
-                    className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-[#F7F8F8] transition-colors text-left"
-                  >
-                    <div className="w-9 h-9 bg-[#EAEDED] rounded overflow-hidden flex-shrink-0 flex items-center justify-center">
-                      <img src={p.img} alt={p.name} className="w-full h-full object-contain" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-[12px] font-bold text-[#0F1111] truncate">{p.name}</p>
-                      <p className="text-[10px] text-[#565959]">{p.type} · {Number(p.price).toLocaleString()} F</p>
-                    </div>
-                    <i className="fa-solid fa-arrow-up-left text-[#D5D9D9] text-xs flex-shrink-0"></i>
-                  </button>
-                ))}
-                <div className="px-4 py-2 border-t border-[#EAEDED] bg-[#F7F8F8]">
-                  <button onClick={() => submitSearch()}
-                    className="text-[10px] font-black uppercase text-[#007185] hover:text-[#C45500] transition-colors"
-                  >
-                    <i className="fa-solid fa-magnifying-glass mr-1.5"></i>
-                    Rechercher "{inputVal}" dans tous les produits
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* TRENDING PILLS */}
-          <div className="flex items-center gap-2 mt-3 overflow-x-auto hide-scrollbar">
-            <span className="text-[9px] font-bold text-[#ADBAC7] whitespace-nowrap">Tendances :</span>
-            {TRENDING.map(t => (
-              <button key={t} onClick={() => submitSearch(t)}
-                className="px-3 py-1 bg-[#232F3E] hover:bg-[#37475A] border border-[#37475A] hover:border-[#FF9900]/40 rounded-full text-[9px] font-bold text-[#ADBAC7] hover:text-white whitespace-nowrap transition-all flex-shrink-0"
-              >
-                {t}
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      <div className="max-w-[1600px] mx-auto px-4 md:px-8 py-6">
+      <div className="max-w-[1600px] mx-auto px-4 md:px-8 py-5">
 
         {/* ═══ NO QUERY: LANDING STATE ═══ */}
         {!isSearching && (
           <>
+            {/* ── TRENDING ── */}
+            <div className="flex items-center gap-2 mb-6 overflow-x-auto hide-scrollbar">
+              <span className="text-[10px] font-black uppercase tracking-widest text-[#565959] whitespace-nowrap">Tendances :</span>
+              {TRENDING.map(t => (
+                <button key={t} onClick={() => submitSearch(t)}
+                  className="px-3 py-1.5 bg-white border border-[#D5D9D9] hover:border-[#FF9900] hover:text-[#C45500] rounded-full text-[10px] font-bold text-[#0F1111] whitespace-nowrap transition-all flex-shrink-0"
+                >
+                  <i className="fa-solid fa-magnifying-glass text-[#adb5bd] mr-1.5 text-[9px]"></i>{t}
+                </button>
+              ))}
+            </div>
+
             {/* ── CATÉGORIES GRID ── */}
             <div className="mb-8">
               <div className="flex items-center justify-between mb-4">

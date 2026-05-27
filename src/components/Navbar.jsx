@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import ofsLogo from "../assets/ofs.png";
 import { useAuth } from "../context/AuthContext";
 
@@ -94,6 +94,14 @@ const Navbar = ({ isDark, toggleTheme, cartCount, toggleCart, toggleVisualSearch
   const prevCartCount = useRef(cartCount);
   const location      = useLocation();
   const navigate      = useNavigate();
+  const [searchParams]  = useSearchParams();
+
+  // Sync search input with URL when on /search page
+  useEffect(() => {
+    if (location.pathname === "/search") {
+      setSearchQuery(searchParams.get("q") || "");
+    }
+  }, [location.pathname, searchParams]);
 
   const handleSignOut = async () => {
     try { await signOut(); } catch (e) { console.warn(e); }
@@ -127,7 +135,6 @@ const Navbar = ({ isDark, toggleTheme, cartCount, toggleCart, toggleVisualSearch
     if (e) e.preventDefault();
     if (searchQuery.trim()) {
       navigate("/search?q=" + encodeURIComponent(searchQuery.trim()));
-      setSearchQuery("");
       setMobileMenuOpen(false);
     }
   };
