@@ -4,7 +4,8 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 
 const MEMBER_DISCOUNT = 0.20;
-const BUNDLE_DISCOUNT = 0.15;
+const BUNDLE_DISCOUNT_NON_MEMBER = 0.02;
+const BUNDLE_DISCOUNT_MEMBER     = 0.05;
 
 const getUnitPrice = (item, isMember) => {
   const base = Number(item.price) || 0;
@@ -193,7 +194,8 @@ const CartSidebar = ({ isOpen, cart, removeFromCart, updateQuantity, toggleCart,
   const memberSavingsAmount = rawTotal - subtotalAfterMember;
   const hasMemberSavings    = memberSavingsAmount > 0;
   const hasBundle           = cart.length >= 2;
-  const bundleAmount        = hasBundle ? Math.round(subtotalAfterMember * BUNDLE_DISCOUNT) : 0;
+  const bundleRate          = isMember ? BUNDLE_DISCOUNT_MEMBER : BUNDLE_DISCOUNT_NON_MEMBER;
+  const bundleAmount        = hasBundle ? Math.round(subtotalAfterMember * bundleRate) : 0;
   const finalTotal          = subtotalAfterMember - bundleAmount;
 
   const potentialMemberSavings = cart.reduce((s, i) => {
@@ -204,7 +206,7 @@ const CartSidebar = ({ isOpen, cart, removeFromCart, updateQuantity, toggleCart,
   const getVendorAmount = (vId) => {
     const items = cart.filter(i => (i.vendor_id||'no_vendor') === vId);
     const sub   = items.reduce((s, i) => s + getUnitPrice(i, isMember) * i.quantity, 0);
-    return hasBundle ? Math.round(sub * (1 - BUNDLE_DISCOUNT)) : sub;
+    return hasBundle ? Math.round(sub * (1 - bundleRate)) : sub;
   };
 
   // ─── NAVIGATION STEPS ────────────────────────────────────────────────────────
@@ -244,7 +246,7 @@ const CartSidebar = ({ isOpen, cart, removeFromCart, updateQuantity, toggleCart,
       for (const vId of Object.keys(ordersByVendor)) {
         const vendorItems = ordersByVendor[vId];
         const vendorSub   = vendorItems.reduce((s, i) => s + getUnitPrice(i, isMember) * (Number(i.quantity)||1), 0);
-        const vendorFinal = hasBundle ? Math.round(vendorSub * (1 - BUNDLE_DISCOUNT)) : vendorSub;
+        const vendorFinal = hasBundle ? Math.round(vendorSub * (1 - bundleRate)) : vendorSub;
 
         const { data: orderData, error: orderError } = await supabase
           .from('orders')
@@ -369,7 +371,7 @@ const CartSidebar = ({ isOpen, cart, removeFromCart, updateQuantity, toggleCart,
                     <div className="flex items-center gap-3 px-4 py-3 bg-[#FFF8D3]">
                       <i className="fa-solid fa-tag text-[#FF9900] text-base flex-shrink-0"></i>
                       <div>
-                        <p className="text-sm font-bold text-[#0F1111]">Bundle Deal −15% ✓</p>
+                        <p className="text-sm font-bold text-[#0F1111]">Bundle Deal −{isMember ? 5 : 2}% ✓</p>
                         <p className="text-xs text-[#565959]">−{bundleAmount.toLocaleString()} FCFA sur votre panier</p>
                       </div>
                     </div>
@@ -759,7 +761,7 @@ const CartSidebar = ({ isOpen, cart, removeFromCart, updateQuantity, toggleCart,
                   )}
                   {hasBundle && (
                     <div className="flex justify-between text-sm">
-                      <span className="text-[#007600]">Bundle Deal −15%</span>
+                      <span className="text-[#007600]">Bundle Deal −{isMember ? 5 : 2}%</span>
                       <span className="font-bold text-[#007600]">−{bundleAmount.toLocaleString()} F</span>
                     </div>
                   )}
