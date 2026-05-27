@@ -10,14 +10,14 @@ const ScrollToTop = () => {
 };
 
 const CATEGORIES = [
-  { name: "Audio Lab",    icon: "fa-headphones",        isNew: false },
-  { name: "Mode Femme",   icon: "fa-person-dress",       isNew: true  },
-  { name: "Tech Lab",     icon: "fa-microchip",          isNew: false },
-  { name: "Streetwear",   icon: "fa-shirt",              isNew: false },
-  { name: "Sneakers",     icon: "fa-shoe-prints",        isNew: false },
-  { name: "Parfums",      icon: "fa-spray-can-sparkles", isNew: false },
-  { name: "Flash Deals",  icon: "fa-bolt",               isNew: false },
-  { name: "Accessoires",  icon: "fa-gem",                isNew: false },
+  { name: "Audio Lab",   catKey: "Audio Lab",   icon: "fa-headphones",        isNew: false },
+  { name: "Mode Femme",  catKey: "Femme",       icon: "fa-person-dress",      isNew: true  },
+  { name: "Tech Lab",    catKey: "Tech Lab",    icon: "fa-microchip",         isNew: false },
+  { name: "Streetwear",  catKey: "Clothing",    icon: "fa-shirt",             isNew: false },
+  { name: "Sneakers",    catKey: "Shoes",       icon: "fa-shoe-prints",       isNew: false },
+  { name: "Parfums",     catKey: "Fragrance",   icon: "fa-spray-can-sparkles",isNew: false },
+  { name: "Flash Deals", catKey: null,          icon: "fa-bolt",              isNew: false },
+  { name: "Accessoires", catKey: "Accessories", icon: "fa-gem",               isNew: false },
 ];
 
 const ProfileDropdown = ({ user, profile, signOut }) => {
@@ -410,7 +410,7 @@ const Navbar = ({ isDark, toggleTheme, cartCount, toggleCart, toggleVisualSearch
             {/* CATEGORIES */}
             {CATEGORIES.map(cat => (
               <button key={cat.name}
-                onClick={() => navigate("/store")}
+                onClick={() => navigate(cat.catKey ? `/search?cat=${encodeURIComponent(cat.catKey)}` : "/search")}
                 className="flex items-center gap-1.5 text-white text-[13px] hover:bg-[#37475A] px-3 h-8 rounded transition-colors flex-shrink-0 whitespace-nowrap"
               >
                 {cat.name === "Flash Deals" ? (
@@ -533,7 +533,7 @@ const Navbar = ({ isDark, toggleTheme, cartCount, toggleCart, toggleVisualSearch
           <div className="py-2 border-b border-[#232F3E]">
             <p className="text-[#FF9900] text-[10px] font-bold uppercase tracking-wider px-4 py-1.5">Catégories</p>
             {CATEGORIES.map(cat => (
-              <Link key={cat.name} to="/store" onClick={() => setMobileMenuOpen(false)}
+              <Link key={cat.name} to={cat.catKey ? `/search?cat=${encodeURIComponent(cat.catKey)}` : "/search"} onClick={() => setMobileMenuOpen(false)}
                 className="flex items-center gap-3 px-4 py-2.5 text-white hover:bg-[#232F3E] transition-colors text-sm"
               >
                 <i className={`fa-solid ${cat.icon} text-[#FF9900] w-4`}></i>

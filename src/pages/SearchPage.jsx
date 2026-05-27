@@ -495,10 +495,10 @@ const SearchPage = ({ openModal, addToCart }) => {
       });
   }, []);
 
-  // ── SYNC query depuis URL ─────────────────────────────────────────────────
+  // ── SYNC query + cat depuis URL ───────────────────────────────────────────
   useEffect(() => {
     setQuery(searchParams.get("q") || "");
-    setActiveCategory("All");
+    setActiveCategory(searchParams.get("cat") || "All");
     setActivePriceRange(null);
     setActiveVendors(new Set());
   }, [searchParams]);
@@ -554,7 +554,7 @@ const SearchPage = ({ openModal, addToCart }) => {
     });
   }, [products, query, activeCategory, activePriceRange, activeVendors, memberOnly, sortBy]);
 
-  const isSearching  = !!query.trim();
+  const isSearching  = !!query.trim() || !!searchParams.get("cat");
   const hasFilters   = activeCategory !== "All" || activePriceRange !== null || activeVendors.size > 0 || memberOnly;
   const activeFiltersCount = (activeCategory !== "All" ? 1 : 0) + (activePriceRange !== null ? 1 : 0) + activeVendors.size + (memberOnly ? 1 : 0);
 
@@ -715,10 +715,18 @@ const SearchPage = ({ openModal, addToCart }) => {
               <div>
                 <p className="text-[11px] text-[#565959] mb-0.5">
                   {results.length > 0 ? (
-                    <><span className="font-black text-[#0F1111] text-base">{results.length}</span> résultat{results.length > 1 ? "s" : ""} pour{" "}
-                    <span className="text-[#C45500] font-bold">"{query}"</span></>
+                    <>
+                      <span className="font-black text-[#0F1111] text-base">{results.length}</span>
+                      {" "}résultat{results.length > 1 ? "s" : ""}
+                      {query.trim() ? <> pour <span className="text-[#C45500] font-bold">"{query}"</span></> : null}
+                      {!query.trim() && activeCategory !== "All" ? <> — <span className="text-[#C45500] font-bold">{CATEGORIES.find(c => c.key === activeCategory)?.label || activeCategory}</span></> : null}
+                    </>
                   ) : (
-                    <>Aucun résultat pour <span className="text-[#B12704] font-bold">"{query}"</span></>
+                    <>
+                      Aucun résultat
+                      {query.trim() ? <> pour <span className="text-[#B12704] font-bold">"{query}"</span></> : null}
+                      {!query.trim() && activeCategory !== "All" ? <> dans <span className="text-[#B12704] font-bold">{CATEGORIES.find(c => c.key === activeCategory)?.label || activeCategory}</span></> : null}
+                    </>
                   )}
                 </p>
                 {hasFilters && (
