@@ -55,10 +55,11 @@ const ProfileDropdown = ({ user, profile, signOut }) => {
           </div>
           <div className="py-1">
             {[
-              { to: "/profile",              icon: "fa-user",        label: "Mon profil"    },
-              { to: "/profile?tab=orders",   icon: "fa-box",         label: "Mes commandes" },
-              { to: "/profile?tab=wishlist", icon: "fa-heart",       label: "Mes favoris"   },
-              { to: "/profile?tab=referral", icon: "fa-user-plus",   label: "Parrainage"    },
+              { to: "/profile",              icon: "fa-user",           label: "Mon profil"          },
+              { to: "/track",                icon: "fa-location-dot",   label: "Suivre ma commande" },
+              { to: "/profile?tab=orders",   icon: "fa-box",            label: "Mes commandes"       },
+              { to: "/profile?tab=wishlist", icon: "fa-heart",          label: "Mes favoris"         },
+              { to: "/profile?tab=referral", icon: "fa-user-plus",      label: "Parrainage"          },
             ].map(l => (
               <Link key={l.to} to={l.to} onClick={() => setOpen(false)}
                 className="flex items-center gap-3 px-4 py-2.5 text-sm text-[#0F1111] hover:bg-[#EAEDED] transition-colors"
@@ -515,9 +516,10 @@ const Navbar = ({ isDark, toggleTheme, cartCount, toggleCart, toggleVisualSearch
               { to: "/store", icon: "fa-bag-shopping",         label: "Store"       },
               { to: "/studio",icon: "fa-wand-magic-sparkles",  label: "Studio Lab"  },
               ...(user ? [
-                { to: "/profile",           icon: "fa-user",  label: "Mon profil"  },
-                { to: "/profile?tab=orders",icon: "fa-box",   label: "Commandes"   },
-                { to: "/wishlist",          icon: "fa-heart", label: "Wishlist"    },
+                { to: "/profile",           icon: "fa-user",          label: "Mon profil"   },
+                { to: "/track",             icon: "fa-location-dot",  label: "Suivi commande" },
+                { to: "/profile?tab=orders",icon: "fa-box",           label: "Commandes"      },
+                { to: "/wishlist",          icon: "fa-heart",         label: "Wishlist"        },
               ] : []),
             ].map(link => (
               <Link key={link.to} to={link.to} onClick={() => setMobileMenuOpen(false)}

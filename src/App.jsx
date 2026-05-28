@@ -24,6 +24,7 @@ import BoutiquesPage from './pages/BoutiquesPage.jsx';
 import ProfilePage from './pages/ProfilePage.jsx';
 import OFSRewardsPage from './pages/OFSRewardsPage.jsx';
 import SearchPage from './pages/SearchPage.jsx';
+import TrackingPage from './pages/TrackingPage.jsx';
 
 function AppContent() {
   const { vendor } = useAuth();
@@ -116,6 +117,7 @@ function AppContent() {
           <Route path="/boutiques" element={<BoutiquesPage />} />
           <Route path="/profile" element={<ProfilePage />} />
           <Route path="/rewards" element={<OFSRewardsPage />} />
+          <Route path="/track" element={<TrackingPage />} />
 
           <Route
             path="/product/:productId"
