@@ -6,7 +6,6 @@ import {
   mapCjToProduct,
   mapOfsType,
   usdToFcfa,
-  CJ_TOKEN,
 } from "../lib/cjApi";
 
 // ─── OFS product types ────────────────────────────────────────────────────────
@@ -90,7 +89,7 @@ const CJImportTab = () => {
   const [importing,    setImporting]    = useState(false);
   const [importProg,   setImportProg]   = useState({ done: 0, total: 0 });
   const [toast,        setToast]        = useState(null);
-  const [corsError,    setCorsError]    = useState(false);
+  const [fetchError,   setFetchError]   = useState(null);
   const [importedPids, setImportedPids] = useState(new Set());
   const [alreadyCount, setAlreadyCount] = useState(0);
 
@@ -112,16 +111,15 @@ const CJImportTab = () => {
 
   // ── Fetch CJ products ──────────────────────────────────────────────────────
   const fetchProducts = useCallback(async (p = 1, q = search) => {
-    if (!CJ_TOKEN) { setCorsError(true); return; }
     setLoading(true);
-    setCorsError(false);
+    setFetchError(null);
     try {
       const data = await cjListProducts(p, PAGE_SIZE, q, "");
       setProducts(data?.list || []);
       setTotal(data?.total || 0);
     } catch (err) {
       console.error("[CJ]", err.message);
-      setCorsError(true);
+      setFetchError(err.message);
     } finally {
       setLoading(false);
     }
@@ -230,81 +228,23 @@ const CJImportTab = () => {
     setImportProg({ done: 0, total: 0 });
   };
 
-  // ── CORS error fallback ────────────────────────────────────────────────────
-  if (corsError) return (
-    <div className="space-y-4">
-      <div className="bg-[#131921] rounded-2xl overflow-hidden">
-        <div className="bg-[#232F3E] px-6 py-4 flex items-center gap-3">
-          <div className="w-10 h-10 bg-[#FF9900]/15 rounded-xl flex items-center justify-center border border-[#FF9900]/30">
-            <i className="fa-solid fa-circle-nodes text-[#FF9900] text-base"></i>
-          </div>
-          <div>
-            <p className="text-[8px] font-black uppercase tracking-widest text-[#FF9900]">CJ Dropshipping</p>
-            <p className="text-white font-bold text-base">Connexion API</p>
-          </div>
-        </div>
-        <div className="px-6 py-6 space-y-4">
-          <div className="bg-[#FEE7E5] border border-[#B12704]/30 rounded-xl p-4 flex items-start gap-3">
-            <i className="fa-solid fa-triangle-exclamation text-[#B12704] mt-0.5 flex-shrink-0"></i>
-            <div>
-              <p className="font-bold text-[#B12704] text-sm mb-1">CORS bloqué par le navigateur</p>
-              <p className="text-[#565959] text-xs leading-relaxed">
-                L'API CJ Dropshipping nécessite un proxy serveur. Pour activer l'import, configurez une Supabase Edge Function ou un proxy CORS.
-              </p>
-            </div>
-          </div>
-
-          <div className="bg-[#232F3E] rounded-xl p-5 space-y-3">
-            <p className="text-[9px] font-black uppercase tracking-widest text-[#FF9900]">Votre token CJ (valide jusqu'au 26 Nov 2026)</p>
-            <div className="bg-[#131921] border border-[#FF9900]/20 rounded-lg p-3">
-              <code className="text-[#FFD814] text-[10px] font-mono break-all leading-relaxed">
-                {CJ_TOKEN?.slice(0, 60)}…
-              </code>
-            </div>
-            <p className="text-[9px] text-[#ADBAC7]">
-              API base: <span className="text-white">https://developers.cjdropshipping.com/api2.0/v1</span>
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div className="bg-white border border-[#D5D9D9] rounded-xl p-4">
-              <p className="text-[9px] font-black uppercase tracking-widest text-[#565959] mb-2">Option 1 · Supabase Edge Function</p>
-              <pre className="text-[9px] font-mono text-[#0F1111] bg-[#F3F4F4] rounded p-2 overflow-x-auto leading-relaxed">{`// supabase/functions/cj-proxy/index.ts
-const CJ_TOKEN = Deno.env.get("CJ_TOKEN");
-serve(async (req) => {
-  const url = await req.text();
-  const res = await fetch(url, {
-    headers: { "CJ-Access-Token": CJ_TOKEN }
-  });
-  return new Response(await res.text(), {
-    headers: { "Access-Control-Allow-Origin": "*" }
-  });
-})`}</pre>
-            </div>
-            <div className="bg-white border border-[#D5D9D9] rounded-xl p-4">
-              <p className="text-[9px] font-black uppercase tracking-widest text-[#565959] mb-2">Option 2 · CORS Proxy rapide</p>
-              <p className="text-[11px] text-[#565959] leading-relaxed mb-2">
-                Ajoutez <code className="bg-[#F3F4F4] px-1 rounded font-mono">https://corsproxy.io/?</code> comme préfixe dans <code className="bg-[#F3F4F4] px-1 rounded font-mono">cjApi.js</code> pour les tests.
-              </p>
-              <p className="text-[9px] text-[#CC0C39] font-bold">⚠ Non recommandé en production</p>
-            </div>
-          </div>
-
-          <button
-            onClick={() => { setCorsError(false); fetchProducts(1, ""); }}
-            className="w-full py-3 bg-[#FFD814] hover:bg-[#F7CA00] text-[#0F1111] rounded-xl font-black text-sm border border-[#FCD200] transition-all flex items-center justify-center gap-2"
-          >
-            <i className="fa-solid fa-rotate text-sm"></i>
-            Réessayer la connexion
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-
   return (
     <div className="space-y-5">
       {toast && <Toast msg={toast.msg} type={toast.type} />}
+
+      {/* ── API ERROR ── */}
+      {fetchError && (
+        <div className="bg-[#FEE7E5] border border-[#B12704]/30 rounded-xl px-4 py-3 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2 min-w-0">
+            <i className="fa-solid fa-triangle-exclamation text-[#B12704] flex-shrink-0"></i>
+            <p className="text-[#B12704] text-sm font-semibold truncate">{fetchError}</p>
+          </div>
+          <button onClick={() => fetchProducts(1, search)}
+            className="flex-shrink-0 px-3 py-1.5 bg-[#B12704] text-white rounded-lg text-xs font-bold hover:bg-[#8b1e02] transition-colors flex items-center gap-1.5">
+            <i className="fa-solid fa-rotate text-[10px]"></i>Réessayer
+          </button>
+        </div>
+      )}
 
       {/* ── HEADER STATS ── */}
       <div className="bg-[#131921] rounded-2xl overflow-hidden">
