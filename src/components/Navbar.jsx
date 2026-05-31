@@ -60,6 +60,7 @@ const ProfileDropdown = ({ user, profile, signOut }) => {
               { to: "/profile?tab=orders",   icon: "fa-box",            label: "Mes commandes"       },
               { to: "/profile?tab=wishlist", icon: "fa-heart",          label: "Mes favoris"         },
               { to: "/profile?tab=referral", icon: "fa-user-plus",      label: "Parrainage"          },
+              ...(user?.email === "emansoga@gmail.com" ? [{ to: "/super-admin", icon: "fa-shield-halved", label: "Super Admin" }] : []),
             ].map(l => (
               <Link key={l.to} to={l.to} onClick={() => setOpen(false)}
                 className="flex items-center gap-3 px-4 py-2.5 text-sm text-[#0F1111] hover:bg-[#EAEDED] transition-colors"
@@ -520,6 +521,7 @@ const Navbar = ({ isDark, toggleTheme, cartCount, toggleCart, toggleVisualSearch
                 { to: "/track",             icon: "fa-location-dot",  label: "Suivi commande" },
                 { to: "/profile?tab=orders",icon: "fa-box",           label: "Commandes"      },
                 { to: "/wishlist",          icon: "fa-heart",         label: "Wishlist"        },
+                ...(user?.email === "emansoga@gmail.com" ? [{ to: "/super-admin", icon: "fa-shield-halved", label: "Super Admin" }] : []),
               ] : []),
             ].map(link => (
               <Link key={link.to} to={link.to} onClick={() => setMobileMenuOpen(false)}

@@ -25,6 +25,7 @@ import ProfilePage from './pages/ProfilePage.jsx';
 import OFSRewardsPage from './pages/OFSRewardsPage.jsx';
 import SearchPage from './pages/SearchPage.jsx';
 import TrackingPage from './pages/TrackingPage.jsx';
+import SuperAdmin from './pages/SuperAdmin.jsx';
 
 function AppContent() {
   const { vendor } = useAuth();
@@ -125,6 +126,7 @@ function AppContent() {
           />
           <Route element={<PrivateRoute />}>
             <Route path="/admin" element={<Dashboard />} />
+            <Route path="/super-admin" element={<SuperAdmin />} />
           </Route>
         </Routes>
       </main>

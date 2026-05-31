@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useAuth } from "../context/AuthContext";
-import CJImportTab from "../components/CJImportTab";
 import {
   supabase,
   uploadProductImage,
@@ -784,7 +783,6 @@ const Dashboard = () => {
               { key: "inventory", icon: "fa-box",          label: "Inventaire" },
               { key: "orders",    icon: "fa-bag-shopping", label: "Commandes", badge: pendingCount },
               { key: "analytics", icon: "fa-chart-line",   label: "Analytics" },
-              { key: "cj",        icon: "fa-circle-nodes", label: "CJ Import"  },
             ].map((tab) => (
               <button
                 key={tab.key}
@@ -1990,13 +1988,6 @@ const Dashboard = () => {
                 </div>
               </div>
             </div>
-          </div>
-        )}
-
-        {/* ══════════════════════════ CJ IMPORT TAB ══════════════════════════ */}
-        {activeTab === "cj" && (
-          <div className="pb-10">
-            <CJImportTab />
           </div>
         )}
       </div>
