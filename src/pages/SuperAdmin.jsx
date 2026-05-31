@@ -4,8 +4,9 @@ import { supabase } from "../lib/supabase";
 import { useAuth } from "../context/AuthContext";
 import CJImportTab from "../components/CJImportTab";
 
-// ─── SUPER ADMIN EMAIL ────────────────────────────────────────────────────────
-const SUPER_ADMIN_EMAIL = "emansoga@gmail.com";
+// ─── SUPER ADMIN EMAILS ───────────────────────────────────────────────────────
+const SUPER_ADMIN_EMAILS = ["emansoga@gmail.com", "nsogadavid01@gmail.com"];
+const isSuperAdmin = (email) => SUPER_ADMIN_EMAILS.includes(email);
 
 // ─── STATUS CONFIG ────────────────────────────────────────────────────────────
 const STATUS = {
@@ -497,12 +498,12 @@ const SuperAdmin = () => {
   // ── Auth guard ──────────────────────────────────────────────────────────────
   useEffect(() => {
     if (!user) { navigate("/login"); return; }
-    if (user.email !== SUPER_ADMIN_EMAIL) { navigate("/"); }
+    if (!isSuperAdmin(user.email)) { navigate("/"); }
   }, [user]);
 
   // ── Load all data ───────────────────────────────────────────────────────────
   useEffect(() => {
-    if (!user || user.email !== SUPER_ADMIN_EMAIL) return;
+    if (!user || !isSuperAdmin(user.email)) return;
     const load = async () => {
       setLoading(true);
       try {
@@ -566,7 +567,7 @@ const SuperAdmin = () => {
     setAllOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: newStatus } : o));
   };
 
-  if (!user || user.email !== SUPER_ADMIN_EMAIL) return null;
+  if (!user || !isSuperAdmin(user.email)) return null;
 
   const TABS = [
     { key: "overview",  icon: "fa-gauge-high",     label: "Vue globale"   },
