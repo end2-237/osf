@@ -59,9 +59,11 @@ const ProductCard = React.memo(({ product, openModal, addToCart }) => {
   const ratingVal   = 3.8 + ((product.id?.charCodeAt(0) || 65) % 12) * 0.1;
   const reviewCount = 10 + ((product.id?.charCodeAt(0) || 65) % 200);
 
-  // Resolve colors that have a valid hex
+  // Only show swatches when there are 3+ distinct non-generic colors
+  // (CJ products often only have ["Black","White"] which adds no value)
+  const GENERIC = new Set(["default", "black", "white", "noir", "blanc", "black/white", "white/black"]);
   const colorSwatches = (product.colors || [])
-    .filter(c => c !== "Default")
+    .filter(c => !GENERIC.has((c || "").toLowerCase()))
     .map(c => ({ name: c, hex: resolveHex(c) }))
     .filter(c => c.hex);
 

@@ -432,43 +432,45 @@ const SubcategoryPills = ({ category, active, onChange }) => {
   );
 };
 
-/* ─────────────────── SUBCATEGORY BROWSE (All view) ─────────────────── */
-const SubcategoryBrowse = ({ onCategorySelect, onSubcategorySelect }) => (
-  <div className="mb-5 bg-white border border-[#D5D9D9] rounded divide-y divide-[#F3F4F4]">
-    {Object.entries(SUBCATEGORIES).map(([cat, subs]) => {
-      const catInfo = CATEGORIES.find(c => c.key === cat);
-      return (
-        <div key={cat} className="flex items-center gap-3 px-4 py-2.5">
-          {/* Category label — fixed width, acts as header */}
-          <button
-            onClick={() => onCategorySelect(cat)}
-            className="flex items-center gap-1.5 flex-shrink-0 w-[90px] hover:opacity-70 transition-opacity"
+/* ─────────────────── SUBCATEGORY BROWSE (All view) — horizontal scroll strip ─────────────────── */
+const SubcategoryBrowse = ({ onSubcategorySelect }) => {
+  const scrollRef = useRef(null);
+  const allSubs = Object.entries(SUBCATEGORIES).flatMap(([cat, subs]) =>
+    subs.map(sub => ({ cat, sub }))
+  );
+  const scroll = (dir) =>
+    scrollRef.current?.scrollBy({ left: dir * 240, behavior: "smooth" });
+
+  return (
+    <div className="flex items-center gap-1.5 mb-5 bg-white border border-[#D5D9D9] rounded px-3 py-2">
+      <button onClick={() => scroll(-1)}
+        className="flex-shrink-0 w-7 h-7 border border-[#D5D9D9] rounded flex items-center justify-center text-[#565959] hover:border-[#FF9900] hover:text-[#FF9900] transition-colors"
+      >
+        <i className="fa-solid fa-chevron-left text-[10px]"></i>
+      </button>
+
+      <div ref={scrollRef}
+        className="flex items-center gap-2 overflow-x-auto flex-1"
+        style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+      >
+        {allSubs.map(({ cat, sub }) => (
+          <button key={`${cat}:${sub}`}
+            onClick={() => onSubcategorySelect(cat, sub)}
+            className="flex-shrink-0 text-[12px] px-3 py-1.5 border border-[#D5D9D9] rounded-sm whitespace-nowrap text-[#0F1111] hover:border-[#FF9900] hover:text-[#C45500] hover:bg-[#FFF8F0] transition-all"
           >
-            <i className={`fa-solid ${catInfo?.icon} text-[11px]`} style={{ color: catInfo?.color }}></i>
-            <span className="text-[10px] font-black uppercase truncate" style={{ color: catInfo?.color }}>
-              {cat.replace(" Lab", "").replace("Fragrance", "Parfums")}
-            </span>
+            {sub}
           </button>
+        ))}
+      </div>
 
-          {/* Divider */}
-          <div className="w-px h-4 bg-[#D5D9D9] flex-shrink-0" />
-
-          {/* Pills */}
-          <div className="flex flex-wrap gap-1">
-            {subs.map(sub => (
-              <button key={sub}
-                onClick={() => onSubcategorySelect(cat, sub)}
-                className="text-[11px] px-2.5 py-0.5 rounded-full bg-[#F8F8F8] border border-[#E8E8E8] text-[#555] hover:border-[#FF9900] hover:text-[#C45500] hover:bg-[#FFF8F0] transition-all whitespace-nowrap"
-              >
-                {sub}
-              </button>
-            ))}
-          </div>
-        </div>
-      );
-    })}
-  </div>
-);
+      <button onClick={() => scroll(1)}
+        className="flex-shrink-0 w-7 h-7 border border-[#D5D9D9] rounded flex items-center justify-center text-[#565959] hover:border-[#FF9900] hover:text-[#FF9900] transition-colors"
+      >
+        <i className="fa-solid fa-chevron-right text-[10px]"></i>
+      </button>
+    </div>
+  );
+};
 
 /* ─────────────────── EDITORIAL SECTION BREAK ─────────────────── */
 const SectionBreak = ({ section, onNavigate }) => (
@@ -592,8 +594,8 @@ const SidebarFilters = ({
         </div>
       </div>
 
-      {/* SIZE */}
-      {(category === "Clothing" || category === "Shoes" || category === "All") && (
+      {/* SIZE — clothing/shoes/femme only, not electronics */}
+      {(category === "Clothing" || category === "Shoes" || category === "Femme") && (
         <div className="p-4">
           <h4 className="font-bold text-[13px] text-[#0F1111] mb-3">
             {category === "Shoes" ? "Pointure" : "Taille"}
@@ -982,7 +984,6 @@ const Store = ({ openModal, addToCart }) => {
             {/* SUBCATEGORY BROWSE GRID — visible in "All" when no active subcategory/search */}
             {category === "All" && !subcategory && !searchQuery && !loading && (
               <SubcategoryBrowse
-                onCategorySelect={handleCategoryChange}
                 onSubcategorySelect={handleSubcategorySelect}
               />
             )}
