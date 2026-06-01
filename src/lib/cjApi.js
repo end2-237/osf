@@ -67,6 +67,36 @@ export const usdToFcfa = (usd) => {
 export const isVideoUrl = (url = "") =>
   /\.(mp4|webm|ogg|mov)(\?.*)?$/i.test(url);
 
+// Strip HTML tags from CJ description and extract embedded image URLs
+const parseHtmlDescription = (html = "") => {
+  if (!html) return { text: "", extraImages: [] };
+
+  // Extract <img src="..."> URLs before stripping tags
+  const extraImages = [];
+  const imgRe = /<img[^>]+src=["']([^"']+)["'][^>]*>/gi;
+  let m;
+  while ((m = imgRe.exec(html)) !== null) {
+    const src = m[1];
+    if (src && !isVideoUrl(src)) extraImages.push(src);
+  }
+
+  const text = html
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/p>/gi, "\n")
+    .replace(/<\/li>/gi, "\n")
+    .replace(/<[^>]+>/g, "")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+
+  return { text, extraImages };
+};
+
 // ─── CJ product → Supabase product schema ────────────────────────────────────
 export const mapCjToProduct = (p) => {
   // ── Images ─────────────────────────────────────────────────────────────────
@@ -121,10 +151,11 @@ export const mapCjToProduct = (p) => {
     stock_qty > 0 && stock_qty <= 10 ? "Stock limité" :
     "Nouveau";
 
-  // ── Description: prefer English remark over product name ───────────────────
-  const description = (
-    p.productRemark || p.remark || p.entryRemark || p.description || p.productNameEn || p.productName || ""
-  ).trim();
+  // ── Description: strip HTML, extract embedded images ──────────────────────
+  const rawDesc = p.productRemark || p.remark || p.entryRemark || p.description || p.productNameEn || p.productName || "";
+  const { text: description, extraImages } = parseHtmlDescription(rawDesc);
+  // Append description images that aren't already in the images array
+  extraImages.forEach(url => { if (!images.includes(url)) images.push(url); });
 
   // ── Features from product attributes ───────────────────────────────────────
   const features = [];
