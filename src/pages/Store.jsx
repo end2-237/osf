@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import SponsoredBanner from "../components/SponsoredBanner";
 import ProductCard from "../components/ProductCard";
 import { supabase } from "../lib/supabase";
 import ofsLogo from "../assets/ofs.png";
@@ -140,57 +141,68 @@ const VendorSkeleton = () => (
 
 /* ─────────────────── HERO BANNER ─────────────────── */
 const MarketplaceHero = ({ totalProducts, searchQuery, setSearchQuery, onSearch }) => (
-  <div className="relative bg-[#0a0f14] overflow-hidden" style={{ minHeight: "420px" }}>
+  <div className="relative bg-[#08090b] overflow-hidden" style={{ height: "248px" }}>
 
-    {/* ── Background video ── */}
+    {/* ── Video commercial background ── */}
     <video
       autoPlay muted loop playsInline
       className="absolute inset-0 w-full h-full object-cover"
-      style={{ opacity: 0.38 }}
+      style={{ opacity: 0.52 }}
       poster="https://images.unsplash.com/photo-1483985988355-763728e1935b?w=1600&q=60"
     >
       <source src="https://videos.pexels.com/video-files/3571264/3571264-hd_1920_1080_30fps.mp4" type="video/mp4" />
       <source src="https://videos.pexels.com/video-files/4763824/4763824-hd_1280_720_25fps.mp4"  type="video/mp4" />
     </video>
 
-    {/* ── Gradients over video ── */}
-    <div className="absolute inset-0 bg-gradient-to-r from-[#0a0f14] via-[#0a0f14]/80 to-[#0a0f14]/20 pointer-events-none" />
-    <div className="absolute inset-0 bg-gradient-to-t from-[#0a0f14] via-transparent to-transparent pointer-events-none" />
-    {/* subtle amber glow bottom-left */}
-    <div className="absolute bottom-0 left-0 w-96 h-48 bg-[#FF9900]/10 rounded-full blur-3xl pointer-events-none" />
+    {/* ── Cinematic vignette ── */}
+    <div className="absolute inset-0 pointer-events-none" style={{
+      background: "linear-gradient(to right, #08090b 0%, #08090b 30%, rgba(8,9,11,0.65) 60%, rgba(8,9,11,0.15) 100%)"
+    }} />
+    <div className="absolute inset-0 pointer-events-none" style={{
+      background: "linear-gradient(to top, #08090b 0%, transparent 55%)"
+    }} />
+    {/* Ambient glow */}
+    <div className="absolute bottom-0 left-24 w-72 h-28 bg-[#FF9900]/10 blur-3xl rounded-full pointer-events-none" />
+
+    {/* ── OFS watermark ── */}
+    <div className="absolute top-0 right-0 h-full flex items-center pr-6 select-none pointer-events-none">
+      <span className="text-white/[0.04] font-black text-[100px] tracking-[-4px] leading-none">OFS</span>
+    </div>
 
     {/* ── Content ── */}
-    <div className="relative z-10 py-8 md:py-12 px-3 md:px-4">
-      <div className="max-w-[1400px] mx-auto">
-        <div className="max-w-2xl">
+    <div className="relative z-10 h-full flex items-center px-3 md:px-4">
+      <div className="max-w-[1400px] mx-auto w-full">
+        <div className="max-w-lg">
 
-          {/* Live badge */}
-          <div className="flex items-center gap-2 mb-3">
-            <span className="flex items-center gap-1.5 bg-[#FF9900] text-[#0F1111] text-[10px] font-black px-2.5 py-1 rounded-full uppercase tracking-wide shadow-lg">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#0F1111] animate-pulse inline-block"></span>
-              Live · Douala
+          {/* Live pill */}
+          <div className="flex items-center gap-2 mb-2">
+            <span className="inline-flex items-center gap-1.5 bg-[#FF9900] text-[#0F1111] text-[8.5px] font-black px-2 py-[3px] uppercase tracking-[0.15em] shadow-lg rounded-sm">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#0F1111] animate-pulse"></span>
+              OFS CM · LIVE
             </span>
-            <span className="text-[#FF9900]/70 text-[11px] font-semibold">
-              {totalProducts}+ produits disponibles 🇨🇲
+            <span className="text-white/30 text-[10px] font-medium tracking-wide">
+              {totalProducts}+ références · Douala 🇨🇲
             </span>
           </div>
 
-          <h1 className="text-3xl md:text-5xl font-black text-white mb-2 leading-tight tracking-tight">
-            La Marketplace<br />
-            <span className="text-[#FF9900] drop-shadow-[0_0_24px_rgba(255,153,0,0.5)]">Elite</span>
+          {/* Headline */}
+          <h1 className="font-black text-white leading-[1.05] tracking-tight mb-1.5" style={{ fontSize: "clamp(22px,3vw,32px)" }}>
+            La Marketplace{" "}
+            <span className="text-[#FF9900]" style={{ textShadow: "0 0 28px rgba(255,153,0,0.45)" }}>
+              Elite
+            </span>
             {" "}de Douala
           </h1>
-          <p className="text-gray-400 text-sm mb-5 max-w-lg leading-relaxed">
-            Audio haut de gamme, Streetwear, Tech & Parfums — boutiques certifiées,
-            livraison express, paiement 100 % sécurisé.
+          <p className="text-[#6b7280] text-[11px] mb-3 leading-relaxed">
+            Audio · Streetwear · Tech · Parfums &mdash; boutiques certifiées, livraison express.
           </p>
 
-          {/* Search bar */}
-          <div className="flex h-12 rounded-lg overflow-hidden shadow-2xl ring-2 ring-[#FF9900]/60 mb-4 max-w-xl">
-            <select className="bg-[#F3F4F4] text-[#0F1111] text-[11px] px-2 border-r border-[#CDCDCD] outline-none cursor-pointer flex-shrink-0 font-bold min-w-[64px]">
+          {/* Search bar — compact h-9 */}
+          <div className="flex h-9 rounded overflow-hidden shadow-2xl ring-1 ring-[#FF9900]/35 max-w-md mb-2.5">
+            <select className="bg-[#F3F4F4] text-[#0F1111] text-[10px] px-2 border-r border-[#CDCDCD] outline-none cursor-pointer flex-shrink-0 font-bold">
               <option>Tout</option>
               <option>Audio</option>
-              <option>Streetwear</option>
+              <option>Mode</option>
               <option>Sneakers</option>
               <option>Tech</option>
               <option>Parfums</option>
@@ -200,60 +212,59 @@ const MarketplaceHero = ({ totalProducts, searchQuery, setSearchQuery, onSearch 
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && onSearch()}
-              placeholder="Casque, sneakers, parfum, tech..."
-              className="flex-grow bg-white text-[#0F1111] px-4 text-sm outline-none min-w-0"
+              placeholder="Casque, sneakers, parfum…"
+              className="flex-grow bg-white text-[#0F1111] px-3 text-[12px] outline-none min-w-0"
             />
             {searchQuery && (
-              <button onClick={() => setSearchQuery("")}
-                className="bg-white px-2 text-gray-400 hover:text-gray-700 transition"
-              >
-                <i className="fa-solid fa-xmark text-sm"></i>
+              <button onClick={() => setSearchQuery("")} className="bg-white px-2 text-gray-400 hover:text-gray-700 transition">
+                <i className="fa-solid fa-xmark text-xs"></i>
               </button>
             )}
             <button onClick={onSearch}
-              className="bg-[#FF9900] hover:bg-[#E47911] text-[#0F1111] px-6 flex items-center gap-2 transition-colors flex-shrink-0 font-bold"
+              className="bg-[#FF9900] hover:bg-[#E47911] text-[#0F1111] px-4 flex items-center gap-1.5 transition-colors flex-shrink-0 font-bold text-[11px]"
             >
-              <i className="fa-solid fa-magnifying-glass text-base"></i>
-              <span className="hidden md:inline text-sm">Rechercher</span>
+              <i className="fa-solid fa-magnifying-glass text-[11px]"></i>
+              <span className="hidden sm:inline">Chercher</span>
             </button>
           </div>
 
-          {/* Trending tags */}
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-[11px] text-gray-500 font-medium">Tendances :</span>
+          {/* Trending tags — one line */}
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="text-[9px] text-[#4b5563] font-bold uppercase tracking-widest mr-0.5">Tendances</span>
             {["AirPods", "Sneakers", "Casque", "Hoodies", "Parfum"].map((tag) => (
               <button key={tag} onClick={() => setSearchQuery(tag)}
-                className="text-[11px] px-3 py-1 rounded-full bg-white/8 text-gray-300 hover:bg-[#FF9900] hover:text-[#0F1111] transition-all border border-white/15 hover:border-[#FF9900] backdrop-blur-sm"
+                className="text-[10px] px-2 py-0.5 rounded-sm bg-white/6 text-[#9ca3af] hover:bg-[#FF9900] hover:text-[#0F1111] transition-all border border-white/8 hover:border-[#FF9900]"
               >
                 {tag}
               </button>
             ))}
           </div>
         </div>
-
-        {/* Trust badges */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-6">
-          {[
-            { icon: "fa-store",        val: "5+",   label: "Boutiques Certifiées", color: "#FF9900"  },
-            { icon: "fa-truck-fast",   val: "2h",   label: "Livraison Douala",     color: "#60a5fa"  },
-            { icon: "fa-shield-check", val: "100%", label: "Paiement Sécurisé",    color: "#4ade80"  },
-            { icon: "fa-rotate-left",  val: "7j",   label: "Retour Gratuit",       color: "#c084fc"  },
-          ].map((item) => (
-            <div key={item.label}
-              className="bg-white/5 border border-white/8 rounded-lg p-3 flex items-center gap-3 hover:border-white/20 hover:bg-white/8 transition-all backdrop-blur-sm"
-            >
-              <div className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0"
-                style={{ backgroundColor: `${item.color}18` }}>
-                <i className={`fa-solid ${item.icon} text-sm`} style={{ color: item.color }}></i>
-              </div>
-              <div>
-                <p className="font-black text-xl leading-none" style={{ color: item.color }}>{item.val}</p>
-                <p className="text-[9px] font-bold text-gray-500 uppercase tracking-wider mt-0.5 leading-tight">{item.label}</p>
-              </div>
-            </div>
-          ))}
-        </div>
       </div>
+    </div>
+  </div>
+);
+
+/* ─────────────────── TRUST STRIP (below hero) ─────────────────── */
+const TrustStrip = () => (
+  <div className="bg-[#131921] border-b border-[#1f2d3d]">
+    <div className="max-w-[1400px] mx-auto flex items-center overflow-x-auto"
+      style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}>
+      {[
+        { icon: "fa-store",            text: "5+ boutiques",     sub: "certifiées OFS",   color: "#FF9900" },
+        { icon: "fa-truck-fast",       text: "Livraison 2h",     sub: "Douala express",   color: "#60a5fa" },
+        { icon: "fa-shield-check",     text: "Paiement sécurisé",sub: "Orange · MTN · Cash", color: "#4ade80" },
+        { icon: "fa-rotate-left",      text: "Retour 7 jours",   sub: "sans question",    color: "#c084fc" },
+        { icon: "fa-crown",            text: "Membre Elite",     sub: "−20% immédiat",    color: "#fbbf24" },
+      ].map((b, i) => (
+        <div key={i} className="flex items-center gap-2 px-4 py-2.5 border-r border-[#1f2d3d] flex-shrink-0 hover:bg-white/4 transition-colors cursor-default">
+          <i className={`fa-solid ${b.icon} text-[11px] flex-shrink-0`} style={{ color: b.color }}></i>
+          <div className="leading-tight">
+            <span className="text-[10px] font-bold text-white">{b.text}</span>
+            <span className="text-[10px] text-[#4b5563] ml-1">{b.sub}</span>
+          </div>
+        </div>
+      ))}
     </div>
   </div>
 );
@@ -893,6 +904,10 @@ const Store = ({ openModal, addToCart }) => {
         setSearchQuery={setSearchInput}
         onSearch={handleSearch}
       />
+      <TrustStrip />
+
+      {/* ── SPONSORED ── */}
+      <SponsoredBanner />
 
       {/* ── PROMO BANNERS ── */}
       <PromoBanners />

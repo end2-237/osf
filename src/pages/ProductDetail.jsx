@@ -3,6 +3,7 @@ import { useParams, useNavigate, Link, useLocation } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import ProductCard from "../components/ProductCard";
 import ReviewsSection from "../components/ReviewsSection";
+import SponsoredBanner from "../components/SponsoredBanner";
 import { useWishlist } from "../hooks/useWishlist";
 import { useAuth } from "../context/AuthContext";
 import { cjGetProductDetail, mapCjToProduct, isVideoUrl } from "../lib/cjApi";
@@ -807,6 +808,9 @@ const ProductDetail = ({ addToCart, openModal }) => {
       )}
 
       {!loading && product && <Breadcrumb product={product} />}
+
+      {/* Sponsored banner — shows a different vendor than the current product's */}
+      <SponsoredBanner excludeVendorId={product?.vendor_id} />
 
       {loading ? (
         <DetailSkeleton />
