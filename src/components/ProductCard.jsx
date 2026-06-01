@@ -97,7 +97,11 @@ const ProductCard = React.memo(({ product, openModal, addToCart }) => {
             <span className="bg-[#CC0C39] text-white text-[9px] font-bold px-1.5 py-0.5 rounded-sm leading-tight">
               Plus que {product.stock_qty}
             </span>
-          ) : product.status && product.status !== "Nouveau" ? (
+          ) : product.status === "Nouveau" ? (
+            <span className="bg-[#007600] text-white text-[9px] font-bold px-1.5 py-0.5 rounded-sm leading-tight">
+              Nouveau
+            </span>
+          ) : product.status ? (
             <span className="bg-[#CC0C39] text-white text-[9px] font-bold px-1.5 py-0.5 rounded-sm leading-tight">
               {product.status}
             </span>

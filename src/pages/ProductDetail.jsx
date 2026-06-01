@@ -165,9 +165,13 @@ const ImageGallery = ({ product }) => {
           }`}
         />
       )}
-      {product?.status && product.status !== "Nouveau" && (
+      {product?.status && (
         <div className="absolute top-2 left-2 z-10">
-          <span className="bg-[#CC0C39] text-white text-[9px] font-bold px-2 py-0.5 rounded-sm uppercase">
+          <span className={`text-[9px] font-bold px-2 py-0.5 rounded-sm uppercase ${
+            product.status === "Nouveau"
+              ? "bg-[#007600] text-white"
+              : "bg-[#CC0C39] text-white"
+          }`}>
             {product.status}
           </span>
         </div>
@@ -752,27 +756,49 @@ const ProductDetail = ({ addToCart, openModal }) => {
     return "#888";
   };
 
-  const realColors = useMemo(() => {
-    // 1. Use stored colors if they're real (not just the Default fallback)
-    const stored = (product?.colors || []).filter(c => c && c !== "Default");
-    if (stored.length > 0) return stored;
-    // 2. Extract live from variants stored in DB — no API call needed
-    const colSet = new Set();
-    (Array.isArray(product?.variants) ? product.variants : []).forEach(v => {
-      const raw = v.variantProperty || v.property || "";
-      raw.split(/[;,]/).forEach(part => {
-        const [k, val] = part.split(":");
-        if ((k || "").toLowerCase().replace(/\s/g, "").includes("col") && val?.trim())
-          colSet.add(val.trim());
-      });
-    });
-    return [...colSet];
-  }, [product?.colors, product?.variants]);
+  // ── Parse variants once for both colors and sizes ────────────────────────────
+  const { realColors, realSizes } = useMemo(() => {
+    const colSet  = new Set();
+    const sizeSet = new Set();
 
-  const productColors = realColors.map(name => ({ name, hex: getColorHex(name) }));
+    // 1. Stored colors — skip generic placeholders
+    (product?.colors || [])
+      .filter(c => c && c !== "Default" && c !== "default")
+      .forEach(c => colSet.add(c));
+
+    // 2. Extract from variants (CJ format: "Color:Black;Size:XL" or "US Size:M")
+    (Array.isArray(product?.variants) ? product.variants : []).forEach(v => {
+      const raw = v.variantProperty || v.property || v.variantSku || "";
+      raw.split(/[;]/).forEach(part => {
+        const ci = part.indexOf(":");
+        if (ci === -1) return;
+        const k   = part.slice(0, ci).toLowerCase().replace(/\s/g, "");
+        const val = part.slice(ci + 1).trim();
+        if (!val) return;
+        if (k.includes("col") || k.includes("coul") || k === "colour")
+          colSet.add(val);
+        else if (k.includes("size") || k.includes("taille") || k.includes("pointure")
+               || k.includes("capacity") || k.includes("storage"))
+          sizeSet.add(val);
+      });
+      // variantNameEn sometimes IS the color: "Black", "Navy Blue", etc.
+      const vName = (v.variantNameEn || v.variantName || "").trim();
+      if (vName && !raw.includes(":") && colSet.size === 0 && getColorHex(vName) !== "#888")
+        colSet.add(vName);
+    });
+
+    return { realColors: [...colSet], realSizes: [...sizeSet] };
+  }, [product?.colors, product?.variants]);
 
   const isApparel = product?.type === "Clothing";
   const isShoes   = product?.type === "Shoes";
+
+  const productColors = realColors.map(name => ({ name, hex: getColorHex(name) }));
+  // Real sizes from variants; fall back to standard apparel/shoe lists when empty
+  const variantSizes  = realSizes.length > 0 ? realSizes
+    : isShoes   ? ["40","41","42","43","44","45"]
+    : isApparel ? ["XS","S","M","L","XL","XXL"]
+    : [];
 
   const ratingVal   = 3.8 + ((product?.id?.charCodeAt(0) || 65) % 12) * 0.1;
   const reviewCount = 10  + ((product?.id?.charCodeAt(0) || 65) % 200);
@@ -970,18 +996,21 @@ const ProductDetail = ({ addToCart, openModal }) => {
                 )}
 
                 {/* ── SIZE ── */}
-                {(isApparel || isShoes) && (
+                {variantSizes.length > 0 && (
                   <div className="mb-4">
                     <div className="flex items-center justify-between mb-2">
                       <p className="text-sm font-bold text-[#0F1111]">
-                        Taille : <span className="font-normal text-[#565959]">{size}</span>
+                        {isShoes ? "Pointure" : realSizes.length > 0 ? "Variante" : "Taille"} :
+                        <span className="font-normal text-[#565959] ml-1">{size}</span>
                       </p>
-                      <button className="text-xs text-[#007185] hover:text-[#C45500] hover:underline">
-                        Guide des tailles →
-                      </button>
+                      {(isApparel || isShoes) && (
+                        <button className="text-xs text-[#007185] hover:text-[#C45500] hover:underline">
+                          Guide des tailles →
+                        </button>
+                      )}
                     </div>
                     <div className="flex flex-wrap gap-1.5">
-                      {(isShoes ? ["40","41","42","43","44","45"] : ["XS","S","M","L","XL","XXL"]).map(s => (
+                      {variantSizes.map(s => (
                         <button key={s} onClick={() => setSize(s)}
                           className={`min-w-[44px] h-9 px-2 text-sm font-medium rounded border transition-all ${
                             size === s
@@ -1116,10 +1145,22 @@ const ProductDetail = ({ addToCart, openModal }) => {
                   <tbody>
                     {[
                       { label: "Type de produit",  value: product.type },
-                      { label: "Statut",            value: product.status },
-                      product.weight_g         && { label: "Poids",          value: `${product.weight_g} g` },
+                      product.status           && { label: "Statut",         value: product.status },
+                      product.weight_g         && { label: "Poids produit",  value: `${product.weight_g} g` },
+                      product.ship_weight_g    && { label: "Poids expédition",value: `${product.ship_weight_g} g` },
+                      (product.length_cm || product.width_cm || product.height_cm) && {
+                        label: "Dimensions produit",
+                        value: [product.length_cm, product.width_cm, product.height_cm]
+                          .filter(Boolean).map(d => `${d} cm`).join(" × ") + " (L×l×H)",
+                      },
+                      (product.pack_l_cm || product.pack_w_cm || product.pack_h_cm) && {
+                        label: "Dimensions emballage",
+                        value: [product.pack_l_cm, product.pack_w_cm, product.pack_h_cm]
+                          .filter(Boolean).map(d => `${d} cm`).join(" × ") + " (L×l×H)",
+                      },
                       product.cj_category_name && { label: "Catégorie",      value: product.cj_category_name },
                       product.supplier_name    && { label: "Fournisseur",    value: product.supplier_name },
+                      realSizes.length > 0     && { label: "Variantes dispo", value: realSizes.join(", ") },
                       { label: "Livraison",         value: "Douala — 2h express" },
                       { label: "Modes de paiement", value: "Orange Money · MTN MoMo · Cash" },
                       { label: "Politique retour",  value: "7 jours — Remboursement intégral" },
