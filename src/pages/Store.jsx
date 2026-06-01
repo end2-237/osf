@@ -140,83 +140,119 @@ const VendorSkeleton = () => (
 
 /* ─────────────────── HERO BANNER ─────────────────── */
 const MarketplaceHero = ({ totalProducts, searchQuery, setSearchQuery, onSearch }) => (
-  <div className="bg-[#232F3E] py-4 md:py-5 px-3 md:px-4">
-    <div className="max-w-[1400px] mx-auto">
-      <div className="max-w-2xl">
-        <p className="text-[#FF9900] text-xs font-bold uppercase tracking-wider mb-2 flex items-center gap-2">
-          <i className="fa-solid fa-store text-sm"></i>
-          {totalProducts}+ produits · Douala 🇨🇲
-        </p>
-        <h1 className="text-2xl md:text-4xl font-black text-white mb-1">
-          La Marketplace <span className="text-[#FF9900]">Elite</span> de Douala
-        </h1>
-        <p className="text-gray-400 text-sm mb-3">
-          Audio, Streetwear, Tech & plus — boutiques certifiées, livraison express, paiement sécurisé.
-        </p>
+  <div className="relative bg-[#0a0f14] overflow-hidden" style={{ minHeight: "420px" }}>
 
-        <div className="flex h-11 rounded overflow-hidden ring-2 ring-[#FF9900] shadow-lg">
-          <select className="bg-[#F3F4F4] text-[#0F1111] text-[11px] px-2 border-r border-[#CDCDCD] outline-none cursor-pointer flex-shrink-0 font-medium min-w-[60px]">
-            <option>Tout</option>
-            <option>Audio</option>
-            <option>Streetwear</option>
-            <option>Sneakers</option>
-            <option>Tech</option>
-            <option>Parfums</option>
-          </select>
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && onSearch()}
-            placeholder="Casque, sneakers, parfum, tech..."
-            className="flex-grow bg-white text-[#0F1111] px-4 text-sm outline-none min-w-0"
-          />
-          {searchQuery && (
-            <button onClick={() => setSearchQuery("")}
-              className="bg-white px-2 text-gray-400 hover:text-gray-700 transition"
+    {/* ── Background video ── */}
+    <video
+      autoPlay muted loop playsInline
+      className="absolute inset-0 w-full h-full object-cover"
+      style={{ opacity: 0.38 }}
+      poster="https://images.unsplash.com/photo-1483985988355-763728e1935b?w=1600&q=60"
+    >
+      <source src="https://videos.pexels.com/video-files/3571264/3571264-hd_1920_1080_30fps.mp4" type="video/mp4" />
+      <source src="https://videos.pexels.com/video-files/4763824/4763824-hd_1280_720_25fps.mp4"  type="video/mp4" />
+    </video>
+
+    {/* ── Gradients over video ── */}
+    <div className="absolute inset-0 bg-gradient-to-r from-[#0a0f14] via-[#0a0f14]/80 to-[#0a0f14]/20 pointer-events-none" />
+    <div className="absolute inset-0 bg-gradient-to-t from-[#0a0f14] via-transparent to-transparent pointer-events-none" />
+    {/* subtle amber glow bottom-left */}
+    <div className="absolute bottom-0 left-0 w-96 h-48 bg-[#FF9900]/10 rounded-full blur-3xl pointer-events-none" />
+
+    {/* ── Content ── */}
+    <div className="relative z-10 py-8 md:py-12 px-3 md:px-4">
+      <div className="max-w-[1400px] mx-auto">
+        <div className="max-w-2xl">
+
+          {/* Live badge */}
+          <div className="flex items-center gap-2 mb-3">
+            <span className="flex items-center gap-1.5 bg-[#FF9900] text-[#0F1111] text-[10px] font-black px-2.5 py-1 rounded-full uppercase tracking-wide shadow-lg">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#0F1111] animate-pulse inline-block"></span>
+              Live · Douala
+            </span>
+            <span className="text-[#FF9900]/70 text-[11px] font-semibold">
+              {totalProducts}+ produits disponibles 🇨🇲
+            </span>
+          </div>
+
+          <h1 className="text-3xl md:text-5xl font-black text-white mb-2 leading-tight tracking-tight">
+            La Marketplace<br />
+            <span className="text-[#FF9900] drop-shadow-[0_0_24px_rgba(255,153,0,0.5)]">Elite</span>
+            {" "}de Douala
+          </h1>
+          <p className="text-gray-400 text-sm mb-5 max-w-lg leading-relaxed">
+            Audio haut de gamme, Streetwear, Tech & Parfums — boutiques certifiées,
+            livraison express, paiement 100 % sécurisé.
+          </p>
+
+          {/* Search bar */}
+          <div className="flex h-12 rounded-lg overflow-hidden shadow-2xl ring-2 ring-[#FF9900]/60 mb-4 max-w-xl">
+            <select className="bg-[#F3F4F4] text-[#0F1111] text-[11px] px-2 border-r border-[#CDCDCD] outline-none cursor-pointer flex-shrink-0 font-bold min-w-[64px]">
+              <option>Tout</option>
+              <option>Audio</option>
+              <option>Streetwear</option>
+              <option>Sneakers</option>
+              <option>Tech</option>
+              <option>Parfums</option>
+            </select>
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && onSearch()}
+              placeholder="Casque, sneakers, parfum, tech..."
+              className="flex-grow bg-white text-[#0F1111] px-4 text-sm outline-none min-w-0"
+            />
+            {searchQuery && (
+              <button onClick={() => setSearchQuery("")}
+                className="bg-white px-2 text-gray-400 hover:text-gray-700 transition"
+              >
+                <i className="fa-solid fa-xmark text-sm"></i>
+              </button>
+            )}
+            <button onClick={onSearch}
+              className="bg-[#FF9900] hover:bg-[#E47911] text-[#0F1111] px-6 flex items-center gap-2 transition-colors flex-shrink-0 font-bold"
             >
-              <i className="fa-solid fa-xmark text-sm"></i>
+              <i className="fa-solid fa-magnifying-glass text-base"></i>
+              <span className="hidden md:inline text-sm">Rechercher</span>
             </button>
-          )}
-          <button onClick={onSearch}
-            className="bg-[#FF9900] hover:bg-[#E47911] text-[#0F1111] px-5 flex items-center gap-2 transition-colors flex-shrink-0"
-          >
-            <i className="fa-solid fa-magnifying-glass text-base"></i>
-            <span className="hidden md:inline font-bold text-sm">Rechercher</span>
-          </button>
+          </div>
+
+          {/* Trending tags */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-[11px] text-gray-500 font-medium">Tendances :</span>
+            {["AirPods", "Sneakers", "Casque", "Hoodies", "Parfum"].map((tag) => (
+              <button key={tag} onClick={() => setSearchQuery(tag)}
+                className="text-[11px] px-3 py-1 rounded-full bg-white/8 text-gray-300 hover:bg-[#FF9900] hover:text-[#0F1111] transition-all border border-white/15 hover:border-[#FF9900] backdrop-blur-sm"
+              >
+                {tag}
+              </button>
+            ))}
+          </div>
         </div>
 
-        <div className="flex items-center gap-2 mt-3 flex-wrap">
-          <span className="text-xs text-gray-500">Tendances:</span>
-          {["AirPods", "Sneakers", "Casque", "Hoodies"].map((tag) => (
-            <button key={tag} onClick={() => setSearchQuery(tag)}
-              className="text-xs px-3 py-1 rounded-full bg-white/10 text-gray-300 hover:bg-[#FF9900] hover:text-[#0F1111] transition-all border border-white/20 hover:border-[#FF9900]"
+        {/* Trust badges */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-6">
+          {[
+            { icon: "fa-store",        val: "5+",   label: "Boutiques Certifiées", color: "#FF9900"  },
+            { icon: "fa-truck-fast",   val: "2h",   label: "Livraison Douala",     color: "#60a5fa"  },
+            { icon: "fa-shield-check", val: "100%", label: "Paiement Sécurisé",    color: "#4ade80"  },
+            { icon: "fa-rotate-left",  val: "7j",   label: "Retour Gratuit",       color: "#c084fc"  },
+          ].map((item) => (
+            <div key={item.label}
+              className="bg-white/5 border border-white/8 rounded-lg p-3 flex items-center gap-3 hover:border-white/20 hover:bg-white/8 transition-all backdrop-blur-sm"
             >
-              {tag}
-            </button>
+              <div className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0"
+                style={{ backgroundColor: `${item.color}18` }}>
+                <i className={`fa-solid ${item.icon} text-sm`} style={{ color: item.color }}></i>
+              </div>
+              <div>
+                <p className="font-black text-xl leading-none" style={{ color: item.color }}>{item.val}</p>
+                <p className="text-[9px] font-bold text-gray-500 uppercase tracking-wider mt-0.5 leading-tight">{item.label}</p>
+              </div>
+            </div>
           ))}
         </div>
-      </div>
-
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-4">
-        {[
-          { icon: "fa-store",        val: "5+",   label: "Boutiques Certifiées", color: "text-[#FF9900]"  },
-          { icon: "fa-truck-fast",   val: "2h",   label: "Livraison Douala",     color: "text-blue-400"  },
-          { icon: "fa-shield-check", val: "100%", label: "Paiement Sécurisé",    color: "text-green-400" },
-          { icon: "fa-rotate-left",  val: "7j",   label: "Retour Gratuit",       color: "text-purple-400"},
-        ].map((item) => (
-          <div key={item.label}
-            className="bg-white/5 border border-white/10 rounded p-2.5 flex items-center gap-2 hover:border-white/20 transition-colors"
-          >
-            <div className="w-9 h-9 bg-white/10 rounded flex items-center justify-center flex-shrink-0">
-              <i className={`fa-solid ${item.icon} ${item.color} text-sm`}></i>
-            </div>
-            <div>
-              <p className={`font-black text-lg leading-none ${item.color}`}>{item.val}</p>
-              <p className="text-[9px] font-bold text-gray-500 uppercase tracking-wider mt-0.5">{item.label}</p>
-            </div>
-          </div>
-        ))}
       </div>
     </div>
   </div>
