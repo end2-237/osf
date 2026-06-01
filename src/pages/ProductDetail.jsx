@@ -839,13 +839,17 @@ const ProductDetail = ({ addToCart, openModal }) => {
     if (!product?.id) return;
 
     // Increment view count silently (column may not exist — failure is OK)
-    supabase.rpc("increment_view_count", { product_id: product.id }).catch(() => {
-      // Fallback: try direct update if RPC not found
-      supabase.from("products")
-        .update({ view_count: (product.view_count || 0) + 1 })
-        .eq("id", product.id)
-        .then(() => {});
-    });
+    (async () => {
+      try {
+        await supabase.rpc("increment_view_count", { product_id: product.id });
+      } catch {
+        try {
+          await supabase.from("products")
+            .update({ view_count: (product.view_count || 0) + 1 })
+            .eq("id", product.id);
+        } catch { /* silent */ }
+      }
+    })();
 
     // For CJ platform products (vendor_id = null): refresh price/availability if data > 6h old
     if (product.vendor_id !== null) return;
