@@ -996,7 +996,7 @@ const Store = ({ openModal, addToCart }) => {
                     {idx > 0 && idx % 24 === 0 && (
                       <div className="col-span-full">
                         <SectionBreak
-                          section={EDITORIAL_SECTIONS[(idx / 20 - 1) % EDITORIAL_SECTIONS.length]}
+                          section={EDITORIAL_SECTIONS[(idx / 24 - 1) % EDITORIAL_SECTIONS.length]}
                           onNavigate={handleSubcategorySelect}
                         />
                       </div>
