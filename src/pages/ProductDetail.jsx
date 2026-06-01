@@ -103,11 +103,20 @@ const Breadcrumb = ({ product }) => (
 const ImageGallery = ({ product }) => {
   const [activeImg, setActiveImg] = useState(0);
   const [zoomed, setZoomed]       = useState(false);
+  const thumbContainerRef         = useRef(null);
 
   const images = useMemo(() => {
     if (product?.images?.length > 0) return product.images;
     return product?.img ? [product.img] : [];
   }, [product]);
+
+  // Auto-scroll thumbnail strip to keep active thumb visible
+  useEffect(() => {
+    const el = thumbContainerRef.current;
+    if (!el) return;
+    const btns = el.querySelectorAll("button");
+    if (btns[activeImg]) btns[activeImg].scrollIntoView({ block: "nearest", behavior: "smooth" });
+  }, [activeImg]);
 
   if (images.length === 0)
     return (
@@ -184,7 +193,7 @@ const ImageGallery = ({ product }) => {
       {/* Desktop: grid keeps thumb column exactly as tall as main image */}
       <div className={`hidden sm:grid gap-3 ${images.length > 1 ? "grid-cols-[60px_1fr]" : ""}`}>
         {images.length > 1 && (
-          <div className="overflow-y-auto hide-scrollbar flex flex-col gap-2 min-h-0">
+          <div ref={thumbContainerRef} className="overflow-y-auto hide-scrollbar flex flex-col gap-2 min-h-0">
             {images.map((img, i) => <Thumb key={i} img={img} i={i} />)}
           </div>
         )}
@@ -594,7 +603,12 @@ const ProductDetail = ({ addToCart, openModal }) => {
   }, [product]);
 
   useEffect(() => {
-    if (product) { setSize("M"); setColor("Black"); setQty(1); }
+    if (product) {
+      const realColors = (product.colors || []).filter(c => c && c !== "Default");
+      setColor(realColors.length > 0 ? realColors[0] : "");
+      setSize(product.type === "Shoes" ? "40" : "M");
+      setQty(1);
+    }
   }, [product]);
 
   useEffect(() => {
@@ -658,15 +672,60 @@ const ProductDetail = ({ addToCart, openModal }) => {
   const memberPrice = Math.round(price * (1 - MEMBER_DISCOUNT));
   const ofsPoints  = Math.max(1, Math.floor(price / 500));
 
-  const COLOR_MAP = {
-    Black:"#111",White:"#f5f5f5",Neon:"#00ff88",Red:"#ef4444",Blue:"#3b82f6",Navy:"#1e3a5f",
-    Sky:"#38bdf8",Slate:"#64748b",Gray:"#9ca3af",Brown:"#92400e",Beige:"#d4b896",Camel:"#c19a6b",
-    Green:"#16a34a",Olive:"#65a30d",Yellow:"#facc15",Orange:"#f97316",Pink:"#ec4899",Purple:"#a855f7",
-    Burgundy:"#7f1d1d",Gold:"#d97706",Silver:"#c0c0c0",Khaki:"#c3b091",Teal:"#0d9488",Coral:"#fb7185",
+  const getColorHex = (name) => {
+    if (!name) return "#888";
+    const EXACT = {
+      Black:"#111",black:"#111",Noir:"#111",noir:"#111",
+      White:"#f5f5f5",white:"#f5f5f5",Blanc:"#f5f5f5",blanc:"#f5f5f5",
+      Red:"#ef4444",red:"#ef4444",Rouge:"#ef4444",rouge:"#ef4444",
+      Blue:"#3b82f6",blue:"#3b82f6",Bleu:"#3b82f6",bleu:"#3b82f6",
+      Navy:"#1e3a5f",navy:"#1e3a5f",Marine:"#1e3a5f",marine:"#1e3a5f",
+      Green:"#16a34a",green:"#16a34a",Vert:"#16a34a",vert:"#16a34a",
+      Olive:"#65a30d",olive:"#65a30d",
+      Yellow:"#facc15",yellow:"#facc15",Jaune:"#facc15",jaune:"#facc15",
+      Orange:"#f97316",orange:"#f97316",
+      Pink:"#ec4899",pink:"#ec4899",Rose:"#ec4899",rose:"#ec4899",
+      Purple:"#a855f7",purple:"#a855f7",Violet:"#a855f7",violet:"#a855f7",
+      Brown:"#92400e",brown:"#92400e",Marron:"#92400e",marron:"#92400e",
+      Camel:"#c19a6b",camel:"#c19a6b",Beige:"#d4b896",beige:"#d4b896",
+      Gray:"#9ca3af",gray:"#9ca3af",Grey:"#9ca3af",grey:"#9ca3af",
+      Gris:"#9ca3af",gris:"#9ca3af",Silver:"#c0c0c0",silver:"#c0c0c0",
+      Argent:"#c0c0c0",argent:"#c0c0c0",
+      Gold:"#d97706",gold:"#d97706",Or:"#d97706",
+      Khaki:"#c3b091",khaki:"#c3b091",Sky:"#38bdf8",sky:"#38bdf8",
+      Teal:"#0d9488",teal:"#0d9488",Turquoise:"#0d9488",turquoise:"#0d9488",
+      Coral:"#fb7185",coral:"#fb7185",Neon:"#00ff88",neon:"#00ff88",
+      Burgundy:"#7f1d1d",burgundy:"#7f1d1d",Slate:"#64748b",slate:"#64748b",
+    };
+    if (EXACT[name]) return EXACT[name];
+    const low = name.toLowerCase();
+    // First word of compound color (e.g. "Dark Blue", "Army Green", "Blue-White")
+    const first = low.split(/[-\s/]/)[0];
+    if (EXACT[first] || EXACT[first.charAt(0).toUpperCase() + first.slice(1)]) {
+      return EXACT[first] || EXACT[first.charAt(0).toUpperCase() + first.slice(1)];
+    }
+    // Keyword scan
+    if (low.includes("black") || low.includes("noir") || low.includes("dark"))  return "#1a1a1a";
+    if (low.includes("white") || low.includes("blanc") || low.includes("cream") || low.includes("ivory")) return "#f5f5f5";
+    if (low.includes("red")   || low.includes("rouge") || low.includes("wine")  || low.includes("crimson")) return "#ef4444";
+    if (low.includes("blue")  || low.includes("bleu")  || low.includes("cobalt") || low.includes("indigo"))  return "#3b82f6";
+    if (low.includes("navy")  || low.includes("marine"))                                                      return "#1e3a5f";
+    if (low.includes("green") || low.includes("vert")  || low.includes("army")  || low.includes("forest"))   return "#16a34a";
+    if (low.includes("olive") || low.includes("khaki") || low.includes("kaki"))                               return "#65a30d";
+    if (low.includes("yellow")|| low.includes("jaune") || low.includes("lemon"))                             return "#facc15";
+    if (low.includes("orange"))                                                                               return "#f97316";
+    if (low.includes("pink")  || low.includes("rose")  || low.includes("fuchsia") || low.includes("magenta")) return "#ec4899";
+    if (low.includes("purple")|| low.includes("violet")|| low.includes("lavender")|| low.includes("mauve"))  return "#a855f7";
+    if (low.includes("brown") || low.includes("marron")|| low.includes("choco")  || low.includes("coffee"))  return "#92400e";
+    if (low.includes("camel") || low.includes("beige") || low.includes("sand")   || low.includes("tan"))     return "#c3b091";
+    if (low.includes("gray")  || low.includes("grey")  || low.includes("gris")   || low.includes("silver"))  return "#9ca3af";
+    if (low.includes("gold")  || low.includes("golden")|| low.includes("doré"))                              return "#d97706";
+    if (low.includes("teal")  || low.includes("turquoise") || low.includes("aqua") || low.includes("cyan"))  return "#0d9488";
+    return "#888";
   };
-  const productColors = product?.colors?.length
-    ? product.colors.map(name => ({ name, hex: COLOR_MAP[name] ?? "#888" }))
-    : [{ name: "Black", hex: "#111" }, { name: "White", hex: "#f5f5f5" }, { name: "Neon", hex: "#00ff88" }];
+
+  const realColors   = useMemo(() => (product?.colors || []).filter(c => c && c !== "Default"), [product?.colors]);
+  const productColors = realColors.map(name => ({ name, hex: getColorHex(name) }));
 
   const isApparel = product?.type === "Clothing";
   const isShoes   = product?.type === "Shoes";
@@ -844,22 +903,24 @@ const ProductDetail = ({ addToCart, openModal }) => {
                 <div className="border-t border-[#D5D9D9] mb-4" />
 
                 {/* ── COLOR ── */}
-                <div className="mb-4">
-                  <p className="text-sm font-bold mb-2 text-[#0F1111]">
-                    Couleur : <span className="font-normal text-[#565959]">{color}</span>
-                  </p>
-                  <div className="flex gap-2 flex-wrap">
-                    {productColors.map(c => (
-                      <button key={c.name} onClick={() => setColor(c.name)} title={c.name}
-                        className={`w-8 h-8 rounded-full border-2 transition-all hover:scale-110 ${
-                          color === c.name
-                            ? "border-[#FF9900] scale-110 shadow-[0_0_0_2px_rgba(255,153,0,0.2)]"
-                            : "border-[#D5D9D9] hover:border-[#adb5bd]"
-                        }`}
-                        style={{ backgroundColor: c.hex }} />
-                    ))}
+                {productColors.length > 0 && (
+                  <div className="mb-4">
+                    <p className="text-sm font-bold mb-2 text-[#0F1111]">
+                      Couleur : <span className="font-normal text-[#565959]">{color}</span>
+                    </p>
+                    <div className="flex gap-2 flex-wrap">
+                      {productColors.map(c => (
+                        <button key={c.name} onClick={() => setColor(c.name)} title={c.name}
+                          className={`w-8 h-8 rounded-full border-2 transition-all hover:scale-110 ${
+                            color === c.name
+                              ? "border-[#FF9900] scale-110 shadow-[0_0_0_2px_rgba(255,153,0,0.2)]"
+                              : "border-[#D5D9D9] hover:border-[#adb5bd]"
+                          }`}
+                          style={{ backgroundColor: c.hex }} />
+                      ))}
+                    </div>
                   </div>
-                </div>
+                )}
 
                 {/* ── SIZE ── */}
                 {(isApparel || isShoes) && (
