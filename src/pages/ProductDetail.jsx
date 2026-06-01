@@ -677,7 +677,6 @@ const ProductDetail = ({ addToCart, openModal }) => {
         if (fresh.description?.length > (product.description?.length || 0))        updates.description       = fresh.description;
         if (fresh.features?.length > 0)                                             updates.features          = fresh.features;
         if (fresh.colors?.length > 0 && fresh.colors[0] !== "Default")             updates.colors            = fresh.colors;
-        if (fresh.sizes?.length > 0)                                               updates.sizes             = fresh.sizes;
         if (fresh.variants)                                                         updates.variants          = fresh.variants;
         if (fresh.stock_qty !== -1)                                                 updates.stock_qty         = fresh.stock_qty;
         if (fresh.weight_g)                                                         updates.weight_g          = fresh.weight_g;
@@ -767,10 +766,7 @@ const ProductDetail = ({ addToCart, openModal }) => {
       .filter(c => c && c !== "Default" && c !== "default")
       .forEach(c => colSet.add(c));
 
-    // 2. Stored `sizes` column (saved since the import fix)
-    (product?.sizes || []).filter(Boolean).forEach(s => sizeSet.add(s));
-
-    // 3. Extract from `variants` JSON (CJ format: "Color:Black;Size:XL")
+    // 2. Extract from `variants` JSON (CJ format: "Color:Black;Size:XL")
     (Array.isArray(product?.variants) ? product.variants : []).forEach(v => {
       const raw = v.variantProperty || v.property || v.variantSku || "";
       raw.split(/[;,]/).forEach(part => {
@@ -792,7 +788,7 @@ const ProductDetail = ({ addToCart, openModal }) => {
     });
 
     return { realColors: [...colSet], realSizes: [...sizeSet] };
-  }, [product?.colors, product?.sizes, product?.variants]);
+  }, [product?.colors, product?.variants]);
 
   const isApparel = product?.type === "Clothing";
   const isShoes   = product?.type === "Shoes";

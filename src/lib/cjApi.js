@@ -247,7 +247,6 @@ export const mapCjToProduct = (p) => {
     description,
     features,
     colors:           colors.length > 0 ? colors : ["Default"],
-    sizes:            sizes.length  > 0 ? sizes  : [],
     vendor_id:        null,
     // CJ-specific
     cj_product_id,
