@@ -57,22 +57,20 @@ export const mapOfsType = (categoryName = "") => {
   return "Clothing";
 };
 
-// USD → FCFA  (1 USD ≈ 610 FCFA) — robust against NaN/null/string inputs
+// USD → FCFA  (1 USD ≈ 610 FCFA)
 export const usdToFcfa = (usd) => {
   const n = parseFloat(usd);
   return isNaN(n) || n <= 0 ? 0 : Math.round(n * 610);
 };
 
-// Detect video URLs (stored inline in images array)
+// Detect video URLs stored inline in images array
 export const isVideoUrl = (url = "") =>
   /\.(mp4|webm|ogg|mov)(\?.*)?$/i.test(url);
 
 // ─── CJ product → Supabase product schema ────────────────────────────────────
-// vendor_id = null → produit plateforme OFS (pas lié à un vendeur)
 export const mapCjToProduct = (p) => {
+  // ── Images ─────────────────────────────────────────────────────────────────
   const mainImg = p.productImage || "";
-
-  // productImageSet can be a comma-separated string or an array
   let images = [];
   if (p.productImageSet) {
     if (Array.isArray(p.productImageSet)) {
@@ -82,21 +80,87 @@ export const mapCjToProduct = (p) => {
     }
   }
   if (images.length === 0 && mainImg) images = [mainImg];
-
-  // Append product video URL if available (detected via extension in the gallery)
   const videoUrl = (p.productVideo || "").trim();
   if (videoUrl && !images.includes(videoUrl)) images = [...images, videoUrl];
 
+  // ── CJ product ID (try all known field names) ───────────────────────────────
+  const cj_product_id = p.pid || p.productId || p.cjProductId || null;
+
+  // ── Variants (colors, sizes, stock per variant) ─────────────────────────────
+  const variants = Array.isArray(p.variants) ? p.variants : [];
+
+  // Extract unique colors from variant properties (supports "Color:Red;Size:XL" or "Color:Red,Size:XL")
+  const colorsSet = new Set();
+  variants.forEach(v => {
+    const raw = v.variantProperty || v.property || "";
+    raw.split(/[;,]/).forEach(prop => {
+      const [key, val] = prop.split(":");
+      if ((key || "").toLowerCase().replace(/\s/g, "").includes("col") && val?.trim()) {
+        colorsSet.add(val.trim());
+      }
+    });
+  });
+  const colors = colorsSet.size > 0 ? [...colorsSet] : [];
+
+  // ── Stock: sum variants or top-level field (-1 = unknown) ──────────────────
+  let stock_qty = -1;
+  if (typeof p.inventoryQuantity === "number") {
+    stock_qty = p.inventoryQuantity;
+  } else if (typeof p.quantity === "number") {
+    stock_qty = p.quantity;
+  } else if (variants.length > 0) {
+    const hasStockData = variants.some(v => "variantInventory" in v || "quantity" in v);
+    if (hasStockData) {
+      stock_qty = variants.reduce((s, v) => s + (parseInt(v.variantInventory ?? v.quantity ?? 0) || 0), 0);
+    }
+  }
+
+  // ── Status from stock ───────────────────────────────────────────────────────
+  const status =
+    stock_qty === 0              ? "Rupture"      :
+    stock_qty > 0 && stock_qty <= 10 ? "Stock limité" :
+    "Nouveau";
+
+  // ── Description: prefer English remark over product name ───────────────────
+  const description = (
+    p.productRemark || p.remark || p.entryRemark || p.description || p.productNameEn || p.productName || ""
+  ).trim();
+
+  // ── Features from product attributes ───────────────────────────────────────
+  const features = [];
+  (Array.isArray(p.productAttribute) ? p.productAttribute : []).forEach(a => {
+    const name  = a.attrEnName  || a.attrName  || "";
+    const value = a.attrEnValue || a.attrValue || "";
+    if (name && value) features.push(`${name}: ${value}`);
+  });
+
+  // ── Price USD (keep original for audit/recalculation) ──────────────────────
+  const price_usd = parseFloat(p.sellPrice ?? p.productPrice ?? 0) || null;
+
+  // ── Weight ─────────────────────────────────────────────────────────────────
+  const weight_g = parseFloat(p.productWeight || p.logisticWeight || 0) || null;
+
   return {
-    name:        p.productNameEn || p.productName || "Produit",
-    price:       usdToFcfa(p.sellPrice ?? p.productPrice ?? 0),
-    img:         images.find(u => !isVideoUrl(u)) || mainImg,
+    // Core
+    name:             p.productNameEn || p.productName || "Produit",
+    price:            usdToFcfa(p.sellPrice ?? p.productPrice ?? 0),
+    price_usd,
+    img:              images.find(u => !isVideoUrl(u)) || mainImg,
     images,
-    type:        mapOfsType(p.categoryName || ""),
-    status:      "Nouveau",
-    description: p.productName   || p.productNameEn || "",
-    features:    [],
-    colors:      ["Black", "White"],
-    vendor_id:   null,
+    type:             mapOfsType(p.categoryName || ""),
+    status,
+    description,
+    features,
+    colors:           colors.length > 0 ? colors : ["Default"],
+    vendor_id:        null,
+    // CJ-specific
+    cj_product_id,
+    stock_qty,
+    weight_g,
+    variants:         variants.length > 0 ? variants : null,
+    cj_category_id:   p.categoryId   || null,
+    cj_category_name: p.categoryName || null,
+    supplier_id:      p.supplierId   || null,
+    supplier_name:    p.supplierName || null,
   };
 };

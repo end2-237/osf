@@ -60,11 +60,19 @@ const ProductCard = React.memo(({ product, openModal, addToCart }) => {
       >
         {/* BADGES */}
         <div className="absolute top-2 left-2 z-10 flex flex-col gap-1">
-          {product.status && (
+          {product.stock_qty === 0 ? (
+            <span className="bg-[#565959] text-white text-[9px] font-bold px-1.5 py-0.5 rounded-sm leading-tight">
+              Rupture
+            </span>
+          ) : product.stock_qty > 0 && product.stock_qty <= 10 ? (
+            <span className="bg-[#CC0C39] text-white text-[9px] font-bold px-1.5 py-0.5 rounded-sm leading-tight">
+              Plus que {product.stock_qty}
+            </span>
+          ) : product.status && product.status !== "Nouveau" ? (
             <span className="bg-[#CC0C39] text-white text-[9px] font-bold px-1.5 py-0.5 rounded-sm leading-tight">
               {product.status}
             </span>
-          )}
+          ) : null}
           {discountActive && (
             <span className="bg-[#FF9900] text-[#0F1111] text-[9px] font-bold px-1.5 py-0.5 rounded-sm leading-tight">
               −20%

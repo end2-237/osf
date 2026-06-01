@@ -879,34 +879,47 @@ const ProductDetail = ({ addToCart, openModal }) => {
       if (Date.now() - updatedAt.getTime() < 6 * 60 * 60 * 1000) return;
     }
 
-    // Background refresh: search by name, then fetch full detail for images/videos
+    // Background refresh: use stored cj_product_id if available, else search by name
     const refreshCjData = async () => {
       try {
         const { cjListProducts, cjGetProductDetail, mapCjToProduct } = await import("../lib/cjApi");
 
-        // Find the CJ product by name
-        const result = await cjListProducts(1, 5, product.name, "");
-        const match  = result?.list?.find(p =>
-          (p.productNameEn || p.productName || "").toLowerCase() === (product.name || "").toLowerCase()
-        );
-        if (!match) return;
+        let fullData = null;
+        const knownPid = product.cj_product_id;
 
-        // Fetch full detail (has productImageSet + productVideo)
-        // CJ returns product ID as pid or productId depending on endpoint
-        const cjPid = match.pid || match.productId || match.cjProductId;
-        let fullData = match;
-        if (cjPid) {
-          try {
-            const detail = await cjGetProductDetail(cjPid);
-            if (detail) fullData = detail;
-          } catch { /* fallback to list data */ }
+        if (knownPid) {
+          // Direct fetch — fastest path now that we store the CJ ID
+          fullData = await cjGetProductDetail(knownPid);
+        } else {
+          // Fallback: search by name then get detail
+          const result = await cjListProducts(1, 5, product.name, "");
+          const match = result?.list?.find(p =>
+            (p.productNameEn || p.productName || "").toLowerCase() === (product.name || "").toLowerCase()
+          );
+          if (!match) return;
+          const cjPid = match.pid || match.productId || match.cjProductId;
+          fullData = cjPid ? await cjGetProductDetail(cjPid) : match;
         }
 
+        if (!fullData) return;
         const fresh = mapCjToProduct(fullData);
+
+        // Build updates — only overwrite if CJ returned richer data
         const updates = { updated_at: new Date().toISOString() };
-        if (fresh.price > 0 && fresh.price !== product.price) updates.price = fresh.price;
-        if (fresh.img) updates.img = fresh.img;
-        if (fresh.images?.length > (product.images?.length || 0)) updates.images = fresh.images;
+        if (fresh.cj_product_id)                                   updates.cj_product_id    = fresh.cj_product_id;
+        if (fresh.price > 0 && fresh.price !== product.price)      updates.price             = fresh.price;
+        if (fresh.price_usd)                                        updates.price_usd         = fresh.price_usd;
+        if (fresh.img)                                              updates.img               = fresh.img;
+        if (fresh.images?.length > (product.images?.length || 0))  updates.images            = fresh.images;
+        if (fresh.description?.length > (product.description?.length || 0)) updates.description = fresh.description;
+        if (fresh.features?.length > 0)                            updates.features          = fresh.features;
+        if (fresh.colors?.length > 0 && fresh.colors[0] !== "Default") updates.colors        = fresh.colors;
+        if (fresh.variants)                                         updates.variants          = fresh.variants;
+        if (fresh.stock_qty !== -1)                                 updates.stock_qty         = fresh.stock_qty;
+        if (fresh.weight_g)                                         updates.weight_g          = fresh.weight_g;
+        if (fresh.cj_category_id)                                   updates.cj_category_id   = fresh.cj_category_id;
+        if (fresh.cj_category_name)                                 updates.cj_category_name = fresh.cj_category_name;
+        if (fresh.status && fresh.status !== "Nouveau")             updates.status            = fresh.status;
 
         await supabase.from("products").update(updates).eq("id", product.id);
         setProduct(prev => prev ? { ...prev, ...updates } : prev);

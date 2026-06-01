@@ -483,67 +483,84 @@ const AllProductsTab = ({ loading }) => {
   );
 };
 
-// ─── REPAIR IMAGES PANEL ─────────────────────────────────────────────────────
+// ─── REPAIR CJ DATA PANEL ────────────────────────────────────────────────────
 const RepairImagesPanel = () => {
   const [state, setState] = useState({ running: false, total: 0, done: 0, updated: 0, log: [] });
   const stopRef = useRef(false);
 
-  const addLog = (msg) => setState(s => ({ ...s, log: [msg, ...s.log.slice(0, 49)] }));
+  const addLog = (msg) => setState(s => ({ ...s, log: [msg, ...s.log.slice(0, 99)] }));
 
   const run = async () => {
     stopRef.current = false;
     setState({ running: true, total: 0, done: 0, updated: 0, log: [] });
 
-    // Fetch all CJ products with ≤1 image
+    // All CJ products — select only fields needed to identify & check
     const { data: products } = await supabase
       .from("products")
-      .select("id, name, images")
+      .select("id, name, cj_product_id, images, description, stock_qty")
       .is("vendor_id", null);
 
-    const toFix = (products || []).filter(p => !p.images || p.images.length <= 1);
+    const toFix = products || [];
     setState(s => ({ ...s, total: toFix.length }));
-    addLog(`${toFix.length} produits avec 1 seule image trouvés`);
+    addLog(`${toFix.length} produits CJ à synchroniser`);
 
     const { cjListProducts, cjGetProductDetail, mapCjToProduct } = await import("../lib/cjApi");
 
     let updated = 0;
-    // Process 3 at a time to respect CJ rate limits
     for (let i = 0; i < toFix.length; i += 3) {
       if (stopRef.current) { addLog("⛔ Arrêté"); break; }
-      const batch = toFix.slice(i, i + 3);
 
-      await Promise.all(batch.map(async (p) => {
+      await Promise.all(toFix.slice(i, i + 3).map(async (p) => {
         try {
-          const result = await cjListProducts(1, 5, p.name, "");
-          const match = result?.list?.find(cj =>
-            (cj.productNameEn || cj.productName || "").toLowerCase() === (p.name || "").toLowerCase()
-          );
-          if (!match) return;
+          let fullData = null;
 
-          const cjPid = match.pid || match.productId || match.cjProductId;
-          let fullData = match;
-          if (cjPid) {
-            try { const d = await cjGetProductDetail(cjPid); if (d) fullData = d; } catch {}
+          // Use stored CJ ID if available (direct fetch, no search)
+          if (p.cj_product_id) {
+            fullData = await cjGetProductDetail(p.cj_product_id);
+          } else {
+            const result = await cjListProducts(1, 5, p.name, "");
+            const match = result?.list?.find(cj =>
+              (cj.productNameEn || cj.productName || "").toLowerCase() === (p.name || "").toLowerCase()
+            );
+            if (!match) return;
+            const cjPid = match.pid || match.productId || match.cjProductId;
+            fullData = cjPid ? await cjGetProductDetail(cjPid) : match;
           }
 
+          if (!fullData) return;
           const fresh = mapCjToProduct(fullData);
-          if (fresh.images?.length > 1) {
-            await supabase.from("products")
-              .update({ images: fresh.images, img: fresh.img, updated_at: new Date().toISOString() })
-              .eq("id", p.id);
-            updated++;
-            addLog(`✓ ${p.name.slice(0, 40)} — ${fresh.images.length} images`);
-          }
-        } catch { /* continue */ }
+
+          const upd = { updated_at: new Date().toISOString() };
+          if (fresh.cj_product_id)                                       upd.cj_product_id    = fresh.cj_product_id;
+          if (fresh.price > 0)                                            upd.price            = fresh.price;
+          if (fresh.price_usd)                                            upd.price_usd        = fresh.price_usd;
+          if (fresh.img)                                                  upd.img              = fresh.img;
+          if (fresh.images?.length > (p.images?.length || 0))            upd.images           = fresh.images;
+          if (fresh.description?.length > (p.description?.length || 0))  upd.description      = fresh.description;
+          if (fresh.features?.length > 0)                                 upd.features         = fresh.features;
+          if (fresh.colors?.length > 0 && fresh.colors[0] !== "Default") upd.colors           = fresh.colors;
+          if (fresh.variants)                                              upd.variants         = fresh.variants;
+          if (fresh.stock_qty !== -1)                                      upd.stock_qty        = fresh.stock_qty;
+          if (fresh.weight_g)                                              upd.weight_g         = fresh.weight_g;
+          if (fresh.cj_category_id)                                        upd.cj_category_id  = fresh.cj_category_id;
+          if (fresh.cj_category_name)                                      upd.cj_category_name= fresh.cj_category_name;
+          if (fresh.status && fresh.status !== "Nouveau")                  upd.status          = fresh.status;
+
+          await supabase.from("products").update(upd).eq("id", p.id);
+          updated++;
+
+          const imgCount = upd.images?.length || p.images?.length || 1;
+          const stockInfo = fresh.stock_qty >= 0 ? ` · stock:${fresh.stock_qty}` : "";
+          addLog(`✓ ${p.name.slice(0, 38)} — ${imgCount} img${stockInfo}`);
+        } catch { /* continue to next */ }
       }));
 
       setState(s => ({ ...s, done: Math.min(i + 3, toFix.length), updated }));
-      // Small delay to avoid rate limits
-      await new Promise(r => setTimeout(r, 500));
+      await new Promise(r => setTimeout(r, 600)); // rate limit respect
     }
 
     setState(s => ({ ...s, running: false }));
-    addLog(`✅ Terminé — ${updated} produits mis à jour`);
+    addLog(`✅ Terminé — ${updated}/${toFix.length} produits synchronisés`);
   };
 
   const pct = state.total > 0 ? Math.round((state.done / state.total) * 100) : 0;
@@ -552,10 +569,10 @@ const RepairImagesPanel = () => {
     <div className="bg-white border border-[#D5D9D9] rounded-xl overflow-hidden">
       <div className="bg-[#232F3E] px-5 py-3 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <i className="fa-solid fa-images text-[#FF9900] text-sm"></i>
-          <span className="font-black text-sm text-white">Réparer les images CJ</span>
+          <i className="fa-solid fa-rotate text-[#FF9900] text-sm"></i>
+          <span className="font-black text-sm text-white">Synchronisation complète CJ</span>
         </div>
-        <span className="text-[10px] text-[#ADBAC7]">Récupère toutes les images depuis l'API CJ</span>
+        <span className="text-[10px] text-[#ADBAC7]">Images · Stock · Prix · Couleurs · Variantes</span>
       </div>
       <div className="p-5 space-y-4">
         <p className="text-[11px] text-[#565959]">
