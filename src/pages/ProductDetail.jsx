@@ -102,7 +102,7 @@ const Breadcrumb = ({ product }) => (
 // ─── IMAGE GALLERY ─────────────────────────────────────────────────────────────
 const ImageGallery = ({ product }) => {
   const [activeImg, setActiveImg] = useState(0);
-  const [zoomed, setZoomed]     = useState(false);
+  const [zoomed, setZoomed]       = useState(false);
 
   const images = useMemo(() => {
     if (product?.images?.length > 0) return product.images;
@@ -116,79 +116,87 @@ const ImageGallery = ({ product }) => {
       </div>
     );
 
-  return (
-    <div className="flex gap-3">
-      {/* Left vertical thumbnails */}
-      {images.length > 1 && (
-        <div className="flex flex-col gap-2 flex-shrink-0">
-          {images.map((img, i) => (
-            <button
-              key={i}
-              onMouseEnter={() => setActiveImg(i)}
-              onClick={() => setActiveImg(i)}
-              className={`w-[56px] h-[56px] rounded overflow-hidden border-2 flex-shrink-0 transition-all ${
-                activeImg === i ? "border-[#FF9900]" : "border-[#D5D9D9] hover:border-[#FF9900]"
-              }`}
-            >
-              {isVideoUrl(img) ? (
-                <div className="w-full h-full bg-[#131921] flex items-center justify-center">
-                  <i className="fa-solid fa-play text-[#FF9900] text-xs" />
-                </div>
-              ) : (
-                <img src={img} alt="" className="w-full h-full object-cover" />
-              )}
-            </button>
-          ))}
+  const Thumb = ({ img, i, size = "w-[56px] h-[56px]" }) => (
+    <button
+      key={i}
+      onMouseEnter={() => setActiveImg(i)}
+      onClick={() => setActiveImg(i)}
+      className={`${size} rounded overflow-hidden border-2 flex-shrink-0 transition-all ${
+        activeImg === i ? "border-[#FF9900]" : "border-[#D5D9D9] hover:border-[#FF9900]"
+      }`}
+    >
+      {isVideoUrl(img) ? (
+        <div className="w-full h-full bg-[#131921] flex items-center justify-center">
+          <i className="fa-solid fa-play text-[#FF9900] text-xs" />
+        </div>
+      ) : (
+        <img src={img} alt="" className="w-full h-full object-cover" />
+      )}
+    </button>
+  );
+
+  const MainImage = () => (
+    <div
+      className={`relative w-full bg-white border border-[#D5D9D9] rounded overflow-hidden group ${
+        isVideoUrl(images[activeImg]) ? "cursor-default" : zoomed ? "cursor-zoom-out" : "cursor-zoom-in"
+      }`}
+      style={{ aspectRatio: "1/1" }}
+      onClick={() => { if (!isVideoUrl(images[activeImg])) setZoomed(z => !z); }}
+    >
+      {isVideoUrl(images[activeImg]) ? (
+        <video key={images[activeImg]} src={images[activeImg]}
+          className="w-full h-full object-contain" controls autoPlay muted loop playsInline />
+      ) : (
+        <img
+          src={images[activeImg]}
+          alt={product?.name}
+          className={`w-full h-full object-contain transition-all duration-500 ${
+            zoomed ? "scale-[1.8]" : "group-hover:scale-[1.04]"
+          }`}
+        />
+      )}
+      {product?.status && product.status !== "Nouveau" && (
+        <div className="absolute top-2 left-2 z-10">
+          <span className="bg-[#CC0C39] text-white text-[9px] font-bold px-2 py-0.5 rounded-sm uppercase">
+            {product.status}
+          </span>
         </div>
       )}
-
-      {/* Main image */}
-      <div
-        className={`relative flex-grow bg-white border border-[#D5D9D9] rounded overflow-hidden group ${
-          isVideoUrl(images[activeImg]) ? "cursor-default" : zoomed ? "cursor-zoom-out" : "cursor-zoom-in"
-        }`}
-        style={{ aspectRatio: "1/1" }}
-        onClick={() => { if (!isVideoUrl(images[activeImg])) setZoomed(z => !z); }}
-      >
-        {isVideoUrl(images[activeImg]) ? (
-          <video key={images[activeImg]} src={images[activeImg]}
-            className="w-full h-full object-contain" controls autoPlay muted loop playsInline />
-        ) : (
-          <img
-            src={images[activeImg]}
-            alt={product?.name}
-            className={`w-full h-full object-contain transition-all duration-500 ${
-              zoomed ? "scale-[1.8]" : "group-hover:scale-[1.04]"
-            }`}
-          />
-        )}
-
-        {/* Status badge */}
-        {product?.status && product.status !== "Nouveau" && (
-          <div className="absolute top-2 left-2 z-10">
-            <span className="bg-[#CC0C39] text-white text-[9px] font-bold px-2 py-0.5 rounded-sm uppercase">
-              {product.status}
-            </span>
-          </div>
-        )}
-
-        {/* OFS seal */}
-        <div className="absolute top-2 right-2 z-10 opacity-60 hover:opacity-100 transition-opacity">
-          <OFSSeal size={44} />
+      <div className="absolute top-2 right-2 z-10 opacity-60 hover:opacity-100 transition-opacity">
+        <OFSSeal size={44} />
+      </div>
+      {!isVideoUrl(images[activeImg]) && !zoomed && (
+        <div className="absolute bottom-2 left-1/2 -translate-x-1/2 bg-black/60 text-white text-[9px] px-2.5 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+          <i className="fa-solid fa-magnifying-glass-plus mr-1" />
+          Survolez pour zoomer
         </div>
+      )}
+      {images.length > 1 && (
+        <div className="absolute bottom-2 right-2 bg-black/50 text-white text-[9px] font-bold px-1.5 py-0.5 rounded">
+          {activeImg + 1}/{images.length}
+        </div>
+      )}
+    </div>
+  );
 
-        {/* Zoom hint */}
-        {!isVideoUrl(images[activeImg]) && !zoomed && (
-          <div className="absolute bottom-2 left-1/2 -translate-x-1/2 bg-black/60 text-white text-[9px] px-2.5 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
-            <i className="fa-solid fa-magnifying-glass-plus mr-1" />
-            Survolez pour zoomer
+  return (
+    <div>
+      {/* Desktop: vertical thumbs left + main image */}
+      <div className="hidden sm:flex gap-3">
+        {images.length > 1 && (
+          <div className="flex flex-col gap-2 flex-shrink-0 max-h-[500px] overflow-y-auto hide-scrollbar">
+            {images.map((img, i) => <Thumb key={i} img={img} i={i} />)}
           </div>
         )}
+        <div className="flex-grow"><MainImage /></div>
+      </div>
 
-        {/* Counter */}
+      {/* Mobile: main image + horizontal thumbs below */}
+      <div className="sm:hidden">
+        <MainImage />
         {images.length > 1 && (
-          <div className="absolute bottom-2 right-2 bg-black/50 text-white text-[9px] font-bold px-1.5 py-0.5 rounded">
-            {activeImg + 1}/{images.length}
+          <div className="flex gap-2 overflow-x-auto hide-scrollbar mt-2 pb-1">
+            {images.map((img, i) => <Thumb key={i} img={img} i={i} size="w-14 h-14" />)}
           </div>
         )}
       </div>
@@ -714,17 +722,18 @@ const ProductDetail = ({ addToCart, openModal }) => {
       ) : (
         <div className="max-w-[1500px] mx-auto px-4 md:px-6 py-4 pb-20">
 
-          {/* ══ MAIN PRODUCT CARD ══ */}
-          <div className="bg-white border border-[#D5D9D9] rounded mb-4 overflow-hidden">
-            <div className="grid grid-cols-1 lg:grid-cols-[1fr_1fr] xl:grid-cols-[520px_1fr] gap-0">
+          {/* ══ MAIN PRODUCT SECTION ══ */}
+          <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] xl:grid-cols-[520px_1fr] gap-4 mb-4 items-start">
 
-              {/* ── GALLERY ── */}
-              <div className="p-4 lg:p-6 lg:border-r border-[#D5D9D9]">
+            {/* ── GALLERY (sticky) ── */}
+            <div className="lg:sticky lg:top-4">
+              <div className="bg-white border border-[#D5D9D9] rounded p-3 sm:p-4 lg:p-6">
                 <ImageGallery product={product} />
               </div>
+            </div>
 
-              {/* ── INFO PANEL ── */}
-              <div className="p-4 lg:p-6 flex flex-col">
+            {/* ── INFO PANEL ── */}
+            <div className="bg-white border border-[#D5D9D9] rounded p-4 lg:p-6 flex flex-col min-w-0">
 
                 {/* Brand / vendor */}
                 <div className="mb-1">
@@ -948,9 +957,8 @@ const ProductDetail = ({ addToCart, openModal }) => {
                     <span className="text-sm">Partager ce produit</span>
                   </button>
                 </div>
-              </div>
-            </div>
-          </div>
+            </div>{/* end info panel */}
+          </div>{/* end grid */}
 
           {/* ══ BELOW FOLD ══ */}
           <div className="space-y-4">
@@ -958,10 +966,10 @@ const ProductDetail = ({ addToCart, openModal }) => {
             {/* About this item */}
             {product.features?.length > 0 && (
               <div className="bg-white border border-[#D5D9D9] rounded">
-                <div className="px-6 py-4 border-b border-[#D5D9D9]">
-                  <h2 className="text-lg font-bold text-[#0F1111]">À propos de ce produit</h2>
+                <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-[#D5D9D9]">
+                  <h2 className="text-base sm:text-lg font-bold text-[#0F1111]">À propos de ce produit</h2>
                 </div>
-                <div className="px-6 py-5">
+                <div className="px-4 sm:px-6 py-4 sm:py-5">
                   <ul className="space-y-2.5">
                     {product.features.map((feat, i) => (
                       <li key={i} className="flex items-start gap-3 text-sm text-[#0F1111]">
@@ -977,10 +985,10 @@ const ProductDetail = ({ addToCart, openModal }) => {
             {/* Product description */}
             {product.description && (
               <div className="bg-white border border-[#D5D9D9] rounded">
-                <div className="px-6 py-4 border-b border-[#D5D9D9]">
-                  <h2 className="text-lg font-bold text-[#0F1111]">Description du produit</h2>
+                <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-[#D5D9D9]">
+                  <h2 className="text-base sm:text-lg font-bold text-[#0F1111]">Description du produit</h2>
                 </div>
-                <div className="px-6 py-5">
+                <div className="px-4 sm:px-6 py-4 sm:py-5">
                   <div
                     className="cj-description text-sm text-[#565959] leading-relaxed"
                     dangerouslySetInnerHTML={{ __html: product.description }}
@@ -991,11 +999,11 @@ const ProductDetail = ({ addToCart, openModal }) => {
 
             {/* Technical details */}
             <div className="bg-white border border-[#D5D9D9] rounded">
-              <div className="px-6 py-4 border-b border-[#D5D9D9]">
-                <h2 className="text-lg font-bold text-[#0F1111]">Informations techniques</h2>
+              <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-[#D5D9D9]">
+                <h2 className="text-base sm:text-lg font-bold text-[#0F1111]">Informations techniques</h2>
               </div>
-              <div className="px-6 py-5">
-                <table className="w-full max-w-xl text-sm border-collapse">
+              <div className="px-4 sm:px-6 py-4 sm:py-5 overflow-x-auto">
+                <table className="w-full text-sm border-collapse">
                   <tbody>
                     {[
                       { label: "Type de produit",  value: product.type },
@@ -1008,8 +1016,8 @@ const ProductDetail = ({ addToCart, openModal }) => {
                       { label: "Politique retour",  value: "7 jours — Remboursement intégral" },
                     ].filter(Boolean).map((row, i) => (
                       <tr key={row.label} className={i % 2 === 0 ? "bg-[#F3F4F4]" : "bg-white"}>
-                        <td className="py-2.5 px-4 font-bold text-[#0F1111] w-1/3 border border-[#D5D9D9]">{row.label}</td>
-                        <td className="py-2.5 px-4 text-[#565959] border border-[#D5D9D9]">{row.value}</td>
+                        <td className="py-2.5 px-3 sm:px-4 font-bold text-[#0F1111] w-[40%] border border-[#D5D9D9] align-top">{row.label}</td>
+                        <td className="py-2.5 px-3 sm:px-4 text-[#565959] border border-[#D5D9D9]">{row.value}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -1019,14 +1027,14 @@ const ProductDetail = ({ addToCart, openModal }) => {
 
             {/* Delivery panel */}
             <div className="bg-white border border-[#D5D9D9] rounded">
-              <div className="px-6 py-4 border-b border-[#D5D9D9] flex items-center gap-3">
+              <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-[#D5D9D9] flex items-center gap-3">
                 <i className="fa-solid fa-truck-fast text-[#FF9900]" />
-                <h2 className="text-lg font-bold text-[#0F1111]">Livraison & Expédition</h2>
-                <span className="ml-auto text-xs font-bold text-[#FF9900] bg-[#FF9900]/10 px-2 py-0.5 rounded border border-[#FF9900]/20 uppercase tracking-wide">
-                  🇨🇲 Tout le Cameroun
+                <h2 className="text-base sm:text-lg font-bold text-[#0F1111]">Livraison & Expédition</h2>
+                <span className="ml-auto text-[10px] font-bold text-[#FF9900] bg-[#FF9900]/10 px-2 py-0.5 rounded border border-[#FF9900]/20 uppercase tracking-wide whitespace-nowrap">
+                  🇨🇲 Cameroun
                 </span>
               </div>
-              <div className="px-6 py-5">
+              <div className="px-4 sm:px-6 py-4 sm:py-5">
                 <DeliveryPanel price={product.price} qty={qty} selectedCity={selectedCity} onCityChange={setSelectedCity} />
               </div>
             </div>
@@ -1034,35 +1042,33 @@ const ProductDetail = ({ addToCart, openModal }) => {
             {/* Vendor card */}
             {vendor && (
               <div className="bg-white border border-[#D5D9D9] rounded">
-                <div className="px-6 py-4 border-b border-[#D5D9D9] flex items-center gap-2">
+                <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-[#D5D9D9] flex items-center gap-2">
                   <i className="fa-solid fa-store text-[#FF9900]" />
-                  <h2 className="text-lg font-bold text-[#0F1111]">La Boutique</h2>
+                  <h2 className="text-base sm:text-lg font-bold text-[#0F1111]">La Boutique</h2>
                 </div>
-                <div className="px-6 py-5">
-                  <div className="flex flex-col md:flex-row items-start md:items-center gap-6">
-                    <div className="w-16 h-16 bg-[#131921] rounded flex items-center justify-center border-2 border-[#FF9900]/30 flex-shrink-0 relative">
+                <div className="px-4 sm:px-6 py-4 sm:py-5">
+                  <div className="flex flex-col md:flex-row items-start md:items-center gap-5">
+                    <div className="w-14 h-14 bg-[#131921] rounded flex items-center justify-center border-2 border-[#FF9900]/30 flex-shrink-0 relative">
                       <i className="fa-solid fa-store text-[#FF9900] text-xl" />
                       <div className="absolute -bottom-1.5 -right-1.5 w-5 h-5 bg-[#007600] rounded-full flex items-center justify-center border-2 border-white">
                         <i className="fa-solid fa-check text-white text-[7px]" />
                       </div>
                     </div>
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-1 flex-wrap">
-                        <h4 className="font-bold text-xl text-[#0F1111]">{vendor.shop_name}</h4>
-                        <span className="bg-[#FF9900]/10 text-[#FF9900] border border-[#FF9900]/20 text-[8px] font-black px-2 py-0.5 rounded uppercase tracking-widest">
-                          OFS Certifié
-                        </span>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1 flex-wrap">
+                        <h4 className="font-bold text-lg text-[#0F1111]">{vendor.shop_name}</h4>
+                        <span className="bg-[#FF9900]/10 text-[#FF9900] border border-[#FF9900]/20 text-[8px] font-black px-2 py-0.5 rounded uppercase tracking-widest">OFS Certifié</span>
                       </div>
-                      <p className="text-[#565959] text-sm mb-3">{vendor.full_name} · Douala, Cameroun 🇨🇲</p>
-                      <div className="flex flex-wrap items-center gap-4 text-xs text-[#565959]">
-                        <span className="flex items-center gap-1.5"><i className="fa-solid fa-box text-[#FF9900]" />Catalogue disponible</span>
+                      <p className="text-[#565959] text-sm mb-2">{vendor.full_name} · Douala, Cameroun 🇨🇲</p>
+                      <div className="flex flex-wrap items-center gap-3 text-xs text-[#565959]">
+                        <span className="flex items-center gap-1.5"><i className="fa-solid fa-box text-[#FF9900]" />Catalogue</span>
                         <span className="flex items-center gap-1.5"><i className="fa-solid fa-star text-[#FF9900]" />Elite Vendor</span>
-                        <span className="flex items-center gap-1.5"><i className="fa-solid fa-truck-fast text-[#007185]" />Livraison express</span>
+                        <span className="flex items-center gap-1.5"><i className="fa-solid fa-truck-fast text-[#007185]" />Express</span>
                       </div>
                     </div>
                     <Link to={`/shop/${vendor.shop_name}`}
-                      className="flex items-center gap-2 bg-[#232F3E] hover:bg-[#131921] text-[#FF9900] px-5 py-3 rounded font-black text-sm transition-all border border-[#FF9900]/30 flex-shrink-0">
-                      <i className="fa-solid fa-store text-sm" />
+                      className="flex items-center gap-2 bg-[#232F3E] hover:bg-[#131921] text-[#FF9900] px-4 py-2.5 rounded font-bold text-sm transition-all border border-[#FF9900]/30 flex-shrink-0 self-start md:self-center">
+                      <i className="fa-solid fa-store" />
                       <span>Voir la boutique</span>
                     </Link>
                   </div>
@@ -1075,12 +1081,12 @@ const ProductDetail = ({ addToCart, openModal }) => {
 
             {/* Reviews */}
             <div className="bg-white border border-[#D5D9D9] rounded">
-              <div className="px-6 py-4 border-b border-[#D5D9D9] flex items-center gap-2">
+              <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-[#D5D9D9] flex items-center gap-2">
                 <i className="fa-solid fa-star text-[#FF9900]" />
-                <h2 className="text-lg font-bold text-[#0F1111]">Avis clients</h2>
+                <h2 className="text-base sm:text-lg font-bold text-[#0F1111]">Avis clients</h2>
                 <span className="text-sm text-[#565959]">({reviewCount})</span>
               </div>
-              <div className="px-6 py-5">
+              <div className="px-4 sm:px-6 py-4 sm:py-5">
                 <ReviewsSection productId={product.id} />
               </div>
             </div>
