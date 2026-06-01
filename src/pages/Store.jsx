@@ -392,62 +392,41 @@ const SubcategoryPills = ({ category, active, onChange }) => {
   );
 };
 
-/* ─────────────────── SUBCATEGORY BROWSE GRID (All view) ─────────────────── */
-const SubcategoryBrowse = ({ categoryCounts, onCategorySelect, onSubcategorySelect }) => (
-  <div className="mb-6">
-    {/* Category icons */}
-    <h3 className="text-sm font-bold text-[#0F1111] mb-3 flex items-center gap-2">
-      <i className="fa-solid fa-compass text-[#FF9900]"></i>
-      Explorer par catégorie
-    </h3>
-    <div className="grid grid-cols-3 sm:grid-cols-4 xl:grid-cols-7 gap-2 mb-4">
-      {CATEGORIES.filter(c => c.key !== "All").map(cat => (
-        <button key={cat.key} onClick={() => onCategorySelect(cat.key)}
-          className="bg-white border border-[#D5D9D9] rounded p-3 flex flex-col items-center gap-1.5 hover:border-[#FF9900] hover:shadow-sm transition-all group"
-        >
-          <i className={`fa-solid ${cat.icon} text-xl`} style={{ color: cat.color }}></i>
-          <span className="text-[11px] font-medium text-[#0F1111] group-hover:text-[#C45500] transition-colors text-center leading-tight">
-            {cat.label}
-          </span>
-          <span className="text-[10px] text-[#565959] font-bold">
-            {categoryCounts[cat.key] || 0}
-          </span>
-        </button>
-      ))}
-    </div>
+/* ─────────────────── SUBCATEGORY BROWSE (All view) ─────────────────── */
+const SubcategoryBrowse = ({ onCategorySelect, onSubcategorySelect }) => (
+  <div className="mb-5 bg-white border border-[#D5D9D9] rounded divide-y divide-[#F3F4F4]">
+    {Object.entries(SUBCATEGORIES).map(([cat, subs]) => {
+      const catInfo = CATEGORIES.find(c => c.key === cat);
+      return (
+        <div key={cat} className="flex items-center gap-3 px-4 py-2.5">
+          {/* Category label — fixed width, acts as header */}
+          <button
+            onClick={() => onCategorySelect(cat)}
+            className="flex items-center gap-1.5 flex-shrink-0 w-[90px] hover:opacity-70 transition-opacity"
+          >
+            <i className={`fa-solid ${catInfo?.icon} text-[11px]`} style={{ color: catInfo?.color }}></i>
+            <span className="text-[10px] font-black uppercase truncate" style={{ color: catInfo?.color }}>
+              {cat.replace(" Lab", "").replace("Fragrance", "Parfums")}
+            </span>
+          </button>
 
-    {/* All subcategory pills grouped by category */}
-    <div className="bg-white border border-[#D5D9D9] rounded p-4">
-      <p className="text-[10px] font-bold uppercase text-[#565959] mb-3 flex items-center gap-1.5">
-        <i className="fa-solid fa-tags text-[#FF9900]"></i>
-        Toutes les sous-catégories
-      </p>
-      <div className="space-y-3">
-        {Object.entries(SUBCATEGORIES).map(([cat, subs]) => {
-          const catInfo = CATEGORIES.find(c => c.key === cat);
-          return (
-            <div key={cat}>
-              <button onClick={() => onCategorySelect(cat)}
-                className="text-[10px] font-bold uppercase text-[#0F1111] hover:text-[#C45500] mb-1.5 flex items-center gap-1.5 transition-colors"
+          {/* Divider */}
+          <div className="w-px h-4 bg-[#D5D9D9] flex-shrink-0" />
+
+          {/* Pills */}
+          <div className="flex flex-wrap gap-1">
+            {subs.map(sub => (
+              <button key={sub}
+                onClick={() => onSubcategorySelect(cat, sub)}
+                className="text-[11px] px-2.5 py-0.5 rounded-full bg-[#F8F8F8] border border-[#E8E8E8] text-[#555] hover:border-[#FF9900] hover:text-[#C45500] hover:bg-[#FFF8F0] transition-all whitespace-nowrap"
               >
-                {catInfo && <i className={`fa-solid ${catInfo.icon} text-[10px]`} style={{ color: catInfo.color }}></i>}
-                {cat}
+                {sub}
               </button>
-              <div className="flex flex-wrap gap-1">
-                {subs.map(sub => (
-                  <button key={sub}
-                    onClick={() => onSubcategorySelect(cat, sub)}
-                    className="text-[11px] px-2.5 py-1 rounded-full bg-[#F3F4F4] text-[#565959] border border-[#D5D9D9] hover:bg-[#FF9900]/15 hover:text-[#C45500] hover:border-[#FF9900]/40 transition-all"
-                  >
-                    {sub}
-                  </button>
-                ))}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </div>
+            ))}
+          </div>
+        </div>
+      );
+    })}
   </div>
 );
 
@@ -530,35 +509,29 @@ const SidebarFilters = ({
       </div>
     )}
 
-    {/* ALL-VIEW SUBCATEGORY PANEL */}
+    {/* ALL-VIEW SUBCATEGORY PANEL — compact color-coded pill cloud */}
     {category === "All" && (
       <div className="bg-white border border-[#D5D9D9] rounded p-4">
         <h4 className="text-xs font-bold uppercase text-[#565959] mb-3 flex items-center gap-2">
           <i className="fa-solid fa-layer-group text-[#FF9900] text-xs"></i>Sous-catégories
         </h4>
-        <div className="space-y-3 max-h-96 overflow-y-auto">
-          {Object.entries(SUBCATEGORIES).map(([cat, subs]) => {
+        <div className="flex flex-wrap gap-1">
+          {Object.entries(SUBCATEGORIES).flatMap(([cat, subs]) => {
             const catInfo = CATEGORIES.find(c => c.key === cat);
-            return (
-              <div key={cat}>
-                <button onClick={() => onCategorySelect(cat)}
-                  className="text-[10px] font-bold uppercase text-[#0F1111] hover:text-[#C45500] mb-1 flex items-center gap-1 transition-colors w-full text-left"
-                >
-                  {catInfo && <i className={`fa-solid ${catInfo.icon}`} style={{ color: catInfo.color }}></i>}
-                  <span>{cat}</span>
-                  <span className="ml-auto text-[#565959] font-normal">{categoryCounts[cat] || 0}</span>
-                </button>
-                <div className="flex flex-wrap gap-1 pl-2">
-                  {subs.map(sub => (
-                    <button key={sub} onClick={() => onSubcategorySelect(cat, sub)}
-                      className="text-[10px] px-2 py-0.5 rounded bg-[#F3F4F4] text-[#565959] border border-transparent hover:bg-[#FF9900]/15 hover:text-[#C45500] hover:border-[#FF9900]/30 transition-all"
-                    >
-                      {sub}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            );
+            return subs.map(sub => (
+              <button key={`${cat}:${sub}`}
+                onClick={() => onSubcategorySelect(cat, sub)}
+                title={cat}
+                className="text-[10px] px-2 py-0.5 rounded-full border font-medium transition-all hover:scale-105"
+                style={{
+                  color:           catInfo?.color,
+                  borderColor:     `${catInfo?.color}50`,
+                  backgroundColor: `${catInfo?.color}12`,
+                }}
+              >
+                {sub}
+              </button>
+            ));
           })}
         </div>
       </div>
@@ -933,7 +906,6 @@ const Store = ({ openModal, addToCart }) => {
             {/* SUBCATEGORY BROWSE GRID — visible in "All" when no active subcategory/search */}
             {category === "All" && !subcategory && !searchQuery && !loading && (
               <SubcategoryBrowse
-                categoryCounts={categoryCounts}
                 onCategorySelect={handleCategoryChange}
                 onSubcategorySelect={handleSubcategorySelect}
               />
