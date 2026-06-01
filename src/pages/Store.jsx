@@ -42,6 +42,46 @@ const SORT_OPTIONS_ALL = SORT_OPTIONS.filter(o => o.value !== "recent");
 const CAT_KEYS = ["Audio Lab", "Tech Lab", "Clothing", "Shoes", "Femme", "Fragrance", "Accessories"];
 const ALL_PER_CAT = Math.ceil(48 / CAT_KEYS.length); // 7 per category → 49 total
 
+// Editorial section breaks injected every N products in the grid
+const EDITORIAL_SECTIONS = [
+  {
+    id: "coup-de-coeur",
+    tag: "COUP DE CŒUR",
+    title: "Sélection de la semaine",
+    color: "#FF9900",
+    items: [
+      { cat: "Audio Lab",  sub: "Casques",   label: "Casques & Son",    img: "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400&q=80" },
+      { cat: "Tech Lab",   sub: null,        label: "Tech & Gadgets",   img: "https://images.unsplash.com/photo-1550009158-9ebf69173e03?w=400&q=80" },
+      { cat: "Shoes",      sub: "Sneakers",  label: "Sneakers",         img: "https://images.unsplash.com/photo-1549298916-f52d724204b4?w=400&q=80" },
+      { cat: "Accessories",sub: "Montres",   label: "Montres & Bijoux", img: "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400&q=80" },
+    ],
+  },
+  {
+    id: "tendances",
+    tag: "TENDANCES",
+    title: "Les plus commandés",
+    color: "#3b82f6",
+    items: [
+      { cat: "Clothing",  sub: "Hoodies",  label: "Hoodies",     img: "https://images.unsplash.com/photo-1556821840-3a63f15732ce?w=400&q=80" },
+      { cat: "Femme",     sub: null,       label: "Mode Femme",  img: "https://images.unsplash.com/photo-1483985988355-763728e1935b?w=400&q=80" },
+      { cat: "Fragrance", sub: "Parfums",  label: "Parfums",     img: "https://images.unsplash.com/photo-1541643600914-78b084683702?w=400&q=80" },
+      { cat: "Tech Lab",  sub: "Gaming",   label: "Gaming",      img: "https://images.unsplash.com/photo-1593118247619-e2d6f056869e?w=400&q=80" },
+    ],
+  },
+  {
+    id: "bundle-deal",
+    tag: "−15% BUNDLE",
+    title: "Dès 2 articles dans le panier",
+    color: "#a855f7",
+    items: [
+      { cat: "Audio Lab",  sub: "Enceintes",  label: "Enceintes",       img: "https://images.unsplash.com/photo-1608043152269-423dbba4e7e1?w=400&q=80" },
+      { cat: "Accessories",sub: "Sacs",       label: "Sacs & Bagages",  img: "https://images.unsplash.com/photo-1548036328-c9fa89d128fa?w=400&q=80" },
+      { cat: "Shoes",      sub: null,         label: "Chaussures",      img: "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=400&q=80" },
+      { cat: "Clothing",   sub: "Vestes",     label: "Vestes",          img: "https://images.unsplash.com/photo-1591047139829-d91aecb6caea?w=400&q=80" },
+    ],
+  },
+];
+
 const PROMO_BANNERS = [
   {
     tag: "FLASH DEAL",
@@ -430,125 +470,160 @@ const SubcategoryBrowse = ({ onCategorySelect, onSubcategorySelect }) => (
   </div>
 );
 
+/* ─────────────────── EDITORIAL SECTION BREAK ─────────────────── */
+const SectionBreak = ({ section, onNavigate }) => (
+  <div className="border border-[#D5D9D9] rounded overflow-hidden bg-white my-2">
+    <div className="flex items-center gap-3 px-4 py-2.5 border-b border-[#F0F0F0]">
+      <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded"
+        style={{ backgroundColor: `${section.color}18`, color: section.color }}>
+        {section.tag}
+      </span>
+      <span className="font-bold text-[13px] text-[#0F1111]">{section.title}</span>
+    </div>
+    <div className="grid grid-cols-4 divide-x divide-[#F0F0F0]">
+      {section.items.map((item, i) => (
+        <button key={i} onClick={() => onNavigate(item.cat, item.sub)}
+          className="flex flex-col group hover:bg-[#FAFAFA] transition-colors text-left">
+          <div className="aspect-video overflow-hidden">
+            <img src={item.img} alt={item.label}
+              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+          </div>
+          <div className="px-3 py-2">
+            <p className="text-[12px] font-medium text-[#0F1111] group-hover:text-[#C45500] transition-colors leading-tight">
+              {item.label}
+            </p>
+            <p className="text-[11px] text-[#007185] group-hover:underline mt-0.5">Voir les offres</p>
+          </div>
+        </button>
+      ))}
+    </div>
+  </div>
+);
+
 /* ─────────────────── SIDEBAR FILTERS ─────────────────── */
 const SidebarFilters = ({
-  maxPrice,
-  setMaxPrice,
-  priceMax,
-  sortBy,
-  setSortBy,
-  selectedSize,
-  setSelectedSize,
-  category,
-  sortOptions,
-  categoryCounts,
-  onCategorySelect,
-  onSubcategorySelect,
-}) => (
-  <aside className="w-52 flex-shrink-0 space-y-4">
-    {/* SORT */}
-    <div className="bg-white border border-[#D5D9D9] rounded p-4">
-      <h4 className="text-xs font-bold uppercase text-[#565959] mb-3 flex items-center gap-2">
-        <i className="fa-solid fa-sort text-[#FF9900] text-xs"></i>Trier par
-      </h4>
-      <div className="space-y-0.5">
-        {sortOptions.map((opt) => (
-          <button key={opt.value} onClick={() => setSortBy(opt.value)}
-            className={`w-full text-left text-[12px] px-3 py-2 rounded transition-all ${
-              sortBy === opt.value
-                ? "bg-[#232F3E] text-[#FF9900] font-bold"
-                : "text-[#565959] hover:bg-[#F3F4F4] hover:text-[#0F1111]"
-            }`}
-          >
-            {opt.label}
-          </button>
+  maxPrice, setMaxPrice, priceMax,
+  sortBy, setSortBy,
+  selectedSize, setSelectedSize,
+  category, subcategory,
+  sortOptions, categoryCounts,
+  onCategorySelect, onSetSubcategory,
+}) => {
+  const totalAll = Object.values(categoryCounts).reduce((a, b) => a + b, 0);
+  return (
+    <aside className="w-52 flex-shrink-0 space-y-0 bg-white border border-[#D5D9D9] rounded overflow-hidden divide-y divide-[#F0F0F0]">
+
+      {/* DEPARTMENT */}
+      <div className="p-4">
+        <h4 className="font-bold text-[13px] text-[#0F1111] mb-2">Département</h4>
+
+        {/* All */}
+        <label className="flex items-center gap-2 py-1 cursor-pointer">
+          <input type="radio" name="dept" checked={category === "All"} onChange={() => onCategorySelect("All")}
+            className="accent-[#FF9900] cursor-pointer" />
+          <span className={`text-[13px] flex-1 ${category === "All" ? "font-bold text-[#0F1111]" : "text-[#007185] hover:text-[#C45500] hover:underline"}`}>
+            Tout voir
+          </span>
+          <span className="text-[11px] text-[#767676]">{totalAll}</span>
+        </label>
+
+        {/* Each category + nested subcategories */}
+        {CATEGORIES.filter(c => c.key !== "All").map(cat => (
+          <div key={cat.key}>
+            <label className="flex items-center gap-2 py-1 cursor-pointer">
+              <input type="radio" name="dept" checked={category === cat.key} onChange={() => onCategorySelect(cat.key)}
+                className="accent-[#FF9900] cursor-pointer" />
+              <span className={`text-[13px] flex-1 ${category === cat.key ? "font-bold text-[#0F1111]" : "text-[#007185] hover:text-[#C45500] hover:underline"}`}>
+                {cat.label}
+              </span>
+              <span className="text-[11px] text-[#767676]">{categoryCounts[cat.key] || 0}</span>
+            </label>
+
+            {/* Subcategories shown when this category is active */}
+            {category === cat.key && SUBCATEGORIES[cat.key] && (
+              <div className="ml-5 mt-0.5 mb-1 space-y-0 border-l-2 pl-3" style={{ borderColor: `${cat.color}40` }}>
+                <label className="flex items-center gap-2 py-0.5 cursor-pointer">
+                  <input type="radio" name="subcat" checked={!subcategory} onChange={() => onSetSubcategory(null)}
+                    className="accent-[#FF9900] cursor-pointer" />
+                  <span className={`text-[12px] ${!subcategory ? "font-bold text-[#0F1111]" : "text-[#007185] hover:underline"}`}>Tout</span>
+                </label>
+                {SUBCATEGORIES[cat.key].map(sub => (
+                  <label key={sub} className="flex items-center gap-2 py-0.5 cursor-pointer">
+                    <input type="radio" name="subcat" checked={subcategory === sub} onChange={() => onSetSubcategory(sub)}
+                      className="accent-[#FF9900] cursor-pointer" />
+                    <span className={`text-[12px] ${subcategory === sub ? "font-bold text-[#0F1111]" : "text-[#007185] hover:underline"}`}>
+                      {sub}
+                    </span>
+                  </label>
+                ))}
+              </div>
+            )}
+          </div>
         ))}
       </div>
-    </div>
 
-    {/* PRICE RANGE */}
-    <div className="bg-white border border-[#D5D9D9] rounded p-4">
-      <h4 className="text-xs font-bold uppercase text-[#565959] mb-3 flex items-center gap-2">
-        <i className="fa-solid fa-tag text-[#FF9900] text-xs"></i>Budget Max
-      </h4>
-      <div className="mb-3">
-        <span className="text-lg font-bold text-[#B12704]">{Number(maxPrice).toLocaleString()}</span>
-        <span className="text-xs text-[#565959] ml-1">FCFA</span>
+      {/* SORT */}
+      <div className="p-4">
+        <h4 className="font-bold text-[13px] text-[#0F1111] mb-2">Trier par</h4>
+        {sortOptions.map(opt => (
+          <label key={opt.value} className="flex items-center gap-2 py-1 cursor-pointer">
+            <input type="radio" name="sort" checked={sortBy === opt.value} onChange={() => setSortBy(opt.value)}
+              className="accent-[#FF9900] cursor-pointer" />
+            <span className={`text-[13px] ${sortBy === opt.value ? "font-bold text-[#0F1111]" : "text-[#007185] hover:text-[#C45500] hover:underline"}`}>
+              {opt.label}
+            </span>
+          </label>
+        ))}
       </div>
-      <input
-        type="range" min="0" max={priceMax} step="5000" value={maxPrice}
-        onChange={(e) => setMaxPrice(Number(e.target.value))}
-        className="w-full cursor-pointer"
-        style={{ accentColor: "#FF9900" }}
-      />
-      <div className="flex justify-between text-[10px] text-[#565959] mt-1">
-        <span>0</span>
-        <span>{priceMax.toLocaleString()} F</span>
-      </div>
-    </div>
 
-    {/* SIZE */}
-    {(category === "Clothing" || category === "Shoes" || category === "All") && (
-      <div className="bg-white border border-[#D5D9D9] rounded p-4">
-        <h4 className="text-xs font-bold uppercase text-[#565959] mb-3 flex items-center gap-2">
-          <i className="fa-solid fa-ruler text-[#FF9900] text-xs"></i>Taille
-        </h4>
-        <div className="grid grid-cols-3 gap-1.5">
-          {["All", ...(category === "Shoes" ? ["40","41","42","43","44"] : ["XS","S","M","L","XL"])].map((s) => (
-            <button key={s} onClick={() => setSelectedSize(s)}
-              className={`py-1.5 text-xs rounded border transition-all ${
-                selectedSize === s
-                  ? "bg-[#232F3E] text-[#FF9900] border-[#232F3E]"
-                  : "border-[#D5D9D9] text-[#565959] hover:border-[#FF9900] hover:text-[#0F1111]"
-              }`}
-            >
-              {s}
-            </button>
-          ))}
+      {/* PRICE RANGE */}
+      <div className="p-4">
+        <h4 className="font-bold text-[13px] text-[#0F1111] mb-3">Budget Max</h4>
+        <div className="mb-2">
+          <span className="text-base font-bold text-[#B12704]">{Number(maxPrice).toLocaleString()}</span>
+          <span className="text-xs text-[#565959] ml-1">FCFA</span>
+        </div>
+        <input type="range" min="0" max={priceMax} step="5000" value={maxPrice}
+          onChange={(e) => setMaxPrice(Number(e.target.value))}
+          className="w-full cursor-pointer" style={{ accentColor: "#FF9900" }} />
+        <div className="flex justify-between text-[10px] text-[#767676] mt-1">
+          <span>0</span>
+          <span>{priceMax.toLocaleString()} F</span>
         </div>
       </div>
-    )}
 
-    {/* ALL-VIEW SUBCATEGORY PANEL — compact color-coded pill cloud */}
-    {category === "All" && (
-      <div className="bg-white border border-[#D5D9D9] rounded p-4">
-        <h4 className="text-xs font-bold uppercase text-[#565959] mb-3 flex items-center gap-2">
-          <i className="fa-solid fa-layer-group text-[#FF9900] text-xs"></i>Sous-catégories
-        </h4>
-        <div className="flex flex-wrap gap-1">
-          {Object.entries(SUBCATEGORIES).flatMap(([cat, subs]) => {
-            const catInfo = CATEGORIES.find(c => c.key === cat);
-            return subs.map(sub => (
-              <button key={`${cat}:${sub}`}
-                onClick={() => onSubcategorySelect(cat, sub)}
-                title={cat}
-                className="text-[10px] px-2 py-0.5 rounded-full border font-medium transition-all hover:scale-105"
-                style={{
-                  color:           catInfo?.color,
-                  borderColor:     `${catInfo?.color}50`,
-                  backgroundColor: `${catInfo?.color}12`,
-                }}
+      {/* SIZE */}
+      {(category === "Clothing" || category === "Shoes" || category === "All") && (
+        <div className="p-4">
+          <h4 className="font-bold text-[13px] text-[#0F1111] mb-3">
+            {category === "Shoes" ? "Pointure" : "Taille"}
+          </h4>
+          <div className="grid grid-cols-3 gap-1.5">
+            {["All", ...(category === "Shoes" ? ["40","41","42","43","44"] : ["XS","S","M","L","XL"])].map((s) => (
+              <button key={s} onClick={() => setSelectedSize(s)}
+                className={`py-1.5 text-xs rounded border transition-all ${
+                  selectedSize === s
+                    ? "bg-[#232F3E] text-[#FF9900] border-[#232F3E]"
+                    : "border-[#D5D9D9] text-[#565959] hover:border-[#FF9900] hover:text-[#0F1111]"
+                }`}
               >
-                {sub}
+                {s}
               </button>
-            ));
-          })}
+            ))}
+          </div>
         </div>
-      </div>
-    )}
+      )}
 
-    {/* INFO CARD */}
-    <div className="bg-[#FFF8F0] border border-[#FEBD69]/40 rounded p-4">
-      <i className="fa-solid fa-tag text-[#FF9900] text-lg mb-2 block"></i>
-      <h4 className="font-bold text-sm text-[#0F1111] mb-1">Bundle Deal</h4>
-      <p className="text-xs text-[#565959]">−15% automatiquement à partir de 2 articles dans le panier</p>
-      <div className="mt-3 bg-[#FF9900] text-[#0F1111] text-xs font-bold px-3 py-1.5 rounded inline-flex items-center gap-1.5">
-        <i className="fa-solid fa-check text-[10px]"></i>
-        Actif sur tous les achats
+      {/* BUNDLE PROMO */}
+      <div className="p-4 bg-[#FFFBF0]">
+        <p className="text-[10px] font-black uppercase text-[#C45500] mb-1 flex items-center gap-1.5">
+          <i className="fa-solid fa-tag text-[#FF9900]"></i>Bundle Deal
+        </p>
+        <p className="text-[11px] text-[#565959]">−15% automatiquement dès 2 articles dans le panier</p>
       </div>
-    </div>
-  </aside>
-);
+    </aside>
+  );
+};
 
 /* ─────────────────── ACTIVE FILTERS BAR ─────────────────── */
 const ActiveFilters = ({ category, subcategory, search, sortBy, count, onReset }) => {
@@ -863,10 +938,11 @@ const Store = ({ openModal, addToCart }) => {
               selectedSize={selectedSize}
               setSelectedSize={setSelectedSize}
               category={category}
+              subcategory={subcategory}
               sortOptions={activeSortOpts}
               categoryCounts={categoryCounts}
               onCategorySelect={handleCategoryChange}
-              onSubcategorySelect={handleSubcategorySelect}
+              onSetSubcategory={setSubcategory}
             />
           </div>
 
@@ -969,8 +1045,18 @@ const Store = ({ openModal, addToCart }) => {
               </div>
             ) : (
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-                {visibleProducts.map(product => (
-                  <ProductCard key={product.id} product={product} openModal={openModal} addToCart={addToCart} />
+                {visibleProducts.map((product, idx) => (
+                  <React.Fragment key={product.id}>
+                    {idx > 0 && idx % 20 === 0 && (
+                      <div className="col-span-full">
+                        <SectionBreak
+                          section={EDITORIAL_SECTIONS[(idx / 20 - 1) % EDITORIAL_SECTIONS.length]}
+                          onNavigate={handleSubcategorySelect}
+                        />
+                      </div>
+                    )}
+                    <ProductCard product={product} openModal={openModal} addToCart={addToCart} />
+                  </React.Fragment>
                 ))}
               </div>
             )}

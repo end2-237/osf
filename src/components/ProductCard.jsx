@@ -6,6 +6,26 @@ import { useNavigate } from "react-router-dom";
 
 const MEMBER_DISCOUNT = 0.2;
 
+// ─── Color hex resolution ─────────────────────────────────────────────────────
+const COLOR_HEX = {
+  black:"#1a1a1a", white:"#f5f5f5", red:"#dc2626", blue:"#2563eb", green:"#16a34a",
+  yellow:"#eab308", orange:"#ea580c", purple:"#9333ea", pink:"#ec4899",
+  gray:"#6b7280", grey:"#6b7280", brown:"#92400e", navy:"#1e3a5f",
+  beige:"#d4c5a9", gold:"#d97706", silver:"#c0c0c0", rose:"#fb7185",
+  violet:"#7c3aed", coral:"#f97316", turquoise:"#0d9488", cream:"#fef9c3",
+  khaki:"#c3b091", camel:"#c19a6b", olive:"#808000", maroon:"#800000",
+  // French
+  noir:"#1a1a1a", blanc:"#f5f5f5", rouge:"#dc2626", bleu:"#2563eb",
+  vert:"#16a34a", jaune:"#eab308", gris:"#6b7280", doré:"#d97706",
+  argenté:"#c0c0c0",
+};
+const resolveHex = (name = "") => {
+  const n = (name || "").toLowerCase().trim();
+  if (/^#[0-9a-f]{3,6}$/i.test(n)) return n;
+  return COLOR_HEX[n] || COLOR_HEX[n.split(/[\s\-_]/)[0]] || null;
+};
+
+// ─── Star Rating ──────────────────────────────────────────────────────────────
 const StarRating = ({ rating = 4.2, count = null }) => {
   const fullStars  = Math.floor(rating);
   const halfStar   = rating - fullStars >= 0.5;
@@ -24,10 +44,11 @@ const StarRating = ({ rating = 4.2, count = null }) => {
   );
 };
 
+// ─── Product Card ─────────────────────────────────────────────────────────────
 const ProductCard = React.memo(({ product, openModal, addToCart }) => {
-  const navigate    = useNavigate();
+  const navigate   = useNavigate();
   const { isInWishlist, toggle: toggleWishlist } = useWishlist();
-  const inWishlist  = isInWishlist(product.id);
+  const inWishlist = isInWishlist(product.id);
   const { user, isMember } = useAuth();
 
   const originalPrice  = (() => { const n = parseFloat(product.price); return isNaN(n) || n <= 0 ? 0 : n; })();
@@ -37,6 +58,12 @@ const ProductCard = React.memo(({ product, openModal, addToCart }) => {
 
   const ratingVal   = 3.8 + ((product.id?.charCodeAt(0) || 65) % 12) * 0.1;
   const reviewCount = 10 + ((product.id?.charCodeAt(0) || 65) % 200);
+
+  // Resolve colors that have a valid hex
+  const colorSwatches = (product.colors || [])
+    .filter(c => c !== "Default")
+    .map(c => ({ name: c, hex: resolveHex(c) }))
+    .filter(c => c.hex);
 
   const handleAddToCart = (e) => {
     e.stopPropagation();
@@ -109,11 +136,31 @@ const ProductCard = React.memo(({ product, openModal, addToCart }) => {
         />
       </div>
 
+      {/* COLOR SWATCHES */}
+      {colorSwatches.length > 0 && (
+        <div className="flex items-center gap-1.5 px-3 py-1.5 border-t border-[#F8F8F8]">
+          {colorSwatches.slice(0, 5).map((c, i) => (
+            <span key={i} title={c.name}
+              className="w-3.5 h-3.5 rounded-full border border-white shadow-sm ring-1 ring-[#D0D0D0] flex-shrink-0 inline-block"
+              style={{ backgroundColor: c.hex }}
+            />
+          ))}
+          {colorSwatches.length > 5 && (
+            <span className="text-[10px] text-[#007185] font-medium">+{colorSwatches.length - 5}</span>
+          )}
+          <span className="text-[10px] text-[#767676] ml-0.5">
+            {colorSwatches.length > 1 ? `${colorSwatches.length} couleurs` : colorSwatches[0].name}
+          </span>
+        </div>
+      )}
+
       {/* INFO */}
       <div className="px-3 pb-3 flex flex-col flex-grow" onClick={() => openModal(product)}>
 
-        {/* CATEGORY */}
-        <p className="text-[11px] text-[#007185] font-medium mb-0.5 truncate">{product.type}</p>
+        {/* CATEGORY + SUBCATEGORY */}
+        <p className="text-[11px] text-[#007185] font-medium mb-0.5 truncate">
+          {product.subcategory || product.type}
+        </p>
 
         {/* NAME */}
         <h3 className="text-[13px] text-[#0F1111] leading-snug line-clamp-2 mb-1.5 group-hover:text-[#C45500] transition-colors flex-grow">
