@@ -671,6 +671,13 @@ const RepairImagesPanel = () => {
           if (fresh.cj_category_name)                                      upd.cj_category_name= fresh.cj_category_name;
           if (fresh.status && fresh.status !== "Nouveau")                  upd.status          = fresh.status;
           if (fresh.subcategory)                                           upd.subcategory     = fresh.subcategory;
+          if (fresh.ship_weight_g)                                         upd.ship_weight_g   = fresh.ship_weight_g;
+          if (fresh.length_cm)                                             upd.length_cm       = fresh.length_cm;
+          if (fresh.width_cm)                                              upd.width_cm        = fresh.width_cm;
+          if (fresh.height_cm)                                             upd.height_cm       = fresh.height_cm;
+          if (fresh.pack_l_cm)                                             upd.pack_l_cm       = fresh.pack_l_cm;
+          if (fresh.pack_w_cm)                                             upd.pack_w_cm       = fresh.pack_w_cm;
+          if (fresh.pack_h_cm)                                             upd.pack_h_cm       = fresh.pack_h_cm;
 
           await supabase.from("products").update(upd).eq("id", p.id);
           updated++;

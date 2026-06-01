@@ -679,6 +679,13 @@ const ProductDetail = ({ addToCart, openModal }) => {
         if (fresh.cj_category_name)                                                 updates.cj_category_name = fresh.cj_category_name;
         if (fresh.status && fresh.status !== "Nouveau")                             updates.status            = fresh.status;
         if (fresh.subcategory)                                                      updates.subcategory       = fresh.subcategory;
+        if (fresh.ship_weight_g)                                                    updates.ship_weight_g     = fresh.ship_weight_g;
+        if (fresh.length_cm)                                                        updates.length_cm         = fresh.length_cm;
+        if (fresh.width_cm)                                                         updates.width_cm          = fresh.width_cm;
+        if (fresh.height_cm)                                                        updates.height_cm         = fresh.height_cm;
+        if (fresh.pack_l_cm)                                                        updates.pack_l_cm         = fresh.pack_l_cm;
+        if (fresh.pack_w_cm)                                                        updates.pack_w_cm         = fresh.pack_w_cm;
+        if (fresh.pack_h_cm)                                                        updates.pack_h_cm         = fresh.pack_h_cm;
         await supabase.from("products").update(updates).eq("id", product.id);
         setProduct(prev => prev ? { ...prev, ...updates } : prev);
       } catch { /* silent */ }

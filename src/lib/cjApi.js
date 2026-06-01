@@ -206,7 +206,18 @@ export const mapCjToProduct = (p) => {
   const price_usd = parseFloat(p.sellPrice ?? p.productPrice ?? 0) || null;
 
   // ── Weight ─────────────────────────────────────────────────────────────────
-  const weight_g = parseFloat(p.productWeight || p.logisticWeight || 0) || null;
+  const weight_g       = parseFloat(p.productWeight  || p.logisticWeight  || 0) || null;
+  const ship_weight_g  = parseFloat(p.logisticWeight || p.productWeight   || 0) || null;
+
+  // ── Physical dimensions (product) — cm ─────────────────────────────────────
+  const length_cm = parseFloat(p.productLength || p.length || 0) || null;
+  const width_cm  = parseFloat(p.productWidth  || p.width  || 0) || null;
+  const height_cm = parseFloat(p.productHeight || p.height || 0) || null;
+
+  // ── Packaging / shipping box dimensions — cm ───────────────────────────────
+  const pack_l_cm = parseFloat(p.packLength || p.packageLength || p.cargoLength || p.productLength || 0) || null;
+  const pack_w_cm = parseFloat(p.packWidth  || p.packageWidth  || p.cargoWidth  || p.productWidth  || 0) || null;
+  const pack_h_cm = parseFloat(p.packHeight || p.packageHeight || p.cargoHeight || p.productHeight || 0) || null;
 
   return {
     // Core
@@ -226,6 +237,13 @@ export const mapCjToProduct = (p) => {
     cj_product_id,
     stock_qty,
     weight_g,
+    ship_weight_g,
+    length_cm,
+    width_cm,
+    height_cm,
+    pack_l_cm,
+    pack_w_cm,
+    pack_h_cm,
     variants:         variants.length > 0 ? variants : null,
     cj_category_id:   p.categoryId   || null,
     cj_category_name: p.categoryName || null,
