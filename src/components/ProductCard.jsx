@@ -166,8 +166,6 @@ const ProductCard = React.memo(({ product, openModal, addToCart }) => {
       </div>
     </div>
   );
-};
-
 });
 
 export default ProductCard;
