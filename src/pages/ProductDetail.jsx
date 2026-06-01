@@ -819,6 +819,22 @@ const ProductDetail = ({ addToCart, openModal }) => {
       } else if (raw) {
         parseWords(raw, colSet, sizeSet);
       }
+
+      // variantKey: "Color-Size-2PCS" — most reliable when variantProperty is empty/"[]"
+      if (!raw.includes(":")) {
+        const vKey = (v.variantKey || "").trim();
+        if (vKey) {
+          const parts = vKey.split("-");
+          while (parts.length > 0 && JUNK_RE.test(parts[parts.length - 1].trim())) parts.pop();
+          if (parts.length >= 2) {
+            const last = parts[parts.length - 1].trim();
+            if (SIZE_RE.test(last.toLowerCase())) sizeSet.add(parts.pop().trim().toUpperCase());
+          }
+          const cName = parts.join(" ").trim();
+          if (cName && cName.toLowerCase() !== "default") colSet.add(cName);
+        }
+      }
+
       const vName = (v.variantNameEn || v.variantName || "").trim();
       parseWords(vName, colSet, sizeSet);
     });

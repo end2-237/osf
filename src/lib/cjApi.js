@@ -220,6 +220,25 @@ export const mapCjToProduct = (p) => {
       parseWords(raw, colorsSet, sizesSet);
     }
 
+    // variantKey fallback: "Color-Size-2PCS" or "Color-Size"
+    // Used when variantProperty is absent/empty/"[]" (CJ omits it for many products)
+    if (!raw.includes(":")) {
+      const vKey = (v.variantKey || "").trim();
+      if (vKey) {
+        const parts = vKey.split("-");
+        // Strip trailing quantity tokens ("2PCS", "3PC")
+        while (parts.length > 0 && JUNK_RE.test(parts[parts.length - 1].trim())) parts.pop();
+        // Last remaining token: if it looks like a size, extract it
+        if (parts.length >= 2) {
+          const last = parts[parts.length - 1].trim();
+          if (SIZE_RE.test(last.toLowerCase())) sizesSet.add(parts.pop().trim().toUpperCase());
+        }
+        // Remaining parts joined = color name ("Sky Blue", "Army Green", "Khaki")
+        const cName = parts.join(" ").trim();
+        if (cName && cName.toLowerCase() !== "default") colorsSet.add(cName);
+      }
+    }
+
     // variantNameEn fallback: only for short labels like "Khaki S" or "Black XL"
     const vName = (v.variantNameEn || v.variantName || "").trim();
     parseWords(vName, colorsSet, sizesSet);
