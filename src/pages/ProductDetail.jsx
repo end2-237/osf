@@ -82,7 +82,7 @@ const VIDEO_ADS = [
     accent:"#3b82f6",
   },
   {
-    src:   "https://videos.pexels.com/video-files/8899504/8899504-sd_640_360_25fps.mp4",
+    src:   "https://alrbokstfwwlvbvghrqr.supabase.co/storage/v1/object/public/product-images/veo.mp4",
     tag:   "Membre Elite",
     title: "−20% sur tout",
     sub:   "Inscription gratuite · Prix exclusifs immédiats",
@@ -91,7 +91,7 @@ const VIDEO_ADS = [
     accent:"#FFD814",
   },
   {
-    src:   "https://videos.pexels.com/video-files/4068684/4068684-sd_640_360_25fps.mp4",
+    src:   "https://alrbokstfwwlvbvghrqr.supabase.co/storage/v1/object/public/product-images/ads/veo2.mp4",
     tag:   "Studio Lab",
     title: "Fais-en une pièce unique",
     sub:   "Personnalisation laser · Impression UV",
