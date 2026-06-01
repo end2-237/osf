@@ -327,7 +327,7 @@ const CategoryTabs = ({ active, onChange, counts }) => {
   return (
     <div className="sticky top-[128px] md:top-[128px] z-30 bg-white border-b border-[#D5D9D9] shadow-sm">
       <div className="max-w-[1400px] mx-auto px-4 md:px-8">
-        <div ref={scrollRef} className="flex items-center gap-1 overflow-x-auto hide-scrollbar py-2.5">
+        <div ref={scrollRef} className="flex items-center gap-1 overflow-x-auto py-2.5">
           {CATEGORIES.map((cat) => {
             const count = cat.key === "All"
               ? Object.values(counts).reduce((a, b) => a + b, 0)
@@ -364,7 +364,7 @@ const SubcategoryPills = ({ category, active, onChange }) => {
   return (
     <div className="bg-[#F3F4F4] border-b border-[#D5D9D9]">
       <div className="max-w-[1400px] mx-auto px-4 md:px-8">
-        <div className="flex items-center gap-2 overflow-x-auto hide-scrollbar py-2">
+        <div className="flex items-center gap-2 overflow-x-auto py-2">
           <span className="text-[10px] text-[#565959] font-bold uppercase whitespace-nowrap flex-shrink-0">
             <i className="fa-solid fa-filter text-[#FF9900] mr-1"></i>Sous-cat :
           </span>
