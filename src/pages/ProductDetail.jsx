@@ -101,7 +101,7 @@ const Breadcrumb = ({ product }) => (
 );
 
 // ─── IMAGE GALLERY ─────────────────────────────────────────────────────────────
-const ImageGallery = ({ images, activeImg, setActiveImg }) => {
+const ImageGallery = ({ images, activeImg, setActiveImg, name, status }) => {
   const [zoomed, setZoomed]   = useState(false);
   const thumbContainerRef     = useRef(null);
 
@@ -113,7 +113,7 @@ const ImageGallery = ({ images, activeImg, setActiveImg }) => {
     if (btns[activeImg]) btns[activeImg].scrollIntoView({ block: "nearest", behavior: "smooth" });
   }, [activeImg]);
 
-  if (images.length === 0)
+  if (!images || images.length === 0)
     return (
       <div className="aspect-square bg-[#F3F4F4] rounded border border-[#D5D9D9] flex items-center justify-center">
         <i className="fa-solid fa-image text-[#D5D9D9] text-5xl" />
@@ -153,20 +153,20 @@ const ImageGallery = ({ images, activeImg, setActiveImg }) => {
       ) : (
         <img
           src={images[activeImg]}
-          alt={product?.name}
+          alt={name}
           className={`w-full h-full object-contain transition-all duration-500 ${
             zoomed ? "scale-[1.8]" : "group-hover:scale-[1.04]"
           }`}
         />
       )}
-      {product?.status && (
+      {status && (
         <div className="absolute top-2 left-2 z-10">
           <span className={`text-[9px] font-bold px-2 py-0.5 rounded-sm uppercase ${
-            product.status === "Nouveau"
+            status === "Nouveau"
               ? "bg-[#007600] text-white"
               : "bg-[#CC0C39] text-white"
           }`}>
-            {product.status}
+            {status}
           </span>
         </div>
       )}
@@ -944,6 +944,8 @@ const ProductDetail = ({ addToCart, openModal }) => {
                   images={galleryImages}
                   activeImg={galleryIndex}
                   setActiveImg={setGalleryIndex}
+                  name={product.name}
+                  status={product.status}
                 />
               </div>
             </div>
