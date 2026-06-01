@@ -13,52 +13,34 @@ const SUBCATEGORIES = {
   "Shoes":       ["Sneakers", "Bottes", "Sandales"],
   "Femme":       ["Robes & Jupes", "Tops", "Lingerie"],
   "Fragrance":   ["Parfums", "Soins Visage", "Soins Cheveux", "Maquillage"],
-  "Accessories": ["Montres", "Bijoux", "Sacs", "Lunettes", "Portefeuilles"],
+  "Accessories": ["Montres", "Bijoux", "Sacs", "Lunettes", "Portefeuilles", "Ceintures", "Chapeaux"],
 };
 
 const CATEGORIES = [
-  { key: "All", label: "Tout voir", icon: "fa-grid-2", color: "#00ff88" },
-  {
-    key: "Audio Lab",
-    label: "Audio Lab",
-    icon: "fa-headphones",
-    color: "#00ff88",
-  },
-  { 
-    key: 'Femme', 
-    label: 'Pour Elle', 
-    icon: 'fa-person-dress', 
-    color: '#ec4899' 
-  },
-  { key: "Clothing", label: "Streetwear", icon: "fa-shirt", color: "#a855f7" },
-  { key: "Shoes", label: "Sneakers", icon: "fa-shoe-prints", color: "#f97316" },
-  {
-    key: "Tech Lab",
-    label: "Tech Lab",
-    icon: "fa-microchip",
-    color: "#3b82f6",
-  },
-  {
-    key: "Fragrance",
-    label: "Parfums",
-    icon: "fa-spray-can-sparkles",
-    color: "#ec4899",
-  },
-  {
-    key: "Accessories",
-    label: "Accessoires",
-    icon: "fa-gem",
-    color: "#eab308",
-  },
+  { key: "All",        label: "Tout voir",   icon: "fa-grid-2",             color: "#00ff88" },
+  { key: "Audio Lab",  label: "Audio Lab",   icon: "fa-headphones",         color: "#00ff88" },
+  { key: "Femme",      label: "Pour Elle",   icon: "fa-person-dress",       color: "#ec4899" },
+  { key: "Clothing",   label: "Streetwear",  icon: "fa-shirt",              color: "#a855f7" },
+  { key: "Shoes",      label: "Sneakers",    icon: "fa-shoe-prints",        color: "#f97316" },
+  { key: "Tech Lab",   label: "Tech Lab",    icon: "fa-microchip",          color: "#3b82f6" },
+  { key: "Fragrance",  label: "Parfums",     icon: "fa-spray-can-sparkles", color: "#ec4899" },
+  { key: "Accessories",label: "Accessoires", icon: "fa-gem",                color: "#eab308" },
 ];
 
 const SORT_OPTIONS = [
-  { value: "recommended", label: "Recommandés" },
-  { value: "popular",     label: "Populaires"   },
-  { value: "recent",      label: "Plus récents" },
-  { value: "price-asc",   label: "Prix croissant" },
-  { value: "price-desc",  label: "Prix décroissant" },
+  { value: "recommended", label: "Recommandés"     },
+  { value: "popular",     label: "Populaires"      },
+  { value: "recent",      label: "Plus récents"    },
+  { value: "price-asc",   label: "Prix croissant"  },
+  { value: "price-desc",  label: "Prix décroissant"},
 ];
+
+// "All" view: hide "recent" (meaningless when mixing categories without canonical date)
+const SORT_OPTIONS_ALL = SORT_OPTIONS.filter(o => o.value !== "recent");
+
+// Category keys (no "All") used for parallel fetch
+const CAT_KEYS = ["Audio Lab", "Tech Lab", "Clothing", "Shoes", "Femme", "Fragrance", "Accessories"];
+const ALL_PER_CAT = Math.ceil(48 / CAT_KEYS.length); // 7 per category → 49 total
 
 const PROMO_BANNERS = [
   {
@@ -117,129 +99,110 @@ const VendorSkeleton = () => (
 );
 
 /* ─────────────────── HERO BANNER ─────────────────── */
-const MarketplaceHero = ({
-  totalProducts,
-  searchQuery,
-  setSearchQuery,
-  onSearch,
-}) => {
-  return (
-    <div className="bg-[#232F3E] py-8 md:py-10 px-4 md:px-8">
-      <div className="max-w-[1400px] mx-auto">
-        <div className="max-w-2xl">
-          <p className="text-[#FF9900] text-xs font-bold uppercase tracking-wider mb-2 flex items-center gap-2">
-            <i className="fa-solid fa-store text-sm"></i>
-            {totalProducts}+ produits · Douala 🇨🇲
-          </p>
-          <h1 className="text-2xl md:text-4xl font-black text-white mb-1">
-            La Marketplace <span className="text-[#FF9900]">Elite</span> de Douala
-          </h1>
-          <p className="text-gray-400 text-sm mb-5">
-            Audio, Streetwear, Tech & plus — boutiques certifiées, livraison express, paiement sécurisé.
-          </p>
+const MarketplaceHero = ({ totalProducts, searchQuery, setSearchQuery, onSearch }) => (
+  <div className="bg-[#232F3E] py-8 md:py-10 px-4 md:px-8">
+    <div className="max-w-[1400px] mx-auto">
+      <div className="max-w-2xl">
+        <p className="text-[#FF9900] text-xs font-bold uppercase tracking-wider mb-2 flex items-center gap-2">
+          <i className="fa-solid fa-store text-sm"></i>
+          {totalProducts}+ produits · Douala 🇨🇲
+        </p>
+        <h1 className="text-2xl md:text-4xl font-black text-white mb-1">
+          La Marketplace <span className="text-[#FF9900]">Elite</span> de Douala
+        </h1>
+        <p className="text-gray-400 text-sm mb-5">
+          Audio, Streetwear, Tech & plus — boutiques certifiées, livraison express, paiement sécurisé.
+        </p>
 
-          {/* SEARCH BAR — Amazon style */}
-          <div className="flex h-11 rounded overflow-hidden ring-2 ring-[#FF9900] shadow-lg">
-            <select className="bg-[#F3F4F4] text-[#0F1111] text-[11px] px-2 border-r border-[#CDCDCD] outline-none cursor-pointer flex-shrink-0 font-medium min-w-[60px]">
-              <option>Tout</option>
-              <option>Audio</option>
-              <option>Streetwear</option>
-              <option>Sneakers</option>
-              <option>Tech</option>
-              <option>Parfums</option>
-            </select>
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && onSearch()}
-              placeholder="Casque, sneakers, parfum, tech..."
-              className="flex-grow bg-white text-[#0F1111] px-4 text-sm outline-none min-w-0"
-            />
-            {searchQuery && (
-              <button onClick={() => setSearchQuery("")}
-                className="bg-white px-2 text-gray-400 hover:text-gray-700 transition"
-              >
-                <i className="fa-solid fa-xmark text-sm"></i>
-              </button>
-            )}
-            <button onClick={onSearch}
-              className="bg-[#FF9900] hover:bg-[#E47911] text-[#0F1111] px-5 flex items-center gap-2 transition-colors flex-shrink-0"
+        <div className="flex h-11 rounded overflow-hidden ring-2 ring-[#FF9900] shadow-lg">
+          <select className="bg-[#F3F4F4] text-[#0F1111] text-[11px] px-2 border-r border-[#CDCDCD] outline-none cursor-pointer flex-shrink-0 font-medium min-w-[60px]">
+            <option>Tout</option>
+            <option>Audio</option>
+            <option>Streetwear</option>
+            <option>Sneakers</option>
+            <option>Tech</option>
+            <option>Parfums</option>
+          </select>
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && onSearch()}
+            placeholder="Casque, sneakers, parfum, tech..."
+            className="flex-grow bg-white text-[#0F1111] px-4 text-sm outline-none min-w-0"
+          />
+          {searchQuery && (
+            <button onClick={() => setSearchQuery("")}
+              className="bg-white px-2 text-gray-400 hover:text-gray-700 transition"
             >
-              <i className="fa-solid fa-magnifying-glass text-base"></i>
-              <span className="hidden md:inline font-bold text-sm">Rechercher</span>
+              <i className="fa-solid fa-xmark text-sm"></i>
             </button>
-          </div>
-
-          {/* QUICK TAGS */}
-          <div className="flex items-center gap-2 mt-3 flex-wrap">
-            <span className="text-xs text-gray-500">Tendances:</span>
-            {["AirPods", "Sneakers", "Casque", "Hoodies"].map((tag) => (
-              <button key={tag} onClick={() => setSearchQuery(tag)}
-                className="text-xs px-3 py-1 rounded-full bg-white/10 text-gray-300 hover:bg-[#FF9900] hover:text-[#0F1111] transition-all border border-white/20 hover:border-[#FF9900]"
-              >
-                {tag}
-              </button>
-            ))}
-          </div>
+          )}
+          <button onClick={onSearch}
+            className="bg-[#FF9900] hover:bg-[#E47911] text-[#0F1111] px-5 flex items-center gap-2 transition-colors flex-shrink-0"
+          >
+            <i className="fa-solid fa-magnifying-glass text-base"></i>
+            <span className="hidden md:inline font-bold text-sm">Rechercher</span>
+          </button>
         </div>
 
-        {/* STATS */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-8">
-          {[
-            { icon: "fa-store",        val: "5+",   label: "Boutiques Certifiées", color: "text-[#FF9900]"  },
-            { icon: "fa-truck-fast",   val: "2h",   label: "Livraison Douala",     color: "text-blue-400"  },
-            { icon: "fa-shield-check", val: "100%", label: "Paiement Sécurisé",    color: "text-green-400" },
-            { icon: "fa-rotate-left",  val: "7j",   label: "Retour Gratuit",       color: "text-purple-400"},
-          ].map((item) => (
-            <div key={item.label}
-              className="bg-white/5 border border-white/10 rounded p-4 flex items-center gap-3 hover:border-white/20 transition-colors"
+        <div className="flex items-center gap-2 mt-3 flex-wrap">
+          <span className="text-xs text-gray-500">Tendances:</span>
+          {["AirPods", "Sneakers", "Casque", "Hoodies"].map((tag) => (
+            <button key={tag} onClick={() => setSearchQuery(tag)}
+              className="text-xs px-3 py-1 rounded-full bg-white/10 text-gray-300 hover:bg-[#FF9900] hover:text-[#0F1111] transition-all border border-white/20 hover:border-[#FF9900]"
             >
-              <div className="w-9 h-9 bg-white/10 rounded flex items-center justify-center flex-shrink-0">
-                <i className={`fa-solid ${item.icon} ${item.color} text-sm`}></i>
-              </div>
-              <div>
-                <p className={`font-black text-lg leading-none ${item.color}`}>{item.val}</p>
-                <p className="text-[9px] font-bold text-gray-500 uppercase tracking-wider mt-0.5">{item.label}</p>
-              </div>
-            </div>
+              {tag}
+            </button>
           ))}
         </div>
       </div>
+
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-8">
+        {[
+          { icon: "fa-store",        val: "5+",   label: "Boutiques Certifiées", color: "text-[#FF9900]"  },
+          { icon: "fa-truck-fast",   val: "2h",   label: "Livraison Douala",     color: "text-blue-400"  },
+          { icon: "fa-shield-check", val: "100%", label: "Paiement Sécurisé",    color: "text-green-400" },
+          { icon: "fa-rotate-left",  val: "7j",   label: "Retour Gratuit",       color: "text-purple-400"},
+        ].map((item) => (
+          <div key={item.label}
+            className="bg-white/5 border border-white/10 rounded p-4 flex items-center gap-3 hover:border-white/20 transition-colors"
+          >
+            <div className="w-9 h-9 bg-white/10 rounded flex items-center justify-center flex-shrink-0">
+              <i className={`fa-solid ${item.icon} ${item.color} text-sm`}></i>
+            </div>
+            <div>
+              <p className={`font-black text-lg leading-none ${item.color}`}>{item.val}</p>
+              <p className="text-[9px] font-bold text-gray-500 uppercase tracking-wider mt-0.5">{item.label}</p>
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
-  );
-};
+  </div>
+);
 
 /* ─────────────────── PROMO BANNERS STRIP ─────────────────── */
 const PromoBanners = () => (
   <div className="grid grid-cols-1 md:grid-cols-3 gap-4 py-4 px-4 md:px-8 max-w-[1400px] mx-auto">
     {PROMO_BANNERS.map((b, i) => (
-      <Link
-        key={i}
-        to="/store"
+      <Link key={i} to="/store"
         className="bg-white border border-[#D5D9D9] hover:border-[#FF9900] hover:shadow-md rounded p-4 flex items-center gap-4 group transition-all"
       >
         <div className="flex-1">
-          <span
-            className="text-[10px] font-bold uppercase px-2 py-0.5 rounded mb-2 inline-block"
+          <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded mb-2 inline-block"
             style={{ backgroundColor: `${b.color}15`, color: b.color }}
           >
             {b.tag}
           </span>
-          <h3 className="font-bold text-base text-[#0F1111] group-hover:text-[#C45500] transition-colors">
-            {b.title}
-          </h3>
+          <h3 className="font-bold text-base text-[#0F1111] group-hover:text-[#C45500] transition-colors">{b.title}</h3>
           <p className="text-[11px] text-[#565959] mt-0.5">{b.sub}</p>
           <p className="text-[#007185] text-xs mt-1.5 group-hover:text-[#C45500] group-hover:underline transition-colors">
             Voir les offres →
           </p>
         </div>
         <div className="w-20 h-20 rounded overflow-hidden flex-shrink-0">
-          <img
-            src={b.img}
-            alt=""
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-          />
+          <img src={b.img} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
         </div>
       </Link>
     ))}
@@ -249,7 +212,6 @@ const PromoBanners = () => (
 /* ─────────────────── VENDORS SECTION ─────────────────── */
 const VendorsSection = ({ vendors, loading, vendorProducts }) => {
   if (!loading && vendors.length === 0) return null;
-
   return (
     <div className="bg-white border-y border-[#D5D9D9] py-6 px-4 md:px-8">
       <div className="max-w-[1400px] mx-auto">
@@ -270,20 +232,15 @@ const VendorsSection = ({ vendors, loading, vendorProducts }) => {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {loading
-            ? Array.from({ length: 4 }).map((_, i) => (
-                <VendorSkeleton key={i} />
-              ))
+            ? Array.from({ length: 4 }).map((_, i) => <VendorSkeleton key={i} />)
             : vendors.map((vendor) => {
-                const vProducts = vendorProducts[vendor.id] || [];
+                const vProducts  = vendorProducts[vendor.id] || [];
                 const categories = [...new Set(vProducts.map((p) => p.type))];
                 return (
-                  <Link
-                    key={vendor.id}
-                    to={`/shop/${vendor.shop_name}`}
+                  <Link key={vendor.id} to={`/shop/${vendor.shop_name}`}
                     className="bg-white border border-[#D5D9D9] rounded p-4 group hover:border-[#FF9900] hover:shadow-md transition-all duration-300"
                   >
                     <div className="flex items-center gap-3 mb-4">
-                      {/* AVATAR */}
                       <div className="w-12 h-12 bg-gradient-to-br from-primary/15 to-primary/5 rounded-xl flex items-center justify-center border border-primary/20 flex-shrink-0 group-hover:border-primary/40 transition-colors">
                         <i className="fa-solid fa-store text-primary"></i>
                       </div>
@@ -296,62 +253,41 @@ const VendorsSection = ({ vendors, loading, vendorProducts }) => {
                             <i className="fa-solid fa-check text-black text-[7px]"></i>
                           </div>
                         </div>
-                        <p className="text-[9px] font-bold text-zinc-400 uppercase truncate">
-                          {vendor.full_name}
-                        </p>
+                        <p className="text-[9px] font-bold text-zinc-400 uppercase truncate">{vendor.full_name}</p>
                       </div>
                     </div>
 
-                    {/* PRODUCT PREVIEW */}
                     {vProducts.length > 0 ? (
                       <div className="grid grid-cols-3 gap-1.5 mb-3">
                         {vProducts.slice(0, 3).map((p, i) => (
-                          <div
-                            key={i}
-                            className="aspect-square rounded-lg overflow-hidden bg-zinc-50"
-                          >
-                            <img
-                              src={p.img}
-                              alt=""
-                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                            />
+                          <div key={i} className="aspect-square rounded-lg overflow-hidden bg-zinc-50">
+                            <img src={p.img} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
                           </div>
                         ))}
                       </div>
                     ) : (
                       <div className="h-16 bg-zinc-50 rounded-xl flex items-center justify-center mb-3">
-                        <p className="text-[9px] font-bold text-zinc-300 uppercase">
-                          Bientôt disponible
-                        </p>
+                        <p className="text-[9px] font-bold text-zinc-300 uppercase">Bientôt disponible</p>
                       </div>
                     )}
 
-                    {/* META */}
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3 text-[9px] font-black uppercase text-zinc-400">
-                        <span>
-                          <i className="fa-solid fa-box text-primary mr-1"></i>
-                          {vProducts.length} items
-                        </span>
+                        <span><i className="fa-solid fa-box text-primary mr-1"></i>{vProducts.length} items</span>
                         <div className="flex items-center gap-0.5">
                           <i className="fa-solid fa-star text-yellow-400 text-[8px]"></i>
                           <span className="text-zinc-500">4.8</span>
                         </div>
                       </div>
                       <span className="text-[9px] font-black uppercase text-primary flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                        Voir{" "}
-                        <i className="fa-solid fa-arrow-right text-[8px]"></i>
+                        Voir <i className="fa-solid fa-arrow-right text-[8px]"></i>
                       </span>
                     </div>
 
-                    {/* CATEGORIES PILLS */}
                     {categories.length > 0 && (
                       <div className="flex gap-1 mt-3 flex-wrap">
                         {categories.slice(0, 2).map((cat) => (
-                          <span
-                            key={cat}
-                            className="text-[8px] font-black uppercase px-2 py-0.5 rounded-full bg-zinc-50 text-zinc-400 border border-zinc-100"
-                          >
+                          <span key={cat} className="text-[8px] font-black uppercase px-2 py-0.5 rounded-full bg-zinc-50 text-zinc-400 border border-zinc-100">
                             {cat}
                           </span>
                         ))}
@@ -366,7 +302,6 @@ const VendorsSection = ({ vendors, loading, vendorProducts }) => {
                 );
               })}
 
-          {/* BECOME VENDOR CTA */}
           {!loading && (
             <Link to="/register"
               className="bg-[#FFF8F0] border-2 border-dashed border-[#FEBD69] rounded p-4 flex flex-col items-center justify-center gap-3 group hover:border-[#FF9900] hover:bg-[#FFF0D0] transition-all min-h-[160px]"
@@ -375,12 +310,8 @@ const VendorsSection = ({ vendors, loading, vendorProducts }) => {
                 <i className="fa-solid fa-plus text-[#FF9900] text-xl"></i>
               </div>
               <div className="text-center">
-                <p className="font-bold text-sm text-[#0F1111] group-hover:text-[#C45500] transition-colors">
-                  Ouvre ta boutique
-                </p>
-                <p className="text-xs text-[#565959] mt-0.5">
-                  Rejoindre la marketplace Elite
-                </p>
+                <p className="font-bold text-sm text-[#0F1111] group-hover:text-[#C45500] transition-colors">Ouvre ta boutique</p>
+                <p className="text-xs text-[#565959] mt-0.5">Rejoindre la marketplace Elite</p>
               </div>
             </Link>
           )}
@@ -393,42 +324,28 @@ const VendorsSection = ({ vendors, loading, vendorProducts }) => {
 /* ─────────────────── CATEGORY TABS ─────────────────── */
 const CategoryTabs = ({ active, onChange, counts }) => {
   const scrollRef = useRef(null);
-
   return (
     <div className="sticky top-[128px] md:top-[128px] z-30 bg-white border-b border-[#D5D9D9] shadow-sm">
       <div className="max-w-[1400px] mx-auto px-4 md:px-8">
-        <div
-          ref={scrollRef}
-          className="flex items-center gap-1 overflow-x-auto hide-scrollbar py-2.5"
-        >
+        <div ref={scrollRef} className="flex items-center gap-1 overflow-x-auto hide-scrollbar py-2.5">
           {CATEGORIES.map((cat) => {
-            const count =
-              cat.key === "All"
-                ? Object.values(counts).reduce((a, b) => a + b, 0)
-                : counts[cat.key] || 0;
+            const count = cat.key === "All"
+              ? Object.values(counts).reduce((a, b) => a + b, 0)
+              : counts[cat.key] || 0;
             const isActive = active === cat.key;
             return (
-              <button
-                key={cat.key}
-                onClick={() => onChange(cat.key)}
+              <button key={cat.key} onClick={() => onChange(cat.key)}
                 className={`flex items-center gap-1.5 px-4 py-2 rounded text-[12px] font-medium whitespace-nowrap transition-all flex-shrink-0 border ${
                   isActive
                     ? "bg-[#232F3E] text-white border-[#232F3E]"
                     : "bg-white text-[#0F1111] border-[#D5D9D9] hover:border-[#FF9900] hover:bg-[#FFF8F0]"
                 }`}
               >
-                <i
-                  className={`fa-solid ${cat.icon} text-xs`}
-                  style={{ color: isActive ? "#FF9900" : cat.color }}
-                ></i>
+                <i className={`fa-solid ${cat.icon} text-xs`} style={{ color: isActive ? "#FF9900" : cat.color }}></i>
                 <span>{cat.label}</span>
-                <span
-                  className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ml-0.5 ${
-                    isActive
-                      ? "bg-[#FF9900]/20 text-[#FF9900]"
-                      : "bg-[#F3F4F4] text-[#565959]"
-                  }`}
-                >
+                <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ml-0.5 ${
+                  isActive ? "bg-[#FF9900]/20 text-[#FF9900]" : "bg-[#F3F4F4] text-[#565959]"
+                }`}>
                   {count}
                 </span>
               </button>
@@ -451,8 +368,7 @@ const SubcategoryPills = ({ category, active, onChange }) => {
           <span className="text-[10px] text-[#565959] font-bold uppercase whitespace-nowrap flex-shrink-0">
             <i className="fa-solid fa-filter text-[#FF9900] mr-1"></i>Sous-cat :
           </span>
-          <button
-            onClick={() => onChange(null)}
+          <button onClick={() => onChange(null)}
             className={`flex-shrink-0 text-[11px] px-3 py-1 rounded-full border transition-all ${
               !active ? "bg-[#232F3E] text-white border-[#232F3E]" : "bg-white border-[#D5D9D9] text-[#565959] hover:border-[#FF9900]"
             }`}
@@ -460,9 +376,7 @@ const SubcategoryPills = ({ category, active, onChange }) => {
             Tout
           </button>
           {subs.map(sub => (
-            <button
-              key={sub}
-              onClick={() => onChange(active === sub ? null : sub)}
+            <button key={sub} onClick={() => onChange(active === sub ? null : sub)}
               className={`flex-shrink-0 text-[11px] px-3 py-1 rounded-full border transition-all ${
                 active === sub
                   ? "bg-[#FF9900] text-[#0F1111] border-[#FF9900] font-bold"
@@ -478,6 +392,65 @@ const SubcategoryPills = ({ category, active, onChange }) => {
   );
 };
 
+/* ─────────────────── SUBCATEGORY BROWSE GRID (All view) ─────────────────── */
+const SubcategoryBrowse = ({ categoryCounts, onCategorySelect, onSubcategorySelect }) => (
+  <div className="mb-6">
+    {/* Category icons */}
+    <h3 className="text-sm font-bold text-[#0F1111] mb-3 flex items-center gap-2">
+      <i className="fa-solid fa-compass text-[#FF9900]"></i>
+      Explorer par catégorie
+    </h3>
+    <div className="grid grid-cols-3 sm:grid-cols-4 xl:grid-cols-7 gap-2 mb-4">
+      {CATEGORIES.filter(c => c.key !== "All").map(cat => (
+        <button key={cat.key} onClick={() => onCategorySelect(cat.key)}
+          className="bg-white border border-[#D5D9D9] rounded p-3 flex flex-col items-center gap-1.5 hover:border-[#FF9900] hover:shadow-sm transition-all group"
+        >
+          <i className={`fa-solid ${cat.icon} text-xl`} style={{ color: cat.color }}></i>
+          <span className="text-[11px] font-medium text-[#0F1111] group-hover:text-[#C45500] transition-colors text-center leading-tight">
+            {cat.label}
+          </span>
+          <span className="text-[10px] text-[#565959] font-bold">
+            {categoryCounts[cat.key] || 0}
+          </span>
+        </button>
+      ))}
+    </div>
+
+    {/* All subcategory pills grouped by category */}
+    <div className="bg-white border border-[#D5D9D9] rounded p-4">
+      <p className="text-[10px] font-bold uppercase text-[#565959] mb-3 flex items-center gap-1.5">
+        <i className="fa-solid fa-tags text-[#FF9900]"></i>
+        Toutes les sous-catégories
+      </p>
+      <div className="space-y-3">
+        {Object.entries(SUBCATEGORIES).map(([cat, subs]) => {
+          const catInfo = CATEGORIES.find(c => c.key === cat);
+          return (
+            <div key={cat}>
+              <button onClick={() => onCategorySelect(cat)}
+                className="text-[10px] font-bold uppercase text-[#0F1111] hover:text-[#C45500] mb-1.5 flex items-center gap-1.5 transition-colors"
+              >
+                {catInfo && <i className={`fa-solid ${catInfo.icon} text-[10px]`} style={{ color: catInfo.color }}></i>}
+                {cat}
+              </button>
+              <div className="flex flex-wrap gap-1">
+                {subs.map(sub => (
+                  <button key={sub}
+                    onClick={() => onSubcategorySelect(cat, sub)}
+                    className="text-[11px] px-2.5 py-1 rounded-full bg-[#F3F4F4] text-[#565959] border border-[#D5D9D9] hover:bg-[#FF9900]/15 hover:text-[#C45500] hover:border-[#FF9900]/40 transition-all"
+                  >
+                    {sub}
+                  </button>
+                ))}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  </div>
+);
+
 /* ─────────────────── SIDEBAR FILTERS ─────────────────── */
 const SidebarFilters = ({
   maxPrice,
@@ -488,6 +461,10 @@ const SidebarFilters = ({
   selectedSize,
   setSelectedSize,
   category,
+  sortOptions,
+  categoryCounts,
+  onCategorySelect,
+  onSubcategorySelect,
 }) => (
   <aside className="w-52 flex-shrink-0 space-y-4">
     {/* SORT */}
@@ -496,7 +473,7 @@ const SidebarFilters = ({
         <i className="fa-solid fa-sort text-[#FF9900] text-xs"></i>Trier par
       </h4>
       <div className="space-y-0.5">
-        {SORT_OPTIONS.map((opt) => (
+        {sortOptions.map((opt) => (
           <button key={opt.value} onClick={() => setSortBy(opt.value)}
             className={`w-full text-left text-[12px] px-3 py-2 rounded transition-all ${
               sortBy === opt.value
@@ -516,17 +493,11 @@ const SidebarFilters = ({
         <i className="fa-solid fa-tag text-[#FF9900] text-xs"></i>Budget Max
       </h4>
       <div className="mb-3">
-        <span className="text-lg font-bold text-[#B12704]">
-          {Number(maxPrice).toLocaleString()}
-        </span>
+        <span className="text-lg font-bold text-[#B12704]">{Number(maxPrice).toLocaleString()}</span>
         <span className="text-xs text-[#565959] ml-1">FCFA</span>
       </div>
       <input
-        type="range"
-        min="0"
-        max={priceMax}
-        step="5000"
-        value={maxPrice}
+        type="range" min="0" max={priceMax} step="5000" value={maxPrice}
         onChange={(e) => setMaxPrice(Number(e.target.value))}
         className="w-full cursor-pointer"
         style={{ accentColor: "#FF9900" }}
@@ -538,20 +509,13 @@ const SidebarFilters = ({
     </div>
 
     {/* SIZE */}
-    {(category === "Clothing" ||
-      category === "Shoes" ||
-      category === "All") && (
+    {(category === "Clothing" || category === "Shoes" || category === "All") && (
       <div className="bg-white border border-[#D5D9D9] rounded p-4">
         <h4 className="text-xs font-bold uppercase text-[#565959] mb-3 flex items-center gap-2">
           <i className="fa-solid fa-ruler text-[#FF9900] text-xs"></i>Taille
         </h4>
         <div className="grid grid-cols-3 gap-1.5">
-          {[
-            "All",
-            ...(category === "Shoes"
-              ? ["40", "41", "42", "43", "44"]
-              : ["XS", "S", "M", "L", "XL"]),
-          ].map((s) => (
+          {["All", ...(category === "Shoes" ? ["40","41","42","43","44"] : ["XS","S","M","L","XL"])].map((s) => (
             <button key={s} onClick={() => setSelectedSize(s)}
               className={`py-1.5 text-xs rounded border transition-all ${
                 selectedSize === s
@@ -566,13 +530,45 @@ const SidebarFilters = ({
       </div>
     )}
 
+    {/* ALL-VIEW SUBCATEGORY PANEL */}
+    {category === "All" && (
+      <div className="bg-white border border-[#D5D9D9] rounded p-4">
+        <h4 className="text-xs font-bold uppercase text-[#565959] mb-3 flex items-center gap-2">
+          <i className="fa-solid fa-layer-group text-[#FF9900] text-xs"></i>Sous-catégories
+        </h4>
+        <div className="space-y-3 max-h-96 overflow-y-auto">
+          {Object.entries(SUBCATEGORIES).map(([cat, subs]) => {
+            const catInfo = CATEGORIES.find(c => c.key === cat);
+            return (
+              <div key={cat}>
+                <button onClick={() => onCategorySelect(cat)}
+                  className="text-[10px] font-bold uppercase text-[#0F1111] hover:text-[#C45500] mb-1 flex items-center gap-1 transition-colors w-full text-left"
+                >
+                  {catInfo && <i className={`fa-solid ${catInfo.icon}`} style={{ color: catInfo.color }}></i>}
+                  <span>{cat}</span>
+                  <span className="ml-auto text-[#565959] font-normal">{categoryCounts[cat] || 0}</span>
+                </button>
+                <div className="flex flex-wrap gap-1 pl-2">
+                  {subs.map(sub => (
+                    <button key={sub} onClick={() => onSubcategorySelect(cat, sub)}
+                      className="text-[10px] px-2 py-0.5 rounded bg-[#F3F4F4] text-[#565959] border border-transparent hover:bg-[#FF9900]/15 hover:text-[#C45500] hover:border-[#FF9900]/30 transition-all"
+                    >
+                      {sub}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    )}
+
     {/* INFO CARD */}
     <div className="bg-[#FFF8F0] border border-[#FEBD69]/40 rounded p-4">
       <i className="fa-solid fa-tag text-[#FF9900] text-lg mb-2 block"></i>
       <h4 className="font-bold text-sm text-[#0F1111] mb-1">Bundle Deal</h4>
-      <p className="text-xs text-[#565959]">
-        −15% automatiquement à partir de 2 articles dans le panier
-      </p>
+      <p className="text-xs text-[#565959]">−15% automatiquement à partir de 2 articles dans le panier</p>
       <div className="mt-3 bg-[#FF9900] text-[#0F1111] text-xs font-bold px-3 py-1.5 rounded inline-flex items-center gap-1.5">
         <i className="fa-solid fa-check text-[10px]"></i>
         Actif sur tous les achats
@@ -590,9 +586,7 @@ const ActiveFilters = ({ category, subcategory, search, sortBy, count, onReset }
         <span className="text-sm text-[#0F1111]">
           <span className="text-[#007185] font-bold">{count}</span>
           <span className="text-[#565959] ml-1.5">résultats</span>
-          {category !== "All" && (
-            <span className="text-[#565959] ml-1.5">dans {category}</span>
-          )}
+          {category !== "All" && <span className="text-[#565959] ml-1.5">dans {category}</span>}
         </span>
         {subcategory && (
           <span className="text-xs px-2.5 py-1 rounded bg-[#FF9900]/15 text-[#C45500] border border-[#FF9900]/30 flex items-center gap-1.5">
@@ -651,82 +645,129 @@ const Store = ({ openModal, addToCart }) => {
   const [category,     setCategory]     = useState("All");
   const [subcategory,  setSubcategory]  = useState(null);
   const [sortBy,       setSortBy]       = useState("recommended");
-  const [maxPrice,     setMaxPrice]     = useState(null); // null = no filter
+  const [maxPrice,     setMaxPrice]     = useState(null);
   const [selectedSize, setSelectedSize] = useState("All");
   const [viewMode,     setViewMode]     = useState("grid");
 
-  const loadMoreRef  = useRef(null);
-  const fetchPageRef = useRef(null);
+  const loadMoreRef      = useRef(null);
+  const fetchPageRef     = useRef(null);
+  const categoryCountsRef = useRef({});
 
-  // ── Fetch one page with server-side filters ───────────────────────────────
+  // Keep categoryCountsRef in sync so fetchPage can read latest counts without it as a dep
+  useEffect(() => { categoryCountsRef.current = categoryCounts; }, [categoryCounts]);
+
+  // ── Fetch one page ─────────────────────────────────────────────────────────
   const fetchPage = useCallback(async (pageNum, reset = false) => {
     if (reset) setLoading(true); else setLoadingMore(true);
     try {
-      let q = supabase
-        .from("products")
-        .select("*, vendor:vendors!vendor_id(member_discount_enabled)", { count: "exact" });
-
-      if (category !== "All") q = q.eq("type", category);
-      if (subcategory)        q = q.eq("subcategory", subcategory);
-      if (searchQuery)        q = q.ilike("name", `%${searchQuery}%`);
-      if (maxPrice !== null)  q = q.lte("price", maxPrice);
-
-      if (sortBy === "price-asc")       q = q.order("price", { ascending: true });
-      else if (sortBy === "price-desc") q = q.order("price", { ascending: false });
-      else if (category === "All")      q = q.order("type", { ascending: true }).order("created_at", { ascending: false });
-      else                              q = q.order("created_at", { ascending: false });
-
-      const from = pageNum * PAGE_SIZE;
-      const { data, count, error } = await q.range(from, from + PAGE_SIZE - 1);
-      if (error) throw error;
-
-      const items = data || [];
-
-      // Order counts only for this page's IDs
+      let items      = [];
       let pageCounts = {};
-      if (items.length > 0) {
-        const { data: oi } = await supabase
-          .from("order_items")
-          .select("product_id")
-          .in("product_id", items.map(p => p.id));
-        oi?.forEach(({ product_id }) => {
-          pageCounts[product_id] = (pageCounts[product_id] || 0) + 1;
-        });
-      }
 
-      // Client-sort "recommended" / "popular" on this page only
-      let sorted = items;
-      if (sortBy === "popular") {
-        sorted = [...items].sort((a, b) => (pageCounts[b.id] || 0) - (pageCounts[a.id] || 0));
-      } else if (sortBy === "recommended") {
-        const score = p =>
-          (pageCounts[p.id] || 0) * 10 + (p.img ? 5 : 0) +
-          (Number(p.price) > 0 ? 3 : 0) + ((p.description?.length || 0) > 10 ? 1 : 0);
-        sorted = [...items].sort((a, b) => score(b) - score(a));
-      }
+      // "All" mixed view: parallel per-category queries ensure true diversity
+      const isAllMixed = category === "All" && !searchQuery && !subcategory
+                         && sortBy !== "price-asc" && sortBy !== "price-desc";
 
-      // Interleave by type in "All" view so every category is represented on each page
-      if (category === "All" && !subcategory && sortBy !== "price-asc" && sortBy !== "price-desc" && sortBy !== "popular") {
-        const byType = {};
-        sorted.forEach(p => {
-          if (!byType[p.type]) byType[p.type] = [];
-          byType[p.type].push(p);
-        });
-        const types = Object.keys(byType);
-        const maxLen = Math.max(...types.map(t => byType[t].length), 0);
-        const mixed = [];
+      if (isAllMixed) {
+        const from = pageNum * ALL_PER_CAT;
+
+        const catResults = await Promise.all(
+          CAT_KEYS.map(async (cat) => {
+            let q = supabase
+              .from("products")
+              .select("*, vendor:vendors!vendor_id(member_discount_enabled)")
+              .eq("type", cat)
+              .order("created_at", { ascending: false })
+              .range(from, from + ALL_PER_CAT - 1);
+            if (maxPrice !== null) q = q.lte("price", maxPrice);
+            const { data } = await q;
+            return data || [];
+          })
+        );
+
+        // Fetch order counts for all fetched items
+        const allItems = catResults.flat();
+        if (allItems.length > 0) {
+          const { data: oi } = await supabase
+            .from("order_items")
+            .select("product_id")
+            .in("product_id", allItems.map(p => p.id));
+          oi?.forEach(({ product_id }) => {
+            pageCounts[product_id] = (pageCounts[product_id] || 0) + 1;
+          });
+        }
+
+        // For "popular" / "recommended": score & sort within each category before interleaving
+        if (sortBy === "popular") {
+          catResults.forEach(arr => arr.sort((a, b) => (pageCounts[b.id] || 0) - (pageCounts[a.id] || 0)));
+        } else if (sortBy === "recommended") {
+          const score = p =>
+            (pageCounts[p.id] || 0) * 10 + (p.img ? 5 : 0) +
+            (Number(p.price) > 0 ? 3 : 0) + ((p.description?.length || 0) > 10 ? 1 : 0);
+          catResults.forEach(arr => arr.sort((a, b) => score(b) - score(a)));
+        }
+
+        // Round-robin interleave: Cat[0][0], Cat[1][0], ..., Cat[0][1], Cat[1][1], ...
+        const maxLen = Math.max(...catResults.map(r => r.length), 0);
         for (let i = 0; i < maxLen; i++) {
-          for (const t of types) {
-            if (i < byType[t].length) mixed.push(byType[t][i]);
+          for (const arr of catResults) {
+            if (i < arr.length) items.push(arr[i]);
           }
         }
-        sorted = mixed;
+
+        const anyFull = catResults.some(r => r.length === ALL_PER_CAT);
+        setHasMore(anyFull);
+
+        // totalCount from metadata (fast — no extra query on each page flip)
+        const catTotal = Object.values(categoryCountsRef.current).reduce((a, b) => a + b, 0);
+        if (catTotal > 0) setTotalCount(catTotal);
+
+      } else {
+        // ── Standard single-query path ──────────────────────────────────────
+        let q = supabase
+          .from("products")
+          .select("*, vendor:vendors!vendor_id(member_discount_enabled)", { count: "exact" });
+
+        if (category !== "All") q = q.eq("type", category);
+        if (subcategory)        q = q.eq("subcategory", subcategory);
+        if (searchQuery)        q = q.ilike("name", `%${searchQuery}%`);
+        if (maxPrice !== null)  q = q.lte("price", maxPrice);
+
+        if (sortBy === "price-asc")       q = q.order("price", { ascending: true });
+        else if (sortBy === "price-desc") q = q.order("price", { ascending: false });
+        else                              q = q.order("created_at", { ascending: false });
+
+        const from = pageNum * PAGE_SIZE;
+        const { data, count, error } = await q.range(from, from + PAGE_SIZE - 1);
+        if (error) throw error;
+
+        items = data || [];
+
+        if (items.length > 0) {
+          const { data: oi } = await supabase
+            .from("order_items")
+            .select("product_id")
+            .in("product_id", items.map(p => p.id));
+          oi?.forEach(({ product_id }) => {
+            pageCounts[product_id] = (pageCounts[product_id] || 0) + 1;
+          });
+        }
+
+        // Client-sort for recommended / popular on this page
+        if (sortBy === "popular") {
+          items = [...items].sort((a, b) => (pageCounts[b.id] || 0) - (pageCounts[a.id] || 0));
+        } else if (sortBy === "recommended") {
+          const score = p =>
+            (pageCounts[p.id] || 0) * 10 + (p.img ? 5 : 0) +
+            (Number(p.price) > 0 ? 3 : 0) + ((p.description?.length || 0) > 10 ? 1 : 0);
+          items = [...items].sort((a, b) => score(b) - score(a));
+        }
+
+        setHasMore(from + PAGE_SIZE < (count || 0));
+        setTotalCount(count || 0);
       }
 
-      setProducts(prev => reset ? sorted : [...prev, ...sorted]);
+      setProducts(prev => reset ? items : [...prev, ...items]);
       setOrderCounts(prev => ({ ...prev, ...pageCounts }));
-      setHasMore(from + PAGE_SIZE < (count || 0));
-      setTotalCount(count || 0);
       setCurrentPage(pageNum);
     } catch (err) {
       console.error("[Store]", err.message);
@@ -768,7 +809,7 @@ const Store = ({ openModal, addToCart }) => {
     init();
   }, []);
 
-  // Re-fetch from page 0 when any filter changes (fetchPage recreated = new deps)
+  // Re-fetch from page 0 when any filter changes
   useEffect(() => { fetchPage(0, true); }, [fetchPage]);
 
   // ── Infinite scroll ───────────────────────────────────────────────────────
@@ -787,19 +828,29 @@ const Store = ({ openModal, addToCart }) => {
   }, [hasMore, loading, loadingMore, currentPage]);
 
   const handleSearch         = () => setSearchQuery(searchInput);
-  const handleCategoryChange = (cat) => { setCategory(cat); setSubcategory(null); };
-  const handleReset          = () => {
+  const handleCategoryChange = (cat) => {
+    setCategory(cat);
+    setSubcategory(null);
+    // "recent" makes no sense when mixing all categories
+    if (cat === "All" && sortBy === "recent") setSortBy("recommended");
+  };
+  const handleSubcategorySelect = (cat, sub) => {
+    setCategory(cat);
+    setSubcategory(sub);
+  };
+  const handleReset = () => {
     setSearchInput(""); setSearchQuery(""); setCategory("All");
     setSubcategory(null); setSelectedSize("All"); setMaxPrice(null);
+    setSortBy("recommended");
   };
 
-  // Size filter stays client-side (no structured size column in DB)
   const visibleProducts = useMemo(
     () => selectedSize === "All" ? products : products.filter(p => p.type === "Clothing" || p.type === "Shoes"),
     [products, selectedSize]
   );
 
-  const sliderValue = maxPrice ?? priceMax;
+  const sliderValue    = maxPrice ?? priceMax;
+  const activeSortOpts = category === "All" ? SORT_OPTIONS_ALL : SORT_OPTIONS;
 
   return (
     <div className="min-h-screen bg-[#EAEDED] text-[#0F1111]">
@@ -821,7 +872,7 @@ const Store = ({ openModal, addToCart }) => {
       {/* ── CATEGORY TABS ── */}
       <CategoryTabs active={category} onChange={handleCategoryChange} counts={categoryCounts} />
 
-      {/* ── SUBCATEGORY PILLS ── */}
+      {/* ── SUBCATEGORY PILLS (specific category only) ── */}
       <SubcategoryPills category={category} active={subcategory} onChange={setSubcategory} />
 
       {/* ── MAIN CONTENT ── */}
@@ -839,6 +890,10 @@ const Store = ({ openModal, addToCart }) => {
               selectedSize={selectedSize}
               setSelectedSize={setSelectedSize}
               category={category}
+              sortOptions={activeSortOpts}
+              categoryCounts={categoryCounts}
+              onCategorySelect={handleCategoryChange}
+              onSubcategorySelect={handleSubcategorySelect}
             />
           </div>
 
@@ -861,7 +916,7 @@ const Store = ({ openModal, addToCart }) => {
                   onChange={(e) => setSortBy(e.target.value)}
                   className="lg:hidden appearance-none bg-white border border-[#D5D9D9] rounded px-3 py-2 text-xs text-[#0F1111] outline-none focus:border-[#FF9900] cursor-pointer"
                 >
-                  {SORT_OPTIONS.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+                  {activeSortOpts.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
                 </select>
                 <div className="flex bg-white border border-[#D5D9D9] rounded overflow-hidden">
                   {["grid", "list"].map(m => (
@@ -874,6 +929,15 @@ const Store = ({ openModal, addToCart }) => {
                 </div>
               </div>
             </div>
+
+            {/* SUBCATEGORY BROWSE GRID — visible in "All" when no active subcategory/search */}
+            {category === "All" && !subcategory && !searchQuery && !loading && (
+              <SubcategoryBrowse
+                categoryCounts={categoryCounts}
+                onCategorySelect={handleCategoryChange}
+                onSubcategorySelect={handleSubcategorySelect}
+              />
+            )}
 
             {/* PRODUCTS */}
             {loading ? (
@@ -906,6 +970,9 @@ const Store = ({ openModal, addToCart }) => {
                         <div className="flex items-center gap-2 mb-1 flex-wrap">
                           <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-[#CC0C39] text-white">{product.status}</span>
                           <span className="text-[10px] text-[#007185]">{product.type}</span>
+                          {product.subcategory && (
+                            <span className="text-[10px] text-[#565959] border border-[#D5D9D9] px-1.5 py-0.5 rounded">{product.subcategory}</span>
+                          )}
                         </div>
                         <h3 className="font-medium text-[#0F1111] truncate text-sm group-hover:text-[#C45500] transition-colors">{product.name}</h3>
                         {product.features?.length > 0 && (
