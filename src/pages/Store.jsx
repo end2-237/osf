@@ -596,16 +596,39 @@ const Store = ({ openModal, addToCart }) => {
       setLoading(true);
       setVendorsLoading(true);
       try {
-        // Products + order counts for recommendation score
-        const [{ data: pData }, { data: orderItems }] = await Promise.all([
-          supabase
+        // Fetch ALL products with pagination (Supabase caps at 1000 rows per request)
+        const BATCH = 1000;
+        let allProducts = [];
+        let from = 0;
+        while (true) {
+          const { data: batch, error: bErr } = await supabase
             .from("products")
             .select("*, vendor:vendors!vendor_id(member_discount_enabled)")
-            .order("created_at", { ascending: false }),
-          supabase
+            .order("created_at", { ascending: false })
+            .range(from, from + BATCH - 1);
+          if (bErr) throw bErr;
+          if (!batch || batch.length === 0) break;
+          allProducts = allProducts.concat(batch);
+          if (batch.length < BATCH) break;
+          from += BATCH;
+        }
+        const pData = allProducts;
+
+        // Fetch all order items (paginated too)
+        let allOrderItems = [];
+        from = 0;
+        while (true) {
+          const { data: oiBatch, error: oiErr } = await supabase
             .from("order_items")
-            .select("product_id"),
-        ]);
+            .select("product_id")
+            .range(from, from + BATCH - 1);
+          if (oiErr) throw oiErr;
+          if (!oiBatch || oiBatch.length === 0) break;
+          allOrderItems = allOrderItems.concat(oiBatch);
+          if (oiBatch.length < BATCH) break;
+          from += BATCH;
+        }
+        const orderItems = allOrderItems;
 
         // Build order count map per product
         const counts = {};
