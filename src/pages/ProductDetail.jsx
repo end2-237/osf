@@ -101,15 +101,9 @@ const Breadcrumb = ({ product }) => (
 );
 
 // ─── IMAGE GALLERY ─────────────────────────────────────────────────────────────
-const ImageGallery = ({ product }) => {
-  const [activeImg, setActiveImg] = useState(0);
-  const [zoomed, setZoomed]       = useState(false);
-  const thumbContainerRef         = useRef(null);
-
-  const images = useMemo(() => {
-    if (product?.images?.length > 0) return product.images;
-    return product?.img ? [product.img] : [];
-  }, [product]);
+const ImageGallery = ({ images, activeImg, setActiveImg }) => {
+  const [zoomed, setZoomed]   = useState(false);
+  const thumbContainerRef     = useRef(null);
 
   // Auto-scroll thumbnail strip to keep active thumb visible
   useEffect(() => {
@@ -589,6 +583,7 @@ const ProductDetail = ({ addToCart, openModal }) => {
   const [size,          setSize]          = useState("M");
   const [color,         setColor]         = useState("Black");
   const [qty,           setQty]           = useState(1);
+  const [galleryIndex,  setGalleryIndex]  = useState(0);
   const [selectedCity,  setSelectedCity]  = useState(DELIVERY_ZONES[0]);
   const [addedFeedback, setAddedFeedback] = useState(false);
   const [shareToast,    setShareToast]    = useState(false);
@@ -598,6 +593,7 @@ const ProductDetail = ({ addToCart, openModal }) => {
   const wishlist  = isInWishlist(product?.id);
 
   useEffect(() => {
+    setGalleryIndex(0);
     if (!product) {
       supabase.from("products").select("*").eq("id", productId).single()
         .then(({ data, error }) => { if (!error && data) setProduct(data); setLoading(false); });
@@ -852,6 +848,37 @@ const ProductDetail = ({ addToCart, openModal }) => {
     : isApparel ? ["XS","S","M","L","XL","XXL"]
     : [];
 
+  // ── Build gallery image list (product images + deduplicated variant images)
+  //    and a map: colorName → gallery index for click-to-jump
+  const { galleryImages, colorImageMap } = useMemo(() => {
+    const imgs = product?.images?.length > 0
+      ? [...product.images]
+      : product?.img ? [product.img] : [];
+
+    const cMap = {};
+    const seenColors = new Set();
+    const JUNK = /^\d+pcs?$/i;
+    const SZ   = /^(xs|s|m|l|xl|xxl|2xl|3xl|4xl|5xl|xxxl|\d{1,3})$/i;
+
+    (Array.isArray(product?.variants) ? product.variants : []).forEach(v => {
+      const vKey = (v.variantKey || "").trim();
+      if (!vKey) return;
+      const parts = vKey.split("-");
+      while (parts.length > 0 && JUNK.test(parts[parts.length - 1].trim())) parts.pop();
+      if (parts.length >= 2 && SZ.test(parts[parts.length - 1].trim())) parts.pop();
+      const cName = parts.join(" ").trim();
+      if (!cName || cName.toLowerCase() === "default" || seenColors.has(cName)) return;
+      seenColors.add(cName);
+      const varImg = v.variantImage;
+      if (!varImg) return;
+      let idx = imgs.indexOf(varImg);
+      if (idx === -1) { imgs.push(varImg); idx = imgs.length - 1; }
+      cMap[cName] = idx;
+    });
+
+    return { galleryImages: imgs, colorImageMap: cMap };
+  }, [product?.images, product?.img, product?.variants]);
+
   const ratingVal   = 3.8 + ((product?.id?.charCodeAt(0) || 65) % 12) * 0.1;
   const reviewCount = 10  + ((product?.id?.charCodeAt(0) || 65) % 200);
 
@@ -913,7 +940,11 @@ const ProductDetail = ({ addToCart, openModal }) => {
             {/* ── GALLERY (sticky) ── */}
             <div className="lg:sticky lg:top-4">
               <div className="bg-white border border-[#D5D9D9] rounded p-3 sm:p-4 lg:p-6">
-                <ImageGallery product={product} />
+                <ImageGallery
+                  images={galleryImages}
+                  activeImg={galleryIndex}
+                  setActiveImg={setGalleryIndex}
+                />
               </div>
             </div>
 
@@ -1035,13 +1066,20 @@ const ProductDetail = ({ addToCart, openModal }) => {
                     </p>
                     <div className="flex gap-2 flex-wrap">
                       {productColors.map(c => (
-                        <button key={c.name} onClick={() => setColor(c.name)} title={c.name}
+                        <button
+                          key={c.name}
+                          onClick={() => {
+                            setColor(c.name);
+                            if (colorImageMap[c.name] !== undefined) setGalleryIndex(colorImageMap[c.name]);
+                          }}
+                          title={c.name}
                           className={`w-8 h-8 rounded-full border-2 transition-all hover:scale-110 ${
                             color === c.name
                               ? "border-[#FF9900] scale-110 shadow-[0_0_0_2px_rgba(255,153,0,0.2)]"
                               : "border-[#D5D9D9] hover:border-[#adb5bd]"
                           }`}
-                          style={{ backgroundColor: c.hex }} />
+                          style={{ backgroundColor: c.hex }}
+                        />
                       ))}
                     </div>
                   </div>
