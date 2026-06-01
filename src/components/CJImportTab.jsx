@@ -116,29 +116,30 @@ const CJImportTab = () => {
       console.log("[CJ cats raw]", JSON.stringify(data)?.slice(0, 500));
 
       const flat = [];
-      const walk = (cats) => {
-        if (!cats) return;
-        // Handle both array and object with children
-        const list = Array.isArray(cats) ? cats : Object.values(cats);
-        list.forEach(c => {
-          if (!c || typeof c !== "object") return;
-          const id   = c.categoryId   || c.id;
-          const name = c.categoryName || c.name;
-          if (id && name) {
-            flat.push({ id, name, type: c.categoryType || 1, count: c.productCount || c.count || 0 });
-          }
-          // Recurse into children (any field that is an array of objects)
-          if (c.children?.length)          walk(c.children);
-          if (c.categoryList?.length)      walk(c.categoryList);
-          if (c.subCategoryList?.length)   walk(c.subCategoryList);
-        });
-      };
+      const root = Array.isArray(data) ? data : (data?.list || data?.data || []);
 
-      // Try all known response shapes
-      if (Array.isArray(data))              walk(data);
-      else if (Array.isArray(data?.list))   walk(data.list);
-      else if (Array.isArray(data?.data))   walk(data.data);
-      else                                  walk(data);
+      root.forEach(first => {
+        // Level 1 — categoryFirstId / categoryFirstName
+        if (first.categoryFirstId && first.categoryFirstName) {
+          flat.push({ id: first.categoryFirstId, name: first.categoryFirstName, level: 1, count: 0 });
+          (first.categoryFirstList || []).forEach(second => {
+            // Level 2 — categorySecondId / categorySecondName
+            if (second.categorySecondId && second.categorySecondName) {
+              flat.push({ id: second.categorySecondId, name: `  ${second.categorySecondName}`, level: 2, count: 0 });
+              (second.categorySecondList || []).forEach(third => {
+                // Level 3 — categoryThirdId / categoryThirdName
+                if (third.categoryThirdId && third.categoryThirdName) {
+                  flat.push({ id: third.categoryThirdId, name: `    ${third.categoryThirdName}`, level: 3, count: 0 });
+                }
+              });
+            }
+          });
+        }
+        // Fallback: generic categoryId / categoryName shape
+        else if (first.categoryId && first.categoryName) {
+          flat.push({ id: first.categoryId, name: first.categoryName, level: 1, count: first.productCount || 0 });
+        }
+      });
 
       console.log("[CJ cats parsed]", flat.length, "catégories");
       if (flat.length === 0) setCatsError(`Aucune catégorie reçue. Réponse brute : ${JSON.stringify(data)?.slice(0, 200)}`);
