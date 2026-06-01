@@ -153,34 +153,78 @@ export const mapCjToProduct = (p) => {
   // ── CJ product ID (try all known field names) ───────────────────────────────
   const cj_product_id = p.pid || p.productId || p.cjProductId || null;
 
+  // ── Variant color/size extraction helpers ──────────────────────────────────
+  // Known color keywords (CJ returns English names)
+  const COLOR_KW = new Set([
+    "black","white","red","blue","green","yellow","orange","purple","pink","gray","grey",
+    "brown","navy","beige","gold","silver","rose","violet","coral","turquoise","cream",
+    "khaki","camel","olive","maroon","burgundy","cyan","teal","lavender","tan","sand",
+    "ivory","charcoal","slate","indigo","mint","lime","multicolor","colorful","multicolour",
+    "nude","apricot","champagne","coffee","wine","army","dark","light","bright","pale",
+    // French
+    "noir","blanc","rouge","bleu","vert","jaune","gris","marron","doré","argenté",
+  ]);
+  // Size tokens: XS/S/M/L/XL/XXL, digits (shoe/EU sizes), capacity (128GB), lengths
+  const SIZE_RE = /^(xs|s|m|l|xl|xxl|2xl|3xl|4xl|5xl|xxxl|\d{1,3}(gb|tb|ml|g|kg|cm|mm|in)?|\d{2}x\d{2}|\d{2}-\d{2}|eu\d{2}|us\d{1,2}|\d{2,3})$/i;
+  const JUNK_RE = /^\d+pcs?$/i; // strip "2PCS", "3PC"
+
+  // Extract colour & size words from a short string (≤8 words)
+  const parseWords = (str, cSet, sSet) => {
+    if (!str) return;
+    const words = str.split(/[\s\-\/,;|()[\]]+/).filter(w => w.length >= 1);
+    if (words.length > 8) return; // skip full product descriptions
+    words.forEach(w => {
+      const lo = w.toLowerCase();
+      if (COLOR_KW.has(lo))   cSet.add(w.charAt(0).toUpperCase() + w.slice(1));
+      else if (SIZE_RE.test(lo) && !JUNK_RE.test(lo)) sSet.add(w.toUpperCase());
+    });
+  };
+
   // ── Variants (colors, sizes, stock per variant) ─────────────────────────────
   const variants = Array.isArray(p.variants) ? p.variants : [];
 
-  // Extract colors AND sizes from variant properties
-  // CJ format: "Color:Black;Size:XL" or "US Size:M" or "Color:Red,Size:S"
   const colorsSet = new Set();
   const sizesSet  = new Set();
+
   variants.forEach(v => {
-    const raw = v.variantProperty || v.property || "";
-    raw.split(/[;,]/).forEach(prop => {
-      const ci  = prop.indexOf(":");
-      if (ci === -1) return;
-      const key = prop.slice(0, ci).toLowerCase().replace(/\s/g, "");
-      const val = prop.slice(ci + 1).trim();
-      if (!val) return;
-      if (key.includes("col") || key.includes("coul") || key === "colour") {
-        colorsSet.add(val);
-      } else if (key.includes("size") || key.includes("taille") || key.includes("pointure")
-              || key.includes("capacity") || key.includes("storage") || key.includes("storage")) {
-        sizesSet.add(val);
-      }
-    });
-    // Fallback: if variantNameEn looks like a standalone color (no ":" in raw)
-    const vName = (v.variantNameEn || v.variantName || "").trim();
-    if (vName && !raw.includes(":") && colorsSet.size === 0) {
-      colorsSet.add(vName);
+    const raw = (v.variantProperty || v.property || "").trim();
+
+    if (raw.includes(":")) {
+      // Standard CJ format: "Color:Black;Size:XL" (semicolon or comma separated)
+      raw.split(/[;,]/).forEach(prop => {
+        const ci = prop.indexOf(":");
+        if (ci === -1) return;
+        const key = prop.slice(0, ci).toLowerCase().replace(/\s/g, "");
+        const val = prop.slice(ci + 1).trim();
+        if (!val) return;
+
+        if (key.includes("col") || key.includes("coul") || key === "colour") {
+          // Strip trailing size/quantity noise: "Khaki S 2PCS" → "Khaki"
+          const cleaned = val.split(/\s+/)
+            .filter(w => !SIZE_RE.test(w.toLowerCase()) && !JUNK_RE.test(w))
+            .join(" ").trim();
+          colorsSet.add(cleaned || val);
+          // Also save any embedded size tokens
+          val.split(/\s+/).forEach(w => {
+            if (SIZE_RE.test(w.toLowerCase()) && !JUNK_RE.test(w)) sizesSet.add(w.toUpperCase());
+          });
+        } else if (
+          key.includes("size") || key.includes("taille") || key.includes("pointure") ||
+          key.includes("capacity") || key.includes("storage") || key.includes("us ")
+        ) {
+          sizesSet.add(val);
+        }
+      });
+    } else if (raw) {
+      // No ":" separators — try word-level extraction
+      parseWords(raw, colorsSet, sizesSet);
     }
+
+    // variantNameEn fallback: only for short labels like "Khaki S" or "Black XL"
+    const vName = (v.variantNameEn || v.variantName || "").trim();
+    parseWords(vName, colorsSet, sizesSet);
   });
+
   const colors = colorsSet.size > 0 ? [...colorsSet] : [];
   const sizes  = [...sizesSet];
 
