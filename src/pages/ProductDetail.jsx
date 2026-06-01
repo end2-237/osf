@@ -5,7 +5,7 @@ import ProductCard from "../components/ProductCard";
 import ReviewsSection from "../components/ReviewsSection";
 import { useWishlist } from "../hooks/useWishlist";
 import { useAuth } from "../context/AuthContext";
-import { cjGetProductDetail, mapCjToProduct } from "../lib/cjApi";
+import { cjGetProductDetail, mapCjToProduct, isVideoUrl } from "../lib/cjApi";
 
 // ─── VILLES DE LIVRAISON ──────────────────────────────────────────────────────
 const DELIVERY_ZONES = [
@@ -163,17 +163,30 @@ const ImageGallery = ({ product }) => {
 
   return (
     <div className="flex flex-col gap-3">
-      {/* Main image */}
+      {/* Main image / video */}
       <div
-        className="relative overflow-hidden rounded bg-white cursor-zoom-in group border border-[#D5D9D9]"
+        className={`relative overflow-hidden rounded bg-white border border-[#D5D9D9] ${isVideoUrl(images[activeImg]) ? "cursor-default" : "cursor-zoom-in"} group`}
         style={{ aspectRatio: "1/1" }}
-        onClick={() => setZoomed(!zoomed)}
+        onClick={() => { if (!isVideoUrl(images[activeImg])) setZoomed(!zoomed); }}
       >
-        <img
-          src={images[activeImg]}
-          alt={product?.name}
-          className={`w-full h-full object-contain transition-all duration-700 ${zoomed ? "scale-150" : "group-hover:scale-105"}`}
-        />
+        {isVideoUrl(images[activeImg]) ? (
+          <video
+            key={images[activeImg]}
+            src={images[activeImg]}
+            className="w-full h-full object-contain"
+            controls
+            autoPlay
+            muted
+            loop
+            playsInline
+          />
+        ) : (
+          <img
+            src={images[activeImg]}
+            alt={product?.name}
+            className={`w-full h-full object-contain transition-all duration-700 ${zoomed ? "scale-150" : "group-hover:scale-105"}`}
+          />
+        )}
 
         {/* OFS Authentic seal — top right */}
         <div className="absolute top-3 right-3 z-10">
@@ -219,7 +232,13 @@ const ImageGallery = ({ product }) => {
                   : "border-[#D5D9D9] hover:border-[#adb5bd]"
               }`}
             >
-              <img src={img} alt="" className="w-full h-full object-cover" />
+              {isVideoUrl(img) ? (
+                <div className="w-full h-full bg-[#131921] flex items-center justify-center">
+                  <i className="fa-solid fa-play text-[#FF9900] text-sm"></i>
+                </div>
+              ) : (
+                <img src={img} alt="" className="w-full h-full object-cover" />
+              )}
             </button>
           ))}
         </div>
@@ -857,25 +876,36 @@ const ProductDetail = ({ addToCart, openModal }) => {
     const staleMs   = 6 * 60 * 60 * 1000; // 6 hours
     if (Date.now() - updatedAt.getTime() < staleMs) return;
 
-    // Background refresh from CJ API using product name as search (no pid stored)
+    // Background refresh: search by name, then fetch full detail for images/videos
     const refreshCjData = async () => {
       try {
-        const { cjListProducts } = await import("../lib/cjApi");
+        const { cjListProducts, cjGetProductDetail, mapCjToProduct } = await import("../lib/cjApi");
+
+        // Find the CJ product by name
         const result = await cjListProducts(1, 5, product.name, "");
         const match  = result?.list?.find(p =>
           (p.productNameEn || p.productName || "").toLowerCase() === (product.name || "").toLowerCase()
         );
         if (!match) return;
-        const fresh = mapCjToProduct(match);
-        if (fresh.price > 0 && fresh.price !== product.price) {
-          await supabase.from("products")
-            .update({ price: fresh.price, img: fresh.img || product.img, updated_at: new Date().toISOString() })
-            .eq("id", product.id);
-          setProduct(prev => prev ? { ...prev, price: fresh.price } : prev);
-        } else {
-          // Just update the timestamp even if price unchanged
-          await supabase.from("products").update({ updated_at: new Date().toISOString() }).eq("id", product.id);
+
+        // Fetch full detail (has productImageSet + productVideo)
+        let fullData = match;
+        if (match.pid) {
+          try {
+            const detail = await cjGetProductDetail(match.pid);
+            if (detail) fullData = detail;
+          } catch { /* fallback to list data */ }
         }
+
+        const fresh = mapCjToProduct(fullData);
+        const updates = { updated_at: new Date().toISOString() };
+        if (fresh.price > 0 && fresh.price !== product.price) updates.price = fresh.price;
+        if (fresh.img) updates.img = fresh.img;
+        // Update images if CJ returned more (covers existing single-image products)
+        if (fresh.images?.length > (product.images?.length || 0)) updates.images = fresh.images;
+
+        await supabase.from("products").update(updates).eq("id", product.id);
+        setProduct(prev => prev ? { ...prev, ...updates } : prev);
       } catch { /* silent — don't block the user */ }
     };
     refreshCjData();

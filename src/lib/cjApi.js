@@ -63,6 +63,10 @@ export const usdToFcfa = (usd) => {
   return isNaN(n) || n <= 0 ? 0 : Math.round(n * 610);
 };
 
+// Detect video URLs (stored inline in images array)
+export const isVideoUrl = (url = "") =>
+  /\.(mp4|webm|ogg|mov)(\?.*)?$/i.test(url);
+
 // ─── CJ product → Supabase product schema ────────────────────────────────────
 // vendor_id = null → produit plateforme OFS (pas lié à un vendeur)
 export const mapCjToProduct = (p) => {
@@ -79,10 +83,14 @@ export const mapCjToProduct = (p) => {
   }
   if (images.length === 0 && mainImg) images = [mainImg];
 
+  // Append product video URL if available (detected via extension in the gallery)
+  const videoUrl = (p.productVideo || "").trim();
+  if (videoUrl && !images.includes(videoUrl)) images = [...images, videoUrl];
+
   return {
     name:        p.productNameEn || p.productName || "Produit",
     price:       usdToFcfa(p.sellPrice ?? p.productPrice ?? 0),
-    img:         images[0] || mainImg,
+    img:         images.find(u => !isVideoUrl(u)) || mainImg,
     images,
     type:        mapOfsType(p.categoryName || ""),
     status:      "Nouveau",
