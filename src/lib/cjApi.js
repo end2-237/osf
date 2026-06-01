@@ -65,15 +65,30 @@ export const usdToFcfa = (usd) => {
 
 // ─── CJ product → Supabase product schema ────────────────────────────────────
 // vendor_id = null → produit plateforme OFS (pas lié à un vendeur)
-export const mapCjToProduct = (p) => ({
-  name:        p.productNameEn || p.productName || "Produit",
-  price:       usdToFcfa(p.sellPrice ?? p.productPrice ?? 0),
-  img:         p.productImage  || "",
-  images:      p.productImage  ? [p.productImage] : [],
-  type:        mapOfsType(p.categoryName || ""),
-  status:      "Nouveau",
-  description: p.productName   || p.productNameEn || "",
-  features:    [],
-  colors:      ["Black", "White"],
-  vendor_id:   null,
-});
+export const mapCjToProduct = (p) => {
+  const mainImg = p.productImage || "";
+
+  // productImageSet can be a comma-separated string or an array
+  let images = [];
+  if (p.productImageSet) {
+    if (Array.isArray(p.productImageSet)) {
+      images = p.productImageSet.filter(Boolean);
+    } else if (typeof p.productImageSet === "string" && p.productImageSet.trim()) {
+      images = p.productImageSet.split(",").map(s => s.trim()).filter(Boolean);
+    }
+  }
+  if (images.length === 0 && mainImg) images = [mainImg];
+
+  return {
+    name:        p.productNameEn || p.productName || "Produit",
+    price:       usdToFcfa(p.sellPrice ?? p.productPrice ?? 0),
+    img:         images[0] || mainImg,
+    images,
+    type:        mapOfsType(p.categoryName || ""),
+    status:      "Nouveau",
+    description: p.productName   || p.productNameEn || "",
+    features:    [],
+    colors:      ["Black", "White"],
+    vendor_id:   null,
+  };
+};
