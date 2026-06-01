@@ -935,7 +935,7 @@ const ProductDetail = ({ addToCart, openModal }) => {
         <div className="max-w-[1500px] mx-auto px-4 md:px-6 py-4 pb-20">
 
           {/* ══ MAIN PRODUCT SECTION ══ */}
-          <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] xl:grid-cols-[520px_1fr] gap-4 mb-4 items-start">
+          <div className="grid grid-cols-1 lg:grid-cols-[55%_1fr] gap-4 mb-4 items-start">
 
             {/* ── GALLERY (sticky) ── */}
             <div className="lg:sticky lg:top-4">
