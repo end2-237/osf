@@ -22,12 +22,10 @@ const CJCard = ({ product, selected, onToggle, onImport, importing }) => {
   const price = usdToFcfa(product.sellPrice || product.productPrice || 0);
   const type  = mapOfsType(product.categoryName || "");
   return (
-    <div
-      onClick={() => onToggle(product.pid)}
+    <div onClick={() => onToggle(product.pid)}
       className={`relative bg-white border-2 rounded-xl overflow-hidden transition-all cursor-pointer group ${
         selected ? "border-[#FF9900] shadow-[0_0_0_3px_rgba(255,153,0,0.15)]" : "border-[#D5D9D9] hover:border-[#FF9900]/50"
-      }`}
-    >
+      }`}>
       <div className={`absolute top-2 left-2 z-10 w-5 h-5 rounded border-2 flex items-center justify-center transition-all ${
         selected ? "bg-[#FF9900] border-[#FF9900]" : "bg-white/90 border-[#D5D9D9]"
       }`}>
@@ -46,11 +44,8 @@ const CJCard = ({ product, selected, onToggle, onImport, importing }) => {
             <p className="text-[10px] text-[#565959]">${product.sellPrice || "—"} USD</p>
             <p className="text-sm font-bold text-[#B12704]">{price.toLocaleString()} F</p>
           </div>
-          <button
-            onClick={e => { e.stopPropagation(); onImport([product]); }}
-            disabled={importing}
-            className="w-8 h-8 bg-[#FFD814] hover:bg-[#F7CA00] disabled:opacity-50 border border-[#FCD200] rounded-lg flex items-center justify-center transition-all active:scale-95"
-          >
+          <button onClick={e => { e.stopPropagation(); onImport([product]); }} disabled={importing}
+            className="w-8 h-8 bg-[#FFD814] hover:bg-[#F7CA00] disabled:opacity-50 border border-[#FCD200] rounded-lg flex items-center justify-center transition-all active:scale-95">
             <i className="fa-solid fa-plus text-[#0F1111] text-xs"></i>
           </button>
         </div>
@@ -64,47 +59,51 @@ const CJImportTab = () => {
   const { user } = useAuth();
 
   // Products
-  const [products,    setProducts]   = useState([]);
-  const [total,       setTotal]      = useState(0);
-  const [page,        setPage]       = useState(1);
-  const [pageInput,   setPageInput]  = useState("1");
-  const [search,      setSearch]     = useState("");
-  const [loading,     setLoading]    = useState(false);
-  const [fetchError,  setFetchError] = useState(null);
+  const [products,   setProducts]   = useState([]);
+  const [total,      setTotal]      = useState(0);
+  const [page,       setPage]       = useState(1);
+  const [pageInput,  setPageInput]  = useState("1");
+  const [search,     setSearch]     = useState("");
+  const [loading,    setLoading]    = useState(false);
+  const [fetchError, setFetchError] = useState(null);
 
   // Categories
   const [categories,  setCategories]  = useState([]);
   const [catsLoading, setCatsLoading] = useState(false);
   const [catSearch,   setCatSearch]   = useState("");
-  const [catSort,     setCatSort]     = useState("name"); // "name" | "count"
+  const [catSort,     setCatSort]     = useState("name");
   const [selCatId,    setSelCatId]    = useState("");
   const [selCatName,  setSelCatName]  = useState("");
   const [showCats,    setShowCats]    = useState(false);
 
+  // Import queue (multi-category)
+  const [queue,       setQueue]       = useState([]); // [{ id, name, count, status, imported }]
+  const [showQueue,   setShowQueue]   = useState(false);
+  const [batchRunning,setBatchRunning]= useState(false);
+  const [batchLog,    setBatchLog]    = useState([]);
+
   // Selection & import
-  const [selected,       setSelected]       = useState(new Set());
-  const [importing,      setImporting]      = useState(false);
-  const [importProg,     setImportProg]     = useState({ done: 0, total: 0 });
-  const [toast,          setToast]          = useState(null);
-  const [alreadyCount,   setAlreadyCount]   = useState(0);
-  const [showImportN,    setShowImportN]    = useState(false);
-  const [importNValue,   setImportNValue]   = useState("");
+  const [selected,     setSelected]     = useState(new Set());
+  const [importing,    setImporting]    = useState(false);
+  const [importProg,   setImportProg]   = useState({ done: 0, total: 0 });
+  const [toast,        setToast]        = useState(null);
+  const [alreadyCount, setAlreadyCount] = useState(0);
+  const [showImportN,  setShowImportN]  = useState(false);
+  const [importNValue, setImportNValue] = useState("");
 
   const totalPages = Math.ceil(total / PAGE_SIZE);
-  const isBulkMode = importProg.total > 0;
+  const isBulkMode = importProg.total > 0 || batchRunning;
 
   const showToast = (msg, type = "ok") => {
     setToast({ msg, type });
     setTimeout(() => setToast(null), 3500);
   };
 
-  // Count already imported platform products
   useEffect(() => {
     supabase.from("products").select("id", { count: "exact", head: true }).is("vendor_id", null)
       .then(({ count }) => setAlreadyCount(count || 0));
   }, []);
 
-  // Load CJ categories (flatten hierarchy)
   const loadCategories = useCallback(async () => {
     setCatsLoading(true);
     try {
@@ -113,7 +112,9 @@ const CJImportTab = () => {
       const walk = (cats) => {
         if (!Array.isArray(cats)) return;
         cats.forEach(c => {
-          flat.push({ id: c.categoryId, name: c.categoryName, type: c.categoryType || 1, count: c.productCount || 0 });
+          if (c.categoryId && c.categoryName) {
+            flat.push({ id: c.categoryId, name: c.categoryName, type: c.categoryType || 1, count: c.productCount || 0 });
+          }
           if (c.children?.length) walk(c.children);
         });
       };
@@ -126,7 +127,6 @@ const CJImportTab = () => {
     }
   }, []);
 
-  // Fetch products
   const fetchProducts = useCallback(async (p, q, catId) => {
     setLoading(true);
     setFetchError(null);
@@ -148,10 +148,7 @@ const CJImportTab = () => {
     if (user) { fetchProducts(1, "", ""); loadCategories(); }
   }, [user]);
 
-  const handleSearch = (e) => {
-    e.preventDefault();
-    fetchProducts(1, search, selCatId);
-  };
+  const handleSearch = (e) => { e.preventDefault(); fetchProducts(1, search, selCatId); };
 
   const handlePageJump = (e) => {
     e.preventDefault();
@@ -160,108 +157,83 @@ const CJImportTab = () => {
   };
 
   const selectCategory = (cat) => {
-    setSelCatId(cat.id);
-    setSelCatName(cat.name);
-    setShowCats(false);
-    setSearch("");
+    setSelCatId(cat.id); setSelCatName(cat.name);
+    setShowCats(false); setSearch("");
     fetchProducts(1, "", cat.id);
   };
 
-  const clearCategory = () => {
-    setSelCatId("");
-    setSelCatName("");
-    fetchProducts(1, search, "");
-  };
+  const clearCategory = () => { setSelCatId(""); setSelCatName(""); fetchProducts(1, search, ""); };
 
   // Selection helpers
-  const toggleSelect = (pid) => setSelected(prev => {
-    const next = new Set(prev);
-    next.has(pid) ? next.delete(pid) : next.add(pid);
-    return next;
-  });
-  const selectAll = () => setSelected(new Set(products.map(p => p.pid)));
-  const clearAll  = () => setSelected(new Set());
+  const toggleSelect = (pid) => setSelected(prev => { const n = new Set(prev); n.has(pid) ? n.delete(pid) : n.add(pid); return n; });
+  const selectAll    = () => setSelected(new Set(products.map(p => p.pid)));
+  const clearAll     = () => setSelected(new Set());
 
-  // Batch insert helper
-  const doInsert = async (list) => {
+  // Core insert helper
+  const batchInsert = async (list, onProgress) => {
     const BATCH = 20;
     let done = 0;
     for (let i = 0; i < list.length; i += BATCH) {
-      const { error } = await supabase.from("products").insert(list.slice(i, i + BATCH).map(mapCjToProduct));
-      if (error) console.warn("[Import]", error.message);
-      done += batch.length;  // will be fixed below
-      setImportProg(prev => ({ ...prev, done: prev.done + list.slice(i, i + BATCH).length }));
+      const batch = list.slice(i, i + BATCH).map(mapCjToProduct);
+      const { error } = await supabase.from("products").insert(batch);
+      if (error) console.warn("[Insert]", error.message);
+      done += batch.length;
+      onProgress?.(done);
     }
     return done;
   };
 
+  // Fetch N products from CJ for a given catId/search
+  const fetchN = async (n, q, catId) => {
+    let collected = [];
+    for (let p = 1; collected.length < n; p++) {
+      const data = await cjListProducts(p, PAGE_SIZE, q, catId);
+      const list = data?.list || [];
+      if (!list.length) break;
+      collected = [...collected, ...list];
+      if (collected.length >= (data?.total || 0)) break;
+      await new Promise(r => setTimeout(r, 200));
+    }
+    return collected.slice(0, n);
+  };
+
+  // Import visible selection
   const importProducts = async (list) => {
     if (!list.length) return;
     setImporting(true);
     setImportProg({ done: 0, total: list.length });
-    let done = 0;
     try {
-      const BATCH = 20;
-      for (let i = 0; i < list.length; i += BATCH) {
-        const batch = list.slice(i, i + BATCH).map(mapCjToProduct);
-        const { error } = await supabase.from("products").insert(batch);
-        if (error) console.warn("[Import]", error.message);
-        done += batch.length;
-        setImportProg({ done, total: list.length });
-      }
+      const done = await batchInsert(list, (d) => setImportProg({ done: d, total: list.length }));
       showToast(`${done} produits importés !`, "success");
       setSelected(new Set());
       setAlreadyCount(c => c + done);
-    } catch (err) {
-      showToast(err.message, "error");
-    } finally {
-      setImporting(false);
-      setImportProg({ done: 0, total: 0 });
-    }
+    } catch (err) { showToast(err.message, "error"); }
+    finally { setImporting(false); setImportProg({ done: 0, total: 0 }); }
   };
 
   const importSelected = () => importProducts(products.filter(p => selected.has(p.pid)));
 
-  // Import exactly N products from current query
+  // Import N from current context
   const importN = async () => {
     const n = parseInt(importNValue, 10);
     if (!n || n <= 0) return;
     setShowImportN(false);
     setImporting(true);
     setImportProg({ done: 0, total: n });
-    let collected = [];
-    for (let p = 1; collected.length < n; p++) {
-      try {
-        const data = await cjListProducts(p, PAGE_SIZE, search, selCatId);
-        const list = data?.list || [];
-        if (!list.length) break;
-        collected = [...collected, ...list];
-        if (collected.length >= n || collected.length >= (data?.total || 0)) break;
-        await new Promise(r => setTimeout(r, 200));
-      } catch { break; }
-    }
-    const toImport = collected.slice(0, n);
-    let done = 0;
     try {
-      const BATCH = 20;
-      for (let i = 0; i < toImport.length; i += BATCH) {
-        const batch = toImport.slice(i, i + BATCH).map(mapCjToProduct);
-        await supabase.from("products").insert(batch);
-        done += batch.length;
-        setImportProg({ done, total: toImport.length });
-      }
+      const list = await fetchN(n, search, selCatId);
+      setImportProg({ done: 0, total: list.length });
+      const done = await batchInsert(list, (d) => setImportProg({ done: d, total: list.length }));
       showToast(`${done} produits importés !`, "success");
       setAlreadyCount(c => c + done);
     } catch (err) { showToast(err.message, "error"); }
-    setImporting(false);
-    setImportProg({ done: 0, total: 0 });
-    setImportNValue("");
+    finally { setImporting(false); setImportProg({ done: 0, total: 0 }); setImportNValue(""); }
   };
 
-  // Import all from current category/search
+  // Import all from current context
   const importAll = async () => {
     const cap = Math.min(total, 5000);
-    if (!window.confirm(`Importer jusqu'à ${cap.toLocaleString()} produits${selCatName ? ` de "${selCatName}"` : ""}?\n\nCela peut prendre plusieurs minutes.`)) return;
+    if (!cap || !window.confirm(`Importer jusqu'à ${cap.toLocaleString()} produits${selCatName ? ` de "${selCatName}"` : ""}?\n\nCela peut prendre plusieurs minutes.`)) return;
     setImporting(true);
     setImportProg({ done: 0, total: cap });
     let done = 0;
@@ -270,11 +242,8 @@ const CJImportTab = () => {
         const data = await cjListProducts(p, PAGE_SIZE, search, selCatId);
         const list = data?.list || [];
         if (!list.length) break;
-        const BATCH = 50;
-        for (let i = 0; i < list.length; i += BATCH) {
-          await supabase.from("products").insert(list.slice(i, i + BATCH).map(mapCjToProduct));
-        }
-        done += list.length;
+        const inserted = await batchInsert(list, () => {});
+        done += inserted;
         setImportProg({ done, total: cap });
         await new Promise(r => setTimeout(r, 300));
       } catch { break; }
@@ -285,22 +254,73 @@ const CJImportTab = () => {
     setImportProg({ done: 0, total: 0 });
   };
 
+  // ── Queue (multi-category batch) ─────────────────────────────────────────────
+  const addToQueue = (cat) => {
+    if (queue.find(q => q.id === cat.id)) return; // already in queue
+    setQueue(prev => [...prev, { id: cat.id, name: cat.name, count: 100, status: "pending", imported: 0 }]);
+    setShowQueue(true);
+  };
+
+  const removeFromQueue = (id) => setQueue(prev => prev.filter(q => q.id !== id));
+
+  const updateQueueCount = (id, count) => {
+    const n = Math.max(1, Math.min(5000, parseInt(count, 10) || 1));
+    setQueue(prev => prev.map(q => q.id === id ? { ...q, count: n } : q));
+  };
+
+  const runBatchImport = async () => {
+    if (!queue.length) return;
+    setBatchRunning(true);
+    setBatchLog([]);
+    let totalImported = 0;
+
+    for (const item of queue) {
+      setQueue(prev => prev.map(q => q.id === item.id ? { ...q, status: "importing", imported: 0 } : q));
+      setBatchLog(prev => [...prev, { id: item.id, name: item.name, msg: `Démarrage… (${item.count} produits)`, ok: null }]);
+      try {
+        const list = await fetchN(item.count, "", item.id);
+        let done = 0;
+        await batchInsert(list, (d) => {
+          done = d;
+          setQueue(prev => prev.map(q => q.id === item.id ? { ...q, imported: d } : q));
+        });
+        totalImported += done;
+        setQueue(prev => prev.map(q => q.id === item.id ? { ...q, status: "done", imported: done } : q));
+        setBatchLog(prev => prev.map(l => l.id === item.id ? { ...l, msg: `✓ ${done} produits importés`, ok: true } : l));
+        setAlreadyCount(c => c + done);
+      } catch (err) {
+        setQueue(prev => prev.map(q => q.id === item.id ? { ...q, status: "error" } : q));
+        setBatchLog(prev => prev.map(l => l.id === item.id ? { ...l, msg: `Erreur : ${err.message}`, ok: false } : l));
+      }
+      await new Promise(r => setTimeout(r, 400));
+    }
+
+    showToast(`Batch terminé : ${totalImported} produits importés au total`, "success");
+    setBatchRunning(false);
+  };
+
+  const clearQueue = () => { setQueue([]); setBatchLog([]); };
+
+  const queueTotal = queue.reduce((s, q) => s + q.count, 0);
+
   // Filtered + sorted categories
   const filteredCats = categories
-    .filter(c => c.name.toLowerCase().includes(catSearch.toLowerCase()))
-    .sort((a, b) => catSort === "name" ? a.name.localeCompare(b.name) : b.count - a.count);
+    .filter(c => (c.name || "").toLowerCase().includes((catSearch || "").toLowerCase()))
+    .sort((a, b) => catSort === "name" ? (a.name || "").localeCompare(b.name || "") : b.count - a.count);
 
-  // Pagination pages to show
   const pagesWindow = (() => {
     const start = Math.max(1, Math.min(page - 2, totalPages - 4));
     return [...Array(Math.min(5, totalPages))].map((_, i) => start + i);
   })();
 
+  const statusColor = { pending: "#ADBAC7", importing: "#FF9900", done: "#007600", error: "#B12704" };
+  const statusIcon  = { pending: "fa-clock", importing: "fa-spinner fa-spin", done: "fa-check", error: "fa-xmark" };
+
   return (
     <div className="space-y-5">
       {toast && <Toast msg={toast.msg} type={toast.type} />}
 
-      {/* Error banner */}
+      {/* Error */}
       {fetchError && (
         <div className="bg-[#FEE7E5] border border-[#B12704]/30 rounded-xl px-4 py-3 flex items-center justify-between gap-3">
           <div className="flex items-center gap-2 min-w-0">
@@ -314,7 +334,7 @@ const CJImportTab = () => {
         </div>
       )}
 
-      {/* Header */}
+      {/* Header stats */}
       <div className="bg-[#131921] rounded-2xl overflow-hidden">
         <div className="bg-[#232F3E] px-6 py-4 flex items-center justify-between gap-4 flex-wrap">
           <div className="flex items-center gap-3">
@@ -336,46 +356,66 @@ const CJImportTab = () => {
                 </button>
               </div>
             )}
+            {queue.length > 0 && (
+              <div className="flex items-center gap-1.5 bg-[#232F3E] border border-[#FF9900]/20 rounded-lg px-3 py-1.5">
+                <i className="fa-solid fa-list-check text-[#FFD814] text-[10px]"></i>
+                <span className="text-[#FFD814] text-[11px] font-bold">{queue.length} cat. · {queueTotal.toLocaleString()} produits</span>
+              </div>
+            )}
             <div className="flex items-center gap-2">
               <div className="w-2 h-2 rounded-full bg-[#007600] animate-pulse"></div>
               <span className="text-[#007600] text-[10px] font-black uppercase">API Active</span>
             </div>
           </div>
         </div>
-
         <div className="grid grid-cols-4 divide-x divide-[#232F3E]">
           {[
-            { icon: "fa-boxes-stacked",  label: "Total CJ",       value: total.toLocaleString(),        color: "#FF9900" },
-            { icon: "fa-layer-group",    label: "Catégories",      value: categories.length || "…",      color: "#FFD814" },
-            { icon: "fa-store",          label: "Importés OFS",    value: alreadyCount.toLocaleString(), color: "#007185" },
-            { icon: "fa-file-lines",     label: "100 / page",      value: `p.${page}/${totalPages||"…"}`,color: "#007600" },
+            { label: "Total CJ",     value: total.toLocaleString(),        color: "#FF9900" },
+            { label: "Catégories",   value: categories.length || "…",      color: "#FFD814" },
+            { label: "Importés OFS", value: alreadyCount.toLocaleString(), color: "#007185" },
+            { label: `Page ${page}/${totalPages||"…"}`, value: `${products.length} affichés`, color: "#007600" },
           ].map(s => (
-            <div key={s.label} className="px-4 py-3 flex flex-col gap-0.5">
+            <div key={s.label} className="px-4 py-3">
               <p className="text-[8px] font-black uppercase tracking-widest text-[#565959]">{s.label}</p>
-              <p className="text-lg font-black" style={{ color: s.color }}>{s.value}</p>
+              <p className="text-base font-black mt-0.5" style={{ color: s.color }}>{s.value}</p>
             </div>
           ))}
         </div>
       </div>
 
       {/* Bulk import progress */}
-      {isBulkMode ? (
+      {(importProg.total > 0 || batchRunning) ? (
         <div className="bg-white border border-[#D5D9D9] rounded-2xl overflow-hidden">
           <div className="bg-[#232F3E] px-5 py-3 flex items-center gap-3">
             <i className="fa-solid fa-spinner animate-spin text-[#FF9900]"></i>
             <span className="font-black text-white text-sm">Import en cours…</span>
-            <span className="text-[#ADBAC7] text-sm">{importProg.done} / {importProg.total} produits</span>
+            {importProg.total > 0 && (
+              <span className="text-[#ADBAC7] text-sm">{importProg.done} / {importProg.total} produits</span>
+            )}
           </div>
-          <div className="p-5 space-y-2">
-            <div className="h-3 bg-[#EAEDED] rounded-full overflow-hidden">
-              <div className="h-full bg-gradient-to-r from-[#FF9900] to-[#FFD814] rounded-full transition-all duration-300"
-                style={{ width: `${importProg.total ? (importProg.done / importProg.total) * 100 : 0}%` }} />
+          {importProg.total > 0 && (
+            <div className="p-5 space-y-2">
+              <div className="h-3 bg-[#EAEDED] rounded-full overflow-hidden">
+                <div className="h-full bg-gradient-to-r from-[#FF9900] to-[#FFD814] rounded-full transition-all duration-300"
+                  style={{ width: `${(importProg.done / importProg.total) * 100}%` }} />
+              </div>
+              <div className="flex justify-between text-xs">
+                <span className="text-[#565959]">Ne fermez pas cette page</span>
+                <span className="font-bold">{Math.round((importProg.done / importProg.total) * 100)}%</span>
+              </div>
             </div>
-            <div className="flex justify-between text-xs">
-              <span className="text-[#565959]">Ne fermez pas cette page</span>
-              <span className="font-bold">{importProg.total ? Math.round((importProg.done / importProg.total) * 100) : 0}%</span>
+          )}
+          {batchRunning && batchLog.length > 0 && (
+            <div className="px-5 pb-5 space-y-1.5 max-h-48 overflow-y-auto">
+              {batchLog.map(l => (
+                <div key={l.id} className="flex items-center gap-2 text-xs">
+                  <i className={`fa-solid ${l.ok === null ? "fa-spinner animate-spin text-[#FF9900]" : l.ok ? "fa-check text-[#007600]" : "fa-xmark text-[#B12704]"} w-3`}></i>
+                  <span className="font-bold text-[#0F1111] truncate max-w-[120px]">{l.name}</span>
+                  <span className="text-[#565959] truncate">{l.msg}</span>
+                </div>
+              ))}
             </div>
-          </div>
+          )}
         </div>
       ) : (
         <>
@@ -389,36 +429,36 @@ const CJImportTab = () => {
                   className="w-full pl-10 pr-4 py-2.5 bg-white border border-[#D5D9D9] focus:border-[#FF9900] focus:outline-none rounded-xl text-sm placeholder-[#ADBAC7] transition-colors" />
               </div>
               <button type="submit" disabled={loading}
-                className="px-4 py-2.5 bg-[#FFD814] hover:bg-[#F7CA00] text-[#0F1111] rounded-xl font-bold text-sm border border-[#FCD200] transition-all flex items-center gap-2">
+                className="px-4 py-2.5 bg-[#FFD814] hover:bg-[#F7CA00] text-[#0F1111] rounded-xl font-bold border border-[#FCD200] transition-all flex items-center gap-2">
                 {loading ? <i className="fa-solid fa-spinner animate-spin"></i> : <i className="fa-solid fa-magnifying-glass"></i>}
               </button>
             </form>
-
-            <div className="flex gap-2 flex-shrink-0">
-              {/* Categories toggle */}
+            <div className="flex gap-2 flex-shrink-0 flex-wrap">
               <button onClick={() => setShowCats(v => !v)}
-                className={`px-4 py-2.5 rounded-xl font-black text-[11px] uppercase tracking-wider border transition-all flex items-center gap-2 ${
+                className={`px-3 py-2.5 rounded-xl font-black text-[11px] uppercase tracking-wider border transition-all flex items-center gap-1.5 ${
                   showCats ? "bg-[#FF9900] text-[#0F1111] border-[#FF9900]" : "bg-[#232F3E] text-[#FF9900] border-[#FF9900]/20 hover:bg-[#131921]"
                 }`}>
                 <i className="fa-solid fa-layer-group"></i>
                 <span className="hidden sm:inline">Catégories</span>
-                {categories.length > 0 && (
-                  <span className={`px-1.5 py-0.5 rounded text-[9px] ${showCats ? "bg-[#0F1111]/20" : "bg-[#FF9900]/20"}`}>{categories.length}</span>
-                )}
+                {categories.length > 0 && <span className={`px-1 py-0.5 rounded text-[9px] ${showCats ? "bg-black/20" : "bg-[#FF9900]/20"}`}>{categories.length}</span>}
               </button>
-
-              {/* Import N */}
+              <button onClick={() => { setShowQueue(v => !v); if (queue.length === 0) setShowCats(true); }}
+                className={`px-3 py-2.5 rounded-xl font-black text-[11px] uppercase tracking-wider border transition-all flex items-center gap-1.5 ${
+                  showQueue ? "bg-[#FFD814] text-[#0F1111] border-[#FFD814]" : "bg-white text-[#0F1111] border-[#D5D9D9] hover:border-[#FF9900]/50"
+                }`}>
+                <i className="fa-solid fa-list-check"></i>
+                <span className="hidden sm:inline">File</span>
+                {queue.length > 0 && <span className="bg-[#FF9900] text-[#0F1111] text-[9px] font-black px-1.5 py-0.5 rounded-full">{queue.length}</span>}
+              </button>
               <button onClick={() => setShowImportN(v => !v)}
-                className="px-4 py-2.5 bg-white hover:bg-[#EAEDED] text-[#0F1111] rounded-xl font-black text-[11px] uppercase tracking-wider border border-[#D5D9D9] transition-all flex items-center gap-2">
+                className="px-3 py-2.5 bg-white hover:bg-[#EAEDED] text-[#0F1111] rounded-xl font-black text-[11px] uppercase tracking-wider border border-[#D5D9D9] transition-all flex items-center gap-1.5">
                 <i className="fa-solid fa-hashtag"></i>
                 <span className="hidden sm:inline">Importer N</span>
               </button>
-
-              {/* Import all */}
-              <button onClick={importAll} disabled={importing || !total}
-                className="px-4 py-2.5 bg-[#131921] hover:bg-[#0a0e15] text-[#FF9900] rounded-xl font-black text-[11px] uppercase tracking-wider border border-[#FF9900]/20 transition-all flex items-center gap-2">
+              <button onClick={importAll} disabled={!total}
+                className="px-3 py-2.5 bg-[#131921] hover:bg-[#0a0e15] text-[#FF9900] rounded-xl font-black text-[11px] uppercase tracking-wider border border-[#FF9900]/20 transition-all flex items-center gap-1.5">
                 <i className="fa-solid fa-bolt"></i>
-                <span className="hidden sm:inline">Tout importer</span>
+                <span className="hidden sm:inline">Tout</span>
               </button>
             </div>
           </div>
@@ -429,24 +469,96 @@ const CJImportTab = () => {
               <div className="flex-1 min-w-0">
                 <p className="text-white font-bold text-sm">Importer un nombre précis</p>
                 <p className="text-[#ADBAC7] text-xs mt-0.5 truncate">
-                  {selCatName ? `Catégorie : "${selCatName}"` : "Catalogue général"}{search ? ` · "${search}"` : ""}
+                  {selCatName ? `"${selCatName}"` : "Catalogue général"}{search ? ` · "${search}"` : ""}
                   {total > 0 && ` · ${total.toLocaleString()} disponibles`}
                 </p>
               </div>
               <div className="flex items-center gap-2">
-                <input type="number" min="1" max={Math.min(total, 5000)} value={importNValue}
-                  onChange={e => setImportNValue(e.target.value)}
-                  placeholder="ex: 200"
+                <input type="number" min="1" max={Math.min(total || 5000, 5000)} value={importNValue}
+                  onChange={e => setImportNValue(e.target.value)} placeholder="ex: 200"
                   className="w-28 px-3 py-2 bg-[#232F3E] border border-[#FF9900]/30 focus:border-[#FF9900] rounded-lg text-white text-sm text-center focus:outline-none" />
-                <button onClick={importN} disabled={!importNValue || importing}
+                <button onClick={importN} disabled={!importNValue}
                   className="px-4 py-2 bg-[#FFD814] hover:bg-[#F7CA00] disabled:opacity-50 text-[#0F1111] rounded-lg font-black text-xs uppercase tracking-wider border border-[#FCD200] transition-all">
-                  Importer
+                  Go
                 </button>
                 <button onClick={() => { setShowImportN(false); setImportNValue(""); }}
-                  className="w-8 h-8 rounded-lg bg-[#232F3E] text-[#ADBAC7] hover:text-white flex items-center justify-center transition-colors">
+                  className="w-8 h-8 rounded-lg bg-[#232F3E] text-[#ADBAC7] hover:text-white flex items-center justify-center">
                   <i className="fa-solid fa-xmark text-xs"></i>
                 </button>
               </div>
+            </div>
+          )}
+
+          {/* ── BATCH QUEUE ─────────────────────────────────────────────────── */}
+          {showQueue && (
+            <div className="bg-[#131921] border border-[#232F3E] rounded-2xl overflow-hidden">
+              <div className="bg-[#232F3E] px-5 py-3 flex items-center justify-between gap-3 flex-wrap">
+                <div className="flex items-center gap-2">
+                  <i className="fa-solid fa-list-check text-[#FF9900]"></i>
+                  <span className="text-white font-bold text-sm">File d'import multi-catégories</span>
+                  {queue.length > 0 && (
+                    <span className="text-[#ADBAC7] text-xs">{queue.length} catégories · {queueTotal.toLocaleString()} produits au total</span>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  {queue.length > 0 && (
+                    <>
+                      <button onClick={clearQueue}
+                        className="text-xs text-[#ADBAC7] hover:text-[#B12704] font-bold transition-colors">
+                        Vider
+                      </button>
+                      <button onClick={runBatchImport} disabled={batchRunning || queue.every(q => q.status === "done")}
+                        className="px-4 py-1.5 bg-[#FFD814] hover:bg-[#F7CA00] disabled:opacity-50 text-[#0F1111] rounded-lg font-black text-xs uppercase tracking-wider border border-[#FCD200] transition-all flex items-center gap-1.5">
+                        <i className="fa-solid fa-play text-[10px]"></i>
+                        Lancer l'import
+                      </button>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              {queue.length === 0 ? (
+                <div className="px-6 py-8 text-center">
+                  <i className="fa-solid fa-arrow-down text-[#565959] text-2xl mb-3 block"></i>
+                  <p className="text-[#ADBAC7] text-sm font-semibold">File vide</p>
+                  <p className="text-[#565959] text-xs mt-1">
+                    Ouvre le panel Catégories et clique <i className="fa-solid fa-plus mx-1"></i> sur chaque catégorie à importer
+                  </p>
+                </div>
+              ) : (
+                <div className="divide-y divide-[#232F3E]">
+                  {queue.map((item, idx) => (
+                    <div key={item.id} className="px-5 py-3 flex items-center gap-3 flex-wrap">
+                      <span className="text-[#565959] text-[10px] font-black w-5 text-center">{idx + 1}</span>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-white text-sm font-semibold truncate">{item.name}</p>
+                        {item.status !== "pending" && (
+                          <p className="text-xs mt-0.5" style={{ color: statusColor[item.status] }}>
+                            {item.status === "importing" ? `${item.imported} / ${item.count} importés…` :
+                             item.status === "done" ? `✓ ${item.imported} produits importés` : "Erreur"}
+                          </p>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-1.5 bg-[#232F3E] rounded-lg px-2 py-1.5 border border-[#FF9900]/20">
+                          <span className="text-[#ADBAC7] text-[10px]">Nb:</span>
+                          <input type="number" min="1" max="5000" value={item.count}
+                            onChange={e => updateQueueCount(item.id, e.target.value)}
+                            disabled={item.status !== "pending"}
+                            className="w-16 bg-transparent text-white text-xs text-center focus:outline-none disabled:opacity-50" />
+                        </div>
+                        <i className={`fa-solid ${statusIcon[item.status]} text-xs`} style={{ color: statusColor[item.status] }}></i>
+                        {item.status === "pending" && (
+                          <button onClick={() => removeFromQueue(item.id)}
+                            className="w-6 h-6 rounded bg-[#232F3E] text-[#ADBAC7] hover:text-[#B12704] flex items-center justify-center transition-colors">
+                            <i className="fa-solid fa-xmark text-[9px]"></i>
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
@@ -464,12 +576,12 @@ const CJImportTab = () => {
                     <i className="fa-solid fa-magnifying-glass absolute left-2.5 top-1/2 -translate-y-1/2 text-[#ADBAC7] text-[10px]"></i>
                     <input type="text" value={catSearch} onChange={e => setCatSearch(e.target.value)}
                       placeholder="Filtrer…"
-                      className="pl-7 pr-3 py-1.5 bg-[#131921] border border-[#FF9900]/20 focus:border-[#FF9900] rounded-lg text-white text-xs w-40 focus:outline-none placeholder-[#ADBAC7]" />
+                      className="pl-7 pr-3 py-1.5 bg-[#131921] border border-[#FF9900]/20 focus:border-[#FF9900] rounded-lg text-white text-xs w-36 focus:outline-none placeholder-[#ADBAC7]" />
                   </div>
                   <select value={catSort} onChange={e => setCatSort(e.target.value)}
                     className="px-2 py-1.5 bg-[#131921] border border-[#FF9900]/20 rounded-lg text-[#ADBAC7] text-xs focus:outline-none cursor-pointer">
-                    <option value="name">Trier A–Z</option>
-                    <option value="count">Par produits</option>
+                    <option value="name">A–Z</option>
+                    <option value="count">Produits</option>
                   </select>
                 </div>
               </div>
@@ -477,25 +589,38 @@ const CJImportTab = () => {
               {catsLoading ? (
                 <div className="p-8 flex items-center justify-center gap-3">
                   <i className="fa-solid fa-spinner animate-spin text-[#FF9900]"></i>
-                  <span className="text-[#ADBAC7] text-sm">Chargement des catégories…</span>
+                  <span className="text-[#ADBAC7] text-sm">Chargement…</span>
                 </div>
               ) : filteredCats.length === 0 ? (
-                <div className="p-8 text-center text-[#565959] text-sm">Aucune catégorie trouvée</div>
+                <div className="p-8 text-center text-[#565959] text-sm">Aucune catégorie</div>
               ) : (
-                <div className="p-3 max-h-72 overflow-y-auto grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-1.5">
-                  {filteredCats.map(cat => (
-                    <button key={cat.id} onClick={() => selectCategory(cat)}
-                      className={`text-left px-3 py-2.5 rounded-xl text-xs transition-all border group ${
-                        selCatId === cat.id
-                          ? "bg-[#FF9900]/20 border-[#FF9900]/40 text-[#FF9900] font-bold"
-                          : "bg-[#232F3E]/50 border-[#232F3E] text-[#ADBAC7] hover:bg-[#232F3E] hover:text-white hover:border-[#FF9900]/20"
+                <div className="p-3 max-h-72 overflow-y-auto grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-1.5">
+                  {filteredCats.map(cat => {
+                    const inQueue = queue.some(q => q.id === cat.id);
+                    const isActive = selCatId === cat.id;
+                    return (
+                      <div key={cat.id} className={`flex items-center gap-1 rounded-xl border transition-all px-2 py-2 ${
+                        isActive ? "bg-[#FF9900]/20 border-[#FF9900]/40" : inQueue ? "bg-[#FFD814]/10 border-[#FFD814]/30" : "bg-[#232F3E]/50 border-[#232F3E] hover:bg-[#232F3E]"
                       }`}>
-                      <p className="font-semibold leading-tight truncate">{cat.name}</p>
-                      {cat.count > 0 && (
-                        <p className="text-[9px] mt-0.5 opacity-60">{cat.count.toLocaleString()} produits</p>
-                      )}
-                    </button>
-                  ))}
+                        {/* Load button */}
+                        <button onClick={() => selectCategory(cat)} className="flex-1 text-left min-w-0"
+                          title="Afficher les produits de cette catégorie">
+                          <p className={`text-xs font-semibold leading-tight truncate ${isActive ? "text-[#FF9900]" : "text-[#ADBAC7] group-hover:text-white"}`}>
+                            {cat.name}
+                          </p>
+                          {cat.count > 0 && <p className="text-[9px] opacity-50 mt-0.5">{cat.count.toLocaleString()} produits</p>}
+                        </button>
+                        {/* Add to queue */}
+                        <button onClick={() => inQueue ? removeFromQueue(cat.id) : addToQueue(cat)}
+                          title={inQueue ? "Retirer de la file" : "Ajouter à la file d'import"}
+                          className={`flex-shrink-0 w-6 h-6 rounded-lg flex items-center justify-center transition-all ${
+                            inQueue ? "bg-[#FFD814]/20 text-[#FFD814] hover:bg-[#B12704]/20 hover:text-[#B12704]" : "bg-[#232F3E] text-[#ADBAC7] hover:bg-[#FF9900]/20 hover:text-[#FF9900]"
+                          }`}>
+                          <i className={`fa-solid ${inQueue ? "fa-check" : "fa-plus"} text-[9px]`}></i>
+                        </button>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -515,13 +640,10 @@ const CJImportTab = () => {
             </span>
           </div>
           <div className="flex items-center gap-2">
-            <button onClick={clearAll} className="text-xs text-[#565959] hover:text-[#C45500] font-bold transition-colors">
-              Tout désélectionner
-            </button>
-            <button onClick={importSelected} disabled={importing}
-              className="flex items-center gap-2 bg-[#FFD814] hover:bg-[#F7CA00] disabled:opacity-50 text-[#0F1111] px-4 py-2 rounded-lg font-black text-xs uppercase tracking-wider border border-[#FCD200] transition-all">
-              <i className="fa-solid fa-cloud-arrow-up"></i>
-              Importer la sélection
+            <button onClick={clearAll} className="text-xs text-[#565959] hover:text-[#C45500] font-bold">Désélectionner</button>
+            <button onClick={importSelected}
+              className="flex items-center gap-2 bg-[#FFD814] hover:bg-[#F7CA00] text-[#0F1111] px-4 py-2 rounded-lg font-black text-xs uppercase tracking-wider border border-[#FCD200] transition-all">
+              <i className="fa-solid fa-cloud-arrow-up"></i>Importer
             </button>
           </div>
         </div>
@@ -553,12 +675,11 @@ const CJImportTab = () => {
         <>
           <div className="flex items-center justify-between">
             <p className="text-xs text-[#565959]">
-              {products.length} produits affichés · {total.toLocaleString()} au total
-              {selCatName ? ` dans "${selCatName}"` : ""}
+              {products.length} affichés · {total.toLocaleString()} au total{selCatName ? ` dans "${selCatName}"` : ""}
             </p>
             <button onClick={selected.size === products.length ? clearAll : selectAll}
               className="text-xs text-[#007185] hover:text-[#C45500] font-bold transition-colors">
-              {selected.size === products.length ? "Tout désélectionner" : "Tout sélectionner"}
+              {selected.size === products.length ? "Désélectionner tout" : "Sélectionner tout"}
             </button>
           </div>
 
@@ -572,18 +693,14 @@ const CJImportTab = () => {
           {/* Pagination */}
           {totalPages > 1 && (
             <div className="flex items-center justify-center gap-1.5 pt-4 flex-wrap">
-              {/* First */}
               <button onClick={() => fetchProducts(1, search, selCatId)} disabled={page === 1 || loading}
-                className="w-9 h-9 rounded-xl border border-[#D5D9D9] bg-white hover:border-[#FF9900] disabled:opacity-40 flex items-center justify-center transition-colors">
+                className="w-9 h-9 rounded-xl border border-[#D5D9D9] bg-white hover:border-[#FF9900] disabled:opacity-40 flex items-center justify-center">
                 <i className="fa-solid fa-angles-left text-[#565959] text-[10px]"></i>
               </button>
-              {/* Prev */}
               <button onClick={() => fetchProducts(page - 1, search, selCatId)} disabled={page === 1 || loading}
-                className="w-9 h-9 rounded-xl border border-[#D5D9D9] bg-white hover:border-[#FF9900] disabled:opacity-40 flex items-center justify-center transition-colors">
+                className="w-9 h-9 rounded-xl border border-[#D5D9D9] bg-white hover:border-[#FF9900] disabled:opacity-40 flex items-center justify-center">
                 <i className="fa-solid fa-chevron-left text-[#565959] text-xs"></i>
               </button>
-
-              {/* Page numbers */}
               {pagesWindow.map(n => (
                 <button key={n} onClick={() => fetchProducts(n, search, selCatId)}
                   className={`w-9 h-9 rounded-xl border text-sm font-bold transition-all ${
@@ -592,15 +709,12 @@ const CJImportTab = () => {
                   {n}
                 </button>
               ))}
-
-              {/* Next */}
               <button onClick={() => fetchProducts(page + 1, search, selCatId)} disabled={page === totalPages || loading}
-                className="w-9 h-9 rounded-xl border border-[#D5D9D9] bg-white hover:border-[#FF9900] disabled:opacity-40 flex items-center justify-center transition-colors">
+                className="w-9 h-9 rounded-xl border border-[#D5D9D9] bg-white hover:border-[#FF9900] disabled:opacity-40 flex items-center justify-center">
                 <i className="fa-solid fa-chevron-right text-[#565959] text-xs"></i>
               </button>
-              {/* Last */}
               <button onClick={() => fetchProducts(totalPages, search, selCatId)} disabled={page === totalPages || loading}
-                className="w-9 h-9 rounded-xl border border-[#D5D9D9] bg-white hover:border-[#FF9900] disabled:opacity-40 flex items-center justify-center transition-colors">
+                className="w-9 h-9 rounded-xl border border-[#D5D9D9] bg-white hover:border-[#FF9900] disabled:opacity-40 flex items-center justify-center">
                 <i className="fa-solid fa-angles-right text-[#565959] text-[10px]"></i>
               </button>
 

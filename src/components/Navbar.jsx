@@ -118,7 +118,7 @@ const Navbar = ({ isDark, toggleTheme, cartCount, toggleCart, toggleVisualSearch
   useEffect(() => {
     if (!user) { setProfile(null); return; }
     import("../lib/supabase").then(({ supabase }) => {
-      supabase.from("profiles").select("full_name,avatar_url").eq("id", user.id).single()
+      supabase.from("profiles").select("full_name,avatar_url").eq("id", user.id).maybeSingle()
         .then(({ data }) => { if (data) setProfile(data); });
     });
   }, [user]);
