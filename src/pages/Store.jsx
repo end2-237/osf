@@ -571,157 +571,168 @@ const ActiveFilters = ({ category, search, sortBy, count, onReset }) => {
 };
 
 /* ─────────────────── MAIN STORE PAGE ─────────────────── */
+const PAGE_SIZE = 48;
+
 const Store = ({ openModal, addToCart }) => {
-  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { isMember } = useAuth();
+  const { isMember }   = useAuth();
 
-  const [products, setProducts] = useState([]);
-  const [vendors, setVendors] = useState([]);
+  // ── Data ──────────────────────────────────────────────────────────────────
+  const [products,       setProducts]       = useState([]);
+  const [vendors,        setVendors]        = useState([]);
   const [vendorProducts, setVendorProducts] = useState({});
-  const [loading, setLoading] = useState(true);
+  const [orderCounts,    setOrderCounts]    = useState({});
+  const [categoryCounts, setCategoryCounts] = useState({});
+  const [priceMax,       setPriceMax]       = useState(500000);
+
+  // ── Pagination / loading ──────────────────────────────────────────────────
+  const [loading,        setLoading]        = useState(true);
+  const [loadingMore,    setLoadingMore]    = useState(false);
   const [vendorsLoading, setVendorsLoading] = useState(true);
+  const [hasMore,        setHasMore]        = useState(false);
+  const [totalCount,     setTotalCount]     = useState(0);
+  const [currentPage,    setCurrentPage]    = useState(0);
 
-  const [searchInput, setSearchInput] = useState(searchParams.get("q") || "");
-  const [searchQuery, setSearchQuery] = useState(searchParams.get("q") || "");
-  const [category, setCategory] = useState("All");
-  const [sortBy, setSortBy] = useState("recommended");
-  const [orderCounts, setOrderCounts] = useState({});
-  const [maxPrice, setMaxPrice] = useState(500000);
+  // ── Filters ───────────────────────────────────────────────────────────────
+  const [searchInput,  setSearchInput]  = useState(searchParams.get("q") || "");
+  const [searchQuery,  setSearchQuery]  = useState(searchParams.get("q") || "");
+  const [category,     setCategory]     = useState("All");
+  const [sortBy,       setSortBy]       = useState("recommended");
+  const [maxPrice,     setMaxPrice]     = useState(null); // null = no filter
   const [selectedSize, setSelectedSize] = useState("All");
-  const [viewMode, setViewMode] = useState("grid");
+  const [viewMode,     setViewMode]     = useState("grid");
 
-  useEffect(() => {
-    const loadData = async () => {
-      setLoading(true);
-      setVendorsLoading(true);
-      try {
-        // Fetch ALL products with pagination (Supabase caps at 1000 rows per request)
-        const BATCH = 1000;
-        let allProducts = [];
-        let from = 0;
-        while (true) {
-          const { data: batch, error: bErr } = await supabase
-            .from("products")
-            .select("*, vendor:vendors!vendor_id(member_discount_enabled)")
-            .order("created_at", { ascending: false })
-            .range(from, from + BATCH - 1);
-          if (bErr) throw bErr;
-          if (!batch || batch.length === 0) break;
-          allProducts = allProducts.concat(batch);
-          if (batch.length < BATCH) break;
-          from += BATCH;
-        }
-        const pData = allProducts;
+  const loadMoreRef  = useRef(null);
+  const fetchPageRef = useRef(null);
 
-        // Fetch all order items (paginated too)
-        let allOrderItems = [];
-        from = 0;
-        while (true) {
-          const { data: oiBatch, error: oiErr } = await supabase
-            .from("order_items")
-            .select("product_id")
-            .range(from, from + BATCH - 1);
-          if (oiErr) throw oiErr;
-          if (!oiBatch || oiBatch.length === 0) break;
-          allOrderItems = allOrderItems.concat(oiBatch);
-          if (oiBatch.length < BATCH) break;
-          from += BATCH;
-        }
-        const orderItems = allOrderItems;
+  // ── Fetch one page with server-side filters ───────────────────────────────
+  const fetchPage = useCallback(async (pageNum, reset = false) => {
+    if (reset) setLoading(true); else setLoadingMore(true);
+    try {
+      let q = supabase
+        .from("products")
+        .select("*, vendor:vendors!vendor_id(member_discount_enabled)", { count: "exact" });
 
-        // Build order count map per product
-        const counts = {};
-        orderItems?.forEach(({ product_id }) => {
-          counts[product_id] = (counts[product_id] || 0) + 1;
+      if (category !== "All") q = q.eq("type", category);
+      if (searchQuery)        q = q.ilike("name", `%${searchQuery}%`);
+      if (maxPrice !== null)  q = q.lte("price", maxPrice);
+
+      if (sortBy === "price-asc")       q = q.order("price", { ascending: true });
+      else if (sortBy === "price-desc") q = q.order("price", { ascending: false });
+      else                              q = q.order("created_at", { ascending: false });
+
+      const from = pageNum * PAGE_SIZE;
+      const { data, count, error } = await q.range(from, from + PAGE_SIZE - 1);
+      if (error) throw error;
+
+      const items = data || [];
+
+      // Order counts only for this page's IDs
+      let pageCounts = {};
+      if (items.length > 0) {
+        const { data: oi } = await supabase
+          .from("order_items")
+          .select("product_id")
+          .in("product_id", items.map(p => p.id));
+        oi?.forEach(({ product_id }) => {
+          pageCounts[product_id] = (pageCounts[product_id] || 0) + 1;
         });
-        setOrderCounts(counts);
-        setProducts(pData || []);
+      }
 
-        // Vendors
-        const { data: vData } = await supabase
-          .from("vendors")
-          .select("*")
-          .eq("is_active", true);
-        setVendors(vData || []);
-        setVendorsLoading(false);
+      // Client-sort "recommended" / "popular" on this page only
+      let sorted = items;
+      if (sortBy === "popular") {
+        sorted = [...items].sort((a, b) => (pageCounts[b.id] || 0) - (pageCounts[a.id] || 0));
+      } else if (sortBy === "recommended") {
+        const score = p =>
+          (pageCounts[p.id] || 0) * 10 + (p.img ? 5 : 0) +
+          (Number(p.price) > 0 ? 3 : 0) + ((p.description?.length || 0) > 10 ? 1 : 0);
+        sorted = [...items].sort((a, b) => score(b) - score(a));
+      }
 
-        // Map products to vendors
-        if (vData && pData) {
-          const map = {};
-          vData.forEach((v) => {
-            map[v.id] = pData.filter((p) => p.vendor_id === v.id).slice(0, 6);
-          });
-          setVendorProducts(map);
-        }
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setLoading(false);
+      setProducts(prev => reset ? sorted : [...prev, ...sorted]);
+      setOrderCounts(prev => ({ ...prev, ...pageCounts }));
+      setHasMore(from + PAGE_SIZE < (count || 0));
+      setTotalCount(count || 0);
+      setCurrentPage(pageNum);
+    } catch (err) {
+      console.error("[Store]", err.message);
+    } finally {
+      setLoading(false);
+      setLoadingMore(false);
+    }
+  }, [category, searchQuery, sortBy, maxPrice]);
+
+  useEffect(() => { fetchPageRef.current = fetchPage; }, [fetchPage]);
+
+  // ── Metadata init: lightweight queries, no product rows ──────────────────
+  useEffect(() => {
+    const init = async () => {
+      const [{ data: typeData }, { data: maxPData }, { data: vData }] = await Promise.all([
+        supabase.from("products").select("type"),
+        supabase.from("products").select("price").order("price", { ascending: false }).limit(1).maybeSingle(),
+        supabase.from("vendors").select("*").eq("is_active", true),
+      ]);
+
+      const counts = {};
+      typeData?.forEach(({ type }) => { counts[type] = (counts[type] || 0) + 1; });
+      setCategoryCounts(counts);
+      if (maxPData?.price) setPriceMax(maxPData.price);
+
+      setVendors(vData || []);
+      setVendorsLoading(false);
+
+      if (vData?.length) {
+        const map = {};
+        await Promise.all(vData.slice(0, 8).map(async v => {
+          const { data: vp } = await supabase
+            .from("products").select("id, img, type").eq("vendor_id", v.id).limit(3);
+          map[v.id] = vp || [];
+        }));
+        setVendorProducts(map);
       }
     };
-    loadData();
+    init();
   }, []);
 
-  const priceMax = Math.max(
-    ...products.map((p) => Number(p.price || 0)),
-    500000
-  );
+  // Re-fetch from page 0 when any filter changes (fetchPage recreated = new deps)
+  useEffect(() => { fetchPage(0, true); }, [fetchPage]);
 
-  const categoryCounts = useMemo(() => {
-    const counts = {};
-    products.forEach((p) => {
-      counts[p.type] = (counts[p.type] || 0) + 1;
-    });
-    return counts;
-  }, [products]);
-
-  const recScore = useMemo(() => {
-    const now = Date.now();
-    const score = (p) => {
-      const orders  = orderCounts[p.id] || 0;
-      const hasImg  = (p.img || p.images?.[0]) ? 5 : 0;
-      const price   = Number(p.price);
-      const goodPrice = (!isNaN(price) && price > 0) ? 3 : 0;
-      const hasDesc = (p.description?.length || 0) > 10 ? 1 : 0;
-      const ageDays = (now - new Date(p.created_at).getTime()) / 86400000;
-      const recency = Math.max(0, (30 - ageDays) / 30) * 2; // max 2 pts for < 30 days old
-      return orders * 10 + hasImg + goodPrice + hasDesc + recency;
-    };
-    return score;
-  }, [orderCounts]);
-
-  const filteredProducts = useMemo(() => {
-    return products
-      .filter((p) => category === "All" || p.type === category)
-      .filter((p) => !searchQuery || (p.name || "").toLowerCase().includes(searchQuery.toLowerCase()))
-      .filter((p) => { const pr = Number(p.price); return isNaN(pr) || pr <= maxPrice; })
-      .filter((p) => selectedSize === "All" || p.type === "Clothing" || p.type === "Shoes")
-      .sort((a, b) => {
-        if (sortBy === "price-asc")   return (Number(a.price) || 0) - (Number(b.price) || 0);
-        if (sortBy === "price-desc")  return (Number(b.price) || 0) - (Number(a.price) || 0);
-        if (sortBy === "popular")     return (orderCounts[b.id] || 0) - (orderCounts[a.id] || 0);
-        if (sortBy === "recent")      return new Date(b.created_at) - new Date(a.created_at);
-        // "recommended" — composite score
-        return recScore(b) - recScore(a);
-      });
-  }, [products, category, searchQuery, maxPrice, selectedSize, sortBy, orderCounts, recScore]);
+  // ── Infinite scroll ───────────────────────────────────────────────────────
+  useEffect(() => {
+    const el = loadMoreRef.current;
+    if (!el) return;
+    const obs = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting && hasMore && !loading && !loadingMore)
+          fetchPageRef.current?.(currentPage + 1, false);
+      },
+      { rootMargin: "400px" }
+    );
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, [hasMore, loading, loadingMore, currentPage]);
 
   const handleSearch = () => setSearchQuery(searchInput);
-
-  const handleReset = () => {
-    setSearchInput("");
-    setSearchQuery("");
-    setCategory("All");
-    setSelectedSize("All");
-    setMaxPrice(priceMax);
+  const handleReset  = () => {
+    setSearchInput(""); setSearchQuery(""); setCategory("All");
+    setSelectedSize("All"); setMaxPrice(null);
   };
+
+  // Size filter stays client-side (no structured size column in DB)
+  const visibleProducts = useMemo(
+    () => selectedSize === "All" ? products : products.filter(p => p.type === "Clothing" || p.type === "Shoes"),
+    [products, selectedSize]
+  );
+
+  const sliderValue = maxPrice ?? priceMax;
 
   return (
     <div className="min-h-screen bg-[#EAEDED] text-[#0F1111]">
+
       {/* ── HERO ── */}
       <MarketplaceHero
-        totalProducts={products.length}
+        totalProducts={totalCount || Object.values(categoryCounts).reduce((a, b) => a + b, 0)}
         searchQuery={searchInput}
         setSearchQuery={setSearchInput}
         onSearch={handleSearch}
@@ -731,26 +742,19 @@ const Store = ({ openModal, addToCart }) => {
       <PromoBanners />
 
       {/* ── VENDORS ── */}
-      <VendorsSection
-        vendors={vendors}
-        loading={vendorsLoading}
-        vendorProducts={vendorProducts}
-      />
+      <VendorsSection vendors={vendors} loading={vendorsLoading} vendorProducts={vendorProducts} />
 
       {/* ── CATEGORY TABS ── */}
-      <CategoryTabs
-        active={category}
-        onChange={setCategory}
-        counts={categoryCounts}
-      />
+      <CategoryTabs active={category} onChange={setCategory} counts={categoryCounts} />
 
       {/* ── MAIN CONTENT ── */}
       <div className="max-w-[1400px] mx-auto px-4 md:px-8 py-6">
         <div className="flex gap-8">
+
           {/* SIDEBAR */}
           <div className="hidden lg:block sticky top-[128px] self-start max-h-[calc(100vh-148px)] overflow-y-auto">
             <SidebarFilters
-              maxPrice={maxPrice}
+              maxPrice={sliderValue}
               setMaxPrice={setMaxPrice}
               priceMax={priceMax}
               sortBy={sortBy}
@@ -763,52 +767,32 @@ const Store = ({ openModal, addToCart }) => {
 
           {/* PRODUCTS AREA */}
           <div className="flex-1 min-w-0">
+
             {/* TOOLBAR */}
             <div className="flex items-center justify-between mb-5 gap-4">
               <ActiveFilters
                 category={category}
                 search={searchQuery}
                 sortBy={sortBy}
-                count={filteredProducts.length}
+                count={totalCount}
                 onReset={handleReset}
               />
-
               <div className="flex items-center gap-2 flex-shrink-0">
-                {/* MOBILE SORT */}
                 <select
                   value={sortBy}
                   onChange={(e) => setSortBy(e.target.value)}
                   className="lg:hidden appearance-none bg-white border border-[#D5D9D9] rounded px-3 py-2 text-xs text-[#0F1111] outline-none focus:border-[#FF9900] cursor-pointer"
                 >
-                  {SORT_OPTIONS.map((opt) => (
-                    <option key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </option>
-                  ))}
+                  {SORT_OPTIONS.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
                 </select>
-
-                {/* VIEW TOGGLE */}
                 <div className="flex bg-white border border-[#D5D9D9] rounded overflow-hidden">
-                  <button
-                    onClick={() => setViewMode("grid")}
-                    className={`px-3 py-2 transition-all ${
-                      viewMode === "grid"
-                        ? "bg-[#232F3E] text-[#FF9900]"
-                        : "text-[#565959] hover:text-[#0F1111] hover:bg-[#F3F4F4]"
-                    }`}
-                  >
-                    <i className="fa-solid fa-grid-2 text-xs"></i>
-                  </button>
-                  <button
-                    onClick={() => setViewMode("list")}
-                    className={`px-3 py-2 transition-all ${
-                      viewMode === "list"
-                        ? "bg-[#232F3E] text-[#FF9900]"
-                        : "text-[#565959] hover:text-[#0F1111] hover:bg-[#F3F4F4]"
-                    }`}
-                  >
-                    <i className="fa-solid fa-list text-xs"></i>
-                  </button>
+                  {["grid", "list"].map(m => (
+                    <button key={m} onClick={() => setViewMode(m)}
+                      className={`px-3 py-2 transition-all ${viewMode === m ? "bg-[#232F3E] text-[#FF9900]" : "text-[#565959] hover:text-[#0F1111] hover:bg-[#F3F4F4]"}`}
+                    >
+                      <i className={`fa-solid ${m === "grid" ? "fa-grid-2" : "fa-list"} text-xs`}></i>
+                    </button>
+                  ))}
                 </div>
               </div>
             </div>
@@ -816,66 +800,38 @@ const Store = ({ openModal, addToCart }) => {
             {/* PRODUCTS */}
             {loading ? (
               <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
-                {Array.from({ length: 8 }).map((_, i) => (
-                  <ProductSkeleton key={i} />
-                ))}
+                {Array.from({ length: 8 }).map((_, i) => <ProductSkeleton key={i} />)}
               </div>
-            ) : filteredProducts.length === 0 ? (
+            ) : visibleProducts.length === 0 ? (
               <div className="py-20 text-center border-2 border-dashed border-[#D5D9D9] rounded bg-white">
                 <i className="fa-solid fa-box-open text-4xl text-[#D5D9D9] mb-4 block"></i>
-                <p className="font-bold text-[#565959] text-lg mb-2">
-                  Aucun produit trouvé
-                </p>
-                <p className="text-[#565959] text-sm mb-6">
-                  Essayez de modifier vos filtres
-                </p>
+                <p className="font-bold text-[#565959] text-lg mb-2">Aucun produit trouvé</p>
+                <p className="text-[#565959] text-sm mb-6">Essayez de modifier vos filtres</p>
                 <button onClick={handleReset}
                   className="bg-[#FFD814] hover:bg-[#F7CA00] border border-[#FCD200] text-[#0F1111] px-6 py-2.5 rounded font-medium text-sm transition-colors"
-                >
-                  Réinitialiser les filtres
-                </button>
+                >Réinitialiser les filtres</button>
               </div>
             ) : viewMode === "list" ? (
               <div className="space-y-3">
-                {filteredProducts.map((product) => {
-                  // AJOUTEZ CES DEUX LIGNES ICI
-                  const isMemberPrice =
-                    isMember &&
-                    (product.vendor?.member_discount_enabled ||
-                      product.vendor_member_discount_enabled);
-                  const displayPrice = isMemberPrice
-                    ? Math.round(product.price * 0.8)
-                    : product.price;
-
+                {visibleProducts.map(product => {
+                  const isMemberPrice = isMember && (product.vendor?.member_discount_enabled || product.vendor_member_discount_enabled);
+                  const displayPrice  = isMemberPrice ? Math.round(product.price * 0.8) : product.price;
                   return (
-                    <div
-                      key={product.id}
+                    <div key={product.id}
                       className="bg-white border border-[#D5D9D9] rounded p-4 flex items-center gap-4 group hover:border-[#FF9900] hover:shadow-md transition-all cursor-pointer"
                       onClick={() => openModal(product)}
                     >
                       <div className="w-20 h-20 rounded-xl overflow-hidden flex-shrink-0 bg-zinc-50">
-                        <img
-                          src={product.img}
-                          alt={product.name}
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                        />
+                        <img src={product.img} alt={product.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" loading="lazy" />
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1 flex-wrap">
-                          <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-[#CC0C39] text-white">
-                            {product.status}
-                          </span>
-                          <span className="text-[10px] text-[#007185]">
-                            {product.type}
-                          </span>
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-[#CC0C39] text-white">{product.status}</span>
+                          <span className="text-[10px] text-[#007185]">{product.type}</span>
                         </div>
-                        <h3 className="font-medium text-[#0F1111] truncate text-sm group-hover:text-[#C45500] transition-colors">
-                          {product.name}
-                        </h3>
+                        <h3 className="font-medium text-[#0F1111] truncate text-sm group-hover:text-[#C45500] transition-colors">{product.name}</h3>
                         {product.features?.length > 0 && (
-                          <p className="text-xs text-[#565959] truncate mt-0.5">
-                            {product.features.slice(0, 2).join(" · ")}
-                          </p>
+                          <p className="text-xs text-[#565959] truncate mt-0.5">{product.features.slice(0, 2).join(" · ")}</p>
                         )}
                       </div>
                       <div className="flex items-center gap-3 flex-shrink-0">
@@ -883,27 +839,12 @@ const Store = ({ openModal, addToCart }) => {
                           <p className="font-bold text-[#B12704] text-base leading-none">
                             {Number(isMemberPrice ? displayPrice : product.price).toLocaleString()} F
                           </p>
-                          {isMemberPrice && (
-                            <p className="text-xs text-[#565959] line-through">
-                              {Number(product.price).toLocaleString()} F
-                            </p>
-                          )}
+                          {isMemberPrice && <p className="text-xs text-[#565959] line-through">{Number(product.price).toLocaleString()} F</p>}
                         </div>
                         <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            addToCart({
-                              ...product,
-                              price: product.price,
-                              selectedSize: "M",
-                              selectedColor: "Black",
-                              quantity: 1,
-                            });
-                          }}
+                          onClick={e => { e.stopPropagation(); addToCart({ ...product, selectedSize: "M", selectedColor: "Black", quantity: 1 }); }}
                           className="px-3 py-1.5 bg-[#FFD814] hover:bg-[#F7CA00] border border-[#FCD200] text-[#0F1111] rounded text-sm font-medium transition-colors"
-                        >
-                          + Panier
-                        </button>
+                        >+ Panier</button>
                       </div>
                     </div>
                   );
@@ -911,24 +852,27 @@ const Store = ({ openModal, addToCart }) => {
               </div>
             ) : (
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-                {filteredProducts.map((product) => (
-                  <ProductCard
-                    key={product.id}
-                    product={product}
-                    openModal={openModal}
-                    addToCart={addToCart}
-                  />
+                {visibleProducts.map(product => (
+                  <ProductCard key={product.id} product={product} openModal={openModal} addToCart={addToCart} />
                 ))}
               </div>
             )}
 
-            {/* RESULTS FOOTER */}
-            {!loading && filteredProducts.length > 0 && (
-              <div className="mt-8 flex items-center justify-center gap-2 text-sm text-[#565959]">
-                <i className="fa-solid fa-check-circle text-[#FF9900]"></i>
-                <span>Tous les {filteredProducts.length} produits affichés</span>
-              </div>
-            )}
+            {/* INFINITE SCROLL SENTINEL */}
+            <div ref={loadMoreRef} className="mt-4">
+              {loadingMore && (
+                <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4 mt-2">
+                  {Array.from({ length: 4 }).map((_, i) => <ProductSkeleton key={i} />)}
+                </div>
+              )}
+              {!hasMore && !loading && visibleProducts.length > 0 && (
+                <div className="mt-8 flex items-center justify-center gap-2 text-sm text-[#565959]">
+                  <i className="fa-solid fa-check-circle text-[#FF9900]"></i>
+                  <span>Tous les {totalCount} produits affichés</span>
+                </div>
+              )}
+            </div>
+
           </div>
         </div>
       </div>
@@ -937,41 +881,24 @@ const Store = ({ openModal, addToCart }) => {
       <div className="bg-zinc-800 py-12 px-4 md:px-8 mt-8">
         <div className="max-w-[1400px] mx-auto grid grid-cols-1 md:grid-cols-3 gap-6 items-center">
           <div className="md:col-span-2">
-            <span className="text-primary font-black text-[9px] uppercase tracking-[0.4em] block mb-2">
-              OneFreestyle Elite
-            </span>
+            <span className="text-primary font-black text-[9px] uppercase tracking-[0.4em] block mb-2">OneFreestyle Elite</span>
             <h3 className="text-2xl md:text-3xl font-black italic uppercase tracking-tighter text-white leading-tight">
-              Vends tes produits sur
-              <br />
-              la marketplace <span className="text-primary">#1</span> de Douala
+              Vends tes produits sur<br />la marketplace <span className="text-primary">#1</span> de Douala
             </h3>
-            <p className="text-zinc-500 font-bold text-sm mt-3">
-              Dashboard vendeur · Notifications temps réel · Boutique
-              personnalisée
-            </p>
+            <p className="text-zinc-500 font-bold text-sm mt-3">Dashboard vendeur · Notifications temps réel · Boutique personnalisée</p>
           </div>
           <div className="flex flex-col sm:flex-row md:flex-col gap-3">
-            <Link
-              to="/register"
-              className="flex items-center justify-center gap-2 bg-primary text-black px-8 py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-white transition-all hover:scale-105"
-            >
-              <i className="fa-solid fa-store"></i>
-              <span>Ouvrir ma boutique</span>
+            <Link to="/register" className="flex items-center justify-center gap-2 bg-primary text-black px-8 py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-white transition-all hover:scale-105">
+              <i className="fa-solid fa-store"></i><span>Ouvrir ma boutique</span>
             </Link>
-            <Link
-              to="/login"
-              className="flex items-center justify-center gap-2 bg-white/10 border border-white/15 text-white px-8 py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:border-primary/50 hover:text-primary transition-all"
-            >
-              <i className="fa-solid fa-right-to-bracket"></i>
-              <span>Espace vendeur</span>
+            <Link to="/login" className="flex items-center justify-center gap-2 bg-white/10 border border-white/15 text-white px-8 py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:border-primary/50 hover:text-primary transition-all">
+              <i className="fa-solid fa-right-to-bracket"></i><span>Espace vendeur</span>
             </Link>
           </div>
         </div>
       </div>
 
-      <style>{`
-        @keyframes shimmer { 0% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }
-      `}</style>
+      <style>{`@keyframes shimmer { 0% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }`}</style>
     </div>
   );
 };

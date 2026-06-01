@@ -24,7 +24,7 @@ const StarRating = ({ rating = 4.2, count = null }) => {
   );
 };
 
-const ProductCard = ({ product, openModal, addToCart }) => {
+const ProductCard = React.memo(({ product, openModal, addToCart }) => {
   const navigate    = useNavigate();
   const { isInWishlist, toggle: toggleWishlist } = useWishlist();
   const inWishlist  = isInWishlist(product.id);
@@ -167,5 +167,7 @@ const ProductCard = ({ product, openModal, addToCart }) => {
     </div>
   );
 };
+
+});
 
 export default ProductCard;
