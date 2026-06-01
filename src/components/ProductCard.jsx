@@ -84,7 +84,7 @@ const ProductCard = React.memo(({ product, openModal, addToCart }) => {
 
       {/* IMAGE */}
       <div
-        className="relative overflow-hidden bg-white rounded-t p-3 aspect-square"
+        className="relative overflow-hidden bg-white rounded-t p-1.5 aspect-square"
         onClick={() => openModal(product)}
       >
         {/* BADGES */}
@@ -140,7 +140,7 @@ const ProductCard = React.memo(({ product, openModal, addToCart }) => {
 
       {/* COLOR SWATCHES */}
       {colorSwatches.length > 0 && (
-        <div className="flex items-center gap-1.5 px-3 py-1.5 border-t border-[#F8F8F8]">
+        <div className="flex items-center gap-1 px-2 py-1 border-t border-[#F8F8F8]">
           {colorSwatches.slice(0, 5).map((c, i) => (
             <span key={i} title={c.name}
               className="w-3.5 h-3.5 rounded-full border border-white shadow-sm ring-1 ring-[#D0D0D0] flex-shrink-0 inline-block"
@@ -157,28 +157,28 @@ const ProductCard = React.memo(({ product, openModal, addToCart }) => {
       )}
 
       {/* INFO */}
-      <div className="px-3 pb-3 flex flex-col flex-grow" onClick={() => openModal(product)}>
+      <div className="px-2 pb-2 flex flex-col flex-grow" onClick={() => openModal(product)}>
 
         {/* CATEGORY + SUBCATEGORY */}
-        <p className="text-[11px] text-[#007185] font-medium mb-0.5 truncate">
+        <p className="text-[10px] text-[#007185] font-medium mb-0.5 truncate">
           {product.subcategory || product.type}
         </p>
 
         {/* NAME */}
-        <h3 className="text-[13px] text-[#0F1111] leading-snug line-clamp-2 mb-1.5 group-hover:text-[#C45500] transition-colors flex-grow">
+        <h3 className="text-[12px] text-[#0F1111] leading-snug line-clamp-2 mb-1 group-hover:text-[#C45500] transition-colors flex-grow">
           {product.name}
         </h3>
 
         {/* STARS */}
-        <div className="mb-2">
+        <div className="mb-1">
           <StarRating rating={ratingVal} count={reviewCount} />
         </div>
 
         {/* PRICE */}
-        <div className="flex items-baseline gap-1.5 flex-wrap mb-3">
+        <div className="flex items-baseline gap-1 flex-wrap mb-2">
           {discountActive ? (
             <>
-              <span className="text-[#B12704] font-bold text-base leading-none">
+              <span className="text-[#B12704] font-bold text-[13px] leading-none">
                 {memberPrice.toLocaleString()} F
               </span>
               <span className="text-xs text-[#565959] line-through">
@@ -188,7 +188,7 @@ const ProductCard = React.memo(({ product, openModal, addToCart }) => {
             </>
           ) : (
             <>
-              <span className="text-[#0F1111] font-bold text-base leading-none">
+              <span className="text-[#0F1111] font-bold text-[13px] leading-none">
                 {originalPrice.toLocaleString()} F
               </span>
               {vendorHasPromo && !user && (
@@ -205,7 +205,7 @@ const ProductCard = React.memo(({ product, openModal, addToCart }) => {
         {/* ADD TO CART */}
         <button
           onClick={(e) => { e.stopPropagation(); handleAddToCart(e); }}
-          className="w-full bg-[#FFD814] hover:bg-[#F7CA00] border border-[#FCD200] hover:border-[#F0C000] text-[#0F1111] py-1.5 rounded text-[13px] font-medium transition-colors shadow-sm active:scale-95"
+          className="w-full bg-[#FFD814] hover:bg-[#F7CA00] border border-[#FCD200] hover:border-[#F0C000] text-[#0F1111] py-1 rounded text-[12px] font-medium transition-colors shadow-sm active:scale-95"
         >
           Ajouter au panier
         </button>

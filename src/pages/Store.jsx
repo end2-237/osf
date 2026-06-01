@@ -140,7 +140,7 @@ const VendorSkeleton = () => (
 
 /* ─────────────────── HERO BANNER ─────────────────── */
 const MarketplaceHero = ({ totalProducts, searchQuery, setSearchQuery, onSearch }) => (
-  <div className="bg-[#232F3E] py-8 md:py-10 px-4 md:px-8">
+  <div className="bg-[#232F3E] py-4 md:py-5 px-3 md:px-4">
     <div className="max-w-[1400px] mx-auto">
       <div className="max-w-2xl">
         <p className="text-[#FF9900] text-xs font-bold uppercase tracking-wider mb-2 flex items-center gap-2">
@@ -150,7 +150,7 @@ const MarketplaceHero = ({ totalProducts, searchQuery, setSearchQuery, onSearch 
         <h1 className="text-2xl md:text-4xl font-black text-white mb-1">
           La Marketplace <span className="text-[#FF9900]">Elite</span> de Douala
         </h1>
-        <p className="text-gray-400 text-sm mb-5">
+        <p className="text-gray-400 text-sm mb-3">
           Audio, Streetwear, Tech & plus — boutiques certifiées, livraison express, paiement sécurisé.
         </p>
 
@@ -198,7 +198,7 @@ const MarketplaceHero = ({ totalProducts, searchQuery, setSearchQuery, onSearch 
         </div>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-8">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-4">
         {[
           { icon: "fa-store",        val: "5+",   label: "Boutiques Certifiées", color: "text-[#FF9900]"  },
           { icon: "fa-truck-fast",   val: "2h",   label: "Livraison Douala",     color: "text-blue-400"  },
@@ -206,7 +206,7 @@ const MarketplaceHero = ({ totalProducts, searchQuery, setSearchQuery, onSearch 
           { icon: "fa-rotate-left",  val: "7j",   label: "Retour Gratuit",       color: "text-purple-400"},
         ].map((item) => (
           <div key={item.label}
-            className="bg-white/5 border border-white/10 rounded p-4 flex items-center gap-3 hover:border-white/20 transition-colors"
+            className="bg-white/5 border border-white/10 rounded p-2.5 flex items-center gap-2 hover:border-white/20 transition-colors"
           >
             <div className="w-9 h-9 bg-white/10 rounded flex items-center justify-center flex-shrink-0">
               <i className={`fa-solid ${item.icon} ${item.color} text-sm`}></i>
@@ -224,7 +224,7 @@ const MarketplaceHero = ({ totalProducts, searchQuery, setSearchQuery, onSearch 
 
 /* ─────────────────── PROMO BANNERS STRIP ─────────────────── */
 const PromoBanners = () => (
-  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 py-4 px-4 md:px-8 max-w-[1400px] mx-auto">
+  <div className="grid grid-cols-1 md:grid-cols-3 gap-2 py-2 px-2 md:px-3 max-w-[1400px] mx-auto">
     {PROMO_BANNERS.map((b, i) => (
       <Link key={i} to="/store"
         className="bg-white border border-[#D5D9D9] hover:border-[#FF9900] hover:shadow-md rounded p-4 flex items-center gap-4 group transition-all"
@@ -253,9 +253,9 @@ const PromoBanners = () => (
 const VendorsSection = ({ vendors, loading, vendorProducts }) => {
   if (!loading && vendors.length === 0) return null;
   return (
-    <div className="bg-white border-y border-[#D5D9D9] py-6 px-4 md:px-8">
+    <div className="bg-white border-y border-[#D5D9D9] py-3 px-2 md:px-3">
       <div className="max-w-[1400px] mx-auto">
-        <div className="flex items-center justify-between mb-5">
+        <div className="flex items-center justify-between mb-3">
           <div>
             <h2 className="text-lg font-bold text-[#0F1111]">
               Boutiques <span className="text-[#FF9900]">Certifiées</span>
@@ -366,8 +366,8 @@ const CategoryTabs = ({ active, onChange, counts }) => {
   const scrollRef = useRef(null);
   return (
     <div className="sticky top-[128px] md:top-[128px] z-30 bg-white border-b border-[#D5D9D9] shadow-sm">
-      <div className="max-w-[1400px] mx-auto px-4 md:px-8">
-        <div ref={scrollRef} className="flex items-center gap-1 overflow-x-auto py-2.5">
+      <div className="max-w-[1400px] mx-auto px-2 md:px-3">
+        <div ref={scrollRef} className="flex items-center gap-1 overflow-x-auto py-1.5">
           {CATEGORIES.map((cat) => {
             const count = cat.key === "All"
               ? Object.values(counts).reduce((a, b) => a + b, 0)
@@ -403,8 +403,8 @@ const SubcategoryPills = ({ category, active, onChange }) => {
   if (!subs) return null;
   return (
     <div className="bg-[#F3F4F4] border-b border-[#D5D9D9]">
-      <div className="max-w-[1400px] mx-auto px-4 md:px-8">
-        <div className="flex items-center gap-2 overflow-x-auto py-2">
+      <div className="max-w-[1400px] mx-auto px-2 md:px-3">
+        <div className="flex items-center gap-2 overflow-x-auto py-1">
           <span className="text-[10px] text-[#565959] font-bold uppercase whitespace-nowrap flex-shrink-0">
             <i className="fa-solid fa-filter text-[#FF9900] mr-1"></i>Sous-cat :
           </span>
@@ -442,7 +442,7 @@ const SubcategoryBrowse = ({ onSubcategorySelect }) => {
     scrollRef.current?.scrollBy({ left: dir * 240, behavior: "smooth" });
 
   return (
-    <div className="flex items-center gap-1.5 mb-5 bg-white border border-[#D5D9D9] rounded px-3 py-2">
+    <div className="flex items-center gap-1.5 mb-2 bg-white border border-[#D5D9D9] rounded px-2 py-1.5">
       <button onClick={() => scroll(-1)}
         className="flex-shrink-0 w-7 h-7 border border-[#D5D9D9] rounded flex items-center justify-center text-[#565959] hover:border-[#FF9900] hover:text-[#FF9900] transition-colors"
       >
@@ -513,10 +513,10 @@ const SidebarFilters = ({
 }) => {
   const totalAll = Object.values(categoryCounts).reduce((a, b) => a + b, 0);
   return (
-    <aside className="w-52 flex-shrink-0 space-y-0 bg-white border border-[#D5D9D9] rounded overflow-hidden divide-y divide-[#F0F0F0]">
+    <aside className="w-44 flex-shrink-0 space-y-0 bg-white border border-[#D5D9D9] rounded overflow-hidden divide-y divide-[#F0F0F0]">
 
       {/* DEPARTMENT */}
-      <div className="p-4">
+      <div className="p-3">
         <h4 className="font-bold text-[13px] text-[#0F1111] mb-2">Département</h4>
 
         {/* All */}
@@ -565,10 +565,10 @@ const SidebarFilters = ({
       </div>
 
       {/* SORT */}
-      <div className="p-4">
-        <h4 className="font-bold text-[13px] text-[#0F1111] mb-2">Trier par</h4>
+      <div className="p-3">
+        <h4 className="font-bold text-[13px] text-[#0F1111] mb-1">Trier par</h4>
         {sortOptions.map(opt => (
-          <label key={opt.value} className="flex items-center gap-2 py-1 cursor-pointer">
+          <label key={opt.value} className="flex items-center gap-1.5 py-0.5 cursor-pointer">
             <input type="radio" name="sort" checked={sortBy === opt.value} onChange={() => setSortBy(opt.value)}
               className="accent-[#FF9900] cursor-pointer" />
             <span className={`text-[13px] ${sortBy === opt.value ? "font-bold text-[#0F1111]" : "text-[#007185] hover:text-[#C45500] hover:underline"}`}>
@@ -579,8 +579,8 @@ const SidebarFilters = ({
       </div>
 
       {/* PRICE RANGE */}
-      <div className="p-4">
-        <h4 className="font-bold text-[13px] text-[#0F1111] mb-3">Budget Max</h4>
+      <div className="p-3">
+        <h4 className="font-bold text-[13px] text-[#0F1111] mb-2">Budget Max</h4>
         <div className="mb-2">
           <span className="text-base font-bold text-[#B12704]">{Number(maxPrice).toLocaleString()}</span>
           <span className="text-xs text-[#565959] ml-1">FCFA</span>
@@ -596,7 +596,7 @@ const SidebarFilters = ({
 
       {/* SIZE — clothing/shoes/femme only, not electronics */}
       {(category === "Clothing" || category === "Shoes" || category === "Femme") && (
-        <div className="p-4">
+        <div className="p-3">
           <h4 className="font-bold text-[13px] text-[#0F1111] mb-3">
             {category === "Shoes" ? "Pointure" : "Taille"}
           </h4>
@@ -617,7 +617,7 @@ const SidebarFilters = ({
       )}
 
       {/* BUNDLE PROMO */}
-      <div className="p-4 bg-[#FFFBF0]">
+      <div className="p-3 bg-[#FFFBF0]">
         <p className="text-[10px] font-black uppercase text-[#C45500] mb-1 flex items-center gap-1.5">
           <i className="fa-solid fa-tag text-[#FF9900]"></i>Bundle Deal
         </p>
@@ -631,7 +631,7 @@ const SidebarFilters = ({
 const ActiveFilters = ({ category, subcategory, search, sortBy, count, onReset }) => {
   const hasFilters = category !== "All" || search || subcategory;
   return (
-    <div className="flex items-center justify-between mb-4 w-full">
+    <div className="flex items-center justify-between mb-2 w-full">
       <div className="flex items-center gap-3 flex-wrap">
         <span className="text-sm text-[#0F1111]">
           <span className="text-[#007185] font-bold">{count}</span>
@@ -926,8 +926,8 @@ const Store = ({ openModal, addToCart }) => {
       <SubcategoryPills category={category} active={subcategory} onChange={setSubcategory} />
 
       {/* ── MAIN CONTENT ── */}
-      <div className="max-w-[1400px] mx-auto px-4 md:px-8 py-6">
-        <div className="flex gap-8">
+      <div className="max-w-[1400px] mx-auto px-2 md:px-3 py-2">
+        <div className="flex gap-3">
 
           {/* SIDEBAR */}
           <div className="hidden lg:block sticky top-[128px] self-start max-h-[calc(100vh-148px)] overflow-y-auto">
@@ -952,7 +952,7 @@ const Store = ({ openModal, addToCart }) => {
           <div className="flex-1 min-w-0">
 
             {/* TOOLBAR */}
-            <div className="flex items-center justify-between mb-5 gap-4">
+            <div className="flex items-center justify-between mb-2 gap-4">
               <ActiveFilters
                 category={category}
                 subcategory={subcategory}
@@ -990,7 +990,7 @@ const Store = ({ openModal, addToCart }) => {
 
             {/* PRODUCTS */}
             {loading ? (
-              <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
+              <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-6 gap-2">
                 {Array.from({ length: 8 }).map((_, i) => <ProductSkeleton key={i} />)}
               </div>
             ) : visibleProducts.length === 0 ? (
@@ -1045,7 +1045,7 @@ const Store = ({ openModal, addToCart }) => {
                 })}
               </div>
             ) : (
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
                 {visibleProducts.map((product, idx) => (
                   <React.Fragment key={product.id}>
                     {idx > 0 && idx % 20 === 0 && (
