@@ -83,6 +83,29 @@ body {
   color: transparent;
 }
 
+/* CJ product description HTML rendering */
+.cj-description img {
+  max-width: 100%;
+  border-radius: 6px;
+  margin: 8px 4px;
+  border: 1px solid #D5D9D9;
+  display: inline-block;
+  vertical-align: top;
+}
+.cj-description b,
+.cj-description strong {
+  color: #0F1111;
+  font-weight: 700;
+}
+.cj-description br {
+  display: block;
+  content: "";
+  margin-top: 2px;
+}
+.cj-description p {
+  margin-bottom: 8px;
+}
+
 /* Dark mode overrides — keep existing dark pages working */
 .dark body {
   background-color: #0F1111;

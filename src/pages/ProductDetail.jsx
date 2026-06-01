@@ -1297,14 +1297,17 @@ const ProductDetail = ({ addToCart, openModal }) => {
 
               {activeTab === "description" && (
                 <div className="max-w-2xl space-y-4">
-                  <div className="text-[#565959] leading-relaxed text-sm whitespace-pre-line">
-                    {product.description ? product.description : (
-                      <>
-                        <span className="text-[#0F1111] font-bold">{product.name}</span>{" "}
-                        est une pièce sélectionnée par les experts OFS Cameroun — conçue pour ceux qui refusent la médiocrité.
-                      </>
-                    )}
-                  </div>
+                  {product.description ? (
+                    <div
+                      className="cj-description text-sm text-[#565959] leading-relaxed"
+                      dangerouslySetInnerHTML={{ __html: product.description }}
+                    />
+                  ) : (
+                    <p className="text-[#565959] leading-relaxed text-sm">
+                      <span className="text-[#0F1111] font-bold">{product.name}</span>{" "}
+                      est une pièce sélectionnée par les experts OFS Cameroun — conçue pour ceux qui refusent la médiocrité.
+                    </p>
+                  )}
                   <div className="grid grid-cols-2 gap-0 border border-[#D5D9D9] rounded overflow-hidden">
                     {[
                       { label: "Type",      value: product.type },

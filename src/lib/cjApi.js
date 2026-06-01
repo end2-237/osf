@@ -67,11 +67,11 @@ export const usdToFcfa = (usd) => {
 export const isVideoUrl = (url = "") =>
   /\.(mp4|webm|ogg|mov)(\?.*)?$/i.test(url);
 
-// Strip HTML tags from CJ description and extract embedded image URLs
+// Sanitize CJ description HTML and extract embedded image URLs
 const parseHtmlDescription = (html = "") => {
-  if (!html) return { text: "", extraImages: [] };
+  if (!html) return { safeHtml: "", extraImages: [] };
 
-  // Extract <img src="..."> URLs before stripping tags
+  // Extract <img src> URLs for the gallery
   const extraImages = [];
   const imgRe = /<img[^>]+src=["']([^"']+)["'][^>]*>/gi;
   let m;
@@ -80,23 +80,21 @@ const parseHtmlDescription = (html = "") => {
     if (src && !isVideoUrl(src)) extraImages.push(src);
   }
 
-  const text = html
-    .replace(/<br\s*\/?>/gi, "\n")
-    .replace(/<\/p>/gi, "\n")
-    .replace(/<\/li>/gi, "\n")
-    .replace(/<[^>]+>/g, "")
-    .replace(/&nbsp;/g, " ")
-    .replace(/&amp;/g, "&")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    // Remove "Product Image(s):" section — images are shown in gallery
-    .replace(/\n?\s*Product Images?:\s*[\s\S]*$/i, "")
-    .replace(/\n{3,}/g, "\n\n")
+  const safeHtml = html
+    // Strip dangerous tags entirely
+    .replace(/<script[\s\S]*?<\/script>/gi, "")
+    .replace(/<style[\s\S]*?<\/style>/gi, "")
+    // Strip event handlers
+    .replace(/\s+on\w+="[^"]*"/gi, "")
+    .replace(/\s+on\w+='[^']*'/gi, "")
+    // Clean <img>: keep only src attribute, drop data-* etc.
+    .replace(/<img([^>]*)>/gi, (_, attrs) => {
+      const s = /src=["']([^"']+)["']/.exec(attrs);
+      return s ? `<img src="${s[1]}">` : "";
+    })
     .trim();
 
-  return { text, extraImages };
+  return { safeHtml, extraImages };
 };
 
 // ─── CJ product → Supabase product schema ────────────────────────────────────
@@ -153,9 +151,9 @@ export const mapCjToProduct = (p) => {
     stock_qty > 0 && stock_qty <= 10 ? "Stock limité" :
     "Nouveau";
 
-  // ── Description: strip HTML, extract embedded images ──────────────────────
+  // ── Description: sanitize HTML, extract embedded images ───────────────────
   const rawDesc = p.productRemark || p.remark || p.entryRemark || p.description || p.productNameEn || p.productName || "";
-  const { text: description, extraImages } = parseHtmlDescription(rawDesc);
+  const { safeHtml: description, extraImages } = parseHtmlDescription(rawDesc);
   // Append description images that aren't already in the images array
   extraImages.forEach(url => { if (!images.includes(url)) images.push(url); });
 
