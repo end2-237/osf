@@ -75,6 +75,8 @@ const CJImportTab = () => {
   const [selCatId,    setSelCatId]    = useState("");
   const [selCatName,  setSelCatName]  = useState("");
   const [showCats,    setShowCats]    = useState(false);
+  const [catSelected, setCatSelected] = useState(new Set()); // multi-select checkboxes
+  const [defaultImportN, setDefaultImportN] = useState(100); // default count for bulk-add-to-queue
 
   // Import queue (multi-category)
   const [queue,       setQueue]       = useState([]); // [{ id, name, count, status, imported }]
@@ -565,58 +567,141 @@ const CJImportTab = () => {
           {/* Categories panel */}
           {showCats && (
             <div className="bg-[#131921] border border-[#232F3E] rounded-2xl overflow-hidden">
+              {/* Header */}
               <div className="bg-[#232F3E] px-5 py-3 flex items-center justify-between gap-3 flex-wrap">
                 <div className="flex items-center gap-2">
                   <i className="fa-solid fa-layer-group text-[#FF9900]"></i>
                   <span className="text-white font-bold text-sm">Catégories CJ</span>
-                  <span className="text-[#ADBAC7] text-xs">({filteredCats.length})</span>
+                  <span className="text-[#ADBAC7] text-xs">({filteredCats.length} / {categories.length})</span>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   <div className="relative">
                     <i className="fa-solid fa-magnifying-glass absolute left-2.5 top-1/2 -translate-y-1/2 text-[#ADBAC7] text-[10px]"></i>
                     <input type="text" value={catSearch} onChange={e => setCatSearch(e.target.value)}
-                      placeholder="Filtrer…"
-                      className="pl-7 pr-3 py-1.5 bg-[#131921] border border-[#FF9900]/20 focus:border-[#FF9900] rounded-lg text-white text-xs w-36 focus:outline-none placeholder-[#ADBAC7]" />
+                      placeholder="Filtrer les catégories…"
+                      className="pl-7 pr-3 py-1.5 bg-[#131921] border border-[#FF9900]/20 focus:border-[#FF9900] rounded-lg text-white text-xs w-44 focus:outline-none placeholder-[#ADBAC7]" />
                   </div>
                   <select value={catSort} onChange={e => setCatSort(e.target.value)}
                     className="px-2 py-1.5 bg-[#131921] border border-[#FF9900]/20 rounded-lg text-[#ADBAC7] text-xs focus:outline-none cursor-pointer">
                     <option value="name">A–Z</option>
-                    <option value="count">Produits</option>
+                    <option value="count">Par produits</option>
                   </select>
                 </div>
               </div>
 
+              {/* Selection action bar */}
+              {catSelected.size > 0 && (
+                <div className="bg-[#FF9900]/10 border-b border-[#FF9900]/20 px-5 py-3 flex items-center justify-between gap-3 flex-wrap">
+                  <div className="flex items-center gap-3">
+                    <span className="text-[#FF9900] font-black text-sm">{catSelected.size} catégorie{catSelected.size > 1 ? "s" : ""} sélectionnée{catSelected.size > 1 ? "s" : ""}</span>
+                    <button onClick={() => setCatSelected(new Set())} className="text-[#ADBAC7] text-xs hover:text-white transition-colors">Tout désélectionner</button>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[#ADBAC7] text-xs">Nb par cat.:</span>
+                    <input type="number" min="1" max="5000" value={defaultImportN}
+                      onChange={e => setDefaultImportN(Math.max(1, parseInt(e.target.value) || 1))}
+                      className="w-20 px-2 py-1 bg-[#232F3E] border border-[#FF9900]/30 rounded-lg text-white text-xs text-center focus:outline-none focus:border-[#FF9900]" />
+                    <button
+                      onClick={() => {
+                        filteredCats.filter(c => catSelected.has(c.id)).forEach(cat => {
+                          if (!queue.find(q => q.id === cat.id)) {
+                            setQueue(prev => [...prev, { id: cat.id, name: cat.name, count: defaultImportN, status: "pending", imported: 0 }]);
+                          }
+                        });
+                        setShowQueue(true);
+                        setCatSelected(new Set());
+                      }}
+                      className="px-4 py-1.5 bg-[#FFD814] hover:bg-[#F7CA00] text-[#0F1111] rounded-lg font-black text-xs uppercase tracking-wider border border-[#FCD200] transition-all flex items-center gap-1.5">
+                      <i className="fa-solid fa-list-check text-[10px]"></i>
+                      Ajouter à la file
+                    </button>
+                    <button
+                      onClick={() => {
+                        const selected = filteredCats.filter(c => catSelected.has(c.id));
+                        selected.forEach(cat => selectCategory(cat));
+                      }}
+                      className="px-3 py-1.5 bg-[#232F3E] hover:bg-[#0a0e15] text-[#FF9900] rounded-lg font-black text-xs uppercase tracking-wider border border-[#FF9900]/20 transition-all flex items-center gap-1.5">
+                      <i className="fa-solid fa-eye text-[10px]"></i>
+                      Parcourir
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Select all row */}
+              {!catsLoading && filteredCats.length > 0 && (
+                <div className="px-5 py-2 border-b border-[#232F3E] flex items-center justify-between">
+                  <button
+                    onClick={() => {
+                      if (catSelected.size === filteredCats.length) setCatSelected(new Set());
+                      else setCatSelected(new Set(filteredCats.map(c => c.id)));
+                    }}
+                    className="flex items-center gap-2 text-xs text-[#ADBAC7] hover:text-white transition-colors">
+                    <div className={`w-4 h-4 rounded border-2 flex items-center justify-center transition-all ${
+                      catSelected.size === filteredCats.length && filteredCats.length > 0
+                        ? "bg-[#FF9900] border-[#FF9900]"
+                        : catSelected.size > 0
+                        ? "bg-[#FF9900]/40 border-[#FF9900]/60"
+                        : "border-[#565959]"
+                    }`}>
+                      {catSelected.size > 0 && <i className="fa-solid fa-check text-[#0F1111] text-[7px]"></i>}
+                    </div>
+                    <span>{catSelected.size === filteredCats.length && filteredCats.length > 0 ? "Tout désélectionner" : `Tout sélectionner (${filteredCats.length})`}</span>
+                  </button>
+                  <span className="text-[#565959] text-[10px]">Clique = sélectionner · <i className="fa-solid fa-arrow-right text-[8px]"></i> = parcourir produits</span>
+                </div>
+              )}
+
+              {/* Grid */}
               {catsLoading ? (
                 <div className="p-8 flex items-center justify-center gap-3">
                   <i className="fa-solid fa-spinner animate-spin text-[#FF9900]"></i>
-                  <span className="text-[#ADBAC7] text-sm">Chargement…</span>
+                  <span className="text-[#ADBAC7] text-sm">Chargement des catégories…</span>
                 </div>
               ) : filteredCats.length === 0 ? (
-                <div className="p-8 text-center text-[#565959] text-sm">Aucune catégorie</div>
+                <div className="p-8 text-center text-[#565959] text-sm">Aucune catégorie trouvée</div>
               ) : (
-                <div className="p-3 max-h-72 overflow-y-auto grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-1.5">
+                <div className="p-3 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-1.5">
                   {filteredCats.map(cat => {
-                    const inQueue = queue.some(q => q.id === cat.id);
-                    const isActive = selCatId === cat.id;
+                    const isChecked = catSelected.has(cat.id);
+                    const inQueue   = queue.some(q => q.id === cat.id);
+                    const isActive  = selCatId === cat.id;
                     return (
-                      <div key={cat.id} className={`flex items-center gap-1 rounded-xl border transition-all px-2 py-2 ${
-                        isActive ? "bg-[#FF9900]/20 border-[#FF9900]/40" : inQueue ? "bg-[#FFD814]/10 border-[#FFD814]/30" : "bg-[#232F3E]/50 border-[#232F3E] hover:bg-[#232F3E]"
-                      }`}>
-                        {/* Load button */}
-                        <button onClick={() => selectCategory(cat)} className="flex-1 text-left min-w-0"
-                          title="Afficher les produits de cette catégorie">
-                          <p className={`text-xs font-semibold leading-tight truncate ${isActive ? "text-[#FF9900]" : "text-[#ADBAC7] group-hover:text-white"}`}>
-                            {cat.name}
-                          </p>
-                          {cat.count > 0 && <p className="text-[9px] opacity-50 mt-0.5">{cat.count.toLocaleString()} produits</p>}
-                        </button>
-                        {/* Add to queue */}
-                        <button onClick={() => inQueue ? removeFromQueue(cat.id) : addToQueue(cat)}
-                          title={inQueue ? "Retirer de la file" : "Ajouter à la file d'import"}
-                          className={`flex-shrink-0 w-6 h-6 rounded-lg flex items-center justify-center transition-all ${
-                            inQueue ? "bg-[#FFD814]/20 text-[#FFD814] hover:bg-[#B12704]/20 hover:text-[#B12704]" : "bg-[#232F3E] text-[#ADBAC7] hover:bg-[#FF9900]/20 hover:text-[#FF9900]"
-                          }`}>
-                          <i className={`fa-solid ${inQueue ? "fa-check" : "fa-plus"} text-[9px]`}></i>
+                      <div key={cat.id}
+                        onClick={() => {
+                          setCatSelected(prev => {
+                            const next = new Set(prev);
+                            next.has(cat.id) ? next.delete(cat.id) : next.add(cat.id);
+                            return next;
+                          });
+                        }}
+                        className={`relative flex flex-col gap-0.5 rounded-xl border cursor-pointer transition-all px-2.5 py-2 ${
+                          isChecked  ? "bg-[#FF9900]/20 border-[#FF9900]/50" :
+                          inQueue    ? "bg-[#FFD814]/10 border-[#FFD814]/30 hover:border-[#FFD814]/50" :
+                          isActive   ? "bg-[#007185]/20 border-[#007185]/40" :
+                                       "bg-[#232F3E]/50 border-[#232F3E] hover:bg-[#232F3E] hover:border-[#565959]"
+                        }`}>
+                        {/* Checkbox */}
+                        <div className={`absolute top-1.5 right-1.5 w-4 h-4 rounded border flex items-center justify-center transition-all flex-shrink-0 ${
+                          isChecked ? "bg-[#FF9900] border-[#FF9900]" : "border-[#565959] bg-[#131921]"
+                        }`}>
+                          {isChecked && <i className="fa-solid fa-check text-[#0F1111] text-[7px]"></i>}
+                        </div>
+
+                        <p className={`text-xs font-semibold leading-tight pr-5 ${isChecked ? "text-[#FF9900]" : isActive ? "text-[#007185]" : "text-white"}`}>
+                          {cat.name}
+                        </p>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          {cat.count > 0 && <span className="text-[9px] text-[#565959]">{cat.count.toLocaleString()} produits</span>}
+                          {inQueue && <span className="text-[8px] text-[#FFD814] font-black uppercase">En file</span>}
+                        </div>
+
+                        {/* Browse arrow */}
+                        <button
+                          onClick={e => { e.stopPropagation(); selectCategory(cat); }}
+                          title="Parcourir les produits"
+                          className="absolute bottom-1.5 right-1.5 w-5 h-5 rounded bg-[#232F3E] hover:bg-[#FF9900]/20 text-[#565959] hover:text-[#FF9900] flex items-center justify-center transition-all">
+                          <i className="fa-solid fa-arrow-right text-[8px]"></i>
                         </button>
                       </div>
                     );
