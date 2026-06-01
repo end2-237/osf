@@ -6,6 +6,16 @@ import ofsLogo from "../assets/ofs.png";
 import { useAuth } from "../context/AuthContext";
 
 /* ─────────────────── CONSTANTS ─────────────────── */
+const SUBCATEGORIES = {
+  "Audio Lab":   ["Casques", "Enceintes", "Écouteurs", "Microphones"],
+  "Tech Lab":    ["Smartphones", "Tablettes", "Informatique", "Gaming", "Photo & Vidéo", "Câbles & Chargeurs"],
+  "Clothing":    ["Hoodies", "T-Shirts", "Pantalons", "Vestes"],
+  "Shoes":       ["Sneakers", "Bottes", "Sandales"],
+  "Femme":       ["Robes & Jupes", "Tops", "Lingerie"],
+  "Fragrance":   ["Parfums", "Soins Visage", "Soins Cheveux", "Maquillage"],
+  "Accessories": ["Montres", "Bijoux", "Sacs", "Lunettes", "Portefeuilles"],
+};
+
 const CATEGORIES = [
   { key: "All", label: "Tout voir", icon: "fa-grid-2", color: "#00ff88" },
   {
@@ -430,6 +440,44 @@ const CategoryTabs = ({ active, onChange, counts }) => {
   );
 };
 
+/* ─────────────────── SUBCATEGORY PILLS ─────────────────── */
+const SubcategoryPills = ({ category, active, onChange }) => {
+  const subs = SUBCATEGORIES[category];
+  if (!subs) return null;
+  return (
+    <div className="bg-[#F3F4F4] border-b border-[#D5D9D9]">
+      <div className="max-w-[1400px] mx-auto px-4 md:px-8">
+        <div className="flex items-center gap-2 overflow-x-auto hide-scrollbar py-2">
+          <span className="text-[10px] text-[#565959] font-bold uppercase whitespace-nowrap flex-shrink-0">
+            <i className="fa-solid fa-filter text-[#FF9900] mr-1"></i>Sous-cat :
+          </span>
+          <button
+            onClick={() => onChange(null)}
+            className={`flex-shrink-0 text-[11px] px-3 py-1 rounded-full border transition-all ${
+              !active ? "bg-[#232F3E] text-white border-[#232F3E]" : "bg-white border-[#D5D9D9] text-[#565959] hover:border-[#FF9900]"
+            }`}
+          >
+            Tout
+          </button>
+          {subs.map(sub => (
+            <button
+              key={sub}
+              onClick={() => onChange(active === sub ? null : sub)}
+              className={`flex-shrink-0 text-[11px] px-3 py-1 rounded-full border transition-all ${
+                active === sub
+                  ? "bg-[#FF9900] text-[#0F1111] border-[#FF9900] font-bold"
+                  : "bg-white border-[#D5D9D9] text-[#565959] hover:border-[#FF9900] hover:text-[#0F1111]"
+              }`}
+            >
+              {sub}
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+};
+
 /* ─────────────────── SIDEBAR FILTERS ─────────────────── */
 const SidebarFilters = ({
   maxPrice,
@@ -534,20 +582,24 @@ const SidebarFilters = ({
 );
 
 /* ─────────────────── ACTIVE FILTERS BAR ─────────────────── */
-const ActiveFilters = ({ category, search, sortBy, count, onReset }) => {
-  const hasFilters = category !== "All" || search;
+const ActiveFilters = ({ category, subcategory, search, sortBy, count, onReset }) => {
+  const hasFilters = category !== "All" || search || subcategory;
   return (
     <div className="flex items-center justify-between mb-4 w-full">
       <div className="flex items-center gap-3 flex-wrap">
         <span className="text-sm text-[#0F1111]">
           <span className="text-[#007185] font-bold">{count}</span>
-          <span className="text-[#565959] ml-1.5">
-            résultats
-          </span>
+          <span className="text-[#565959] ml-1.5">résultats</span>
           {category !== "All" && (
             <span className="text-[#565959] ml-1.5">dans {category}</span>
           )}
         </span>
+        {subcategory && (
+          <span className="text-xs px-2.5 py-1 rounded bg-[#FF9900]/15 text-[#C45500] border border-[#FF9900]/30 flex items-center gap-1.5">
+            <i className="fa-solid fa-tag text-[10px]"></i>
+            {subcategory}
+          </span>
+        )}
         {search && (
           <span className="text-xs px-2.5 py-1 rounded bg-[#FEBD69]/20 text-[#C45500] border border-[#FEBD69]/40 flex items-center gap-1.5">
             <i className="fa-solid fa-magnifying-glass text-[10px]"></i>
@@ -597,6 +649,7 @@ const Store = ({ openModal, addToCart }) => {
   const [searchInput,  setSearchInput]  = useState(searchParams.get("q") || "");
   const [searchQuery,  setSearchQuery]  = useState(searchParams.get("q") || "");
   const [category,     setCategory]     = useState("All");
+  const [subcategory,  setSubcategory]  = useState(null);
   const [sortBy,       setSortBy]       = useState("recommended");
   const [maxPrice,     setMaxPrice]     = useState(null); // null = no filter
   const [selectedSize, setSelectedSize] = useState("All");
@@ -614,11 +667,13 @@ const Store = ({ openModal, addToCart }) => {
         .select("*, vendor:vendors!vendor_id(member_discount_enabled)", { count: "exact" });
 
       if (category !== "All") q = q.eq("type", category);
+      if (subcategory)        q = q.eq("subcategory", subcategory);
       if (searchQuery)        q = q.ilike("name", `%${searchQuery}%`);
       if (maxPrice !== null)  q = q.lte("price", maxPrice);
 
       if (sortBy === "price-asc")       q = q.order("price", { ascending: true });
       else if (sortBy === "price-desc") q = q.order("price", { ascending: false });
+      else if (category === "All")      q = q.order("type", { ascending: true }).order("created_at", { ascending: false });
       else                              q = q.order("created_at", { ascending: false });
 
       const from = pageNum * PAGE_SIZE;
@@ -650,6 +705,24 @@ const Store = ({ openModal, addToCart }) => {
         sorted = [...items].sort((a, b) => score(b) - score(a));
       }
 
+      // Interleave by type in "All" view so every category is represented on each page
+      if (category === "All" && !subcategory && sortBy !== "price-asc" && sortBy !== "price-desc" && sortBy !== "popular") {
+        const byType = {};
+        sorted.forEach(p => {
+          if (!byType[p.type]) byType[p.type] = [];
+          byType[p.type].push(p);
+        });
+        const types = Object.keys(byType);
+        const maxLen = Math.max(...types.map(t => byType[t].length), 0);
+        const mixed = [];
+        for (let i = 0; i < maxLen; i++) {
+          for (const t of types) {
+            if (i < byType[t].length) mixed.push(byType[t][i]);
+          }
+        }
+        sorted = mixed;
+      }
+
       setProducts(prev => reset ? sorted : [...prev, ...sorted]);
       setOrderCounts(prev => ({ ...prev, ...pageCounts }));
       setHasMore(from + PAGE_SIZE < (count || 0));
@@ -661,7 +734,7 @@ const Store = ({ openModal, addToCart }) => {
       setLoading(false);
       setLoadingMore(false);
     }
-  }, [category, searchQuery, sortBy, maxPrice]);
+  }, [category, subcategory, searchQuery, sortBy, maxPrice]);
 
   useEffect(() => { fetchPageRef.current = fetchPage; }, [fetchPage]);
 
@@ -713,10 +786,11 @@ const Store = ({ openModal, addToCart }) => {
     return () => obs.disconnect();
   }, [hasMore, loading, loadingMore, currentPage]);
 
-  const handleSearch = () => setSearchQuery(searchInput);
-  const handleReset  = () => {
+  const handleSearch         = () => setSearchQuery(searchInput);
+  const handleCategoryChange = (cat) => { setCategory(cat); setSubcategory(null); };
+  const handleReset          = () => {
     setSearchInput(""); setSearchQuery(""); setCategory("All");
-    setSelectedSize("All"); setMaxPrice(null);
+    setSubcategory(null); setSelectedSize("All"); setMaxPrice(null);
   };
 
   // Size filter stays client-side (no structured size column in DB)
@@ -745,7 +819,10 @@ const Store = ({ openModal, addToCart }) => {
       <VendorsSection vendors={vendors} loading={vendorsLoading} vendorProducts={vendorProducts} />
 
       {/* ── CATEGORY TABS ── */}
-      <CategoryTabs active={category} onChange={setCategory} counts={categoryCounts} />
+      <CategoryTabs active={category} onChange={handleCategoryChange} counts={categoryCounts} />
+
+      {/* ── SUBCATEGORY PILLS ── */}
+      <SubcategoryPills category={category} active={subcategory} onChange={setSubcategory} />
 
       {/* ── MAIN CONTENT ── */}
       <div className="max-w-[1400px] mx-auto px-4 md:px-8 py-6">
@@ -772,6 +849,7 @@ const Store = ({ openModal, addToCart }) => {
             <div className="flex items-center justify-between mb-5 gap-4">
               <ActiveFilters
                 category={category}
+                subcategory={subcategory}
                 search={searchQuery}
                 sortBy={sortBy}
                 count={totalCount}

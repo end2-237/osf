@@ -181,14 +181,14 @@ const ImageGallery = ({ product }) => {
 
   return (
     <div>
-      {/* Desktop: vertical thumbs left + main image */}
-      <div className="hidden sm:flex gap-3">
+      {/* Desktop: grid keeps thumb column exactly as tall as main image */}
+      <div className={`hidden sm:grid gap-3 ${images.length > 1 ? "grid-cols-[60px_1fr]" : ""}`}>
         {images.length > 1 && (
-          <div className="flex flex-col gap-2 flex-shrink-0 max-h-[500px] overflow-y-auto hide-scrollbar">
+          <div className="overflow-y-auto hide-scrollbar flex flex-col gap-2 min-h-0">
             {images.map((img, i) => <Thumb key={i} img={img} i={i} />)}
           </div>
         )}
-        <div className="flex-grow"><MainImage /></div>
+        <div><MainImage /></div>
       </div>
 
       {/* Mobile: main image + horizontal thumbs below */}
@@ -644,6 +644,7 @@ const ProductDetail = ({ addToCart, openModal }) => {
         if (fresh.cj_category_id)                                                   updates.cj_category_id   = fresh.cj_category_id;
         if (fresh.cj_category_name)                                                 updates.cj_category_name = fresh.cj_category_name;
         if (fresh.status && fresh.status !== "Nouveau")                             updates.status            = fresh.status;
+        if (fresh.subcategory)                                                      updates.subcategory       = fresh.subcategory;
         await supabase.from("products").update(updates).eq("id", product.id);
         setProduct(prev => prev ? { ...prev, ...updates } : prev);
       } catch { /* silent */ }

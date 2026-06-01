@@ -57,6 +57,43 @@ export const mapOfsType = (categoryName = "") => {
   return "Clothing";
 };
 
+// ─── Subcategory mapping (derived from CJ category name) ─────────────────────
+export const mapSubcategory = (categoryName = "") => {
+  const n = (categoryName || "").toLowerCase();
+  if (n.includes("headphone") || n.includes("casque"))                                          return "Casques";
+  if (n.includes("earphone") || n.includes("earbuds") || n.includes("earpiece"))               return "Écouteurs";
+  if (n.includes("speaker") || n.includes("soundbar") || n.includes("enceinte"))               return "Enceintes";
+  if (n.includes("microphone"))                                                                  return "Microphones";
+  if (n.includes("phone") && !n.includes("earphone") && !n.includes("headphone"))              return "Smartphones";
+  if (n.includes("tablet") || n.includes("ipad"))                                               return "Tablettes";
+  if (n.includes("laptop") || n.includes("notebook") || n.includes("computer"))                return "Informatique";
+  if (n.includes("gaming") || n.includes("console") || n.includes("game"))                     return "Gaming";
+  if (n.includes("camera") || n.includes("drone") || n.includes("photo") || n.includes("gopro")) return "Photo & Vidéo";
+  if (n.includes("charger") || n.includes("cable") || n.includes("power bank") || n.includes("usb hub")) return "Câbles & Chargeurs";
+  if (n.includes("sneaker") || (n.includes("shoe") && !n.includes("boot") && !n.includes("sandal"))) return "Sneakers";
+  if (n.includes("boot") || n.includes("ankle shoe"))                                           return "Bottes";
+  if (n.includes("sandal") || n.includes("slipper") || n.includes("flip flop"))                return "Sandales";
+  if (n.includes("hoodie") || n.includes("sweatshirt") || n.includes("pullover"))              return "Hoodies";
+  if (n.includes("t-shirt") || n.includes("tshirt") || n.includes(" tee"))                    return "T-Shirts";
+  if (n.includes("pant") || n.includes("trouser") || n.includes("jeans") || n.includes("legging")) return "Pantalons";
+  if (n.includes("jacket") || n.includes("coat") || n.includes("blazer") || n.includes("veste")) return "Vestes";
+  if (n.includes("dress") || n.includes("skirt") || n.includes("robe"))                        return "Robes & Jupes";
+  if (n.includes("top") && (n.includes("women") || n.includes("woman") || n.includes("female"))) return "Tops";
+  if (n.includes("lingerie") || n.includes("bra") || n.includes("underwear") || n.includes("panty")) return "Lingerie";
+  if (n.includes("perfume") || n.includes("fragrance") || n.includes("cologne") || n.includes("parfum")) return "Parfums";
+  if (n.includes("serum") || n.includes("cream") || n.includes("moisturizer") || n.includes("facial")) return "Soins Visage";
+  if (n.includes("hair") || n.includes("shampoo") || n.includes("conditioner"))                return "Soins Cheveux";
+  if (n.includes("makeup") || n.includes("cosmetic") || n.includes("lipstick") || n.includes("mascara")) return "Maquillage";
+  if (n.includes("watch") || n.includes("smartwatch") || n.includes("montre"))                  return "Montres";
+  if (n.includes("jewelry") || n.includes("necklace") || n.includes("bracelet") || n.includes("ring") || n.includes("earring")) return "Bijoux";
+  if (n.includes("bag") || n.includes("purse") || n.includes("backpack") || n.includes("handbag")) return "Sacs";
+  if (n.includes("wallet") || n.includes("card holder"))                                        return "Portefeuilles";
+  if (n.includes("sunglasses") || n.includes("glasses") || n.includes("eyewear"))              return "Lunettes";
+  if (n.includes("belt") || n.includes("ceinture"))                                             return "Ceintures";
+  if (n.includes("cap") || n.includes("hat") || n.includes("beanie"))                         return "Chapeaux";
+  return null;
+};
+
 // USD → FCFA  (1 USD ≈ 610 FCFA)
 export const usdToFcfa = (usd) => {
   const n = parseFloat(usd);
@@ -179,6 +216,7 @@ export const mapCjToProduct = (p) => {
     img:              images.find(u => !isVideoUrl(u)) || mainImg,
     images,
     type:             mapOfsType(p.categoryName || ""),
+    subcategory:      mapSubcategory(p.categoryName || ""),
     status,
     description,
     features,

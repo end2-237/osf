@@ -545,6 +545,7 @@ const RepairImagesPanel = () => {
           if (fresh.cj_category_id)                                        upd.cj_category_id  = fresh.cj_category_id;
           if (fresh.cj_category_name)                                      upd.cj_category_name= fresh.cj_category_name;
           if (fresh.status && fresh.status !== "Nouveau")                  upd.status          = fresh.status;
+          if (fresh.subcategory)                                           upd.subcategory     = fresh.subcategory;
 
           await supabase.from("products").update(upd).eq("id", p.id);
           updated++;
