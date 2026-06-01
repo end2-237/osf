@@ -1,11 +1,16 @@
 // ─── CJ DROPSHIPPING API SERVICE ─────────────────────────────────────────────
 
-// Supabase Edge Function URL — proxy côté serveur pour éviter les erreurs CORS
+import { supabase } from "./supabase";
+
 const EDGE_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/cj-proxy`;
 const ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || "";
 
 // ─── Raw fetch via Edge Function ──────────────────────────────────────────────
 const cjFetch = async (path, params = {}) => {
+  // Use session JWT if available, otherwise anon key
+  const { data: { session } } = await supabase.auth.getSession();
+  const token = session?.access_token || ANON_KEY;
+
   const url = new URL(EDGE_URL);
   url.searchParams.set("path",   path);
   url.searchParams.set("params", JSON.stringify(params));
@@ -13,7 +18,7 @@ const cjFetch = async (path, params = {}) => {
   const res = await fetch(url.toString(), {
     headers: {
       "apikey":        ANON_KEY,
-      "Authorization": `Bearer ${ANON_KEY}`,
+      "Authorization": `Bearer ${token}`,
       "Content-Type":  "application/json",
     },
   });
@@ -29,8 +34,8 @@ export const cjListProducts = (pageNum = 1, pageSize = 200, search = "", categor
   cjFetch("/product/list", {
     pageNum,
     pageSize,
-    ...(search     ? { productNameEn: search     } : {}),
-    ...(categoryId ? { categoryId               } : {}),
+    ...(search     ? { productNameEn: search } : {}),
+    ...(categoryId ? { categoryId }            : {}),
   });
 
 export const cjGetProductDetail = (pid) =>
