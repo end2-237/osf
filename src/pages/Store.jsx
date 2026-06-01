@@ -253,109 +253,54 @@ const PromoBanners = () => (
 const VendorsSection = ({ vendors, loading, vendorProducts }) => {
   if (!loading && vendors.length === 0) return null;
   return (
-    <div className="bg-white border-y border-[#D5D9D9] py-3 px-2 md:px-3">
-      <div className="max-w-[1400px] mx-auto">
-        <div className="flex items-center justify-between mb-3">
-          <div>
-            <h2 className="text-lg font-bold text-[#0F1111]">
-              Boutiques <span className="text-[#FF9900]">Certifiées</span>
-            </h2>
-            <p className="text-xs text-[#565959]">Vendeurs vérifiés OneFreestyle</p>
-          </div>
+    <div className="bg-white border-b border-[#D5D9D9] py-2 px-2 md:px-3">
+      <div className="max-w-[1400px] mx-auto flex items-center gap-2 overflow-x-auto"
+        style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}>
+
+        {/* Label */}
+        <span className="text-[10px] font-bold uppercase text-[#565959] whitespace-nowrap flex-shrink-0 flex items-center gap-1.5 pr-1 border-r border-[#E8E8E8]">
+          <i className="fa-solid fa-store text-[#FF9900] text-[11px]"></i>
+          Boutiques
+        </span>
+
+        {/* Vendor pills */}
+        {loading
+          ? Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="animate-pulse flex-shrink-0 flex items-center gap-2 bg-[#F3F4F4] rounded-full px-3 py-1.5 w-28 h-7" />
+            ))
+          : vendors.map((vendor) => {
+              const vProducts = vendorProducts[vendor.id] || [];
+              const thumb = vProducts[0]?.img;
+              return (
+                <Link key={vendor.id} to={`/shop/${vendor.shop_name}`}
+                  className="flex-shrink-0 flex items-center gap-2 border border-[#D5D9D9] rounded-full pl-0.5 pr-3 py-0.5 hover:border-[#FF9900] hover:bg-[#FFF8F0] transition-all group"
+                >
+                  {/* Mini product thumbnail or icon */}
+                  <div className="w-6 h-6 rounded-full overflow-hidden bg-[#F3F4F4] flex-shrink-0 flex items-center justify-center">
+                    {thumb
+                      ? <img src={thumb} alt="" className="w-full h-full object-cover" />
+                      : <i className="fa-solid fa-store text-primary text-[8px]"></i>
+                    }
+                  </div>
+                  <span className="text-[11px] font-bold uppercase tracking-tight text-[#0F1111] group-hover:text-[#C45500] transition-colors whitespace-nowrap">
+                    {vendor.shop_name}
+                  </span>
+                  <i className="fa-solid fa-circle-check text-[#FF9900] text-[10px]"></i>
+                  <span className="text-[10px] text-[#767676]">{vProducts.length}</span>
+                </Link>
+              );
+            })
+        }
+
+        {/* CTA pill */}
+        {!loading && (
           <Link to="/register"
-            className="hidden md:flex items-center gap-1.5 text-sm text-[#007185] hover:text-[#C45500] hover:underline transition-colors"
+            className="flex-shrink-0 flex items-center gap-1.5 border border-dashed border-[#FEBD69] rounded-full px-3 py-1 hover:border-[#FF9900] hover:bg-[#FFF8F0] transition-all text-[11px] font-medium text-[#C45500] whitespace-nowrap"
           >
-            <span>Devenir vendeur</span>
-            <i className="fa-solid fa-arrow-right text-xs"></i>
+            <i className="fa-solid fa-plus text-[10px]"></i>
+            Ouvrir ma boutique
           </Link>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {loading
-            ? Array.from({ length: 4 }).map((_, i) => <VendorSkeleton key={i} />)
-            : vendors.map((vendor) => {
-                const vProducts  = vendorProducts[vendor.id] || [];
-                const categories = [...new Set(vProducts.map((p) => p.type))];
-                return (
-                  <Link key={vendor.id} to={`/shop/${vendor.shop_name}`}
-                    className="bg-white border border-[#D5D9D9] rounded p-4 group hover:border-[#FF9900] hover:shadow-md transition-all duration-300"
-                  >
-                    <div className="flex items-center gap-3 mb-4">
-                      <div className="w-12 h-12 bg-gradient-to-br from-primary/15 to-primary/5 rounded-xl flex items-center justify-center border border-primary/20 flex-shrink-0 group-hover:border-primary/40 transition-colors">
-                        <i className="fa-solid fa-store text-primary"></i>
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-1.5 mb-0.5">
-                          <h3 className="font-black uppercase italic tracking-tighter text-zinc-900 truncate text-sm group-hover:text-primary transition-colors">
-                            {vendor.shop_name}
-                          </h3>
-                          <div className="w-4 h-4 bg-primary rounded-full flex items-center justify-center flex-shrink-0">
-                            <i className="fa-solid fa-check text-black text-[7px]"></i>
-                          </div>
-                        </div>
-                        <p className="text-[9px] font-bold text-zinc-400 uppercase truncate">{vendor.full_name}</p>
-                      </div>
-                    </div>
-
-                    {vProducts.length > 0 ? (
-                      <div className="grid grid-cols-3 gap-1.5 mb-3">
-                        {vProducts.slice(0, 3).map((p, i) => (
-                          <div key={i} className="aspect-square rounded-lg overflow-hidden bg-zinc-50">
-                            <img src={p.img} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="h-16 bg-zinc-50 rounded-xl flex items-center justify-center mb-3">
-                        <p className="text-[9px] font-bold text-zinc-300 uppercase">Bientôt disponible</p>
-                      </div>
-                    )}
-
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3 text-[9px] font-black uppercase text-zinc-400">
-                        <span><i className="fa-solid fa-box text-primary mr-1"></i>{vProducts.length} items</span>
-                        <div className="flex items-center gap-0.5">
-                          <i className="fa-solid fa-star text-yellow-400 text-[8px]"></i>
-                          <span className="text-zinc-500">4.8</span>
-                        </div>
-                      </div>
-                      <span className="text-[9px] font-black uppercase text-primary flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                        Voir <i className="fa-solid fa-arrow-right text-[8px]"></i>
-                      </span>
-                    </div>
-
-                    {categories.length > 0 && (
-                      <div className="flex gap-1 mt-3 flex-wrap">
-                        {categories.slice(0, 2).map((cat) => (
-                          <span key={cat} className="text-[8px] font-black uppercase px-2 py-0.5 rounded-full bg-zinc-50 text-zinc-400 border border-zinc-100">
-                            {cat}
-                          </span>
-                        ))}
-                        {categories.length > 2 && (
-                          <span className="text-[8px] font-black uppercase px-2 py-0.5 rounded-full bg-zinc-50 text-zinc-400 border border-zinc-100">
-                            +{categories.length - 2}
-                          </span>
-                        )}
-                      </div>
-                    )}
-                  </Link>
-                );
-              })}
-
-          {!loading && (
-            <Link to="/register"
-              className="bg-[#FFF8F0] border-2 border-dashed border-[#FEBD69] rounded p-4 flex flex-col items-center justify-center gap-3 group hover:border-[#FF9900] hover:bg-[#FFF0D0] transition-all min-h-[160px]"
-            >
-              <div className="w-12 h-12 bg-[#FF9900]/10 rounded flex items-center justify-center group-hover:bg-[#FF9900]/20 transition-colors">
-                <i className="fa-solid fa-plus text-[#FF9900] text-xl"></i>
-              </div>
-              <div className="text-center">
-                <p className="font-bold text-sm text-[#0F1111] group-hover:text-[#C45500] transition-colors">Ouvre ta boutique</p>
-                <p className="text-xs text-[#565959] mt-0.5">Rejoindre la marketplace Elite</p>
-              </div>
-            </Link>
-          )}
-        </div>
+        )}
       </div>
     </div>
   );
@@ -1048,7 +993,7 @@ const Store = ({ openModal, addToCart }) => {
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
                 {visibleProducts.map((product, idx) => (
                   <React.Fragment key={product.id}>
-                    {idx > 0 && idx % 20 === 0 && (
+                    {idx > 0 && idx % 24 === 0 && (
                       <div className="col-span-full">
                         <SectionBreak
                           section={EDITORIAL_SECTIONS[(idx / 20 - 1) % EDITORIAL_SECTIONS.length]}
