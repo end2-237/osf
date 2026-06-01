@@ -483,6 +483,131 @@ const AllProductsTab = ({ loading }) => {
   );
 };
 
+// ─── SUBCATEGORY BACKFILL PANEL ──────────────────────────────────────────────
+const SubcategoryBackfillPanel = () => {
+  const [state, setState] = useState({ running: false, total: 0, done: 0, updated: 0, skipped: 0, log: [] });
+  const stopRef = useRef(false);
+
+  const addLog = (msg) => setState(s => ({ ...s, log: [msg, ...s.log.slice(0, 199)] }));
+
+  const run = async () => {
+    stopRef.current = false;
+    setState({ running: true, total: 0, done: 0, updated: 0, skipped: 0, log: [] });
+
+    const { mapSubcategory } = await import("../lib/cjApi");
+
+    // Fetch all products that have cj_category_name but no subcategory
+    const { data: products, error } = await supabase
+      .from("products")
+      .select("id, cj_category_name, subcategory")
+      .not("cj_category_name", "is", null);
+
+    if (error) { addLog(`❌ Erreur fetch: ${error.message}`); setState(s => ({ ...s, running: false })); return; }
+
+    const toFix = (products || []).filter(p => !p.subcategory);
+    setState(s => ({ ...s, total: toFix.length }));
+    addLog(`${products?.length || 0} produits avec cj_category_name · ${toFix.length} sans sous-catégorie`);
+
+    if (toFix.length === 0) {
+      addLog("✅ Tous les produits ont déjà une sous-catégorie");
+      setState(s => ({ ...s, running: false }));
+      return;
+    }
+
+    // Batch updates — 50 at a time, no external API needed
+    const BATCH = 50;
+    let updated = 0, skipped = 0;
+
+    for (let i = 0; i < toFix.length; i += BATCH) {
+      if (stopRef.current) { addLog("⛔ Arrêté"); break; }
+
+      const batch = toFix.slice(i, i + BATCH);
+      const withSub = batch.map(p => ({ id: p.id, sub: mapSubcategory(p.cj_category_name) }));
+
+      // Group by subcategory value for efficient bulk updates
+      const bySub = {};
+      withSub.forEach(({ id, sub }) => {
+        if (!sub) { skipped++; return; }
+        if (!bySub[sub]) bySub[sub] = [];
+        bySub[sub].push(id);
+      });
+
+      await Promise.all(
+        Object.entries(bySub).map(([sub, ids]) =>
+          supabase.from("products").update({ subcategory: sub }).in("id", ids)
+        )
+      );
+
+      const batchUpdated = withSub.filter(x => x.sub).length;
+      updated += batchUpdated;
+
+      setState(s => ({ ...s, done: Math.min(i + BATCH, toFix.length), updated, skipped }));
+      addLog(`✓ Batch ${Math.floor(i / BATCH) + 1} — ${batchUpdated} mis à jour (${i + batch.length}/${toFix.length})`);
+    }
+
+    setState(s => ({ ...s, running: false }));
+    addLog(`✅ Terminé — ${updated} sous-catégories remplies · ${skipped} sans correspondance`);
+  };
+
+  const pct = state.total > 0 ? Math.round((state.done / state.total) * 100) : 0;
+
+  return (
+    <div className="bg-white border border-[#D5D9D9] rounded-xl overflow-hidden">
+      <div className="bg-[#131921] px-5 py-3 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <i className="fa-solid fa-tags text-[#FF9900] text-sm"></i>
+          <span className="font-black text-sm text-white">Remplir les sous-catégories</span>
+        </div>
+        <span className="text-[10px] text-[#ADBAC7]">Sans appel API · Utilise cj_category_name en base</span>
+      </div>
+      <div className="p-5 space-y-4">
+        <p className="text-[11px] text-[#565959]">
+          Calcule les sous-catégories depuis le champ <code className="bg-[#F3F4F4] px-1 rounded">cj_category_name</code> déjà
+          stocké — pas d'appel CJ, traitement en batch de 50, très rapide.
+        </p>
+        <div className="flex gap-3">
+          <button
+            onClick={run}
+            disabled={state.running}
+            className="flex items-center gap-2 bg-[#FF9900] hover:bg-[#E47911] disabled:opacity-50 text-[#0F1111] px-5 py-2.5 rounded font-bold text-sm transition-all"
+          >
+            <i className={`fa-solid ${state.running ? "fa-spinner fa-spin" : "fa-tags"} text-sm`}></i>
+            {state.running ? `En cours… ${state.done}/${state.total}` : "Lancer le remplissage"}
+          </button>
+          {state.running && (
+            <button onClick={() => { stopRef.current = true; }}
+              className="px-4 py-2.5 rounded border border-[#B12704]/40 text-[#B12704] text-sm font-bold hover:bg-[#FEE7E5] transition-all">
+              Arrêter
+            </button>
+          )}
+        </div>
+
+        {state.total > 0 && (
+          <div className="space-y-2">
+            <div className="flex items-center justify-between text-xs text-[#565959]">
+              <span>{state.done}/{state.total} traités</span>
+              <span className="text-[#007600] font-bold">{state.updated} remplis</span>
+              <span className="text-[#565959]">{state.skipped} sans correspondance</span>
+              <span>{pct}%</span>
+            </div>
+            <div className="h-2 bg-[#F3F4F4] rounded-full overflow-hidden">
+              <div className="h-full bg-[#FF9900] rounded-full transition-all duration-300" style={{ width: `${pct}%` }} />
+            </div>
+          </div>
+        )}
+
+        {state.log.length > 0 && (
+          <div className="bg-[#131921] rounded p-3 max-h-40 overflow-y-auto space-y-0.5 font-mono">
+            {state.log.map((l, i) => (
+              <p key={i} className="text-[10px] text-[#ADBAC7]">{l}</p>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
 // ─── REPAIR CJ DATA PANEL ────────────────────────────────────────────────────
 const RepairImagesPanel = () => {
   const [state, setState] = useState({ running: false, total: 0, done: 0, updated: 0, log: [] });
@@ -809,6 +934,7 @@ const SuperAdmin = () => {
                 Les commandes de ces produits remontent directement à l'admin.
               </p>
             </div>
+            <SubcategoryBackfillPanel />
             <RepairImagesPanel />
             <CJImportTab />
           </div>
