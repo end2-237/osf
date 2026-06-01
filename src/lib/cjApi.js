@@ -1,16 +1,10 @@
 // ─── CJ DROPSHIPPING API SERVICE ─────────────────────────────────────────────
 
-import { supabase } from "./supabase";
-
 const EDGE_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/cj-proxy`;
 const ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || "";
 
 // ─── Raw fetch via Edge Function ──────────────────────────────────────────────
 const cjFetch = async (path, params = {}) => {
-  // Use session JWT if available, otherwise anon key
-  const { data: { session } } = await supabase.auth.getSession();
-  const token = session?.access_token || ANON_KEY;
-
   const url = new URL(EDGE_URL);
   url.searchParams.set("path",   path);
   url.searchParams.set("params", JSON.stringify(params));
@@ -18,7 +12,7 @@ const cjFetch = async (path, params = {}) => {
   const res = await fetch(url.toString(), {
     headers: {
       "apikey":        ANON_KEY,
-      "Authorization": `Bearer ${token}`,
+      "Authorization": `Bearer ${ANON_KEY}`,
       "Content-Type":  "application/json",
     },
   });
