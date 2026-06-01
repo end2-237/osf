@@ -156,18 +156,33 @@ export const mapCjToProduct = (p) => {
   // ── Variants (colors, sizes, stock per variant) ─────────────────────────────
   const variants = Array.isArray(p.variants) ? p.variants : [];
 
-  // Extract unique colors from variant properties (supports "Color:Red;Size:XL" or "Color:Red,Size:XL")
+  // Extract colors AND sizes from variant properties
+  // CJ format: "Color:Black;Size:XL" or "US Size:M" or "Color:Red,Size:S"
   const colorsSet = new Set();
+  const sizesSet  = new Set();
   variants.forEach(v => {
     const raw = v.variantProperty || v.property || "";
     raw.split(/[;,]/).forEach(prop => {
-      const [key, val] = prop.split(":");
-      if ((key || "").toLowerCase().replace(/\s/g, "").includes("col") && val?.trim()) {
-        colorsSet.add(val.trim());
+      const ci  = prop.indexOf(":");
+      if (ci === -1) return;
+      const key = prop.slice(0, ci).toLowerCase().replace(/\s/g, "");
+      const val = prop.slice(ci + 1).trim();
+      if (!val) return;
+      if (key.includes("col") || key.includes("coul") || key === "colour") {
+        colorsSet.add(val);
+      } else if (key.includes("size") || key.includes("taille") || key.includes("pointure")
+              || key.includes("capacity") || key.includes("storage") || key.includes("storage")) {
+        sizesSet.add(val);
       }
     });
+    // Fallback: if variantNameEn looks like a standalone color (no ":" in raw)
+    const vName = (v.variantNameEn || v.variantName || "").trim();
+    if (vName && !raw.includes(":") && colorsSet.size === 0) {
+      colorsSet.add(vName);
+    }
   });
   const colors = colorsSet.size > 0 ? [...colorsSet] : [];
+  const sizes  = [...sizesSet];
 
   // ── Stock: sum variants or top-level field (-1 = unknown) ──────────────────
   let stock_qty = -1;
@@ -232,6 +247,7 @@ export const mapCjToProduct = (p) => {
     description,
     features,
     colors:           colors.length > 0 ? colors : ["Default"],
+    sizes:            sizes.length  > 0 ? sizes  : [],
     vendor_id:        null,
     // CJ-specific
     cj_product_id,

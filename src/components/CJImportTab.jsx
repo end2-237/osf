@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../context/AuthContext";
-import { cjListProducts, cjGetCategories, mapCjToProduct, mapOfsType, usdToFcfa } from "../lib/cjApi";
+import { cjListProducts, cjGetProductDetail, cjGetCategories, mapCjToProduct, mapOfsType, usdToFcfa } from "../lib/cjApi";
 
 const PAGE_SIZE = 100;
 
@@ -194,12 +194,36 @@ const CJImportTab = () => {
   const selectAll    = () => setSelected(new Set(products.map(p => p.pid)));
   const clearAll     = () => setSelected(new Set());
 
-  // Core insert helper
+  // Fetch full CJ detail for one product, fall back to list data on error
+  const enrichOne = async (p) => {
+    try {
+      const pid    = p.pid || p.productId || p.cjProductId;
+      const detail = pid ? await cjGetProductDetail(pid) : null;
+      return detail ? mapCjToProduct(detail) : mapCjToProduct(p);
+    } catch {
+      return mapCjToProduct(p);
+    }
+  };
+
+  // Core insert helper — fetches full CJ detail (colors/sizes/variants) per product
   const batchInsert = async (list, onProgress) => {
-    const BATCH = 20;
+    const DETAIL_BATCH = 5;   // parallel CJ detail requests
+    const INSERT_BATCH = 20;  // DB insert chunk size
+    let enriched = [];
     let done = 0;
-    for (let i = 0; i < list.length; i += BATCH) {
-      const batch = list.slice(i, i + BATCH).map(mapCjToProduct);
+
+    // Step 1: enrich all products with real variant data (colors, sizes)
+    for (let i = 0; i < list.length; i += DETAIL_BATCH) {
+      const chunk = list.slice(i, i + DETAIL_BATCH);
+      const results = await Promise.all(chunk.map(enrichOne));
+      enriched = [...enriched, ...results];
+      // Throttle CJ API requests
+      if (i + DETAIL_BATCH < list.length) await new Promise(r => setTimeout(r, 350));
+    }
+
+    // Step 2: insert into Supabase in larger batches
+    for (let i = 0; i < enriched.length; i += INSERT_BATCH) {
+      const batch = enriched.slice(i, i + INSERT_BATCH);
       const { error } = await supabase.from("products").insert(batch);
       if (error) console.warn("[Insert]", error.message);
       done += batch.length;
