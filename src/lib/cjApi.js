@@ -91,6 +91,8 @@ const parseHtmlDescription = (html = "") => {
     .replace(/&gt;/g, ">")
     .replace(/&quot;/g, '"')
     .replace(/&#39;/g, "'")
+    // Remove "Product Image(s):" section — images are shown in gallery
+    .replace(/\n?\s*Product Images?:\s*[\s\S]*$/i, "")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
 
