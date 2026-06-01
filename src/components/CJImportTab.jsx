@@ -106,24 +106,46 @@ const CJImportTab = () => {
       .then(({ count }) => setAlreadyCount(count || 0));
   }, []);
 
+  const [catsError, setCatsError] = useState(null);
+
   const loadCategories = useCallback(async () => {
     setCatsLoading(true);
+    setCatsError(null);
     try {
       const data = await cjGetCategories();
+      console.log("[CJ cats raw]", JSON.stringify(data)?.slice(0, 500));
+
       const flat = [];
       const walk = (cats) => {
-        if (!Array.isArray(cats)) return;
-        cats.forEach(c => {
-          if (c.categoryId && c.categoryName) {
-            flat.push({ id: c.categoryId, name: c.categoryName, type: c.categoryType || 1, count: c.productCount || 0 });
+        if (!cats) return;
+        // Handle both array and object with children
+        const list = Array.isArray(cats) ? cats : Object.values(cats);
+        list.forEach(c => {
+          if (!c || typeof c !== "object") return;
+          const id   = c.categoryId   || c.id;
+          const name = c.categoryName || c.name;
+          if (id && name) {
+            flat.push({ id, name, type: c.categoryType || 1, count: c.productCount || c.count || 0 });
           }
-          if (c.children?.length) walk(c.children);
+          // Recurse into children (any field that is an array of objects)
+          if (c.children?.length)          walk(c.children);
+          if (c.categoryList?.length)      walk(c.categoryList);
+          if (c.subCategoryList?.length)   walk(c.subCategoryList);
         });
       };
-      walk(Array.isArray(data) ? data : (data?.list || []));
+
+      // Try all known response shapes
+      if (Array.isArray(data))              walk(data);
+      else if (Array.isArray(data?.list))   walk(data.list);
+      else if (Array.isArray(data?.data))   walk(data.data);
+      else                                  walk(data);
+
+      console.log("[CJ cats parsed]", flat.length, "catégories");
+      if (flat.length === 0) setCatsError(`Aucune catégorie reçue. Réponse brute : ${JSON.stringify(data)?.slice(0, 200)}`);
       setCategories(flat);
     } catch (err) {
-      console.error("[CJ cats]", err.message);
+      console.error("[CJ cats]", err);
+      setCatsError(err.message);
     } finally {
       setCatsLoading(false);
     }
@@ -658,8 +680,15 @@ const CJImportTab = () => {
                   <i className="fa-solid fa-spinner animate-spin text-[#FF9900]"></i>
                   <span className="text-[#ADBAC7] text-sm">Chargement des catégories…</span>
                 </div>
-              ) : filteredCats.length === 0 ? (
-                <div className="p-8 text-center text-[#565959] text-sm">Aucune catégorie trouvée</div>
+              ) : catsError ? (
+                <div className="p-5 space-y-3">
+                  <div className="bg-[#FEE7E5] border border-[#B12704]/30 rounded-xl p-4 text-xs text-[#B12704] font-mono break-all">{catsError}</div>
+                  <button onClick={loadCategories} className="px-4 py-2 bg-[#232F3E] text-[#FF9900] rounded-lg text-xs font-bold flex items-center gap-2">
+                    <i className="fa-solid fa-rotate"></i>Réessayer
+                  </button>
+                </div>
+              ) : filteredCats.length === 0 && catSearch ? (
+                <div className="p-8 text-center text-[#565959] text-sm">Aucune catégorie correspondant à "{catSearch}"</div>
               ) : (
                 <div className="p-3 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-1.5">
                   {filteredCats.map(cat => {
