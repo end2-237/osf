@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "../lib/supabase";
+import { useAuth } from "../context/AuthContext";
 import {
   cjListProducts,
   cjGetCategories,
@@ -79,6 +80,7 @@ const CJCard = ({ product, selected, onToggle, onImport, importing }) => {
 
 // ─── MAIN COMPONENT ───────────────────────────────────────────────────────────
 const CJImportTab = () => {
+  const { user } = useAuth();
   const [products,     setProducts]     = useState([]);
   const [total,        setTotal]        = useState(0);
   const [page,         setPage]         = useState(1);
@@ -125,7 +127,8 @@ const CJImportTab = () => {
     }
   }, []);
 
-  useEffect(() => { fetchProducts(1, ""); }, []);
+  // Wait for auth session before first fetch
+  useEffect(() => { if (user) fetchProducts(1, ""); }, [user]);
 
   const handleSearch = (e) => {
     e.preventDefault();
