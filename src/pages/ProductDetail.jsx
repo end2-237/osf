@@ -190,14 +190,20 @@ const ImageGallery = ({ product }) => {
 
   return (
     <div>
-      {/* Desktop: grid keeps thumb column exactly as tall as main image */}
-      <div className={`hidden sm:grid gap-3 ${images.length > 1 ? "grid-cols-[60px_1fr]" : ""}`}>
+      {/* Desktop: relative wrapper — thumbs absolute left, main image padded right */}
+      <div className="hidden sm:block relative">
+        <div className={images.length > 1 ? "pl-[68px]" : ""}>
+          <MainImage />
+        </div>
         {images.length > 1 && (
-          <div ref={thumbContainerRef} className="overflow-y-auto hide-scrollbar flex flex-col gap-2 min-h-0">
+          <div
+            ref={thumbContainerRef}
+            className="absolute top-0 left-0 w-[56px] overflow-y-auto hide-scrollbar flex flex-col gap-2"
+            style={{ height: "100%" }}
+          >
             {images.map((img, i) => <Thumb key={i} img={img} i={i} />)}
           </div>
         )}
-        <div><MainImage /></div>
       </div>
 
       {/* Mobile: main image + horizontal thumbs below */}
@@ -603,12 +609,24 @@ const ProductDetail = ({ addToCart, openModal }) => {
   }, [product]);
 
   useEffect(() => {
-    if (product) {
-      const realColors = (product.colors || []).filter(c => c && c !== "Default");
-      setColor(realColors.length > 0 ? realColors[0] : "");
-      setSize(product.type === "Shoes" ? "40" : "M");
-      setQty(1);
+    if (!product) return;
+    const stored = (product.colors || []).filter(c => c && c !== "Default");
+    let firstColor = stored[0] || "";
+    if (!firstColor && Array.isArray(product.variants)) {
+      for (const v of product.variants) {
+        const raw = v.variantProperty || v.property || "";
+        for (const part of raw.split(/[;,]/)) {
+          const [k, val] = part.split(":");
+          if ((k || "").toLowerCase().replace(/\s/g, "").includes("col") && val?.trim()) {
+            firstColor = val.trim(); break;
+          }
+        }
+        if (firstColor) break;
+      }
     }
+    setColor(firstColor);
+    setSize(product.type === "Shoes" ? "40" : "M");
+    setQty(1);
   }, [product]);
 
   useEffect(() => {
@@ -619,8 +637,10 @@ const ProductDetail = ({ addToCart, openModal }) => {
     })();
 
     if (product.vendor_id !== null) return;
-    const hasMultipleImages = product.images?.length > 1;
-    if (hasMultipleImages) {
+    // Only skip refresh if we already have full data: images + real colors (not just "Default")
+    const hasRealColors  = product.colors?.some(c => c && c !== "Default");
+    const hasFullData    = product.images?.length > 1 && hasRealColors;
+    if (hasFullData) {
       const updatedAt = product.updated_at ? new Date(product.updated_at) : new Date(0);
       if (Date.now() - updatedAt.getTime() < 6 * 60 * 60 * 1000) return;
     }
@@ -724,7 +744,23 @@ const ProductDetail = ({ addToCart, openModal }) => {
     return "#888";
   };
 
-  const realColors   = useMemo(() => (product?.colors || []).filter(c => c && c !== "Default"), [product?.colors]);
+  const realColors = useMemo(() => {
+    // 1. Use stored colors if they're real (not just the Default fallback)
+    const stored = (product?.colors || []).filter(c => c && c !== "Default");
+    if (stored.length > 0) return stored;
+    // 2. Extract live from variants stored in DB — no API call needed
+    const colSet = new Set();
+    (Array.isArray(product?.variants) ? product.variants : []).forEach(v => {
+      const raw = v.variantProperty || v.property || "";
+      raw.split(/[;,]/).forEach(part => {
+        const [k, val] = part.split(":");
+        if ((k || "").toLowerCase().replace(/\s/g, "").includes("col") && val?.trim())
+          colSet.add(val.trim());
+      });
+    });
+    return [...colSet];
+  }, [product?.colors, product?.variants]);
+
   const productColors = realColors.map(name => ({ name, hex: getColorHex(name) }));
 
   const isApparel = product?.type === "Clothing";
