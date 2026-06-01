@@ -43,10 +43,11 @@ const CATEGORIES = [
 ];
 
 const SORT_OPTIONS = [
-  { value: "recent", label: "Plus récents" },
-  { value: "popular", label: "Populaires" },
-  { value: "price-asc", label: "Prix croissant" },
-  { value: "price-desc", label: "Prix décroissant" },
+  { value: "recommended", label: "Recommandés" },
+  { value: "popular",     label: "Populaires"   },
+  { value: "recent",      label: "Plus récents" },
+  { value: "price-asc",   label: "Prix croissant" },
+  { value: "price-desc",  label: "Prix décroissant" },
 ];
 
 const PROMO_BANNERS = [
@@ -584,7 +585,8 @@ const Store = ({ openModal, addToCart }) => {
   const [searchInput, setSearchInput] = useState(searchParams.get("q") || "");
   const [searchQuery, setSearchQuery] = useState(searchParams.get("q") || "");
   const [category, setCategory] = useState("All");
-  const [sortBy, setSortBy] = useState("recent");
+  const [sortBy, setSortBy] = useState("recommended");
+  const [orderCounts, setOrderCounts] = useState({});
   const [maxPrice, setMaxPrice] = useState(500000);
   const [selectedSize, setSelectedSize] = useState("All");
   const [viewMode, setViewMode] = useState("grid");
@@ -594,11 +596,23 @@ const Store = ({ openModal, addToCart }) => {
       setLoading(true);
       setVendorsLoading(true);
       try {
-        // Products
-        const { data: pData } = await supabase
-          .from("products")
-          .select("*, vendor:vendors!vendor_id(member_discount_enabled)") // Jointure ajoutée ici
-          .order("created_at", { ascending: false });
+        // Products + order counts for recommendation score
+        const [{ data: pData }, { data: orderItems }] = await Promise.all([
+          supabase
+            .from("products")
+            .select("*, vendor:vendors!vendor_id(member_discount_enabled)")
+            .order("created_at", { ascending: false }),
+          supabase
+            .from("order_items")
+            .select("product_id"),
+        ]);
+
+        // Build order count map per product
+        const counts = {};
+        orderItems?.forEach(({ product_id }) => {
+          counts[product_id] = (counts[product_id] || 0) + 1;
+        });
+        setOrderCounts(counts);
         setProducts(pData || []);
 
         // Vendors
@@ -639,25 +653,36 @@ const Store = ({ openModal, addToCart }) => {
     return counts;
   }, [products]);
 
+  const recScore = useMemo(() => {
+    const now = Date.now();
+    const score = (p) => {
+      const orders  = orderCounts[p.id] || 0;
+      const hasImg  = (p.img || p.images?.[0]) ? 5 : 0;
+      const price   = Number(p.price);
+      const goodPrice = (!isNaN(price) && price > 0) ? 3 : 0;
+      const hasDesc = (p.description?.length || 0) > 10 ? 1 : 0;
+      const ageDays = (now - new Date(p.created_at).getTime()) / 86400000;
+      const recency = Math.max(0, (30 - ageDays) / 30) * 2; // max 2 pts for < 30 days old
+      return orders * 10 + hasImg + goodPrice + hasDesc + recency;
+    };
+    return score;
+  }, [orderCounts]);
+
   const filteredProducts = useMemo(() => {
     return products
       .filter((p) => category === "All" || p.type === category)
-      .filter(
-        (p) =>
-          !searchQuery ||
-          p.name.toLowerCase().includes(searchQuery.toLowerCase())
-      )
-      .filter((p) => Number(p.price) <= maxPrice)
-      .filter((p) => {
-        if (selectedSize === "All") return true;
-        return p.type === "Clothing" || p.type === "Shoes";
-      })
+      .filter((p) => !searchQuery || (p.name || "").toLowerCase().includes(searchQuery.toLowerCase()))
+      .filter((p) => { const pr = Number(p.price); return isNaN(pr) || pr <= maxPrice; })
+      .filter((p) => selectedSize === "All" || p.type === "Clothing" || p.type === "Shoes")
       .sort((a, b) => {
-        if (sortBy === "price-asc") return Number(a.price) - Number(b.price);
-        if (sortBy === "price-desc") return Number(b.price) - Number(a.price);
-        return 0;
+        if (sortBy === "price-asc")   return (Number(a.price) || 0) - (Number(b.price) || 0);
+        if (sortBy === "price-desc")  return (Number(b.price) || 0) - (Number(a.price) || 0);
+        if (sortBy === "popular")     return (orderCounts[b.id] || 0) - (orderCounts[a.id] || 0);
+        if (sortBy === "recent")      return new Date(b.created_at) - new Date(a.created_at);
+        // "recommended" — composite score
+        return recScore(b) - recScore(a);
       });
-  }, [products, category, searchQuery, maxPrice, selectedSize, sortBy]);
+  }, [products, category, searchQuery, maxPrice, selectedSize, sortBy, orderCounts, recScore]);
 
   const handleSearch = () => setSearchQuery(searchInput);
 

@@ -30,7 +30,7 @@ const ProductCard = ({ product, openModal, addToCart }) => {
   const inWishlist  = isInWishlist(product.id);
   const { user, isMember } = useAuth();
 
-  const originalPrice  = Number(product.price) || 0;
+  const originalPrice  = (() => { const n = parseFloat(product.price); return isNaN(n) || n <= 0 ? 0 : n; })();
   const vendorHasPromo = product.vendor?.member_discount_enabled ?? product.vendor_member_discount_enabled ?? false;
   const discountActive = isMember && vendorHasPromo;
   const memberPrice    = discountActive ? Math.round(originalPrice * (1 - MEMBER_DISCOUNT)) : originalPrice;

@@ -57,8 +57,11 @@ export const mapOfsType = (categoryName = "") => {
   return "Clothing";
 };
 
-// USD → FCFA  (1 USD ≈ 610 FCFA)
-export const usdToFcfa = (usd) => Math.round(Number(usd || 0) * 610);
+// USD → FCFA  (1 USD ≈ 610 FCFA) — robust against NaN/null/string inputs
+export const usdToFcfa = (usd) => {
+  const n = parseFloat(usd);
+  return isNaN(n) || n <= 0 ? 0 : Math.round(n * 610);
+};
 
 // ─── CJ product → Supabase product schema ────────────────────────────────────
 // vendor_id = null → produit plateforme OFS (pas lié à un vendeur)

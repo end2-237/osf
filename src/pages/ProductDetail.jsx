@@ -5,6 +5,7 @@ import ProductCard from "../components/ProductCard";
 import ReviewsSection from "../components/ReviewsSection";
 import { useWishlist } from "../hooks/useWishlist";
 import { useAuth } from "../context/AuthContext";
+import { cjGetProductDetail, mapCjToProduct } from "../lib/cjApi";
 
 // ─── VILLES DE LIVRAISON ──────────────────────────────────────────────────────
 const DELIVERY_ZONES = [
@@ -832,6 +833,49 @@ const ProductDetail = ({ addToCart, openModal }) => {
   useEffect(() => {
     if (product) { setSize("M"); setColor("Black"); setQty(1); }
   }, [product]);
+
+  // Lazy refresh: update view_count + refresh CJ price/data if stale (background, non-blocking)
+  useEffect(() => {
+    if (!product?.id) return;
+
+    // Increment view count silently (column may not exist — failure is OK)
+    supabase.rpc("increment_view_count", { product_id: product.id }).catch(() => {
+      // Fallback: try direct update if RPC not found
+      supabase.from("products")
+        .update({ view_count: (product.view_count || 0) + 1 })
+        .eq("id", product.id)
+        .then(() => {});
+    });
+
+    // For CJ platform products (vendor_id = null): refresh price/availability if data > 6h old
+    if (product.vendor_id !== null) return;
+    const updatedAt = product.updated_at ? new Date(product.updated_at) : new Date(0);
+    const staleMs   = 6 * 60 * 60 * 1000; // 6 hours
+    if (Date.now() - updatedAt.getTime() < staleMs) return;
+
+    // Background refresh from CJ API using product name as search (no pid stored)
+    const refreshCjData = async () => {
+      try {
+        const { cjListProducts } = await import("../lib/cjApi");
+        const result = await cjListProducts(1, 5, product.name, "");
+        const match  = result?.list?.find(p =>
+          (p.productNameEn || p.productName || "").toLowerCase() === (product.name || "").toLowerCase()
+        );
+        if (!match) return;
+        const fresh = mapCjToProduct(match);
+        if (fresh.price > 0 && fresh.price !== product.price) {
+          await supabase.from("products")
+            .update({ price: fresh.price, img: fresh.img || product.img, updated_at: new Date().toISOString() })
+            .eq("id", product.id);
+          setProduct(prev => prev ? { ...prev, price: fresh.price } : prev);
+        } else {
+          // Just update the timestamp even if price unchanged
+          await supabase.from("products").update({ updated_at: new Date().toISOString() }).eq("id", product.id);
+        }
+      } catch { /* silent — don't block the user */ }
+    };
+    refreshCjData();
+  }, [product?.id]);
 
   const handleAddToCart = () => {
     const isShoes   = product?.type === "Shoes";
