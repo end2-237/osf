@@ -870,11 +870,14 @@ const ProductDetail = ({ addToCart, openModal }) => {
       }
     })();
 
-    // For CJ platform products (vendor_id = null): refresh price/availability if data > 6h old
+    // For CJ platform products (vendor_id = null):
+    // Always refresh if product has ≤1 image; otherwise wait 6h
     if (product.vendor_id !== null) return;
-    const updatedAt = product.updated_at ? new Date(product.updated_at) : new Date(0);
-    const staleMs   = 6 * 60 * 60 * 1000; // 6 hours
-    if (Date.now() - updatedAt.getTime() < staleMs) return;
+    const hasMultipleImages = product.images?.length > 1;
+    if (hasMultipleImages) {
+      const updatedAt = product.updated_at ? new Date(product.updated_at) : new Date(0);
+      if (Date.now() - updatedAt.getTime() < 6 * 60 * 60 * 1000) return;
+    }
 
     // Background refresh: search by name, then fetch full detail for images/videos
     const refreshCjData = async () => {
@@ -889,10 +892,12 @@ const ProductDetail = ({ addToCart, openModal }) => {
         if (!match) return;
 
         // Fetch full detail (has productImageSet + productVideo)
+        // CJ returns product ID as pid or productId depending on endpoint
+        const cjPid = match.pid || match.productId || match.cjProductId;
         let fullData = match;
-        if (match.pid) {
+        if (cjPid) {
           try {
-            const detail = await cjGetProductDetail(match.pid);
+            const detail = await cjGetProductDetail(cjPid);
             if (detail) fullData = detail;
           } catch { /* fallback to list data */ }
         }
@@ -901,7 +906,6 @@ const ProductDetail = ({ addToCart, openModal }) => {
         const updates = { updated_at: new Date().toISOString() };
         if (fresh.price > 0 && fresh.price !== product.price) updates.price = fresh.price;
         if (fresh.img) updates.img = fresh.img;
-        // Update images if CJ returned more (covers existing single-image products)
         if (fresh.images?.length > (product.images?.length || 0)) updates.images = fresh.images;
 
         await supabase.from("products").update(updates).eq("id", product.id);

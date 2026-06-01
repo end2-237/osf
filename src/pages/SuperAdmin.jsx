@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../context/AuthContext";
@@ -483,6 +483,133 @@ const AllProductsTab = ({ loading }) => {
   );
 };
 
+// ─── REPAIR IMAGES PANEL ─────────────────────────────────────────────────────
+const RepairImagesPanel = () => {
+  const [state, setState] = useState({ running: false, total: 0, done: 0, updated: 0, log: [] });
+  const stopRef = useRef(false);
+
+  const addLog = (msg) => setState(s => ({ ...s, log: [msg, ...s.log.slice(0, 49)] }));
+
+  const run = async () => {
+    stopRef.current = false;
+    setState({ running: true, total: 0, done: 0, updated: 0, log: [] });
+
+    // Fetch all CJ products with ≤1 image
+    const { data: products } = await supabase
+      .from("products")
+      .select("id, name, images")
+      .is("vendor_id", null);
+
+    const toFix = (products || []).filter(p => !p.images || p.images.length <= 1);
+    setState(s => ({ ...s, total: toFix.length }));
+    addLog(`${toFix.length} produits avec 1 seule image trouvés`);
+
+    const { cjListProducts, cjGetProductDetail, mapCjToProduct } = await import("../lib/cjApi");
+
+    let updated = 0;
+    // Process 3 at a time to respect CJ rate limits
+    for (let i = 0; i < toFix.length; i += 3) {
+      if (stopRef.current) { addLog("⛔ Arrêté"); break; }
+      const batch = toFix.slice(i, i + 3);
+
+      await Promise.all(batch.map(async (p) => {
+        try {
+          const result = await cjListProducts(1, 5, p.name, "");
+          const match = result?.list?.find(cj =>
+            (cj.productNameEn || cj.productName || "").toLowerCase() === (p.name || "").toLowerCase()
+          );
+          if (!match) return;
+
+          const cjPid = match.pid || match.productId || match.cjProductId;
+          let fullData = match;
+          if (cjPid) {
+            try { const d = await cjGetProductDetail(cjPid); if (d) fullData = d; } catch {}
+          }
+
+          const fresh = mapCjToProduct(fullData);
+          if (fresh.images?.length > 1) {
+            await supabase.from("products")
+              .update({ images: fresh.images, img: fresh.img, updated_at: new Date().toISOString() })
+              .eq("id", p.id);
+            updated++;
+            addLog(`✓ ${p.name.slice(0, 40)} — ${fresh.images.length} images`);
+          }
+        } catch { /* continue */ }
+      }));
+
+      setState(s => ({ ...s, done: Math.min(i + 3, toFix.length), updated }));
+      // Small delay to avoid rate limits
+      await new Promise(r => setTimeout(r, 500));
+    }
+
+    setState(s => ({ ...s, running: false }));
+    addLog(`✅ Terminé — ${updated} produits mis à jour`);
+  };
+
+  const pct = state.total > 0 ? Math.round((state.done / state.total) * 100) : 0;
+
+  return (
+    <div className="bg-white border border-[#D5D9D9] rounded-xl overflow-hidden">
+      <div className="bg-[#232F3E] px-5 py-3 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <i className="fa-solid fa-images text-[#FF9900] text-sm"></i>
+          <span className="font-black text-sm text-white">Réparer les images CJ</span>
+        </div>
+        <span className="text-[10px] text-[#ADBAC7]">Récupère toutes les images depuis l'API CJ</span>
+      </div>
+      <div className="p-5 space-y-4">
+        <p className="text-[11px] text-[#565959]">
+          Met à jour tous les produits CJ avec 1 seule image en batch de 3 requêtes en parallèle.
+          Laisse l'onglet ouvert jusqu'à la fin.
+        </p>
+
+        <div className="flex gap-3">
+          <button
+            onClick={run}
+            disabled={state.running}
+            className="flex items-center gap-2 bg-[#FFD814] hover:bg-[#F7CA00] disabled:opacity-50 text-[#0F1111] px-5 py-2.5 rounded font-bold text-sm border border-[#FCD200] transition-all"
+          >
+            <i className={`fa-solid ${state.running ? "fa-spinner fa-spin" : "fa-wrench"} text-sm`}></i>
+            {state.running ? `En cours… ${state.done}/${state.total}` : "Lancer la réparation"}
+          </button>
+          {state.running && (
+            <button
+              onClick={() => { stopRef.current = true; }}
+              className="px-4 py-2.5 rounded border border-[#B12704]/40 text-[#B12704] text-sm font-bold hover:bg-[#FEE7E5] transition-all"
+            >
+              Arrêter
+            </button>
+          )}
+        </div>
+
+        {state.total > 0 && (
+          <div className="space-y-2">
+            <div className="flex items-center justify-between text-xs text-[#565959]">
+              <span>{state.done}/{state.total} traités</span>
+              <span className="text-[#007600] font-bold">{state.updated} mis à jour</span>
+              <span>{pct}%</span>
+            </div>
+            <div className="h-2 bg-[#F3F4F4] rounded-full overflow-hidden">
+              <div
+                className="h-full bg-[#FF9900] rounded-full transition-all duration-300"
+                style={{ width: `${pct}%` }}
+              />
+            </div>
+          </div>
+        )}
+
+        {state.log.length > 0 && (
+          <div className="bg-[#131921] rounded p-3 max-h-40 overflow-y-auto space-y-0.5 font-mono">
+            {state.log.map((l, i) => (
+              <p key={i} className="text-[10px] text-[#ADBAC7]">{l}</p>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
 // ─── SUPER ADMIN PAGE ─────────────────────────────────────────────────────────
 const SuperAdmin = () => {
   const { user } = useAuth();
@@ -664,6 +791,7 @@ const SuperAdmin = () => {
                 Les commandes de ces produits remontent directement à l'admin.
               </p>
             </div>
+            <RepairImagesPanel />
             <CJImportTab />
           </div>
         )}
