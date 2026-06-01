@@ -766,29 +766,65 @@ const ProductDetail = ({ addToCart, openModal }) => {
       .filter(c => c && c !== "Default" && c !== "default")
       .forEach(c => colSet.add(c));
 
-    // 2. Extract from `variants` JSON (CJ format: "Color:Black;Size:XL")
-    (Array.isArray(product?.variants) ? product.variants : []).forEach(v => {
-      const raw = v.variantProperty || v.property || v.variantSku || "";
-      raw.split(/[;,]/).forEach(part => {
-        const ci = part.indexOf(":");
-        if (ci === -1) return;
-        const k   = part.slice(0, ci).toLowerCase().replace(/\s/g, "");
-        const val = part.slice(ci + 1).trim();
-        if (!val) return;
-        if (k.includes("col") || k.includes("coul") || k === "colour")
-          colSet.add(val);
-        else if (k.includes("size") || k.includes("taille") || k.includes("pointure")
-               || k.includes("capacity") || k.includes("storage"))
-          sizeSet.add(val);
+    // 2. Stored `sizes` column (populated at import time by cjApi mapCjToProduct)
+    (product?.sizes || []).filter(Boolean).forEach(s => sizeSet.add(s));
+
+    // 3. Re-extract from `variants` JSON with the same improved parser as cjApi.js
+    //    (handles "Color:Khaki S 2PCS", no-colon labels, short variantNameEn)
+    const COLOR_KW = new Set([
+      "black","white","red","blue","green","yellow","orange","purple","pink","gray","grey",
+      "brown","navy","beige","gold","silver","rose","violet","coral","turquoise","cream",
+      "khaki","camel","olive","maroon","burgundy","cyan","teal","lavender","tan","sand",
+      "ivory","charcoal","slate","indigo","mint","lime","multicolor","colorful","multicolour",
+      "nude","apricot","champagne","coffee","wine","army","dark","light","bright","pale",
+      "noir","blanc","rouge","bleu","vert","jaune","gris","marron","doré","argenté",
+    ]);
+    const SIZE_RE = /^(xs|s|m|l|xl|xxl|2xl|3xl|4xl|5xl|xxxl|\d{1,3}(gb|tb|ml|g|kg|cm|mm|in)?|\d{2}x\d{2}|\d{2}-\d{2}|eu\d{2}|us\d{1,2}|\d{2,3})$/i;
+    const JUNK_RE = /^\d+pcs?$/i;
+    const parseWords = (str, cS, sS) => {
+      if (!str) return;
+      const words = str.split(/[\s\-\/,;|()[\]]+/).filter(w => w.length >= 1);
+      if (words.length > 8) return;
+      words.forEach(w => {
+        const lo = w.toLowerCase();
+        if (COLOR_KW.has(lo)) cS.add(w.charAt(0).toUpperCase() + w.slice(1));
+        else if (SIZE_RE.test(lo) && !JUNK_RE.test(lo)) sS.add(w.toUpperCase());
       });
-      // variantNameEn as standalone color (no ":" in property)
+    };
+
+    (Array.isArray(product?.variants) ? product.variants : []).forEach(v => {
+      const raw = (v.variantProperty || v.property || "").trim();
+      if (raw.includes(":")) {
+        raw.split(/[;,]/).forEach(prop => {
+          const ci = prop.indexOf(":");
+          if (ci === -1) return;
+          const k   = prop.slice(0, ci).toLowerCase().replace(/\s/g, "");
+          const val = prop.slice(ci + 1).trim();
+          if (!val) return;
+          if (k.includes("col") || k.includes("coul") || k === "colour") {
+            const cleaned = val.split(/\s+/)
+              .filter(w => !SIZE_RE.test(w.toLowerCase()) && !JUNK_RE.test(w))
+              .join(" ").trim();
+            colSet.add(cleaned || val);
+            val.split(/\s+/).forEach(w => {
+              if (SIZE_RE.test(w.toLowerCase()) && !JUNK_RE.test(w)) sizeSet.add(w.toUpperCase());
+            });
+          } else if (
+            k.includes("size") || k.includes("taille") || k.includes("pointure") ||
+            k.includes("capacity") || k.includes("storage")
+          ) {
+            sizeSet.add(val);
+          }
+        });
+      } else if (raw) {
+        parseWords(raw, colSet, sizeSet);
+      }
       const vName = (v.variantNameEn || v.variantName || "").trim();
-      if (vName && !raw.includes(":") && colSet.size === 0 && getColorHex(vName) !== "#888")
-        colSet.add(vName);
+      parseWords(vName, colSet, sizeSet);
     });
 
     return { realColors: [...colSet], realSizes: [...sizeSet] };
-  }, [product?.colors, product?.variants]);
+  }, [product?.colors, product?.sizes, product?.variants]);
 
   const isApparel = product?.type === "Clothing";
   const isShoes   = product?.type === "Shoes";
