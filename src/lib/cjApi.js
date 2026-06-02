@@ -295,6 +295,38 @@ export const mapCjToProduct = (p) => {
   const weight_g       = parseFloat(p.productWeight  || p.logisticWeight  || 0) || null;
   const ship_weight_g  = parseFloat(p.logisticWeight || p.productWeight   || 0) || null;
 
+  // ── Quantity price tiers ────────────────────────────────────────────────────
+  // CJ may expose these as quantityDiscount [{quantity, discount}]
+  // or priceList [{quantity, price}] or quantityPrices [{minNum, maxNum, price}]
+  const quantity_prices = [];
+  const baseUsd = parseFloat(p.sellPrice ?? p.productPrice ?? 0);
+
+  if (Array.isArray(p.quantityDiscount) && p.quantityDiscount.length > 0) {
+    const sorted = [...p.quantityDiscount].sort((a, b) => (a.quantity || a.qty || 1) - (b.quantity || b.qty || 1));
+    sorted.forEach((tier, i) => {
+      const pct  = parseFloat(tier.discount || tier.discountPercent || 0) / 100;
+      const min  = parseInt(tier.quantity || tier.qty || tier.minQty) || 1;
+      const max  = sorted[i + 1] ? (parseInt(sorted[i + 1].quantity || sorted[i + 1].qty) - 1) : null;
+      const fp   = usdToFcfa(baseUsd * (1 - pct));
+      if (min && fp > 0) quantity_prices.push({ min, max, price_fcfa: fp });
+    });
+  } else if (Array.isArray(p.priceList) && p.priceList.length > 0) {
+    const sorted = [...p.priceList].sort((a, b) => (a.quantity || a.qty || 1) - (b.quantity || b.qty || 1));
+    sorted.forEach((tier, i) => {
+      const min = parseInt(tier.quantity || tier.qty || tier.minNum) || 1;
+      const max = sorted[i + 1] ? (parseInt(sorted[i + 1].quantity || sorted[i + 1].qty) - 1) : null;
+      const fp  = usdToFcfa(parseFloat(tier.price || tier.sellPrice || 0));
+      if (min && fp > 0) quantity_prices.push({ min, max, price_fcfa: fp });
+    });
+  } else if (Array.isArray(p.quantityPrices) && p.quantityPrices.length > 0) {
+    p.quantityPrices.forEach(tier => {
+      const min = parseInt(tier.minNum || tier.minQty || tier.quantity) || 1;
+      const max = tier.maxNum || tier.maxQty ? parseInt(tier.maxNum || tier.maxQty) : null;
+      const fp  = usdToFcfa(parseFloat(tier.price || tier.sellPrice || 0));
+      if (min && fp > 0) quantity_prices.push({ min, max, price_fcfa: fp });
+    });
+  }
+
   // ── Physical dimensions (product) — cm ─────────────────────────────────────
   const length_cm = parseFloat(p.productLength || p.length || 0) || null;
   const width_cm  = parseFloat(p.productWidth  || p.width  || 0) || null;
@@ -332,6 +364,7 @@ export const mapCjToProduct = (p) => {
     pack_w_cm,
     pack_h_cm,
     variants:         variants.length > 0 ? variants : null,
+    quantity_prices:  quantity_prices.length > 0 ? quantity_prices : null,
     cj_category_id:   p.categoryId   || null,
     cj_category_name: p.categoryName || null,
     supplier_id:      p.supplierId   || null,

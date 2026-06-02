@@ -799,6 +799,15 @@ const ProductDetail = ({ addToCart, openModal }) => {
   const memberPrice = Math.round(price * (1 - MEMBER_DISCOUNT));
   const ofsPoints   = Math.max(1, Math.floor(price / 500));
 
+  // Quantity price tiers — derived from CJ import or null
+  const quantityTiers = Array.isArray(product?.quantity_prices) && product.quantity_prices.length > 1
+    ? [...product.quantity_prices].sort((a, b) => a.min - b.min)
+    : [];
+  const activeTierIdx = quantityTiers.length > 0
+    ? quantityTiers.reduce((best, t, i) => qty >= t.min ? i : best, 0)
+    : -1;
+  const activeTierPrice = activeTierIdx >= 0 ? quantityTiers[activeTierIdx].price_fcfa : price;
+
   const getColorHex = (name) => {
     if (!name) return "#888";
     const EXACT = {
@@ -989,7 +998,8 @@ const ProductDetail = ({ addToCart, openModal }) => {
       quantity:          qty,
       deliveryCity:      selectedCity.city,
       deliveryFee:       selectedCity.price,
-      totalWithDelivery: price * qty + selectedCity.price,
+      price:             activeTierPrice,
+      totalWithDelivery: activeTierPrice * qty + selectedCity.price,
     });
     setAddedFeedback(true);
     setTimeout(() => setAddedFeedback(false), 2000);
@@ -1086,14 +1096,51 @@ const ProductDetail = ({ addToCart, openModal }) => {
 
                 {/* ── PRICE ── */}
                 <div className="mb-4">
-                  {/* Main price */}
+                  {/* Main price — updates with active quantity tier */}
                   <div className="flex items-baseline gap-2 mb-2">
                     <span className="text-xs text-[#565959] font-bold">Prix :</span>
                     <span className="text-3xl font-bold text-[#0F1111] leading-none">
-                      {price.toLocaleString()}
+                      {activeTierPrice.toLocaleString()}
                     </span>
                     <span className="text-base text-[#565959]">FCFA</span>
+                    {activeTierIdx > 0 && (
+                      <span className="text-[10px] bg-[#007600]/10 text-[#007600] font-bold px-1.5 py-0.5 rounded border border-[#007600]/20">
+                        tarif ×{quantityTiers[activeTierIdx].min}+
+                      </span>
+                    )}
                   </div>
+
+                  {/* Quantity price tiers table */}
+                  {quantityTiers.length > 0 && (
+                    <div className="mb-3">
+                      <p className="text-[9px] font-black uppercase tracking-widest text-[#565959] mb-1.5">
+                        <i className="fa-solid fa-tags text-[8px] mr-1" />
+                        Tarifs dégressifs
+                      </p>
+                      <div className="flex gap-1.5 flex-wrap">
+                        {quantityTiers.map((tier, i) => (
+                          <button key={i} onClick={() => setQty(tier.min)}
+                            className={`flex flex-col items-center px-3 py-2 rounded border text-center transition-all cursor-pointer ${
+                              activeTierIdx === i
+                                ? "bg-[#131921] border-[#131921] text-white shadow-sm"
+                                : "bg-[#F3F4F4] border-[#D5D9D9] text-[#0F1111] hover:border-[#FF9900]"
+                            }`}>
+                            <span className={`text-[8px] font-black uppercase tracking-wide leading-none mb-0.5 ${activeTierIdx === i ? "text-[#FF9900]" : "text-[#767676]"}`}>
+                              {tier.max ? `${tier.min}–${tier.max} pcs` : `${tier.min}+ pcs`}
+                            </span>
+                            <span className="text-[13px] font-bold leading-none">{tier.price_fcfa.toLocaleString()} F</span>
+                            <span className={`text-[8px] leading-none mt-0.5 ${activeTierIdx === i ? "text-[#767676]" : "text-[#aaa]"}`}>
+                              /unité
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                      <p className="text-[9px] text-[#565959] mt-1.5">
+                        <i className="fa-solid fa-circle-info text-[8px] mr-1" />
+                        Cliquez sur un palier pour ajuster la quantité
+                      </p>
+                    </div>
+                  )}
 
                   {/* Trust row */}
                   <div className="flex items-center gap-3 flex-wrap mb-3">
@@ -1111,41 +1158,21 @@ const ProductDetail = ({ addToCart, openModal }) => {
                     </span>
                   </div>
 
-                  {/* Member advantage */}
-                  {isMember ? (
-                    <div className="flex items-center gap-3 p-3 bg-[#131921] border border-[#232F3E] rounded">
-                      <div className="w-9 h-9 bg-[#FF9900]/15 rounded-full flex items-center justify-center flex-shrink-0">
-                        <i className="fa-solid fa-crown text-[#FF9900] text-sm" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-[8px] font-black uppercase text-[#FF9900] tracking-widest leading-none mb-0.5">Votre prix membre</p>
-                        <p className="text-xl font-bold text-white leading-none">{memberPrice.toLocaleString()} <span className="text-xs text-[#767676] font-normal">FCFA</span></p>
-                      </div>
-                      <div className="text-right flex-shrink-0">
-                        <p className="text-[8px] text-[#767676]">économie</p>
-                        <p className="text-sm font-bold text-[#FF9900]">{(price - memberPrice).toLocaleString()} F</p>
-                      </div>
+                  {/* Gift card CTA */}
+                  <div className="flex items-center gap-3 p-3 bg-gradient-to-r from-[#131921] to-[#1a2738] rounded border border-[#2a3a4e]">
+                    <div className="w-10 h-10 bg-[#FF9900]/15 rounded-full flex items-center justify-center flex-shrink-0">
+                      <i className="fa-solid fa-gift text-[#FF9900] text-base" />
                     </div>
-                  ) : (
-                    <div className="flex items-center gap-3 p-3 bg-amber-50 border border-amber-200 rounded">
-                      <div className="w-9 h-9 bg-[#FF9900]/10 rounded-full flex items-center justify-center flex-shrink-0">
-                        <i className="fa-solid fa-crown text-[#FF9900] text-sm" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-[8px] font-black uppercase text-[#C45500] tracking-widest leading-none mb-0.5">Prix membre OFS</p>
-                        <p className="text-sm text-[#565959]">
-                          Accès exclusif :{" "}
-                          <span className="font-bold text-[#0F1111]">{memberPrice.toLocaleString()} FCFA</span>
-                        </p>
-                      </div>
-                      {!user && (
-                        <Link to="/register"
-                          className="flex-shrink-0 text-[10px] font-bold text-white bg-[#FF9900] hover:bg-[#e68900] px-3 py-1.5 rounded transition-colors whitespace-nowrap">
-                          S'inscrire →
-                        </Link>
-                      )}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[8px] font-black uppercase text-[#FF9900] tracking-widest leading-none mb-0.5">Carte Cadeau</p>
+                      <p className="text-sm text-white font-medium leading-tight">Offrir ce produit à un proche</p>
+                      <p className="text-[9px] text-[#767676] leading-none mt-0.5">Livraison directe · Message personnalisé</p>
                     </div>
-                  )}
+                    <Link to="/gift" state={{ productId: product.id, productName: product.name, price }}
+                      className="flex-shrink-0 text-[10px] font-bold text-[#0F1111] bg-[#FFD814] hover:bg-[#F7CA00] px-3 py-2 rounded transition-colors whitespace-nowrap">
+                      Obtenir →
+                    </Link>
+                  </div>
                 </div>
 
                 <div className="border-t border-[#D5D9D9] mb-4" />
@@ -1276,7 +1303,7 @@ const ProductDetail = ({ addToCart, openModal }) => {
                     </div>
                     <span className="text-xs text-[#FF9900] font-bold">
                       <i className="fa-solid fa-star text-[9px] mr-0.5" />
-                      +{Math.max(1, Math.floor((price * qty) / 500))} pts OFS
+                      +{Math.max(1, Math.floor((activeTierPrice * qty) / 500))} pts OFS
                     </span>
                   </div>
                   <p className="text-[10px] text-[#565959] flex items-center gap-1.5">
@@ -1297,7 +1324,7 @@ const ProductDetail = ({ addToCart, openModal }) => {
                     <i className={`fa-solid ${addedFeedback ? "fa-check" : "fa-bag-shopping"} text-sm`} />
                     {addedFeedback
                       ? "Ajouté au panier !"
-                      : `Ajouter au panier — ${(price * qty + selectedCity.price).toLocaleString()} FCFA`}
+                      : `Ajouter au panier — ${(activeTierPrice * qty + selectedCity.price).toLocaleString()} FCFA`}
                   </button>
 
                   <Link to="/studio" state={{ productId: product.id }}
@@ -1431,7 +1458,7 @@ const ProductDetail = ({ addToCart, openModal }) => {
               </div>
               <div className="px-4 sm:px-6 py-4 sm:py-5">
                 <DeliveryPanel
-                  price={product.price}
+                  price={activeTierPrice}
                   qty={qty}
                   selectedCity={selectedCity}
                   onCityChange={setSelectedCity}
