@@ -247,18 +247,26 @@ export const mapCjToProduct = (p) => {
   const colors = colorsSet.size > 0 ? [...colorsSet] : [];
   const sizes  = [...sizesSet];
 
-  // ── Stock: sum variants or top-level field (-1 = unknown) ──────────────────
+  // ── Stock: sum variants or top-level field ─────────────────────────────────
   let stock_qty = -1;
   if (typeof p.inventoryQuantity === "number") {
     stock_qty = p.inventoryQuantity;
   } else if (typeof p.quantity === "number") {
     stock_qty = p.quantity;
   } else if (variants.length > 0) {
-    const hasStockData = variants.some(v => "variantInventory" in v || "quantity" in v);
+    // CJ detail uses inventoryNum or variantInventory; list API uses quantity
+    const hasStockData = variants.some(v =>
+      (v.inventoryNum != null && v.inventoryNum !== "") ||
+      (v.variantInventory != null) ||
+      (v.quantity != null)
+    );
     if (hasStockData) {
-      stock_qty = variants.reduce((s, v) => s + (parseInt(v.variantInventory ?? v.quantity ?? 0) || 0), 0);
+      stock_qty = variants.reduce((s, v) =>
+        s + (parseInt(v.inventoryNum ?? v.variantInventory ?? v.quantity ?? 0) || 0), 0);
     }
   }
+  // CJ doesn't always expose inventory — a listed product is assumed available
+  if (stock_qty < 0) stock_qty = 999;
 
   // ── Status from stock ───────────────────────────────────────────────────────
   const status =

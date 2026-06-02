@@ -1044,11 +1044,19 @@ const ProductDetail = ({ addToCart, openModal }) => {
                 {/* Stock status */}
                 <div className="mb-4">
                   {product.stock_qty === 0 ? (
-                    <span className="text-[#CC0C39] font-bold text-sm">Rupture de stock</span>
+                    <span className="text-[#CC0C39] font-bold text-sm">
+                      <i className="fa-solid fa-circle-xmark mr-1 text-xs" />
+                      Rupture de stock
+                    </span>
                   ) : product.stock_qty > 0 && product.stock_qty <= 10 ? (
                     <span className="text-[#CC0C39] font-bold text-sm">
                       <i className="fa-solid fa-triangle-exclamation mr-1 text-xs" />
                       Plus que {product.stock_qty} en stock — commandez vite !
+                    </span>
+                  ) : product.stock_qty < 0 ? (
+                    <span className="text-[#007600] font-bold text-sm flex items-center gap-1.5">
+                      <i className="fa-solid fa-circle-check text-xs" />
+                      Disponible sur commande
                     </span>
                   ) : (
                     <span className="text-[#007600] font-bold text-sm flex items-center gap-1.5">
