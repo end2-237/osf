@@ -689,7 +689,7 @@ const ProductDetail = ({ addToCart, openModal }) => {
   const [addedFeedback, setAddedFeedback] = useState(false);
   const [shareToast,    setShareToast]    = useState(false);
 
-  const { user }  = useAuth();
+  const { user, isMember } = useAuth();
   const { isInWishlist, toggle: toggleWishlist } = useWishlist();
   const wishlist  = isInWishlist(product?.id);
 
@@ -795,11 +795,9 @@ const ProductDetail = ({ addToCart, openModal }) => {
     refreshCjData();
   }, [product?.id]);
 
-  const price      = Number(product?.price) || 0;
-  const listPrice  = Math.round(price * 1.15);
-  const savings    = listPrice - price;
+  const price       = Number(product?.price) || 0;
   const memberPrice = Math.round(price * (1 - MEMBER_DISCOUNT));
-  const ofsPoints  = Math.max(1, Math.floor(price / 500));
+  const ofsPoints   = Math.max(1, Math.floor(price / 500));
 
   const getColorHex = (name) => {
     if (!name) return "#888";
@@ -1088,36 +1086,66 @@ const ProductDetail = ({ addToCart, openModal }) => {
 
                 {/* ── PRICE ── */}
                 <div className="mb-4">
-                  <div className="flex items-baseline gap-2 mb-1">
+                  {/* Main price */}
+                  <div className="flex items-baseline gap-2 mb-2">
                     <span className="text-xs text-[#565959] font-bold">Prix :</span>
-                    <span className="text-3xl font-medium text-[#B12704] leading-none">
+                    <span className="text-3xl font-bold text-[#0F1111] leading-none">
                       {price.toLocaleString()}
                     </span>
                     <span className="text-base text-[#565959]">FCFA</span>
-                    <span className="text-xs bg-[#CC0C39] text-white font-bold px-1.5 py-0.5 rounded-sm ml-1">−15%</span>
                   </div>
-                  <p className="text-sm text-[#565959] mb-0.5">
-                    Prix conseillé : <span className="line-through">{listPrice.toLocaleString()} FCFA</span>
-                    {"  "}
-                    <span className="text-[#007600] font-medium">
-                      Vous économisez {savings.toLocaleString()} FCFA
-                    </span>
-                  </p>
 
-                  {/* Member price box */}
-                  <div className="flex items-center gap-2 mt-3 p-3 bg-amber-50 border border-amber-200 rounded">
-                    <i className="fa-solid fa-crown text-[#FF9900]" />
-                    <span className="text-sm text-[#565959]">
-                      Prix membre :{" "}
-                      <span className="font-bold text-[#007600]">{memberPrice.toLocaleString()} FCFA</span>
-                      {" "}<span className="text-[#CC0C39] font-bold">(−20%)</span>
+                  {/* Trust row */}
+                  <div className="flex items-center gap-3 flex-wrap mb-3">
+                    <span className="flex items-center gap-1 text-[10px] text-[#565959]">
+                      <i className="fa-solid fa-shield-check text-[#007600] text-[9px]" />
+                      Prix transparent
                     </span>
-                    {!user && (
-                      <Link to="/register" className="ml-auto text-xs text-[#007185] hover:text-[#C45500] hover:underline font-bold whitespace-nowrap">
-                        S'inscrire →
-                      </Link>
-                    )}
+                    <span className="flex items-center gap-1 text-[10px] text-[#565959]">
+                      <i className="fa-solid fa-medal text-[#FF9900] text-[9px]" />
+                      Qualité vérifiée OFS
+                    </span>
+                    <span className="flex items-center gap-1 text-[10px] text-[#FF9900] font-bold">
+                      <i className="fa-solid fa-star text-[9px]" />
+                      +{ofsPoints} pts
+                    </span>
                   </div>
+
+                  {/* Member advantage */}
+                  {isMember ? (
+                    <div className="flex items-center gap-3 p-3 bg-[#131921] border border-[#232F3E] rounded">
+                      <div className="w-9 h-9 bg-[#FF9900]/15 rounded-full flex items-center justify-center flex-shrink-0">
+                        <i className="fa-solid fa-crown text-[#FF9900] text-sm" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[8px] font-black uppercase text-[#FF9900] tracking-widest leading-none mb-0.5">Votre prix membre</p>
+                        <p className="text-xl font-bold text-white leading-none">{memberPrice.toLocaleString()} <span className="text-xs text-[#767676] font-normal">FCFA</span></p>
+                      </div>
+                      <div className="text-right flex-shrink-0">
+                        <p className="text-[8px] text-[#767676]">économie</p>
+                        <p className="text-sm font-bold text-[#FF9900]">{(price - memberPrice).toLocaleString()} F</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-3 p-3 bg-amber-50 border border-amber-200 rounded">
+                      <div className="w-9 h-9 bg-[#FF9900]/10 rounded-full flex items-center justify-center flex-shrink-0">
+                        <i className="fa-solid fa-crown text-[#FF9900] text-sm" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[8px] font-black uppercase text-[#C45500] tracking-widest leading-none mb-0.5">Prix membre OFS</p>
+                        <p className="text-sm text-[#565959]">
+                          Accès exclusif :{" "}
+                          <span className="font-bold text-[#0F1111]">{memberPrice.toLocaleString()} FCFA</span>
+                        </p>
+                      </div>
+                      {!user && (
+                        <Link to="/register"
+                          className="flex-shrink-0 text-[10px] font-bold text-white bg-[#FF9900] hover:bg-[#e68900] px-3 py-1.5 rounded transition-colors whitespace-nowrap">
+                          S'inscrire →
+                        </Link>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 <div className="border-t border-[#D5D9D9] mb-4" />
