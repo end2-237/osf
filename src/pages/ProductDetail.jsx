@@ -302,16 +302,112 @@ const VideoAdPanel = () => {
 };
 
 // ─── DELIVERY PANEL ───────────────────────────────────────────────────────────
-const DeliveryPanel = ({ price: productPrice, qty, selectedCity, onCityChange }) => {
+const parseDeliveryDays = (delayStr) => {
+  const s = (delayStr || "").toLowerCase();
+  const rangeD = s.match(/(\d+)\s*[–\-]\s*(\d+)\s*jour/);
+  if (rangeD) return { min: parseInt(rangeD[1]), max: parseInt(rangeD[2]) };
+  const singleD = s.match(/(\d+)\s*jour/);
+  if (singleD) { const d = parseInt(singleD[1]); return { min: d, max: d }; }
+  const rangeH = s.match(/(\d+)\s*h\s*[–\-]\s*(\d+)\s*h/);
+  if (rangeH) { const h = parseInt(rangeH[2]); return { min: 0, max: h >= 24 ? 1 : 0 }; }
+  const singleH = s.match(/(\d+)\s*h/);
+  if (singleH) { const h = parseInt(singleH[1]); return { min: 0, max: h >= 24 ? 1 : 0 }; }
+  return { min: 0, max: 0 };
+};
+
+const formatEstimatedDate = (delayStr) => {
+  const { min, max } = parseDeliveryDays(delayStr);
+  const DAYS  = ["Dim","Lun","Mar","Mer","Jeu","Ven","Sam"];
+  const MONTH = ["jan","fév","mar","avr","mai","juin","juil","août","sep","oct","nov","déc"];
+  const fmt   = (d) => {
+    const dt = new Date(); dt.setDate(dt.getDate() + d);
+    return `${DAYS[dt.getDay()]} ${dt.getDate()} ${MONTH[dt.getMonth()]}`;
+  };
+  if (max === 0) return "Aujourd'hui";
+  if (min === max) return fmt(max);
+  if (min === 0) return `Aujourd'hui – ${fmt(max)}`;
+  return `${fmt(min)} – ${fmt(max)}`;
+};
+
+const DeliveryPanel = ({ price: productPrice, qty, selectedCity, onCityChange, weight }) => {
   const [open, setOpen] = useState(false);
-  const deliveryFee = selectedCity.price;
-  const totalOrder  = Number(productPrice) * qty + deliveryFee;
+  const deliveryFee  = selectedCity.price;
+  const totalOrder   = Number(productPrice) * qty + deliveryFee;
+  const estimatedDate = formatEstimatedDate(selectedCity.delay);
+
+  // Weight-based shipping hint (CJ products are shipped from China)
+  const weightNote = weight > 0
+    ? weight < 500  ? "Colis léger · expédié sous 24h"
+    : weight < 2000 ? "Colis standard · expédié sous 48h"
+    : "Colis lourd · expédié sous 72h"
+    : null;
 
   return (
     <div className="space-y-4">
-      {/* City selector */}
+
+      {/* ── Supply chain ───────────────────────────────────── */}
+      <div className="bg-[#F8F9FA] rounded border border-[#E8EAED] p-3">
+        <p className="text-[9px] font-black uppercase tracking-widest text-[#767676] mb-3">
+          Parcours de votre commande
+        </p>
+        <div className="flex items-center gap-0 overflow-x-auto pb-1" style={{ scrollbarWidth: "none" }}>
+          {[
+            { flag: "🇨🇳", label: "Fournisseur",   sub: "Guangzhou",       active: false },
+            { arrow: true,  label: "✈ Transit",      sub: "3 – 7 jours",    flight: true  },
+            { flag: "🏭",   label: "OFS Entrepôt",   sub: "Bonamoussadi",   active: false },
+            { arrow: true,  label: selectedCity.delay, sub: "",              flight: false },
+            { flag: "🇨🇲",  label: selectedCity.city, sub: "Livraison",     active: true  },
+          ].map((step, i) => step.arrow ? (
+            <div key={i} className="flex flex-col items-center flex-shrink-0 mx-1 gap-0.5">
+              <div className="flex items-center gap-0.5">
+                <div className="w-4 h-[2px] bg-gradient-to-r from-[#D5D9D9] to-[#FF9900]" />
+                <i className={`fa-solid ${step.flight ? "fa-plane" : "fa-truck-fast"} text-[8px] text-[#FF9900]`} />
+                <div className="w-4 h-[2px] bg-gradient-to-r from-[#FF9900] to-[#D5D9D9]" />
+              </div>
+              <span className="text-[8px] text-[#767676] whitespace-nowrap">{step.label}</span>
+            </div>
+          ) : (
+            <div key={i} className="flex flex-col items-center flex-shrink-0 w-[64px]">
+              <div className={`w-9 h-9 rounded-full flex items-center justify-center text-base border-2 mb-1 ${
+                step.active ? "border-[#FF9900] bg-[#FF9900]/10 shadow-sm" : "border-[#D5D9D9] bg-white"
+              }`}>
+                <span>{step.flag}</span>
+              </div>
+              <p className={`text-[8px] font-bold text-center leading-tight truncate w-full px-0.5 ${step.active ? "text-[#0F1111]" : "text-[#565959]"}`}>
+                {step.label}
+              </p>
+              <p className="text-[7.5px] text-[#767676] text-center leading-tight">{step.sub}</p>
+            </div>
+          ))}
+        </div>
+        {weightNote && (
+          <p className="text-[9px] text-[#565959] mt-2 flex items-center gap-1">
+            <i className="fa-solid fa-weight-hanging text-[8px] text-[#767676]" />
+            {weightNote}
+          </p>
+        )}
+      </div>
+
+      {/* ── Estimated date highlight ───────────────────────── */}
+      <div className="flex items-center gap-3 bg-[#F0FFF4] border border-[#007600]/20 rounded p-3">
+        <div className="w-10 h-10 bg-[#007600]/10 rounded-full flex items-center justify-center flex-shrink-0">
+          <i className="fa-solid fa-calendar-check text-[#007600] text-base" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-[9px] font-black uppercase tracking-widest text-[#007600]">Livraison estimée</p>
+          <p className="text-sm font-bold text-[#0F1111] truncate">{estimatedDate}</p>
+        </div>
+        <div className="text-right flex-shrink-0">
+          <p className="text-[9px] text-[#767676]">délai</p>
+          <p className="text-xs font-bold text-[#0F1111]">{selectedCity.delay}</p>
+        </div>
+      </div>
+
+      {/* ── City selector ──────────────────────────────────── */}
       <div>
-        <p className="text-xs font-bold uppercase tracking-widest text-[#565959] mb-2">Choisir ta ville</p>
+        <p className="text-[10px] font-black uppercase tracking-widest text-[#565959] mb-2">
+          Ville de livraison
+        </p>
         <div className="relative">
           <button onClick={() => setOpen(!open)}
             className="w-full flex items-center justify-between bg-white border border-[#D5D9D9] hover:border-[#FF9900] rounded px-4 py-3 transition-all">
@@ -324,7 +420,9 @@ const DeliveryPanel = ({ price: productPrice, qty, selectedCity, onCityChange })
             </div>
             <div className="flex items-center gap-3">
               <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded border ${
-                selectedCity.price === 0 ? "bg-[#FF9900]/10 text-[#FF9900] border-[#FF9900]/20" : "bg-[#F3F4F4] text-[#565959] border-[#D5D9D9]"
+                selectedCity.price === 0
+                  ? "bg-[#FF9900]/10 text-[#FF9900] border-[#FF9900]/20"
+                  : "bg-[#F3F4F4] text-[#565959] border-[#D5D9D9]"
               }`}>
                 {selectedCity.price === 0 ? selectedCity.badge : `+${selectedCity.price.toLocaleString()} F`}
               </span>
@@ -332,7 +430,7 @@ const DeliveryPanel = ({ price: productPrice, qty, selectedCity, onCityChange })
             </div>
           </button>
           {open && (
-            <div className="absolute top-full left-0 right-0 z-50 mt-1 bg-white border border-[#D5D9D9] rounded shadow-xl overflow-y-auto max-h-60">
+            <div className="absolute top-full left-0 right-0 z-50 mt-1 bg-white border border-[#D5D9D9] rounded shadow-xl overflow-y-auto max-h-64">
               {DELIVERY_ZONES.map(zone => (
                 <button key={zone.city} onClick={() => { onCityChange(zone); setOpen(false); }}
                   className={`w-full flex items-center justify-between px-4 py-3 hover:bg-[#F3F4F4] border-b border-[#F3F4F4] last:border-0 transition-colors ${selectedCity.city === zone.city ? "bg-[#FFF8F0]" : ""}`}>
@@ -340,11 +438,13 @@ const DeliveryPanel = ({ price: productPrice, qty, selectedCity, onCityChange })
                     <i className={`fa-solid ${zone.icon} ${zone.color} text-xs`} />
                     <div className="text-left">
                       <p className="font-bold text-[12px] text-[#0F1111]">{zone.city}</p>
-                      <p className="text-[10px] text-[#565959]">{zone.delay} · {zone.note}</p>
+                      <p className="text-[10px] text-[#565959]">{zone.delay} · {formatEstimatedDate(zone.delay)}</p>
                     </div>
                   </div>
-                  <span className={`text-[9px] font-bold uppercase px-2 py-0.5 rounded ${zone.price === 0 ? "bg-[#FF9900]/10 text-[#FF9900]" : "bg-[#F3F4F4] text-[#565959]"}`}>
-                    {zone.price === 0 ? zone.badge : `${zone.price.toLocaleString()} FCFA`}
+                  <span className={`text-[9px] font-bold uppercase px-2 py-0.5 rounded ${
+                    zone.price === 0 ? "bg-[#FF9900]/10 text-[#FF9900]" : "bg-[#F3F4F4] text-[#565959]"
+                  }`}>
+                    {zone.price === 0 ? zone.badge : `${zone.price.toLocaleString()} F`}
                   </span>
                 </button>
               ))}
@@ -353,53 +453,42 @@ const DeliveryPanel = ({ price: productPrice, qty, selectedCity, onCityChange })
         </div>
       </div>
 
-      {/* Grid info */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        {[
-          { label: "Délai", value: selectedCity.delay, icon: "fa-clock" },
-          { label: "Livraison", value: deliveryFee === 0 ? "Gratuite 🎁" : `${deliveryFee.toLocaleString()} FCFA`, icon: "fa-truck-fast", green: deliveryFee === 0 },
-          { label: "Retours", value: "7 jours", icon: "fa-rotate-left" },
-          { label: "Paiement", value: "À la livraison", icon: "fa-money-bill-wave" },
-        ].map(item => (
-          <div key={item.label} className="bg-[#F3F4F4] border border-[#D5D9D9] rounded p-3 text-center">
-            <i className={`fa-solid ${item.icon} text-[#FF9900] text-xs mb-1.5 block`} />
-            <p className="text-[9px] font-black uppercase text-[#565959] mb-0.5">{item.label}</p>
-            <p className={`text-xs font-bold ${item.green ? "text-[#007600]" : "text-[#0F1111]"}`}>{item.value}</p>
-          </div>
-        ))}
-      </div>
-
-      {/* Order summary */}
+      {/* ── Order summary ──────────────────────────────────── */}
       <div className="border border-[#D5D9D9] rounded overflow-hidden">
-        <div className="bg-[#F3F4F4] px-4 py-2 border-b border-[#D5D9D9]">
-          <p className="text-[9px] font-black uppercase tracking-widest text-[#565959]">Récapitulatif de commande</p>
+        <div className="bg-[#131921] px-4 py-2">
+          <p className="text-[9px] font-black uppercase tracking-widest text-[#FF9900]">Récapitulatif</p>
         </div>
-        <div className="px-4 py-3 space-y-2">
+        <div className="px-4 py-3 space-y-2 bg-white">
           <div className="flex justify-between text-sm">
-            <span className="text-[#565959]">Sous-total ({qty}×)</span>
+            <span className="text-[#565959]">
+              {qty > 1 ? `${qty} articles` : "Article"}
+            </span>
             <span className="font-bold">{(Number(productPrice) * qty).toLocaleString()} FCFA</span>
           </div>
           <div className="flex justify-between text-sm">
             <span className="text-[#565959]">Livraison → {selectedCity.city}</span>
             <span className={`font-bold ${deliveryFee === 0 ? "text-[#007600]" : ""}`}>
-              {deliveryFee === 0 ? "Gratuite" : `+${deliveryFee.toLocaleString()} FCFA`}
+              {deliveryFee === 0 ? "Gratuite 🎁" : `+${deliveryFee.toLocaleString()} FCFA`}
             </span>
           </div>
           <div className="flex justify-between pt-2 border-t border-[#D5D9D9]">
             <span className="font-bold text-sm">Total estimé</span>
-            <span className="font-bold text-xl text-[#B12704]">
-              {totalOrder.toLocaleString()} <span className="text-sm text-[#565959] font-normal">FCFA</span>
-            </span>
+            <div className="text-right">
+              <span className="font-bold text-xl text-[#B12704]">
+                {totalOrder.toLocaleString()}
+              </span>
+              <span className="text-xs text-[#565959] font-normal ml-1">FCFA</span>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Payment chips */}
+      {/* ── Payment chips ──────────────────────────────────── */}
       <div className="flex gap-2 flex-wrap">
         {[
           { icon: "fa-mobile-screen-button", label: "Orange Money", color: "text-orange-500", bg: "bg-orange-50 border-orange-200" },
           { icon: "fa-mobile-screen-button", label: "MTN MoMo",     color: "text-yellow-600", bg: "bg-yellow-50 border-yellow-200" },
-          { icon: "fa-money-bill-wave",       label: "Cash",         color: "text-emerald-600", bg: "bg-emerald-50 border-emerald-200" },
+          { icon: "fa-money-bill-wave",       label: "Cash/Livraison", color: "text-emerald-600", bg: "bg-emerald-50 border-emerald-200" },
         ].map(p => (
           <div key={p.label} className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded border text-[9px] font-bold uppercase ${p.bg}`}>
             <i className={`fa-solid ${p.icon} ${p.color} text-xs`} />
@@ -408,16 +497,28 @@ const DeliveryPanel = ({ price: productPrice, qty, selectedCity, onCityChange })
         ))}
       </div>
 
-      {/* Diaspora note */}
-      <div className="flex items-start gap-3 bg-[#FFF8D3] border border-[#FCD200]/40 rounded p-3">
-        <i className="fa-solid fa-plane text-[#FF9900] text-sm mt-0.5 flex-shrink-0" />
-        <div>
-          <p className="text-[9px] font-black uppercase text-[#C45500] tracking-widest">Commande depuis l'étranger ?</p>
-          <p className="text-[11px] text-[#565959] mt-0.5 leading-relaxed">
-            Envoyez un cadeau à vos proches au Cameroun. Livraison directe à Douala et partout au pays.
-          </p>
+      {/* ── Diaspora / retour ──────────────────────────────── */}
+      <div className="grid grid-cols-2 gap-2">
+        <div className="flex items-start gap-2 bg-[#FFF8D3] border border-[#FCD200]/40 rounded p-2.5">
+          <i className="fa-solid fa-plane text-[#FF9900] text-sm mt-0.5 flex-shrink-0" />
+          <div>
+            <p className="text-[8px] font-black uppercase text-[#C45500] tracking-widest leading-none mb-0.5">Diaspora</p>
+            <p className="text-[10px] text-[#565959] leading-tight">
+              Livrez un cadeau à vos proches au Cameroun.
+            </p>
+          </div>
+        </div>
+        <div className="flex items-start gap-2 bg-[#F0F7FF] border border-[#007185]/20 rounded p-2.5">
+          <i className="fa-solid fa-rotate-left text-[#007185] text-sm mt-0.5 flex-shrink-0" />
+          <div>
+            <p className="text-[8px] font-black uppercase text-[#007185] tracking-widest leading-none mb-0.5">Retours</p>
+            <p className="text-[10px] text-[#565959] leading-tight">
+              7 jours — Remboursement intégral garanti.
+            </p>
+          </div>
         </div>
       </div>
+
     </div>
   );
 };
@@ -1021,24 +1122,34 @@ const ProductDetail = ({ addToCart, openModal }) => {
 
                 <div className="border-t border-[#D5D9D9] mb-4" />
 
-                {/* ── QUICK DELIVERY INFO ── */}
-                <div className="space-y-1.5 mb-4">
-                  <div className="flex items-start gap-2 text-sm">
-                    <i className="fa-solid fa-truck-fast text-[#007185] w-4 mt-0.5 flex-shrink-0" />
-                    <span>
-                      <span className="font-bold text-[#007600]">Livraison GRATUITE</span>
-                      {" "}à Bonamoussadi ·{" "}
-                      <span className="text-[#565959]">30 min – 1h</span>
+                {/* ── SUPPLY CHAIN STRIP ── */}
+                <div className="mb-4">
+                  <div className="flex items-center gap-1.5 text-[10px] overflow-x-auto pb-0.5 flex-wrap" style={{ scrollbarWidth: "none" }}>
+                    <span className="flex items-center gap-1 flex-shrink-0">
+                      <span>🇨🇳</span>
+                      <span className="font-bold text-[#0F1111]">Chine</span>
+                    </span>
+                    <i className="fa-solid fa-plane text-[#767676] text-[8px] flex-shrink-0" />
+                    <span className="text-[#767676] flex-shrink-0">Transit 3–7j</span>
+                    <i className="fa-solid fa-arrow-right text-[#D5D9D9] text-[8px] flex-shrink-0" />
+                    <span className="flex items-center gap-1 flex-shrink-0">
+                      <span>🏭</span>
+                      <span className="font-bold text-[#0F1111]">OFS Douala</span>
+                    </span>
+                    <i className="fa-solid fa-arrow-right text-[#FF9900] text-[8px] flex-shrink-0" />
+                    <span className="flex items-center gap-1 flex-shrink-0 text-[#007600] font-bold">
+                      <span>🇨🇲</span>
+                      <span>{selectedCity.city}</span>
+                      <span className="text-[#565959] font-normal">· {selectedCity.delay}</span>
                     </span>
                   </div>
-                  <div className="flex items-center gap-2 text-sm text-[#565959]">
-                    <i className="fa-solid fa-warehouse w-4 text-xs flex-shrink-0" />
-                    <span>Expédié depuis <b className="text-[#0F1111]">Bonamoussadi, Douala 🇨🇲</b></span>
-                  </div>
-                  <div className="flex items-center gap-2 text-sm text-[#565959]">
-                    <i className="fa-solid fa-rotate-left w-4 text-xs flex-shrink-0" />
-                    <span>Retour sous <b className="text-[#0F1111]">7 jours</b> — Remboursement garanti</span>
-                  </div>
+                  <p className="text-[10px] text-[#565959] mt-1.5 flex items-center gap-1">
+                    <i className="fa-solid fa-calendar-check text-[#007600] text-[9px]" />
+                    <span>Estimé : <b className="text-[#0F1111]">{formatEstimatedDate(selectedCity.delay)}</b></span>
+                    <span className="mx-1 text-[#D5D9D9]">·</span>
+                    <i className="fa-solid fa-rotate-left text-[9px]" />
+                    <span>Retour 7j</span>
+                  </p>
                 </div>
 
                 {/* Stock status */}
@@ -1125,20 +1236,26 @@ const ProductDetail = ({ addToCart, openModal }) => {
                 )}
 
                 {/* ── QUANTITY ── */}
-                <div className="flex items-center gap-3 mb-5">
-                  <span className="text-sm font-bold">Quantité :</span>
-                  <div className="flex items-center border border-[#D5D9D9] rounded overflow-hidden bg-white">
-                    <button onClick={() => setQty(Math.max(1, qty - 1))}
-                      className="w-9 h-9 text-[#565959] hover:bg-[#F3F4F4] font-bold text-lg flex items-center justify-center transition">−</button>
-                    <span className="w-10 text-center font-bold text-sm border-x border-[#D5D9D9] h-9 flex items-center justify-center">{qty}</span>
-                    <button onClick={() => setQty(qty + 1)}
-                      className="w-9 h-9 text-[#565959] hover:bg-[#F3F4F4] font-bold text-lg flex items-center justify-center transition">+</button>
-                  </div>
-                  {qty >= 2 && (
-                    <span className="text-xs font-bold text-[#007600] bg-[#E8F5E8] px-2 py-1 rounded border border-[#007600]/20">
-                      Bundle −{user ? 5 : 2}% ✓
+                <div className="mb-4">
+                  <div className="flex items-center gap-3 mb-2">
+                    <span className="text-sm font-bold">Quantité :</span>
+                    <div className="flex items-center border border-[#D5D9D9] rounded overflow-hidden bg-white">
+                      <button onClick={() => setQty(Math.max(1, qty - 1))}
+                        className="w-9 h-9 text-[#565959] hover:bg-[#F3F4F4] font-bold text-lg flex items-center justify-center transition">−</button>
+                      <span className="w-10 text-center font-bold text-sm border-x border-[#D5D9D9] h-9 flex items-center justify-center">{qty}</span>
+                      <button onClick={() => setQty(qty + 1)}
+                        className="w-9 h-9 text-[#565959] hover:bg-[#F3F4F4] font-bold text-lg flex items-center justify-center transition">+</button>
+                    </div>
+                    <span className="text-xs text-[#FF9900] font-bold">
+                      <i className="fa-solid fa-star text-[9px] mr-0.5" />
+                      +{Math.max(1, Math.floor((price * qty) / 500))} pts OFS
                     </span>
-                  )}
+                  </div>
+                  <p className="text-[10px] text-[#565959] flex items-center gap-1.5">
+                    <i className="fa-solid fa-calendar-check text-[#007600] text-[9px]" />
+                    Livraison estimée : <b className="text-[#0F1111]">{formatEstimatedDate(selectedCity.delay)}</b>
+                    {" "}→ {selectedCity.city}
+                  </p>
                 </div>
 
                 {/* ── CTA ── */}
@@ -1285,7 +1402,13 @@ const ProductDetail = ({ addToCart, openModal }) => {
                 </span>
               </div>
               <div className="px-4 sm:px-6 py-4 sm:py-5">
-                <DeliveryPanel price={product.price} qty={qty} selectedCity={selectedCity} onCityChange={setSelectedCity} />
+                <DeliveryPanel
+                  price={product.price}
+                  qty={qty}
+                  selectedCity={selectedCity}
+                  onCityChange={setSelectedCity}
+                  weight={product.weight_g || product.ship_weight_g}
+                />
               </div>
             </div>
 
