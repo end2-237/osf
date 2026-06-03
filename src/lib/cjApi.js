@@ -104,6 +104,17 @@ export const usdToFcfa = (usd) => {
 export const isVideoUrl = (url = "") =>
   /\.(mp4|webm|ogg|mov)(\?.*)?$/i.test(url);
 
+// Parse price strings — handles CJ list ranges like "0.05 -- 0.20" (returns higher end)
+const parsePrice = (raw) => {
+  if (raw == null) return 0;
+  const s = String(raw).trim();
+  if (s.includes("--") || / - \d/.test(s)) {
+    const parts = s.split(/\s*-{1,2}\s*/).filter(Boolean);
+    return Math.max(...parts.map(p => parseFloat(p) || 0));
+  }
+  return parseFloat(s) || 0;
+};
+
 // Sanitize CJ description HTML and extract embedded image URLs
 const parseHtmlDescription = (html = "") => {
   if (!html) return { safeHtml: "", extraImages: [] };
@@ -137,7 +148,7 @@ const parseHtmlDescription = (html = "") => {
 // ─── CJ product → Supabase product schema ────────────────────────────────────
 export const mapCjToProduct = (p) => {
   // ── Images ─────────────────────────────────────────────────────────────────
-  const mainImg = p.productImage || "";
+  const mainImg = p.productImage || p.bigImage || "";
   let images = [];
   if (p.productImageSet) {
     if (Array.isArray(p.productImageSet)) {
@@ -151,7 +162,7 @@ export const mapCjToProduct = (p) => {
   if (videoUrl && !images.includes(videoUrl)) images = [...images, videoUrl];
 
   // ── CJ product ID (try all known field names) ───────────────────────────────
-  const cj_product_id = p.pid || p.productId || p.cjProductId || null;
+  const cj_product_id = p.pid || p.productId || p.cjProductId || p.id || null;
 
   // ── Variant color/size extraction helpers ──────────────────────────────────
   // Known color keywords (CJ returns English names)
@@ -249,10 +260,14 @@ export const mapCjToProduct = (p) => {
 
   // ── Stock: sum variants or top-level field ─────────────────────────────────
   let stock_qty = -1;
-  if (typeof p.inventoryQuantity === "number") {
+  if (typeof p.totalVerifiedInventory === "number" && p.totalVerifiedInventory >= 0) {
+    stock_qty = p.totalVerifiedInventory;       // CJ list: verified stock
+  } else if (typeof p.inventoryQuantity === "number") {
     stock_qty = p.inventoryQuantity;
   } else if (typeof p.quantity === "number") {
     stock_qty = p.quantity;
+  } else if (typeof p.warehouseInventoryNum === "number" && p.warehouseInventoryNum >= 0) {
+    stock_qty = Math.min(p.warehouseInventoryNum, 9999); // cap extreme warehouse totals
   } else if (variants.length > 0) {
     // CJ detail uses inventoryNum or variantInventory; list API uses quantity
     const hasStockData = variants.some(v =>
@@ -289,7 +304,7 @@ export const mapCjToProduct = (p) => {
   });
 
   // ── Price USD (keep original for audit/recalculation) ──────────────────────
-  const price_usd = parseFloat(p.sellPrice ?? p.productPrice ?? 0) || null;
+  const price_usd = parsePrice(p.nowPrice ?? p.sellPrice ?? p.productPrice ?? 0) || null;
 
   // ── Weight ─────────────────────────────────────────────────────────────────
   const weight_g       = parseFloat(p.productWeight  || p.logisticWeight  || 0) || null;
@@ -299,7 +314,7 @@ export const mapCjToProduct = (p) => {
   // CJ may expose these as quantityDiscount [{quantity, discount}]
   // or priceList [{quantity, price}] or quantityPrices [{minNum, maxNum, price}]
   const quantity_prices = [];
-  const baseUsd = parseFloat(p.sellPrice ?? p.productPrice ?? 0);
+  const baseUsd = parsePrice(p.nowPrice ?? p.sellPrice ?? p.productPrice ?? 0);
 
   if (Array.isArray(p.quantityDiscount) && p.quantityDiscount.length > 0) {
     const sorted = [...p.quantityDiscount].sort((a, b) => (a.quantity || a.qty || 1) - (b.quantity || b.qty || 1));
@@ -344,7 +359,7 @@ export const mapCjToProduct = (p) => {
   const sku = p.productSku || p.sku || null;
 
   // ── Buy quantity limits ──────────────────────────────────────────────────────
-  const min_buy_qty = parseInt(p.minBuyNum || p.minOrderNum || p.moq || 1) || 1;
+  const min_buy_qty = parseInt(p.directMinOrderNum || p.minBuyNum || p.minOrderNum || p.moq || 1) || 1;
   const max_buy_qty = parseInt(p.maxBuyNum || p.maxOrderNum || 0) || null;
 
   // ── Product unit (piece, pair, set) ──────────────────────────────────────────
@@ -380,8 +395,8 @@ export const mapCjToProduct = (p) => {
 
   return {
     // Core
-    name:             p.productNameEn || p.productName || "Produit",
-    price:            usdToFcfa(p.sellPrice ?? p.productPrice ?? 0),
+    name:             p.productNameEn || p.productName || p.nameEn || "Produit",
+    price:            usdToFcfa(parsePrice(p.nowPrice ?? p.sellPrice ?? p.productPrice ?? 0)),
     price_usd,
     img:              images.find(u => !isVideoUrl(u)) || mainImg,
     images,

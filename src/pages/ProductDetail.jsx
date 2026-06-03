@@ -996,8 +996,11 @@ const ProductDetail = ({ addToCart, openModal }) => {
     return { realColors: [...colSet], realSizes: [...sizeSet] };
   }, [product?.colors, product?.sizes, product?.variants]);
 
-  const isApparel = product?.type === "Clothing";
-  const isShoes   = product?.type === "Shoes";
+  const isApparel     = product?.type === "Clothing" || product?.type === "Femme";
+  const isShoes       = product?.type === "Shoes";
+  const isElectronics = product?.type === "Tech Lab" || product?.type === "Audio Lab";
+  const isFragrance   = product?.type === "Fragrance";
+  const isAccessory   = product?.type === "Accessories";
 
   const productColors = realColors.map(name => ({ name, hex: getColorHex(name) }));
   // Real sizes from variants; fall back to standard apparel/shoe lists when empty
@@ -1146,17 +1149,56 @@ const ProductDetail = ({ addToCart, openModal }) => {
                 <div className="flex items-center gap-3 flex-wrap mb-1">
                   <StarRating rating={ratingVal} count={reviewCount} />
                   <span className="text-[#D5D9D9]">|</span>
-                  {(product.sale_num > 0 || true) && (
-                    <span className="text-sm font-bold text-[#CC0C39]">
-                      <i className="fa-solid fa-fire text-xs mr-1" />
-                      {product.sale_num > 0 ? `${product.sale_num.toLocaleString()} vendus` : "Tendance ce mois"}
-                    </span>
-                  )}
+                  <span className="text-sm font-bold text-[#CC0C39]">
+                    <i className="fa-solid fa-fire text-xs mr-1" />
+                    {product.sale_num > 0 ? `${product.sale_num.toLocaleString()} vendus` : "Tendance"}
+                  </span>
                   <span className="text-[#D5D9D9]">|</span>
                   <span className="text-xs bg-[#FF9900]/10 text-[#FF9900] border border-[#FF9900]/25 px-2 py-0.5 rounded font-bold uppercase tracking-wide">
                     OFS Certifié
                   </span>
                 </div>
+
+                {/* ── KEY SPECS (électronique) ── */}
+                {isElectronics && product.features?.length > 0 && (
+                  <div className="mt-2 mb-3">
+                    <div className="flex flex-wrap gap-1.5">
+                      {product.features.slice(0, 5).map((feat, i) => {
+                        const sep = feat.indexOf(":");
+                        const lbl = sep > 0 ? feat.slice(0, sep).trim() : null;
+                        const val = sep > 0 ? feat.slice(sep + 1).trim() : feat.trim();
+                        return (
+                          <span key={i} className="inline-flex items-center gap-1 text-[10px] bg-[#131921] text-white rounded-full px-3 py-1 flex-shrink-0">
+                            {lbl && <span className="text-[#767676] font-normal">{lbl}</span>}
+                            <span className="font-bold">{val}</span>
+                          </span>
+                        );
+                      })}
+                    </div>
+                    {product.sku && (
+                      <p className="text-[9px] font-mono text-[#767676] mt-2">
+                        Modèle : <span className="text-[#0F1111] font-bold">{product.sku}</span>
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {/* ── KEY INFO (fragrance) ── */}
+                {isFragrance && product.features?.length > 0 && (
+                  <div className="mt-2 mb-3 flex flex-wrap gap-1.5">
+                    {product.features.filter(f => /ml|oz|note|concentration|type|famille/i.test(f)).slice(0, 4).map((feat, i) => {
+                      const sep = feat.indexOf(":");
+                      const val = sep > 0 ? feat.slice(sep + 1).trim() : feat.trim();
+                      const lbl = sep > 0 ? feat.slice(0, sep).trim() : null;
+                      return (
+                        <span key={i} className="inline-flex items-center gap-1 text-[10px] bg-purple-50 border border-purple-200 text-purple-800 rounded-full px-3 py-1">
+                          {lbl && <span className="font-normal opacity-70">{lbl}</span>}
+                          <span className="font-bold">{val}</span>
+                        </span>
+                      );
+                    })}
+                  </div>
+                )}
 
                 <div className="border-t border-[#D5D9D9] my-4" />
 
@@ -1354,7 +1396,9 @@ const ProductDetail = ({ addToCart, openModal }) => {
                   ) : (
                     <span className="text-[#007600] font-bold text-sm flex items-center gap-1.5">
                       <i className="fa-solid fa-circle-check text-xs" />
-                      En stock
+                      {isElectronics && product.stock_qty > 10
+                        ? `En stock · ${product.stock_qty > 999 ? "999+" : product.stock_qty} unités`
+                        : "En stock"}
                     </span>
                   )}
                 </div>
@@ -1365,7 +1409,7 @@ const ProductDetail = ({ addToCart, openModal }) => {
                 {productColors.length > 0 && (
                   <div className="mb-4">
                     <p className="text-sm font-bold mb-2 text-[#0F1111]">
-                      Couleur : <span className="font-normal text-[#565959]">{color}</span>
+                      {isElectronics ? "Coloris" : isFragrance ? "Contenance" : "Couleur"} : <span className="font-normal text-[#565959]">{color}</span>
                     </p>
                     <div className="flex gap-2 flex-wrap">
                       {productColors.map(c => {
@@ -1406,7 +1450,12 @@ const ProductDetail = ({ addToCart, openModal }) => {
                   <div className="mb-4">
                     <div className="flex items-center justify-between mb-2">
                       <p className="text-sm font-bold text-[#0F1111]">
-                        {isShoes ? "Pointure" : realSizes.length > 0 ? "Variante" : "Taille"} :
+                        {isShoes ? "Pointure"
+                          : isElectronics && realSizes.some(s => /gb|tb/i.test(s)) ? "Capacité"
+                          : isElectronics ? "Version"
+                          : isFragrance ? "Format"
+                          : realSizes.length > 0 ? "Variante"
+                          : "Taille"} :
                         <span className="font-normal text-[#565959] ml-1">{size}</span>
                       </p>
                       {(isApparel || isShoes) && (
@@ -1470,7 +1519,7 @@ const ProductDetail = ({ addToCart, openModal }) => {
                 </div>
 
                 {/* ── CTA ── */}
-                <div className="flex flex-col gap-2.5 max-w-sm mb-5">
+                <div className="flex flex-col gap-2.5 max-w-sm mb-4">
                   <button onClick={handleAddToCart}
                     className={`w-full py-3 rounded-full font-bold text-sm transition-all flex items-center justify-center gap-2 border active:scale-95 ${
                       addedFeedback
@@ -1483,11 +1532,13 @@ const ProductDetail = ({ addToCart, openModal }) => {
                       : `Ajouter au panier — ${(activeTierPrice * qty + selectedCity.price).toLocaleString()} FCFA`}
                   </button>
 
-                  <Link to="/studio" state={{ productId: product.id }}
-                    className="w-full py-3 rounded-full font-bold text-sm bg-[#FF9900] hover:bg-[#e68900] text-white text-center flex items-center justify-center gap-2 transition-all">
-                    <i className="fa-solid fa-wand-magic-sparkles text-sm" />
-                    Personnaliser ce produit
-                  </Link>
+                  {!isElectronics && (
+                    <Link to="/studio" state={{ productId: product.id }}
+                      className="w-full py-3 rounded-full font-bold text-sm bg-[#FF9900] hover:bg-[#e68900] text-white text-center flex items-center justify-center gap-2 transition-all">
+                      <i className="fa-solid fa-wand-magic-sparkles text-sm" />
+                      Personnaliser ce produit
+                    </Link>
+                  )}
 
                   <button
                     onClick={async () => { if (!user) { navigate("/login"); return; } await toggleWishlist(product); }}
@@ -1500,6 +1551,47 @@ const ProductDetail = ({ addToCart, openModal }) => {
                     {wishlist ? "Retirer de la liste d'envies" : "Ajouter à la liste d'envies"}
                   </button>
                 </div>
+
+                {/* ── COMPATIBILITY (électronique) ── */}
+                {isElectronics && (() => {
+                  const featStr = (product.features || []).join(" ").toLowerCase() + " " +
+                    (product.description || "").toLowerCase();
+                  const compat = [
+                    (featStr.includes("ios") || featStr.includes("iphone") || featStr.includes("ipad"))
+                      && { icon: "fa-brands fa-apple",    label: "iOS / iPhone" },
+                    featStr.includes("android")
+                      && { icon: "fa-brands fa-android",  label: "Android" },
+                    featStr.includes("windows")
+                      && { icon: "fa-brands fa-windows",  label: "Windows" },
+                    (featStr.includes("macos") || featStr.includes("mac os"))
+                      && { icon: "fa-brands fa-apple",    label: "macOS" },
+                    featStr.includes("bluetooth")
+                      && { icon: "fa-solid fa-bluetooth", label: "Bluetooth" },
+                    (featStr.includes("usb-c") || featStr.includes("type-c") || featStr.includes("type c"))
+                      && { icon: "fa-solid fa-plug",      label: "USB-C" },
+                    (featStr.includes("usb 3") || featStr.includes("usb3"))
+                      && { icon: "fa-solid fa-plug",      label: "USB 3.0" },
+                    featStr.includes("wi-fi") || featStr.includes("wifi") || featStr.includes("wireless")
+                      && { icon: "fa-solid fa-wifi",      label: "Sans-fil" },
+                  ].filter(Boolean);
+                  if (!compat.length) return null;
+                  return (
+                    <div className="mb-4 p-3 bg-[#F8F9FA] border border-[#E8EAED] rounded">
+                      <p className="text-[9px] font-black uppercase tracking-widest text-[#767676] mb-2">
+                        <i className="fa-solid fa-circle-check text-[#007600] mr-1 text-[8px]" />
+                        Compatibilité
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        {compat.map(s => (
+                          <span key={s.label} className="flex items-center gap-1.5 text-[10px] font-bold bg-white border border-[#D5D9D9] rounded px-2.5 py-1.5 text-[#0F1111]">
+                            <i className={`${s.icon} text-[10px] text-[#565959]`} />
+                            {s.label}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })()}
 
                 <div className="border-t border-[#D5D9D9] mb-4" />
 
