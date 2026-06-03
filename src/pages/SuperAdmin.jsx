@@ -385,7 +385,7 @@ const AllProductsTab = ({ loading }) => {
   const [fetching,  setFetching]  = useState(false);
   const [typeFilter,setTypeFilter]= useState("Tous");
 
-  const TYPES = ["Tous", "Audio Lab", "Tech Lab", "Clothing", "Shoes", "Fragrance", "Femme", "Accessories"];
+  const TYPES = ["Tous", "Audio Lab", "Tech Lab", "Clothing", "Shoes", "Femme", "Beauté", "Accessories", "Maison", "Sport", "Bébé & Enfants", "Auto"];
 
   const fetch = async (q = "", type = "") => {
     setFetching(true);
