@@ -337,6 +337,47 @@ export const mapCjToProduct = (p) => {
   const pack_w_cm = parseFloat(p.packWidth  || p.packageWidth  || p.cargoWidth  || p.productWidth  || 0) || null;
   const pack_h_cm = parseFloat(p.packHeight || p.packageHeight || p.cargoHeight || p.productHeight || 0) || null;
 
+  // ── Brand ────────────────────────────────────────────────────────────────────
+  const brand = p.brand || p.brandName || p.productBrand || null;
+
+  // ── SKU (product reference for orders) ───────────────────────────────────────
+  const sku = p.productSku || p.sku || null;
+
+  // ── Buy quantity limits ──────────────────────────────────────────────────────
+  const min_buy_qty = parseInt(p.minBuyNum || p.minOrderNum || p.moq || 1) || 1;
+  const max_buy_qty = parseInt(p.maxBuyNum || p.maxOrderNum || 0) || null;
+
+  // ── Product unit (piece, pair, set) ──────────────────────────────────────────
+  const product_unit = (p.productUnit || p.unit || "").trim() || null;
+
+  // ── Sales count (social proof) ────────────────────────────────────────────────
+  const sale_num = parseInt(p.saleNum || p.sold || p.salesCount || 0) || 0;
+
+  // ── CJ suggested retail price ─────────────────────────────────────────────────
+  const suggest_price_usd  = parseFloat(p.productSugSellPrice || p.sugSellPrice || 0) || null;
+  const suggest_price_fcfa = suggest_price_usd ? usdToFcfa(suggest_price_usd) : null;
+
+  // ── Certifications/labels (CE, FCC, RoHS…) ───────────────────────────────────
+  const label_codes = (p.labelCode || p.labels || p.certification || "").trim() || null;
+
+  // ── Origin country ─────────────────────────────────────────────────────────────
+  const origin_country = (p.originCountry || p.countryCode || p.productOriginCountry || "CN").trim();
+
+  // ── CJ delivery/processing times ──────────────────────────────────────────────
+  const express_delivery_days = String(p.expressDeliveryTime || p.expressDays || "").trim() || null;
+  const delivery_cycle        = String(p.deliveryCycle || p.processingDays || "").trim() || null;
+
+  // ── CJ shipping fee (USD) ─────────────────────────────────────────────────────
+  const shipping_fee_usd = parseFloat(p.shippingFee || p.freight || p.logisticFee || 0) || null;
+
+  // ── On-sale status ────────────────────────────────────────────────────────────
+  const is_on_sale = p.isOnSale !== undefined
+    ? Boolean(p.isOnSale) : p.onSale !== undefined
+    ? Boolean(p.onSale) : true;
+
+  // ── CJ product creation date ──────────────────────────────────────────────────
+  const cj_added_at = p.addMarkTime || p.createTime || null;
+
   return {
     // Core
     name:             p.productNameEn || p.productName || "Produit",
@@ -369,5 +410,21 @@ export const mapCjToProduct = (p) => {
     cj_category_name: p.categoryName || null,
     supplier_id:      p.supplierId   || null,
     supplier_name:    p.supplierName || null,
+    // Extended CJ fields
+    brand,
+    sku,
+    min_buy_qty,
+    max_buy_qty,
+    product_unit,
+    sale_num,
+    suggest_price_usd,
+    suggest_price_fcfa,
+    label_codes,
+    origin_country,
+    express_delivery_days,
+    delivery_cycle,
+    shipping_fee_usd,
+    is_on_sale,
+    cj_added_at,
   };
 };

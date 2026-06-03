@@ -728,7 +728,7 @@ const ProductDetail = ({ addToCart, openModal }) => {
     }
     setColor(firstColor);
     setSize(product.type === "Shoes" ? "40" : "M");
-    setQty(1);
+    setQty(Math.max(1, product.min_buy_qty || 1));
   }, [product]);
 
   useEffect(() => {
@@ -781,13 +781,30 @@ const ProductDetail = ({ addToCart, openModal }) => {
         if (fresh.cj_category_name)                                                 updates.cj_category_name = fresh.cj_category_name;
         if (fresh.status && fresh.status !== "Nouveau")                             updates.status            = fresh.status;
         if (fresh.subcategory)                                                      updates.subcategory       = fresh.subcategory;
-        if (fresh.ship_weight_g)                                                    updates.ship_weight_g     = fresh.ship_weight_g;
-        if (fresh.length_cm)                                                        updates.length_cm         = fresh.length_cm;
-        if (fresh.width_cm)                                                         updates.width_cm          = fresh.width_cm;
-        if (fresh.height_cm)                                                        updates.height_cm         = fresh.height_cm;
-        if (fresh.pack_l_cm)                                                        updates.pack_l_cm         = fresh.pack_l_cm;
-        if (fresh.pack_w_cm)                                                        updates.pack_w_cm         = fresh.pack_w_cm;
-        if (fresh.pack_h_cm)                                                        updates.pack_h_cm         = fresh.pack_h_cm;
+        if (fresh.ship_weight_g)                                                    updates.ship_weight_g         = fresh.ship_weight_g;
+        if (fresh.length_cm)                                                        updates.length_cm             = fresh.length_cm;
+        if (fresh.width_cm)                                                         updates.width_cm              = fresh.width_cm;
+        if (fresh.height_cm)                                                        updates.height_cm             = fresh.height_cm;
+        if (fresh.pack_l_cm)                                                        updates.pack_l_cm             = fresh.pack_l_cm;
+        if (fresh.pack_w_cm)                                                        updates.pack_w_cm             = fresh.pack_w_cm;
+        if (fresh.pack_h_cm)                                                        updates.pack_h_cm             = fresh.pack_h_cm;
+        if (fresh.sizes?.length > 0)                                                updates.sizes                 = fresh.sizes;
+        if (fresh.quantity_prices?.length > 0)                                      updates.quantity_prices       = fresh.quantity_prices;
+        if (fresh.brand)                                                             updates.brand                 = fresh.brand;
+        if (fresh.sku)                                                               updates.sku                   = fresh.sku;
+        if (fresh.min_buy_qty > 1)                                                  updates.min_buy_qty           = fresh.min_buy_qty;
+        if (fresh.max_buy_qty)                                                       updates.max_buy_qty           = fresh.max_buy_qty;
+        if (fresh.product_unit)                                                      updates.product_unit          = fresh.product_unit;
+        if (fresh.sale_num > 0)                                                      updates.sale_num              = fresh.sale_num;
+        if (fresh.suggest_price_fcfa)                                                updates.suggest_price_fcfa    = fresh.suggest_price_fcfa;
+        if (fresh.suggest_price_usd)                                                 updates.suggest_price_usd     = fresh.suggest_price_usd;
+        if (fresh.label_codes)                                                       updates.label_codes           = fresh.label_codes;
+        if (fresh.origin_country && fresh.origin_country !== "CN")                   updates.origin_country        = fresh.origin_country;
+        if (fresh.express_delivery_days)                                             updates.express_delivery_days = fresh.express_delivery_days;
+        if (fresh.delivery_cycle)                                                    updates.delivery_cycle        = fresh.delivery_cycle;
+        if (fresh.shipping_fee_usd)                                                  updates.shipping_fee_usd      = fresh.shipping_fee_usd;
+        if (fresh.is_on_sale === false)                                              updates.is_on_sale            = false;
+        if (fresh.cj_added_at)                                                       updates.cj_added_at           = fresh.cj_added_at;
         await supabase.from("products").update(updates).eq("id", product.id);
         setProduct(prev => prev ? { ...prev, ...updates } : prev);
       } catch { /* silent */ }
@@ -799,6 +816,33 @@ const ProductDetail = ({ addToCart, openModal }) => {
   const memberPrice = Math.round(price * (1 - MEMBER_DISCOUNT));
   const ofsPoints   = Math.max(1, Math.floor(price / 500));
 
+  // Variant-level price and availability (keyed by color name, from raw CJ variant objects)
+  const variantMeta = useMemo(() => {
+    const priceMap = {};
+    const availMap = {};
+    const JUNK = /^\d+pcs?$/i;
+    const SZ   = /^(xs|s|m|l|xl|xxl|2xl|3xl|4xl|5xl|xxxl|\d{1,3})$/i;
+    (Array.isArray(product?.variants) ? product.variants : []).forEach(v => {
+      const vKey  = (v.variantKey || "").trim();
+      const parts = vKey ? vKey.split("-") : [];
+      while (parts.length > 0 && JUNK.test(parts[parts.length - 1].trim())) parts.pop();
+      if (parts.length >= 2 && SZ.test(parts[parts.length - 1].trim())) parts.pop();
+      const cName = parts.join(" ").trim();
+      if (!cName || cName.toLowerCase() === "default") return;
+      // variantStatus: 1=available, 0=sold out, null=assume available
+      const vStat = v.variantStatus;
+      const ok    = vStat == null || Number(vStat) === 1 || vStat === true;
+      if (availMap[cName] === undefined) availMap[cName] = ok;
+      else if (!ok) availMap[cName] = false;
+      // First non-zero variant price per color
+      if (!priceMap[cName]) {
+        const vp = parseFloat(v.variantSellPrice || v.variantPrice || v.sellPrice || 0);
+        if (vp > 0) priceMap[cName] = Math.round(vp * 610);
+      }
+    });
+    return { priceMap, availMap };
+  }, [product?.variants]);
+
   // Quantity price tiers — derived from CJ import or null
   const quantityTiers = Array.isArray(product?.quantity_prices) && product.quantity_prices.length > 1
     ? [...product.quantity_prices].sort((a, b) => a.min - b.min)
@@ -806,7 +850,13 @@ const ProductDetail = ({ addToCart, openModal }) => {
   const activeTierIdx = quantityTiers.length > 0
     ? quantityTiers.reduce((best, t, i) => qty >= t.min ? i : best, 0)
     : -1;
-  const activeTierPrice = activeTierIdx >= 0 ? quantityTiers[activeTierIdx].price_fcfa : price;
+  // Per-variant price (e.g. XL costs more); falls back to product base price
+  const activeBasePrice = variantMeta.priceMap[color] || price;
+  const activeTierPrice = activeTierIdx >= 0 ? quantityTiers[activeTierIdx].price_fcfa : activeBasePrice;
+
+  // Buy quantity constraints from CJ
+  const minQty = Math.max(1, product?.min_buy_qty || 1);
+  const maxQty = product?.max_buy_qty || (product?.stock_qty > 0 && product.stock_qty < 9999 ? product.stock_qty : null);
 
   const getColorHex = (name) => {
     if (!name) return "#888";
@@ -991,15 +1041,24 @@ const ProductDetail = ({ addToCart, openModal }) => {
   const reviewCount = 10  + ((product?.id?.charCodeAt(0) || 65) % 200);
 
   const handleAddToCart = () => {
+    // Identify the exact CJ variant for order fulfillment (vid + variantSku)
+    const selectedVariant = (Array.isArray(product?.variants) ? product.variants : []).find(v => {
+      const vKey = (v.variantKey || "").toLowerCase();
+      const colorMatch = !color || vKey.includes(color.toLowerCase());
+      const sizeMatch  = !size  || size === "Unique" || vKey.includes(size.toLowerCase());
+      return colorMatch && sizeMatch;
+    });
     addToCart({
       ...product,
-      selectedSize:      isShoes || isApparel ? size : "Unique",
-      selectedColor:     color,
-      quantity:          qty,
-      deliveryCity:      selectedCity.city,
-      deliveryFee:       selectedCity.price,
-      price:             activeTierPrice,
-      totalWithDelivery: activeTierPrice * qty + selectedCity.price,
+      selectedSize:       isShoes || isApparel ? size : "Unique",
+      selectedColor:      color,
+      selectedVariantId:  selectedVariant?.vid || selectedVariant?.variantId || null,
+      selectedVariantSku: selectedVariant?.variantSku || selectedVariant?.sku || null,
+      quantity:           qty,
+      deliveryCity:       selectedCity.city,
+      deliveryFee:        selectedCity.price,
+      price:              activeTierPrice,
+      totalWithDelivery:  activeTierPrice * qty + selectedCity.price,
     });
     setAddedFeedback(true);
     setTimeout(() => setAddedFeedback(false), 2000);
@@ -1063,13 +1122,18 @@ const ProductDetail = ({ addToCart, openModal }) => {
             <div className="bg-white border border-[#D5D9D9] rounded p-4 lg:p-6 flex flex-col min-w-0">
 
                 {/* Brand / vendor */}
-                <div className="mb-1">
+                <div className="mb-1 flex items-center gap-2 flex-wrap">
                   {vendor?.shop_name ? (
                     <Link to={`/shop/${vendor.shop_name}`} className="text-sm text-[#007185] hover:text-[#C45500] hover:underline">
                       Boutique : {vendor.shop_name}
                     </Link>
                   ) : (
                     <span className="text-sm text-[#007185]">Sélection <b>OFS Cameroun</b></span>
+                  )}
+                  {product.brand && (
+                    <span className="text-[9px] font-black uppercase tracking-widest bg-[#F3F4F4] border border-[#D5D9D9] px-2 py-0.5 rounded text-[#565959]">
+                      {product.brand}
+                    </span>
                   )}
                 </div>
 
@@ -1082,10 +1146,12 @@ const ProductDetail = ({ addToCart, openModal }) => {
                 <div className="flex items-center gap-3 flex-wrap mb-1">
                   <StarRating rating={ratingVal} count={reviewCount} />
                   <span className="text-[#D5D9D9]">|</span>
-                  <span className="text-sm font-bold text-[#CC0C39]">
-                    <i className="fa-solid fa-fire text-xs mr-1" />
-                    47 vendus ce mois
-                  </span>
+                  {(product.sale_num > 0 || true) && (
+                    <span className="text-sm font-bold text-[#CC0C39]">
+                      <i className="fa-solid fa-fire text-xs mr-1" />
+                      {product.sale_num > 0 ? `${product.sale_num.toLocaleString()} vendus` : "Tendance ce mois"}
+                    </span>
+                  )}
                   <span className="text-[#D5D9D9]">|</span>
                   <span className="text-xs bg-[#FF9900]/10 text-[#FF9900] border border-[#FF9900]/25 px-2 py-0.5 rounded font-bold uppercase tracking-wide">
                     OFS Certifié
@@ -1096,6 +1162,17 @@ const ProductDetail = ({ addToCart, openModal }) => {
 
                 {/* ── PRICE ── */}
                 <div className="mb-4">
+                  {/* Suggested retail price (from CJ — displayed only when genuinely higher) */}
+                  {product.suggest_price_fcfa > 0 && product.suggest_price_fcfa > activeTierPrice && (
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-sm text-[#565959] line-through">
+                        {product.suggest_price_fcfa.toLocaleString()} FCFA
+                      </span>
+                      <span className="text-[9px] font-bold text-[#007600] bg-[#007600]/10 px-1.5 py-0.5 rounded">
+                        Prix de référence fournisseur
+                      </span>
+                    </div>
+                  )}
                   {/* Main price — updates with active quantity tier */}
                   <div className="flex items-baseline gap-2 mb-2">
                     <span className="text-xs text-[#565959] font-bold">Prix :</span>
@@ -1106,6 +1183,11 @@ const ProductDetail = ({ addToCart, openModal }) => {
                     {activeTierIdx > 0 && (
                       <span className="text-[10px] bg-[#007600]/10 text-[#007600] font-bold px-1.5 py-0.5 rounded border border-[#007600]/20">
                         tarif ×{quantityTiers[activeTierIdx].min}+
+                      </span>
+                    )}
+                    {variantMeta.priceMap[color] && variantMeta.priceMap[color] !== price && (
+                      <span className="text-[10px] text-[#565959] font-normal">
+                        (variante {color})
                       </span>
                     )}
                   </div>
@@ -1143,7 +1225,7 @@ const ProductDetail = ({ addToCart, openModal }) => {
                   )}
 
                   {/* Trust row */}
-                  <div className="flex items-center gap-3 flex-wrap mb-3">
+                  <div className="flex items-center gap-3 flex-wrap mb-2">
                     <span className="flex items-center gap-1 text-[10px] text-[#565959]">
                       <i className="fa-solid fa-shield-check text-[#007600] text-[9px]" />
                       Prix transparent
@@ -1157,6 +1239,28 @@ const ProductDetail = ({ addToCart, openModal }) => {
                       +{ofsPoints} pts
                     </span>
                   </div>
+                  {/* Certification badges (CE, FCC, RoHS…) */}
+                  {product.label_codes && (
+                    <div className="flex gap-1.5 flex-wrap mb-2">
+                      {String(product.label_codes).split(/[,;|/\s]+/).filter(Boolean).map(code => (
+                        <span key={code} className="text-[8px] font-black uppercase tracking-widest px-2 py-0.5 bg-[#F3F4F4] border border-[#D5D9D9] rounded text-[#565959]">
+                          {code}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  {/* is_on_sale warning */}
+                  {product.is_on_sale === false && (
+                    <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded p-2.5 mb-2">
+                      <i className="fa-solid fa-triangle-exclamation text-amber-500 text-sm mt-0.5 flex-shrink-0" />
+                      <div>
+                        <p className="text-[10px] font-bold text-amber-700">Disponibilité limitée</p>
+                        <p className="text-[9px] text-amber-600 leading-tight">
+                          Ce produit est temporairement hors vente directe. Contactez-nous pour une commande spéciale.
+                        </p>
+                      </div>
+                    </div>
+                  )}
 
                   {/* Gift card CTA */}
                   <div className="flex items-center gap-3 p-3 bg-gradient-to-r from-[#131921] to-[#1a2738] rounded border border-[#2a3a4e]">
@@ -1178,34 +1282,57 @@ const ProductDetail = ({ addToCart, openModal }) => {
                 <div className="border-t border-[#D5D9D9] mb-4" />
 
                 {/* ── SUPPLY CHAIN STRIP ── */}
-                <div className="mb-4">
-                  <div className="flex items-center gap-1.5 text-[10px] overflow-x-auto pb-0.5 flex-wrap" style={{ scrollbarWidth: "none" }}>
-                    <span className="flex items-center gap-1 flex-shrink-0">
-                      <span>🇨🇳</span>
-                      <span className="font-bold text-[#0F1111]">Chine</span>
-                    </span>
-                    <i className="fa-solid fa-plane text-[#767676] text-[8px] flex-shrink-0" />
-                    <span className="text-[#767676] flex-shrink-0">Transit 3–7j</span>
-                    <i className="fa-solid fa-arrow-right text-[#D5D9D9] text-[8px] flex-shrink-0" />
-                    <span className="flex items-center gap-1 flex-shrink-0">
-                      <span>🏭</span>
-                      <span className="font-bold text-[#0F1111]">OFS Douala</span>
-                    </span>
-                    <i className="fa-solid fa-arrow-right text-[#FF9900] text-[8px] flex-shrink-0" />
-                    <span className="flex items-center gap-1 flex-shrink-0 text-[#007600] font-bold">
-                      <span>🇨🇲</span>
-                      <span>{selectedCity.city}</span>
-                      <span className="text-[#565959] font-normal">· {selectedCity.delay}</span>
-                    </span>
-                  </div>
-                  <p className="text-[10px] text-[#565959] mt-1.5 flex items-center gap-1">
-                    <i className="fa-solid fa-calendar-check text-[#007600] text-[9px]" />
-                    <span>Estimé : <b className="text-[#0F1111]">{formatEstimatedDate(selectedCity.delay)}</b></span>
-                    <span className="mx-1 text-[#D5D9D9]">·</span>
-                    <i className="fa-solid fa-rotate-left text-[9px]" />
-                    <span>Retour 7j</span>
-                  </p>
-                </div>
+                {(() => {
+                  const ORIGIN_INFO = {
+                    CN: { flag: "🇨🇳", name: "Chine"      },
+                    US: { flag: "🇺🇸", name: "USA"        },
+                    TR: { flag: "🇹🇷", name: "Turquie"    },
+                    IN: { flag: "🇮🇳", name: "Inde"       },
+                    TH: { flag: "🇹🇭", name: "Thaïlande" },
+                    VN: { flag: "🇻🇳", name: "Vietnam"    },
+                    KR: { flag: "🇰🇷", name: "Corée"      },
+                    JP: { flag: "🇯🇵", name: "Japon"      },
+                  };
+                  const oc     = (product.origin_country || "CN").toUpperCase();
+                  const origin = ORIGIN_INFO[oc] || { flag: "🌍", name: oc };
+                  const transit = product.delivery_cycle || product.express_delivery_days || "3–7j";
+                  return (
+                    <div className="mb-4">
+                      <div className="flex items-center gap-1.5 text-[10px] overflow-x-auto pb-0.5 flex-wrap" style={{ scrollbarWidth: "none" }}>
+                        <span className="flex items-center gap-1 flex-shrink-0">
+                          <span>{origin.flag}</span>
+                          <span className="font-bold text-[#0F1111]">{origin.name}</span>
+                        </span>
+                        <i className="fa-solid fa-plane text-[#767676] text-[8px] flex-shrink-0" />
+                        <span className="text-[#767676] flex-shrink-0">Transit {transit}</span>
+                        <i className="fa-solid fa-arrow-right text-[#D5D9D9] text-[8px] flex-shrink-0" />
+                        <span className="flex items-center gap-1 flex-shrink-0">
+                          <span>🏭</span>
+                          <span className="font-bold text-[#0F1111]">OFS Douala</span>
+                        </span>
+                        <i className="fa-solid fa-arrow-right text-[#FF9900] text-[8px] flex-shrink-0" />
+                        <span className="flex items-center gap-1 flex-shrink-0 text-[#007600] font-bold">
+                          <span>🇨🇲</span>
+                          <span>{selectedCity.city}</span>
+                          <span className="text-[#565959] font-normal">· {selectedCity.delay}</span>
+                        </span>
+                      </div>
+                      <p className="text-[10px] text-[#565959] mt-1.5 flex items-center gap-1">
+                        <i className="fa-solid fa-calendar-check text-[#007600] text-[9px]" />
+                        <span>Estimé : <b className="text-[#0F1111]">{formatEstimatedDate(selectedCity.delay)}</b></span>
+                        <span className="mx-1 text-[#D5D9D9]">·</span>
+                        <i className="fa-solid fa-rotate-left text-[9px]" />
+                        <span>Retour 7j</span>
+                        {product.sku && (
+                          <>
+                            <span className="mx-1 text-[#D5D9D9]">·</span>
+                            <span className="font-mono text-[8px] text-[#aaa]">SKU {product.sku}</span>
+                          </>
+                        )}
+                      </p>
+                    </div>
+                  );
+                })()}
 
                 {/* Stock status */}
                 <div className="mb-4">
@@ -1241,22 +1368,35 @@ const ProductDetail = ({ addToCart, openModal }) => {
                       Couleur : <span className="font-normal text-[#565959]">{color}</span>
                     </p>
                     <div className="flex gap-2 flex-wrap">
-                      {productColors.map(c => (
-                        <button
-                          key={c.name}
-                          onClick={() => {
-                            setColor(c.name);
-                            if (colorImageMap[c.name] !== undefined) setGalleryIndex(colorImageMap[c.name]);
-                          }}
-                          title={c.name}
-                          className={`w-8 h-8 rounded-full border-2 transition-all hover:scale-110 ${
-                            color === c.name
-                              ? "border-[#FF9900] scale-110 shadow-[0_0_0_2px_rgba(255,153,0,0.2)]"
-                              : "border-[#D5D9D9] hover:border-[#adb5bd]"
-                          }`}
-                          style={{ backgroundColor: c.hex }}
-                        />
-                      ))}
+                      {productColors.map(c => {
+                        const available = variantMeta.availMap[c.name] !== false;
+                        const hasVPrice = !!variantMeta.priceMap[c.name];
+                        return (
+                          <button
+                            key={c.name}
+                            onClick={() => {
+                              if (!available) return;
+                              setColor(c.name);
+                              if (colorImageMap[c.name] !== undefined) setGalleryIndex(colorImageMap[c.name]);
+                            }}
+                            title={`${c.name}${!available ? " — Épuisé" : hasVPrice ? ` — ${variantMeta.priceMap[c.name].toLocaleString()} F` : ""}`}
+                            className={`relative w-8 h-8 rounded-full border-2 transition-all ${
+                              !available
+                                ? "opacity-35 cursor-not-allowed"
+                                : color === c.name
+                                ? "border-[#FF9900] scale-110 shadow-[0_0_0_2px_rgba(255,153,0,0.2)] hover:scale-110"
+                                : "border-[#D5D9D9] hover:border-[#adb5bd] hover:scale-110"
+                            }`}
+                            style={{ backgroundColor: c.hex }}
+                          >
+                            {!available && (
+                              <span className="absolute inset-0 flex items-center justify-center rounded-full overflow-hidden">
+                                <span className="block w-[110%] h-px bg-red-500/60 rotate-45" />
+                              </span>
+                            )}
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
                 )}
@@ -1292,20 +1432,36 @@ const ProductDetail = ({ addToCart, openModal }) => {
 
                 {/* ── QUANTITY ── */}
                 <div className="mb-4">
-                  <div className="flex items-center gap-3 mb-2">
+                  <div className="flex items-center gap-3 mb-1">
                     <span className="text-sm font-bold">Quantité :</span>
                     <div className="flex items-center border border-[#D5D9D9] rounded overflow-hidden bg-white">
-                      <button onClick={() => setQty(Math.max(1, qty - 1))}
-                        className="w-9 h-9 text-[#565959] hover:bg-[#F3F4F4] font-bold text-lg flex items-center justify-center transition">−</button>
+                      <button
+                        onClick={() => setQty(Math.max(minQty, qty - 1))}
+                        disabled={qty <= minQty}
+                        className="w-9 h-9 text-[#565959] hover:bg-[#F3F4F4] font-bold text-lg flex items-center justify-center transition disabled:opacity-30 disabled:cursor-not-allowed"
+                      >−</button>
                       <span className="w-10 text-center font-bold text-sm border-x border-[#D5D9D9] h-9 flex items-center justify-center">{qty}</span>
-                      <button onClick={() => setQty(qty + 1)}
-                        className="w-9 h-9 text-[#565959] hover:bg-[#F3F4F4] font-bold text-lg flex items-center justify-center transition">+</button>
+                      <button
+                        onClick={() => setQty(maxQty ? Math.min(maxQty, qty + 1) : qty + 1)}
+                        disabled={maxQty != null && qty >= maxQty}
+                        className="w-9 h-9 text-[#565959] hover:bg-[#F3F4F4] font-bold text-lg flex items-center justify-center transition disabled:opacity-30 disabled:cursor-not-allowed"
+                      >+</button>
                     </div>
+                    <span className="text-xs text-[#565959]">
+                      {product?.product_unit === "pair" ? "paires" : product?.product_unit === "set" ? "lots" : "pcs"}
+                    </span>
                     <span className="text-xs text-[#FF9900] font-bold">
                       <i className="fa-solid fa-star text-[9px] mr-0.5" />
                       +{Math.max(1, Math.floor((activeTierPrice * qty) / 500))} pts OFS
                     </span>
                   </div>
+                  {minQty > 1 && (
+                    <p className="text-[10px] text-[#CC0C39] flex items-center gap-1 mb-1">
+                      <i className="fa-solid fa-circle-info text-[9px]" />
+                      Commande minimale : {minQty} {product?.product_unit === "pair" ? "paires" : "pcs"}
+                      {maxQty && ` · max ${maxQty}`}
+                    </p>
+                  )}
                   <p className="text-[10px] text-[#565959] flex items-center gap-1.5">
                     <i className="fa-solid fa-calendar-check text-[#007600] text-[9px]" />
                     Livraison estimée : <b className="text-[#0F1111]">{formatEstimatedDate(selectedCity.delay)}</b>
@@ -1416,10 +1572,13 @@ const ProductDetail = ({ addToCart, openModal }) => {
                 <table className="w-full text-sm border-collapse">
                   <tbody>
                     {[
-                      { label: "Type de produit",  value: product.type },
-                      product.status           && { label: "Statut",         value: product.status },
-                      product.weight_g         && { label: "Poids produit",  value: `${product.weight_g} g` },
-                      product.ship_weight_g    && { label: "Poids expédition",value: `${product.ship_weight_g} g` },
+                      { label: "Type de produit",    value: product.type },
+                      product.brand                && { label: "Marque",              value: product.brand },
+                      product.sku                  && { label: "SKU",                 value: product.sku },
+                      product.status               && { label: "Statut",              value: product.status },
+                      product.origin_country       && { label: "Origine",             value: ({ CN:"Chine 🇨🇳", US:"USA 🇺🇸", TR:"Turquie 🇹🇷", IN:"Inde 🇮🇳", TH:"Thaïlande 🇹🇭", VN:"Vietnam 🇻🇳", KR:"Corée 🇰🇷" })[product.origin_country.toUpperCase()] || product.origin_country },
+                      product.weight_g             && { label: "Poids produit",       value: `${product.weight_g} g` },
+                      product.ship_weight_g        && { label: "Poids expédition",    value: `${product.ship_weight_g} g` },
                       (product.length_cm || product.width_cm || product.height_cm) && {
                         label: "Dimensions produit",
                         value: [product.length_cm, product.width_cm, product.height_cm]
@@ -1430,12 +1589,21 @@ const ProductDetail = ({ addToCart, openModal }) => {
                         value: [product.pack_l_cm, product.pack_w_cm, product.pack_h_cm]
                           .filter(Boolean).map(d => `${d} cm`).join(" × ") + " (L×l×H)",
                       },
-                      product.cj_category_name && { label: "Catégorie",      value: product.cj_category_name },
-                      product.supplier_name    && { label: "Fournisseur",    value: product.supplier_name },
-                      realSizes.length > 0     && { label: "Variantes dispo", value: realSizes.join(", ") },
-                      { label: "Livraison",         value: "Douala — 2h express" },
-                      { label: "Modes de paiement", value: "Orange Money · MTN MoMo · Cash" },
-                      { label: "Politique retour",  value: "7 jours — Remboursement intégral" },
+                      product.min_buy_qty > 1      && { label: "Qté minimale",        value: `${product.min_buy_qty} ${product.product_unit === "pair" ? "paires" : "pcs"}` },
+                      product.max_buy_qty          && { label: "Qté maximale",         value: `${product.max_buy_qty} pcs` },
+                      product.product_unit         && { label: "Unité",               value: product.product_unit },
+                      product.sale_num > 0         && { label: "Ventes totales",       value: `${product.sale_num.toLocaleString()} unités vendues` },
+                      product.suggest_price_fcfa   && { label: "Prix de référence",    value: `${product.suggest_price_fcfa.toLocaleString()} FCFA` },
+                      product.label_codes          && { label: "Certifications",       value: product.label_codes },
+                      product.delivery_cycle       && { label: "Délai fabrication",    value: product.delivery_cycle },
+                      product.express_delivery_days && { label: "Livraison express",   value: product.express_delivery_days },
+                      product.shipping_fee_usd     && { label: "Frais de port CJ",     value: `${product.shipping_fee_usd} USD` },
+                      product.cj_category_name     && { label: "Catégorie",            value: product.cj_category_name },
+                      product.supplier_name        && { label: "Fournisseur",          value: product.supplier_name },
+                      realSizes.length > 0         && { label: "Variantes dispo",      value: realSizes.join(", ") },
+                      { label: "Livraison locale",   value: "Douala · Yaoundé · tout le Cameroun" },
+                      { label: "Modes de paiement",  value: "Orange Money · MTN MoMo · Cash" },
+                      { label: "Politique retour",   value: "7 jours — Remboursement intégral" },
                     ].filter(Boolean).map((row, i) => (
                       <tr key={row.label} className={i % 2 === 0 ? "bg-[#F3F4F4]" : "bg-white"}>
                         <td className="py-2.5 px-3 sm:px-4 font-bold text-[#0F1111] w-[40%] border border-[#D5D9D9] align-top">{row.label}</td>
