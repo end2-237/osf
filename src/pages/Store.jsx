@@ -9,7 +9,7 @@ import { useAuth } from "../context/AuthContext";
 /* ─────────────────── CONSTANTS ─────────────────── */
 const SUBCATEGORIES = {
   "Audio Lab":       ["Casques", "Enceintes", "Écouteurs", "Microphones"],
-  "Tech Lab":        ["Smartphones", "Tablettes", "Informatique", "Gaming", "Photo & Vidéo", "Câbles & Chargeurs", "Objets Connectés", "Maison Connectée"],
+  "Tech Lab":        ["Smartphones", "TV & Vidéo", "Tablettes", "Informatique", "Gaming", "Photo & Vidéo", "Câbles & Chargeurs", "Objets Connectés", "Maison Connectée"],
   "Clothing":        ["Hoodies & Sweats", "T-Shirts", "Pantalons", "Vestes & Manteaux", "Shorts"],
   "Shoes":           ["Sneakers", "Bottes", "Sandales", "Mocassins", "Talons"],
   "Femme":           ["Robes & Jupes", "Tops & Blouses", "Lingerie", "Manteaux", "Combinaisons"],
@@ -26,7 +26,7 @@ const CATEGORIES = [
   { key: "Audio Lab",      label: "Audio Lab",   icon: "fa-headphones",         color: "#00ff88" },
   { key: "Tech Lab",       label: "Tech Lab",    icon: "fa-microchip",          color: "#3b82f6" },
   { key: "Femme",          label: "Pour Elle",   icon: "fa-person-dress",       color: "#ec4899" },
-  { key: "Clothing",       label: "Streetwear",  icon: "fa-shirt",              color: "#a855f7" },
+  { key: "Clothing",       label: "Homme",       icon: "fa-shirt",              color: "#a855f7" },
   { key: "Shoes",          label: "Sneakers",    icon: "fa-shoe-prints",        color: "#f97316" },
   { key: "Beauté",         label: "Beauté",      icon: "fa-spray-can-sparkles", color: "#f472b6" },
   { key: "Accessories",    label: "Accessoires", icon: "fa-gem",                color: "#eab308" },

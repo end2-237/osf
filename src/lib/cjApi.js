@@ -54,7 +54,7 @@ export const mapOfsType = (categoryName = "") => {
     return "Audio Lab";
 
   // ── Tech & Electronics ─────────────────────────────────────────────────────
-  if (/smartphone|mobile.phone|cell.phone|tablet|ipad|laptop|notebook|computer|pc.desktop|gaming|game.controller|drone|action.camera|projector|smart.home|iot|robot|3d.printer|vr.headset|power.bank|usb.hub|screen.protector|phone.case|phone.bag|phone.holder|consumer.electronics|electronics/.test(n)
+  if (/smartphone|mobile.phone|cell.phone|\bphone\b|telecom|telecommunication|television|televiseur|\btv\b|tablet|ipad|laptop|notebook|computer|pc.desktop|gaming|game.controller|drone|action.camera|projector|smart.home|iot|robot|3d.printer|vr.headset|power.bank|usb.hub|screen.protector|phone.case|phone.bag|phone.holder|consumer.electronics|electronics/.test(n)
     || (/charger|cable|usb/.test(n) && !/car.charger/.test(n))
     || (/camera/.test(n) && !/security.camera/.test(n) && !/doorbell/.test(n))
     || (/gaming|console/.test(n)))
@@ -114,7 +114,8 @@ export const mapSubcategory = (categoryName = "") => {
   if (/microphone|\bmic\b/.test(n))                                               return "Microphones";
 
   // Tech Lab
-  if (/smartphone|mobile.phone|cell.phone/.test(n))                              return "Smartphones";
+  if (/television|televiseur|\btv\b|tv.&.video|home.cinema/.test(n))            return "TV & Vidéo";
+  if (/smartphone|mobile.phone|cell.phone|\bphone\b|telecom/.test(n))            return "Smartphones";
   if (/\btablet\b|ipad/.test(n))                                                  return "Tablettes";
   if (/laptop|notebook|\bcomputer\b|pc.desktop|chromebook/.test(n))              return "Informatique";
   if (/\bgaming\b|\bconsole\b|game.controller|video.game/.test(n))               return "Gaming";
