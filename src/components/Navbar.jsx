@@ -13,7 +13,7 @@ const CATEGORIES = [
   { name: "Audio Lab",   catKey: "Audio Lab",      icon: "fa-headphones",         isNew: false },
   { name: "Tech Lab",    catKey: "Tech Lab",        icon: "fa-microchip",          isNew: false },
   { name: "Mode Femme",  catKey: "Femme",           icon: "fa-person-dress",       isNew: false },
-  { name: "Homme",       catKey: "Clothing",        icon: "fa-shirt",              isNew: false },
+  { name: "Mode Homme",  catKey: "Clothing",        icon: "fa-shirt",              isNew: false },
   { name: "Sneakers",    catKey: "Shoes",           icon: "fa-shoe-prints",        isNew: false },
   { name: "Beauté",      catKey: "Beauté",          icon: "fa-spray-can-sparkles", isNew: false },
   { name: "Accessoires", catKey: "Accessories",     icon: "fa-gem",                isNew: false },

@@ -10,7 +10,7 @@ import { useAuth } from "../context/AuthContext";
 const SUBCATEGORIES = {
   "Audio Lab":       ["Casques", "Enceintes", "Écouteurs", "Microphones"],
   "Tech Lab":        ["Smartphones", "TV & Vidéo", "Tablettes", "Informatique", "Gaming", "Photo & Vidéo", "Câbles & Chargeurs", "Objets Connectés", "Maison Connectée"],
-  "Clothing":        ["Hoodies & Sweats", "T-Shirts", "Pantalons", "Vestes & Manteaux", "Shorts"],
+  "Clothing":        ["Hoodies & Sweats", "T-Shirts & Polos", "Chemises", "Pantalons & Jeans", "Vestes & Manteaux", "Shorts", "Costumes & Survêtements", "Sous-vêtements"],
   "Shoes":           ["Sneakers", "Bottes", "Sandales", "Mocassins", "Talons"],
   "Femme":           ["Robes & Jupes", "Tops & Blouses", "Lingerie", "Manteaux", "Combinaisons"],
   "Beauté":          ["Parfums", "Soins Visage", "Soins Cheveux", "Maquillage", "Corps & Bain"],
@@ -26,7 +26,7 @@ const CATEGORIES = [
   { key: "Audio Lab",      label: "Audio Lab",   icon: "fa-headphones",         color: "#00ff88" },
   { key: "Tech Lab",       label: "Tech Lab",    icon: "fa-microchip",          color: "#3b82f6" },
   { key: "Femme",          label: "Pour Elle",   icon: "fa-person-dress",       color: "#ec4899" },
-  { key: "Clothing",       label: "Homme",       icon: "fa-shirt",              color: "#a855f7" },
+  { key: "Clothing",       label: "Pour Lui",    icon: "fa-shirt",              color: "#a855f7" },
   { key: "Shoes",          label: "Sneakers",    icon: "fa-shoe-prints",        color: "#f97316" },
   { key: "Beauté",         label: "Beauté",      icon: "fa-spray-can-sparkles", color: "#f472b6" },
   { key: "Accessories",    label: "Accessoires", icon: "fa-gem",                color: "#eab308" },
@@ -71,7 +71,7 @@ const EDITORIAL_SECTIONS = [
     title: "Les plus commandés",
     color: "#3b82f6",
     items: [
-      { cat: "Clothing",  sub: "Hoodies & Sweats", label: "Hoodies",     img: "https://images.unsplash.com/photo-1556821840-3a63f15732ce?w=400&q=80" },
+      { cat: "Clothing",  sub: null,                label: "Mode Homme",  img: "https://images.unsplash.com/photo-1614680376408-81e91ffe3db7?w=400&q=80" },
       { cat: "Femme",     sub: null,               label: "Mode Femme",  img: "https://images.unsplash.com/photo-1483985988355-763728e1935b?w=400&q=80" },
       { cat: "Beauté",    sub: "Parfums",           label: "Parfums",     img: "https://images.unsplash.com/photo-1541643600914-78b084683702?w=400&q=80" },
       { cat: "Tech Lab",  sub: "Gaming",            label: "Gaming",      img: "https://images.unsplash.com/photo-1593118247619-e2d6f056869e?w=400&q=80" },

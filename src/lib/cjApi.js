@@ -90,9 +90,9 @@ export const mapOfsType = (categoryName = "") => {
   if (/\bcar\b|\bauto\b|automobile|vehicle|\btruck\b|motorcycle|motorbike|\bmoto\b|scooter|car.accessor|car.seat|car.cover|car.mat|car.charger|car.holder|car.wash|\btire\b|\bwheel\b|\bhelmet\b|auto.tool|navigation/.test(n))
     return "Auto";
 
-  // ── Men's Clothing / Streetwear (broad fallback) ───────────────────────────
-  if (/hoodie|sweatshirt|pullover|t.shirt|tshirt|\bpolo\b|men.s.cloth|men.s.fashion|men.s.jacket|men.s.coat|men.s.pant|\bjeans?\b|\bdenim\b|trouser|men.s.short|men.s.suit|\bblazer\b|streetwear|hip.hop|urban.fashion/.test(n)
-    || (segs.some(s => s.includes("men") && !s.includes("women") && (s.includes("cloth") || s.includes("fashion") || s.includes("apparel")))))
+  // ── Men's Clothing ─────────────────────────────────────────────────────────
+  if (/hoodie|sweatshirt|pullover|t.shirt|tshirt|\bpolo\b|\bshirt\b(?!.women)|men.s.cloth|men.s.fashion|men.s.shirt|men.s.jacket|men.s.coat|men.s.pant|men.s.suit|men.s.top|men.s.vest|\bjeans?\b|\bdenim\b|trouser|\bblazer\b|men.s.short|men.s.underwear|men.s.sock|jogger|tracksuit|streetwear|hip.hop|urban.fashion/.test(n)
+    || (segs.some(s => s.includes("men") && !s.includes("women") && (s.includes("cloth") || s.includes("fashion") || s.includes("apparel") || s.includes("top") || s.includes("shirt") || s.includes("suit") || s.includes("wear")))))
     return "Clothing";
 
   // ── Accessories ────────────────────────────────────────────────────────────
@@ -133,11 +133,14 @@ export const mapSubcategory = (categoryName = "") => {
   if (/\bheel\b|\bpump\b|\bwedge\b|stiletto/.test(n))                           return "Talons";
 
   // Clothing (men)
-  if (/hoodie|sweatshirt|pullover/.test(n))                                       return "Hoodies & Sweats";
-  if (/t.shirt|tshirt|\btee\b/.test(n))                                           return "T-Shirts";
-  if (/\bjeans?\b|\bdenim\b|trouser|\bpant\b/.test(n))                           return "Pantalons";
-  if (/\bjacket\b|\bcoat\b|\bblazer\b|parka/.test(n))                            return "Vestes & Manteaux";
-  if (/\bshort\b(?!.sleeve)/.test(n))                                              return "Shorts";
+  if (/hoodie|sweatshirt|pullover/.test(n))                                        return "Hoodies & Sweats";
+  if (/t.shirt|tshirt|\btee\b|\bpolo\b/.test(n))                                  return "T-Shirts & Polos";
+  if (/men.s.shirt|\bshirt\b(?!.women|.dress)/.test(n))                           return "Chemises";
+  if (/\bjeans?\b|\bdenim\b|trouser|\bpant\b|jogger/.test(n))                     return "Pantalons & Jeans";
+  if (/\bjacket\b|\bcoat\b|\bblazer\b|parka/.test(n))                             return "Vestes & Manteaux";
+  if (/\bshort\b(?!.sleeve)|bermuda/.test(n))                                      return "Shorts";
+  if (/tracksuit|men.s.suit|\bsuit\b(?!.case)/.test(n))                           return "Costumes & Survêtements";
+  if (/men.s.underwear|men.s.boxer|men.s.brief|men.s.sock/.test(n))               return "Sous-vêtements";
 
   // Femme
   if (/\bdress\b|\brobe\b|\bskirt\b/.test(n))                                    return "Robes & Jupes";
