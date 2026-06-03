@@ -5,63 +5,22 @@ import { cjListProducts, cjGetProductDetail, cjGetCategories, mapCjToProduct, ma
 
 const PAGE_SIZE = 100;
 
-// ─── FR → EN search translation ───────────────────────────────────────────────
-const FR_TO_EN = {
-  // Tech
-  "téléphone": "smartphone", "telephone": "smartphone", "portable": "smartphone",
-  "télévision": "television", "television": "television", "télé": "tv", "tele": "tv",
-  "ordinateur": "laptop", "tablette": "tablet",
-  "casque": "headphone", "écouteur": "earphone", "ecouteur": "earphone", "oreillette": "earbuds",
-  "enceinte": "speaker", "micro": "microphone",
-  "chargeur": "charger", "câble": "cable", "cable": "cable",
-  "caméra": "camera", "camera": "camera", "drone": "drone",
-  "montre": "watch", "bracelet connecté": "smart band",
-  "imprimante": "printer", "clavier": "keyboard", "souris": "mouse",
-  // Mode Homme
-  "vêtement": "clothing", "vetement": "clothing",
-  "pull": "hoodie", "sweat": "hoodie", "sweatshirt": "sweatshirt",
-  "veste": "jacket", "manteau": "coat", "blouson": "jacket",
-  "pantalon": "pants", "jean": "jeans",
-  "chemise": "shirt",
-  "short": "shorts", "bermuda": "shorts",
-  "costume": "suit",
-  // Mode Femme
-  "robe": "dress", "jupe": "skirt", "blouse": "blouse",
-  "lingerie": "lingerie", "soutien-gorge": "bra",
-  "combinaison": "jumpsuit",
-  // Chaussures
-  "chaussure": "shoe", "basket": "sneaker", "botte": "boot",
-  "sandale": "sandal", "mocassin": "loafer", "talon": "heel",
-  "pantoufle": "slipper",
-  // Beauté
-  "parfum": "perfume", "crème": "cream", "creme": "cream",
-  "sérum": "serum", "soin": "skincare", "maquillage": "makeup",
-  "cheveux": "hair", "shampoing": "shampoo",
-  // Accessoires
-  "sac": "bag", "sacoche": "bag", "sac à dos": "backpack",
-  "portefeuille": "wallet", "lunettes": "glasses", "soleil": "sunglasses",
-  "ceinture": "belt", "chapeau": "hat", "bonnet": "beanie", "casquette": "cap",
-  "bijou": "jewelry", "collier": "necklace", "bague": "ring",
-  "boucle": "earring", "bracelet": "bracelet",
-  // Maison
-  "maison": "home", "cuisine": "kitchen", "lit": "bed", "lampe": "lamp",
-  "tapis": "rug", "rideau": "curtain", "coussin": "pillow",
-  // Sport
-  "sport": "sport", "fitness": "fitness", "yoga": "yoga",
-  "vélo": "bicycle", "velo": "bicycle", "natation": "swimming",
-  // Bébé
-  "bébé": "baby", "bebe": "baby", "jouet": "toy", "poupée": "doll",
-  // Auto
-  "voiture": "car", "moto": "motorcycle",
-};
-
-const translateQuery = (q) => {
+// ─── Dynamic FR → EN translation via MyMemory (free, no key needed) ──────────
+const translateToEnglish = async (q) => {
   if (!q) return q;
-  let lower = q.toLowerCase().trim();
-  // exact phrase match first
-  if (FR_TO_EN[lower]) return FR_TO_EN[lower];
-  // word-by-word substitution
-  return lower.split(/\s+/).map(w => FR_TO_EN[w] || w).join(" ");
+  // Skip if already ASCII-only (likely English already)
+  if (/^[\x00-\x7F]+$/.test(q)) return q;
+  try {
+    const res = await fetch(
+      `https://api.mymemory.translated.net/get?q=${encodeURIComponent(q)}&langpair=fr|en`,
+      { signal: AbortSignal.timeout(3000) }
+    );
+    const json = await res.json();
+    const translated = json?.responseData?.translatedText;
+    return translated && json?.responseStatus === 200 ? translated : q;
+  } catch {
+    return q;
+  }
 };
 
 // ─── Toast ────────────────────────────────────────────────────────────────────
@@ -232,7 +191,14 @@ const CJImportTab = () => {
     if (user) { fetchProducts(1, "", ""); loadCategories(); }
   }, [user]);
 
-  const handleSearch = (e) => { e.preventDefault(); fetchProducts(1, translateQuery(search), selCatId); };
+  const [translating, setTranslating] = useState(false);
+  const handleSearch = async (e) => {
+    e.preventDefault();
+    setTranslating(true);
+    const q = await translateToEnglish(search);
+    setTranslating(false);
+    fetchProducts(1, q, selCatId);
+  };
 
   const handlePageJump = (e) => {
     e.preventDefault();
@@ -536,9 +502,9 @@ const CJImportTab = () => {
                   placeholder="Rechercher dans CJ… (FR ou EN)"
                   className="w-full pl-10 pr-4 py-2.5 bg-white border border-[#D5D9D9] focus:border-[#FF9900] focus:outline-none rounded-xl text-sm placeholder-[#ADBAC7] transition-colors" />
               </div>
-              <button type="submit" disabled={loading}
-                className="px-4 py-2.5 bg-[#FFD814] hover:bg-[#F7CA00] text-[#0F1111] rounded-xl font-bold border border-[#FCD200] transition-all flex items-center gap-2">
-                {loading ? <i className="fa-solid fa-spinner animate-spin"></i> : <i className="fa-solid fa-magnifying-glass"></i>}
+              <button type="submit" disabled={loading || translating}
+                className="px-4 py-2.5 bg-[#FFD814] hover:bg-[#F7CA00] disabled:opacity-60 text-[#0F1111] rounded-xl font-bold border border-[#FCD200] transition-all flex items-center gap-2">
+                {(loading || translating) ? <i className="fa-solid fa-spinner animate-spin"></i> : <i className="fa-solid fa-magnifying-glass"></i>}
               </button>
             </form>
             <div className="flex gap-2 flex-shrink-0 flex-wrap">
