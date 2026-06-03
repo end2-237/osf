@@ -8,24 +8,32 @@ import { useAuth } from "../context/AuthContext";
 
 /* ─────────────────── CONSTANTS ─────────────────── */
 const SUBCATEGORIES = {
-  "Audio Lab":   ["Casques", "Enceintes", "Écouteurs", "Microphones"],
-  "Tech Lab":    ["Smartphones", "Tablettes", "Informatique", "Gaming", "Photo & Vidéo", "Câbles & Chargeurs"],
-  "Clothing":    ["Hoodies", "T-Shirts", "Pantalons", "Vestes"],
-  "Shoes":       ["Sneakers", "Bottes", "Sandales"],
-  "Femme":       ["Robes & Jupes", "Tops", "Lingerie"],
-  "Fragrance":   ["Parfums", "Soins Visage", "Soins Cheveux", "Maquillage"],
-  "Accessories": ["Montres", "Bijoux", "Sacs", "Lunettes", "Portefeuilles", "Ceintures", "Chapeaux"],
+  "Audio Lab":       ["Casques", "Enceintes", "Écouteurs", "Microphones"],
+  "Tech Lab":        ["Smartphones", "Tablettes", "Informatique", "Gaming", "Photo & Vidéo", "Câbles & Chargeurs", "Objets Connectés", "Maison Connectée"],
+  "Clothing":        ["Hoodies & Sweats", "T-Shirts", "Pantalons", "Vestes & Manteaux", "Shorts"],
+  "Shoes":           ["Sneakers", "Bottes", "Sandales", "Mocassins", "Talons"],
+  "Femme":           ["Robes & Jupes", "Tops & Blouses", "Lingerie", "Manteaux", "Combinaisons"],
+  "Beauté":          ["Parfums", "Soins Visage", "Soins Cheveux", "Maquillage", "Corps & Bain"],
+  "Accessories":     ["Montres", "Bijoux", "Sacs à main", "Lunettes", "Portefeuilles", "Ceintures", "Chapeaux"],
+  "Maison":          ["Cuisine", "Décoration", "Literie", "Éclairage", "Rangement"],
+  "Sport":           ["Fitness", "Vêtements Sport", "Cyclisme", "Natation", "Camping"],
+  "Bébé & Enfants":  ["Jouets", "Vêtements Enfant", "Nurserie", "Scolaire"],
+  "Auto":            ["Intérieur Auto", "Extérieur Auto", "Moto & Scooter", "Entretien"],
 };
 
 const CATEGORIES = [
-  { key: "All",        label: "Tout voir",   icon: "fa-grid-2",             color: "#00ff88" },
-  { key: "Audio Lab",  label: "Audio Lab",   icon: "fa-headphones",         color: "#00ff88" },
-  { key: "Femme",      label: "Pour Elle",   icon: "fa-person-dress",       color: "#ec4899" },
-  { key: "Clothing",   label: "Streetwear",  icon: "fa-shirt",              color: "#a855f7" },
-  { key: "Shoes",      label: "Sneakers",    icon: "fa-shoe-prints",        color: "#f97316" },
-  { key: "Tech Lab",   label: "Tech Lab",    icon: "fa-microchip",          color: "#3b82f6" },
-  { key: "Fragrance",  label: "Parfums",     icon: "fa-spray-can-sparkles", color: "#ec4899" },
-  { key: "Accessories",label: "Accessoires", icon: "fa-gem",                color: "#eab308" },
+  { key: "All",            label: "Tout voir",   icon: "fa-grid-2",             color: "#00ff88" },
+  { key: "Audio Lab",      label: "Audio Lab",   icon: "fa-headphones",         color: "#00ff88" },
+  { key: "Tech Lab",       label: "Tech Lab",    icon: "fa-microchip",          color: "#3b82f6" },
+  { key: "Femme",          label: "Pour Elle",   icon: "fa-person-dress",       color: "#ec4899" },
+  { key: "Clothing",       label: "Streetwear",  icon: "fa-shirt",              color: "#a855f7" },
+  { key: "Shoes",          label: "Sneakers",    icon: "fa-shoe-prints",        color: "#f97316" },
+  { key: "Beauté",         label: "Beauté",      icon: "fa-spray-can-sparkles", color: "#f472b6" },
+  { key: "Accessories",    label: "Accessoires", icon: "fa-gem",                color: "#eab308" },
+  { key: "Maison",         label: "Maison",      icon: "fa-house",              color: "#14b8a6" },
+  { key: "Sport",          label: "Sport",       icon: "fa-dumbbell",           color: "#f97316" },
+  { key: "Bébé & Enfants", label: "Enfants",     icon: "fa-baby",               color: "#fb923c" },
+  { key: "Auto",           label: "Auto",        icon: "fa-car",                color: "#64748b" },
 ];
 
 const SORT_OPTIONS = [
@@ -40,8 +48,8 @@ const SORT_OPTIONS = [
 const SORT_OPTIONS_ALL = SORT_OPTIONS.filter(o => o.value !== "recent");
 
 // Category keys (no "All") used for parallel fetch
-const CAT_KEYS = ["Audio Lab", "Tech Lab", "Clothing", "Shoes", "Femme", "Fragrance", "Accessories"];
-const ALL_PER_CAT = Math.ceil(48 / CAT_KEYS.length); // 7 per category → 49 total
+const CAT_KEYS = ["Audio Lab", "Tech Lab", "Clothing", "Shoes", "Femme", "Beauté", "Accessories", "Maison", "Sport", "Bébé & Enfants", "Auto"];
+const ALL_PER_CAT = Math.ceil(48 / CAT_KEYS.length); // ~4-5 per category
 
 // Editorial section breaks injected every N products in the grid
 const EDITORIAL_SECTIONS = [
@@ -63,10 +71,10 @@ const EDITORIAL_SECTIONS = [
     title: "Les plus commandés",
     color: "#3b82f6",
     items: [
-      { cat: "Clothing",  sub: "Hoodies",  label: "Hoodies",     img: "https://images.unsplash.com/photo-1556821840-3a63f15732ce?w=400&q=80" },
-      { cat: "Femme",     sub: null,       label: "Mode Femme",  img: "https://images.unsplash.com/photo-1483985988355-763728e1935b?w=400&q=80" },
-      { cat: "Fragrance", sub: "Parfums",  label: "Parfums",     img: "https://images.unsplash.com/photo-1541643600914-78b084683702?w=400&q=80" },
-      { cat: "Tech Lab",  sub: "Gaming",   label: "Gaming",      img: "https://images.unsplash.com/photo-1593118247619-e2d6f056869e?w=400&q=80" },
+      { cat: "Clothing",  sub: "Hoodies & Sweats", label: "Hoodies",     img: "https://images.unsplash.com/photo-1556821840-3a63f15732ce?w=400&q=80" },
+      { cat: "Femme",     sub: null,               label: "Mode Femme",  img: "https://images.unsplash.com/photo-1483985988355-763728e1935b?w=400&q=80" },
+      { cat: "Beauté",    sub: "Parfums",           label: "Parfums",     img: "https://images.unsplash.com/photo-1541643600914-78b084683702?w=400&q=80" },
+      { cat: "Tech Lab",  sub: "Gaming",            label: "Gaming",      img: "https://images.unsplash.com/photo-1593118247619-e2d6f056869e?w=400&q=80" },
     ],
   },
   {
@@ -76,9 +84,9 @@ const EDITORIAL_SECTIONS = [
     color: "#a855f7",
     items: [
       { cat: "Audio Lab",  sub: "Enceintes",  label: "Enceintes",       img: "https://images.unsplash.com/photo-1608043152269-423dbba4e7e1?w=400&q=80" },
-      { cat: "Accessories",sub: "Sacs",       label: "Sacs & Bagages",  img: "https://images.unsplash.com/photo-1548036328-c9fa89d128fa?w=400&q=80" },
-      { cat: "Shoes",      sub: null,         label: "Chaussures",      img: "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=400&q=80" },
-      { cat: "Clothing",   sub: "Vestes",     label: "Vestes",          img: "https://images.unsplash.com/photo-1591047139829-d91aecb6caea?w=400&q=80" },
+      { cat: "Accessories",sub: "Sacs à main",       label: "Sacs & Bagages",  img: "https://images.unsplash.com/photo-1548036328-c9fa89d128fa?w=400&q=80" },
+      { cat: "Shoes",      sub: null,               label: "Chaussures",      img: "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=400&q=80" },
+      { cat: "Clothing",   sub: "Vestes & Manteaux",label: "Vestes",          img: "https://images.unsplash.com/photo-1591047139829-d91aecb6caea?w=400&q=80" },
     ],
   },
 ];

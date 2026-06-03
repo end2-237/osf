@@ -10,14 +10,16 @@ const ScrollToTop = () => {
 };
 
 const CATEGORIES = [
-  { name: "Audio Lab",   catKey: "Audio Lab",   icon: "fa-headphones",        isNew: false },
-  { name: "Mode Femme",  catKey: "Femme",       icon: "fa-person-dress",      isNew: true  },
-  { name: "Tech Lab",    catKey: "Tech Lab",    icon: "fa-microchip",         isNew: false },
-  { name: "Streetwear",  catKey: "Clothing",    icon: "fa-shirt",             isNew: false },
-  { name: "Sneakers",    catKey: "Shoes",       icon: "fa-shoe-prints",       isNew: false },
-  { name: "Parfums",     catKey: "Fragrance",   icon: "fa-spray-can-sparkles",isNew: false },
-  { name: "Flash Deals", catKey: null,          icon: "fa-bolt",              isNew: false },
-  { name: "Accessoires", catKey: "Accessories", icon: "fa-gem",               isNew: false },
+  { name: "Audio Lab",   catKey: "Audio Lab",      icon: "fa-headphones",         isNew: false },
+  { name: "Tech Lab",    catKey: "Tech Lab",        icon: "fa-microchip",          isNew: false },
+  { name: "Mode Femme",  catKey: "Femme",           icon: "fa-person-dress",       isNew: false },
+  { name: "Streetwear",  catKey: "Clothing",        icon: "fa-shirt",              isNew: false },
+  { name: "Sneakers",    catKey: "Shoes",           icon: "fa-shoe-prints",        isNew: false },
+  { name: "Beauté",      catKey: "Beauté",          icon: "fa-spray-can-sparkles", isNew: false },
+  { name: "Accessoires", catKey: "Accessories",     icon: "fa-gem",                isNew: false },
+  { name: "Maison",      catKey: "Maison",          icon: "fa-house",              isNew: true  },
+  { name: "Sport",       catKey: "Sport",           icon: "fa-dumbbell",           isNew: true  },
+  { name: "Flash Deals", catKey: null,              icon: "fa-bolt",               isNew: false },
 ];
 
 const ProfileDropdown = ({ user, profile, signOut }) => {

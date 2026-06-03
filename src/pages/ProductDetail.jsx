@@ -1002,8 +1002,12 @@ const ProductDetail = ({ addToCart, openModal }) => {
   const isApparel     = product?.type === "Clothing" || product?.type === "Femme";
   const isShoes       = product?.type === "Shoes";
   const isElectronics = product?.type === "Tech Lab" || product?.type === "Audio Lab";
-  const isFragrance   = product?.type === "Fragrance";
+  const isBeauty      = product?.type === "Beauté" || product?.type === "Fragrance";
   const isAccessory   = product?.type === "Accessories";
+  const isMaison      = product?.type === "Maison";
+  const isSport       = product?.type === "Sport";
+  const isBebe        = product?.type === "Bébé & Enfants";
+  const isAuto        = product?.type === "Auto";
 
   const productColors = realColors.map(name => ({ name, hex: getColorHex(name) }));
   // Real sizes from variants; fall back to standard apparel/shoe lists when empty
@@ -1187,7 +1191,7 @@ const ProductDetail = ({ addToCart, openModal }) => {
                 )}
 
                 {/* ── KEY INFO (fragrance) ── */}
-                {isFragrance && product.features?.length > 0 && (
+                {isBeauty && product.features?.length > 0 && (
                   <div className="mt-2 mb-3 flex flex-wrap gap-1.5">
                     {product.features.filter(f => /ml|oz|note|concentration|type|famille/i.test(f)).slice(0, 4).map((feat, i) => {
                       const sep = feat.indexOf(":");
@@ -1412,7 +1416,7 @@ const ProductDetail = ({ addToCart, openModal }) => {
                 {productColors.length > 0 && (
                   <div className="mb-4">
                     <p className="text-sm font-bold mb-2 text-[#0F1111]">
-                      {isElectronics ? "Coloris" : isFragrance ? "Contenance" : "Couleur"} : <span className="font-normal text-[#565959]">{color}</span>
+                      {isElectronics ? "Coloris" : isBeauty ? "Contenance" : "Couleur"} : <span className="font-normal text-[#565959]">{color}</span>
                     </p>
                     <div className="flex gap-2 flex-wrap">
                       {productColors.map(c => {
@@ -1459,7 +1463,7 @@ const ProductDetail = ({ addToCart, openModal }) => {
                           if (vkt.includes("size")) return "Taille";
                           if (vkt.includes("storage") || vkt.includes("capacity") || realSizes.some(s => /gb|tb/i.test(s))) return "Capacité";
                           if (isElectronics) return "Version";
-                          if (isFragrance) return "Format";
+                          if (isBeauty) return "Format";
                           if (realSizes.length > 0) return "Variante";
                           return "Taille";
                         })()} :
