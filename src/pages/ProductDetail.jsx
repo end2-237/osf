@@ -805,6 +805,9 @@ const ProductDetail = ({ addToCart, openModal }) => {
         if (fresh.shipping_fee_usd)                                                  updates.shipping_fee_usd      = fresh.shipping_fee_usd;
         if (fresh.is_on_sale === false)                                              updates.is_on_sale            = false;
         if (fresh.cj_added_at)                                                       updates.cj_added_at           = fresh.cj_added_at;
+        if (fresh.variant_key_type)                                                  updates.variant_key_type      = fresh.variant_key_type;
+        if (fresh.customs_code)                                                      updates.customs_code          = fresh.customs_code;
+        if (fresh.customs_name)                                                      updates.customs_name          = fresh.customs_name;
         await supabase.from("products").update(updates).eq("id", product.id);
         setProduct(prev => prev ? { ...prev, ...updates } : prev);
       } catch { /* silent */ }
@@ -1450,12 +1453,16 @@ const ProductDetail = ({ addToCart, openModal }) => {
                   <div className="mb-4">
                     <div className="flex items-center justify-between mb-2">
                       <p className="text-sm font-bold text-[#0F1111]">
-                        {isShoes ? "Pointure"
-                          : isElectronics && realSizes.some(s => /gb|tb/i.test(s)) ? "Capacité"
-                          : isElectronics ? "Version"
-                          : isFragrance ? "Format"
-                          : realSizes.length > 0 ? "Variante"
-                          : "Taille"} :
+                          {(() => {
+                          const vkt = (product.variant_key_type || "").toLowerCase();
+                          if (isShoes) return "Pointure";
+                          if (vkt.includes("size")) return "Taille";
+                          if (vkt.includes("storage") || vkt.includes("capacity") || realSizes.some(s => /gb|tb/i.test(s))) return "Capacité";
+                          if (isElectronics) return "Version";
+                          if (isFragrance) return "Format";
+                          if (realSizes.length > 0) return "Variante";
+                          return "Taille";
+                        })()} :
                         <span className="font-normal text-[#565959] ml-1">{size}</span>
                       </p>
                       {(isApparel || isShoes) && (
@@ -1693,6 +1700,7 @@ const ProductDetail = ({ addToCart, openModal }) => {
                       product.cj_category_name     && { label: "Catégorie",            value: product.cj_category_name },
                       product.supplier_name        && { label: "Fournisseur",          value: product.supplier_name },
                       realSizes.length > 0         && { label: "Variantes dispo",      value: realSizes.join(", ") },
+                      product.customs_code         && { label: "Code douanier (HS)",   value: `${product.customs_code}${product.customs_name ? ` — ${product.customs_name}` : ""}` },
                       { label: "Livraison locale",   value: "Douala · Yaoundé · tout le Cameroun" },
                       { label: "Modes de paiement",  value: "Orange Money · MTN MoMo · Cash" },
                       { label: "Politique retour",   value: "7 jours — Remboursement intégral" },

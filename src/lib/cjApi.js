@@ -261,21 +261,31 @@ export const mapCjToProduct = (p) => {
   // ── Stock: sum variants or top-level field ─────────────────────────────────
   let stock_qty = -1;
   if (typeof p.totalVerifiedInventory === "number" && p.totalVerifiedInventory >= 0) {
-    stock_qty = p.totalVerifiedInventory;       // CJ list: verified stock
+    // CJ list endpoint: verified inventory count
+    stock_qty = p.totalVerifiedInventory;
   } else if (typeof p.inventoryQuantity === "number") {
     stock_qty = p.inventoryQuantity;
   } else if (typeof p.quantity === "number") {
     stock_qty = p.quantity;
   } else if (typeof p.warehouseInventoryNum === "number" && p.warehouseInventoryNum >= 0) {
-    stock_qty = Math.min(p.warehouseInventoryNum, 9999); // cap extreme warehouse totals
+    stock_qty = Math.min(p.warehouseInventoryNum, 9999);
   } else if (variants.length > 0) {
-    // CJ detail uses inventoryNum or variantInventory; list API uses quantity
-    const hasStockData = variants.some(v =>
+    // CJ detail endpoint: stock lives inside variants[].inventories[].totalInventory
+    // Each variant has inventories: [{ countryCode, totalInventory, cjInventory, factoryInventory }]
+    const hasInventoriesStructure = variants.some(v => Array.isArray(v.inventories) && v.inventories.length > 0);
+    const hasLegacyFields = variants.some(v =>
       (v.inventoryNum != null && v.inventoryNum !== "") ||
-      (v.variantInventory != null) ||
-      (v.quantity != null)
+      (v.variantInventory != null) || (v.quantity != null)
     );
-    if (hasStockData) {
+
+    if (hasInventoriesStructure) {
+      stock_qty = variants.reduce((s, v) => {
+        if (!Array.isArray(v.inventories) || !v.inventories.length) return s;
+        // Prefer CN warehouse; fall back to first entry
+        const inv = v.inventories.find(i => i.countryCode === "CN") || v.inventories[0];
+        return s + (parseInt(inv.totalInventory ?? inv.cjInventory ?? inv.factoryInventory ?? 0) || 0);
+      }, 0);
+    } else if (hasLegacyFields) {
       stock_qty = variants.reduce((s, v) =>
         s + (parseInt(v.inventoryNum ?? v.variantInventory ?? v.quantity ?? 0) || 0), 0);
     }
@@ -302,13 +312,28 @@ export const mapCjToProduct = (p) => {
     const value = a.attrEnValue || a.attrValue || "";
     if (name && value) features.push(`${name}: ${value}`);
   });
+  // Material from materialNameEn (JSON array string like "[\"metal\",\"plastic\"]")
+  if (p.materialNameEn) {
+    try {
+      const mats = JSON.parse(p.materialNameEn).filter(Boolean);
+      if (mats.length > 0 && !features.some(f => /mati[eè]r/i.test(f))) {
+        features.push(`Material: ${mats.join(", ")}`);
+      }
+    } catch { /* not a JSON array — skip */ }
+  }
+  // Variant attribute type (Color / Size / Storage…) — surfaced in the UI for labels
+  const variant_key_type = (p.productKeyEn || "").trim() || null;
+  // Customs HS code — useful for order compliance
+  const customs_code = p.entryCode || null;
+  const customs_name = p.entryNameEn || p.entryName || null;
 
   // ── Price USD (keep original for audit/recalculation) ──────────────────────
   const price_usd = parsePrice(p.nowPrice ?? p.sellPrice ?? p.productPrice ?? 0) || null;
 
   // ── Weight ─────────────────────────────────────────────────────────────────
-  const weight_g       = parseFloat(p.productWeight  || p.logisticWeight  || 0) || null;
-  const ship_weight_g  = parseFloat(p.logisticWeight || p.productWeight   || 0) || null;
+  // productWeight = product only; packingWeight = with packaging (actual shipping weight)
+  const weight_g      = parseFloat(p.productWeight  || p.logisticWeight  || 0) || null;
+  const ship_weight_g = parseFloat(p.packingWeight  || p.logisticWeight  || p.productWeight || 0) || null;
 
   // ── Quantity price tiers ────────────────────────────────────────────────────
   // CJ may expose these as quantityDiscount [{quantity, discount}]
@@ -368,8 +393,8 @@ export const mapCjToProduct = (p) => {
   // ── Sales count (social proof) ────────────────────────────────────────────────
   const sale_num = parseInt(p.saleNum || p.sold || p.salesCount || 0) || 0;
 
-  // ── CJ suggested retail price ─────────────────────────────────────────────────
-  const suggest_price_usd  = parseFloat(p.productSugSellPrice || p.sugSellPrice || 0) || null;
+  // ── CJ suggested retail price — actual field: suggestSellPrice (may be a range)
+  const suggest_price_usd  = parsePrice(p.suggestSellPrice || p.productSugSellPrice || p.sugSellPrice || 0) || null;
   const suggest_price_fcfa = suggest_price_usd ? usdToFcfa(suggest_price_usd) : null;
 
   // ── Certifications/labels (CE, FCC, RoHS…) ───────────────────────────────────
@@ -441,5 +466,8 @@ export const mapCjToProduct = (p) => {
     shipping_fee_usd,
     is_on_sale,
     cj_added_at,
+    variant_key_type,
+    customs_code,
+    customs_name,
   };
 };
