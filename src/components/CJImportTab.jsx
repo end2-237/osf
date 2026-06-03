@@ -110,6 +110,14 @@ const CJImportTab = () => {
   const [alreadyCount, setAlreadyCount] = useState(0);
   const [showImportN,  setShowImportN]  = useState(false);
   const [importNValue, setImportNValue] = useState("");
+  const [ofsTypeFilter, setOfsTypeFilter] = useState("Tous");
+
+  const OFS_TYPES = ["Tous", "Audio Lab", "Tech Lab", "Femme", "Clothing", "Shoes", "Beauté", "Accessories", "Maison", "Sport", "Bébé & Enfants", "Auto"];
+
+  // Client-side filter by mapped OFS type
+  const filteredProducts = ofsTypeFilter === "Tous"
+    ? products
+    : products.filter(p => mapOfsType(p.categoryName || "") === ofsTypeFilter);
 
   const totalPages = Math.ceil(total / PAGE_SIZE);
   const isBulkMode = importProg.total > 0 || batchRunning;
@@ -179,6 +187,7 @@ const CJImportTab = () => {
       setTotal(data?.total || 0);
       setPage(p);
       setPageInput(String(p));
+      setOfsTypeFilter("Tous"); // reset OFS filter on new fetch
     } catch (err) {
       console.error("[CJ]", err.message);
       setFetchError(err.message);
@@ -216,7 +225,7 @@ const CJImportTab = () => {
 
   // Selection helpers
   const toggleSelect = (pid) => setSelected(prev => { const n = new Set(prev); n.has(pid) ? n.delete(pid) : n.add(pid); return n; });
-  const selectAll    = () => setSelected(new Set(products.map(p => p.pid)));
+  const selectAll    = () => setSelected(new Set(filteredProducts.map(p => p.pid)));
   const clearAll     = () => setSelected(new Set());
 
   // Fetch full CJ detail for one product, fall back to list data on error
@@ -285,7 +294,7 @@ const CJImportTab = () => {
     finally { setImporting(false); setImportProg({ done: 0, total: 0 }); }
   };
 
-  const importSelected = () => importProducts(products.filter(p => selected.has(p.pid)));
+  const importSelected = () => importProducts(filteredProducts.filter(p => selected.has(p.pid)));
 
   // Import N from current context
   const importN = async () => {
@@ -837,18 +846,43 @@ const CJImportTab = () => {
         </div>
       ) : products.length > 0 ? (
         <>
+          {/* OFS type filter chips */}
+          {products.length > 0 && (() => {
+            const counts = {};
+            products.forEach(p => {
+              const t = mapOfsType(p.categoryName || "");
+              counts[t] = (counts[t] || 0) + 1;
+            });
+            return (
+              <div className="flex gap-1.5 overflow-x-auto hide-scrollbar pb-0.5">
+                {OFS_TYPES.filter(t => t === "Tous" || counts[t] > 0).map(t => (
+                  <button key={t} onClick={() => setOfsTypeFilter(t)}
+                    className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider whitespace-nowrap border flex-shrink-0 transition-all ${
+                      ofsTypeFilter === t
+                        ? "bg-[#232F3E] text-[#FF9900] border-[#FF9900]/40"
+                        : "bg-white text-[#565959] border-[#D5D9D9] hover:border-[#FF9900]/40"
+                    }`}>
+                    {t}{t !== "Tous" && counts[t] ? ` · ${counts[t]}` : t === "Tous" ? ` · ${products.length}` : ""}
+                  </button>
+                ))}
+              </div>
+            );
+          })()}
+
           <div className="flex items-center justify-between">
             <p className="text-xs text-[#565959]">
-              {products.length} affichés · {total.toLocaleString()} au total{selCatName ? ` dans "${selCatName}"` : ""}
+              {filteredProducts.length} affichés
+              {ofsTypeFilter !== "Tous" && <span className="text-[#FF9900] font-bold"> · {ofsTypeFilter}</span>}
+              {" "}· {total.toLocaleString()} au total{selCatName ? ` dans "${selCatName}"` : ""}
             </p>
-            <button onClick={selected.size === products.length ? clearAll : selectAll}
+            <button onClick={selected.size === filteredProducts.length ? clearAll : selectAll}
               className="text-xs text-[#007185] hover:text-[#C45500] font-bold transition-colors">
-              {selected.size === products.length ? "Désélectionner tout" : "Sélectionner tout"}
+              {selected.size === filteredProducts.length ? "Désélectionner tout" : "Sélectionner tout"}
             </button>
           </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
-            {products.map(p => (
+            {filteredProducts.map(p => (
               <CJCard key={p.pid} product={p} selected={selected.has(p.pid)}
                 onToggle={toggleSelect} onImport={importProducts} importing={importing} />
             ))}
