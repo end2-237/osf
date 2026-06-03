@@ -53,11 +53,12 @@ export const mapOfsType = (categoryName = "") => {
   if (/headphone|earphone|earbuds?|casque|oreillette|in.ear|over.ear|on.ear|speaker|soundbar|subwoofer|enceinte|bluetooth.speaker|portable.speaker|microphone|amplifier|home.theater|sound.system|musical.instrument|audio.equipment|hi.fi/.test(n))
     return "Audio Lab";
 
-  // ── Tech & Electronics ─────────────────────────────────────────────────────
+  // ── Tech & Electronics (+ électroménager, avant Maison) ───────────────────
   if (/smartphone|mobile.phone|cell.phone|\bphone\b|telecom|telecommunication|television|televiseur|\btv\b|tablet|ipad|laptop|notebook|computer|pc.desktop|gaming|game.controller|drone|action.camera|projector|smart.home|iot|robot|3d.printer|vr.headset|power.bank|usb.hub|screen.protector|phone.case|phone.bag|phone.holder|consumer.electronics|electronics/.test(n)
     || (/charger|cable|usb/.test(n) && !/car.charger/.test(n))
     || (/camera/.test(n) && !/security.camera/.test(n) && !/doorbell/.test(n))
-    || (/gaming|console/.test(n)))
+    || (/gaming|console/.test(n))
+    || /home.appliance|kitchen.appliance|\bappliance\b|electric.kettle|air.fryer|air.condition|microwave|washing.machine|refrigerator|freezer|dishwasher|water.heater|robot.vacuum|vacuum.cleaner|air.purifier|humidifier|electric.fan|space.heater|coffee.maker|\bblender\b|rice.cooker|bread.maker|food.processor|\bjuicer\b|induction.cook|\btoaster\b/.test(n))
     return "Tech Lab";
 
   // ── Shoes & Footwear ───────────────────────────────────────────────────────
@@ -74,8 +75,8 @@ export const mapOfsType = (categoryName = "") => {
   if (/perfume|fragrance|cologne|eau.de|beauty|skin.care|skincare|facial|serum|moisturizer|\bcream\b|\blotion\b|body.care|hair.care|shampoo|conditioner|hair.extension|\bwig\b|makeup|cosmetic|lipstick|mascara|foundation|eyeshadow|\bblush\b|\bnail\b|eyelash|\blash\b|sunscreen|toner|essence|body.wash|bath.bomb/.test(n))
     return "Beauté";
 
-  // ── Home & Living ──────────────────────────────────────────────────────────
-  if (/\bhome\b|kitchen|cookware|tableware|cutlery|bedding|\bpillow\b|mattress|blanket|curtain|\brug\b|carpet|\blamp\b|lighting|home.decor|\bcandle\b|wall.art|picture.frame|\bstorage\b|organizer|\bfurniture\b|\bshelf\b|bathroom|\bcleaning\b|\bvacuum\b|air.purifier|humidifier|\bfan\b|\bheater\b|coffee.maker|\bblender\b|rice.cooker/.test(n))
+  // ── Home & Living (décor, mobilier, textiles — non électrique) ────────────
+  if (/home.decor|home.furnish|home.living|home.textile|home.garden|cookware|tableware|cutlery|bedding|\bpillow\b|mattress|\bblanket\b|curtain|\brug\b|\bcarpet\b|\blamp\b|lighting|wall.art|picture.frame|\bcandle\b|\bvase\b|\bfurniture\b|\bshelf\b|\bcabinet\b|bathroom.access|\bcleaning.supply\b|\bstorage.box\b|organizer/.test(n))
     return "Maison";
 
   // ── Sport & Outdoors ───────────────────────────────────────────────────────
@@ -124,6 +125,7 @@ export const mapSubcategory = (categoryName = "") => {
   if (/charger|power.bank|usb.hub|\bcable\b|data.cable/.test(n))                return "Câbles & Chargeurs";
   if (/smart.home|smart.plug|smart.bulb|security.camera|doorbell/.test(n))      return "Maison Connectée";
   if (/smartwatch|wearable|fitness.tracker|smart.band/.test(n))                 return "Objets Connectés";
+  if (/appliance|air.fryer|air.condition|microwave|washing.machine|refrigerator|freezer|dishwasher|water.heater|robot.vacuum|vacuum.cleaner|air.purifier|humidifier|electric.fan|coffee.maker|\bblender\b|rice.cooker|bread.maker|food.processor|\bjuicer\b|induction|toaster|electric.kettle/.test(n)) return "Électroménager";
 
   // Shoes
   if (/sneaker|trainer|athletic.shoe|running.shoe|basketball.shoe/.test(n))     return "Sneakers";

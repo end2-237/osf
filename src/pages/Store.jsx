@@ -9,7 +9,7 @@ import { useAuth } from "../context/AuthContext";
 /* ─────────────────── CONSTANTS ─────────────────── */
 const SUBCATEGORIES = {
   "Audio Lab":       ["Casques", "Enceintes", "Écouteurs", "Microphones"],
-  "Tech Lab":        ["Smartphones", "TV & Vidéo", "Tablettes", "Informatique", "Gaming", "Photo & Vidéo", "Câbles & Chargeurs", "Objets Connectés", "Maison Connectée"],
+  "Tech Lab":        ["Smartphones", "TV & Vidéo", "Tablettes", "Informatique", "Gaming", "Photo & Vidéo", "Câbles & Chargeurs", "Électroménager", "Objets Connectés", "Maison Connectée"],
   "Clothing":        ["Hoodies & Sweats", "T-Shirts & Polos", "Chemises", "Pantalons & Jeans", "Vestes & Manteaux", "Shorts", "Costumes & Survêtements", "Sous-vêtements"],
   "Shoes":           ["Sneakers", "Bottes", "Sandales", "Mocassins", "Talons"],
   "Femme":           ["Robes & Jupes", "Tops & Blouses", "Lingerie", "Manteaux", "Combinaisons"],
