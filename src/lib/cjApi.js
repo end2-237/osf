@@ -58,7 +58,9 @@ export const mapOfsType = (categoryName = "") => {
     || (/charger|cable|usb/.test(n) && !/car.charger/.test(n))
     || (/\bcamera\b/.test(n) && !/security.camera|doorbell/.test(n))
     || (/gaming|console/.test(n))
-    || /home.appliance|kitchen.appliance|\bappliance\b|electric.kettle|air.fryer|air.condition|microwave|washing.machine|refrigerator|freezer|dishwasher|water.heater|robot.vacuum|vacuum.cleaner|air.purifier|humidifier|electric.fan|space.heater|coffee.maker|\bblender\b|rice.cooker|bread.maker|food.processor|\bjuicer\b|induction.cook|\btoaster\b/.test(n))
+    || /home.appliance|kitchen.appliance|\bappliance\b|electric.kettle|air.fryer|air.condition|microwave|washing.machine|refrigerator|freezer|dishwasher|water.heater|robot.vacuum|vacuum.cleaner|air.purifier|humidifier|electric.fan|space.heater|coffee.maker|\bblender\b|rice.cooker|bread.maker|food.processor|\bjuicer\b|induction.cook|\btoaster\b/.test(n)
+    // Outils électriques & machines
+    || /\belectric\b(?!.*(?:blue|red|green|yellow|pink|white|black|purple|orange))|power.tool|hand.tool|tool.set|\bdriller\b|\bgrinder\b|\bsander\b|\bstripper\b|soldering|\bwelder\b|oscillat|laser.engrav|cnc.machine|3d.print/.test(n))
     return "Tech Lab";
 
   // ── Shoes & Footwear ───────────────────────────────────────────────────────
@@ -105,13 +107,14 @@ export const mapOfsType = (categoryName = "") => {
   return "Clothing";
 };
 
-// ─── Combined mapper — uses product name when category alone isn't specific ───
+// ─── Combined mapper ──────────────────────────────────────────────────────────
+// Product name is checked FIRST (it's always descriptive).
+// Category name is used only when product name gives no specific match.
 export const mapCjProductType = (categoryName = "", productName = "") => {
-  const fromCat = mapOfsType(categoryName);
-  if (fromCat !== "Clothing") return fromCat;
-  // categoryName didn't give a specific result — try the product name
   const fromName = mapOfsType(productName);
-  return fromName;
+  if (fromName !== "Clothing") return fromName;
+  // product name was generic/empty — fall back to CJ category
+  return mapOfsType(categoryName);
 };
 
 // ─── Subcategory mapping ──────────────────────────────────────────────────────
@@ -537,8 +540,8 @@ export const mapCjToProduct = (p) => {
     price_usd,
     img:              images.find(u => !isVideoUrl(u)) || mainImg,
     images,
-    type:             mapOfsType(p.categoryName || ""),
-    subcategory:      mapSubcategory(p.categoryName || ""),
+    type:             mapCjProductType(p.categoryName || "", p.productNameEn || p.productName || ""),
+    subcategory:      mapSubcategory(p.categoryName || "") || mapSubcategory(p.productNameEn || p.productName || "") || null,
     status,
     description,
     features,
