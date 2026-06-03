@@ -56,19 +56,20 @@ export const mapOfsType = (categoryName = "") => {
   // ── Tech & Electronics (+ électroménager, avant Maison) ───────────────────
   if (/smartphone|mobile.phone|cell.phone|\bphone\b|telecom|telecommunication|television|televiseur|\btv\b|tablet|ipad|laptop|notebook|computer|pc.desktop|gaming|game.controller|drone|action.camera|projector|smart.home|iot|robot|3d.printer|vr.headset|power.bank|usb.hub|screen.protector|phone.case|phone.bag|phone.holder|consumer.electronics|electronics/.test(n)
     || (/charger|cable|usb/.test(n) && !/car.charger/.test(n))
-    || (/camera/.test(n) && !/security.camera/.test(n) && !/doorbell/.test(n))
+    || (/\bcamera\b/.test(n) && !/security.camera|doorbell/.test(n))
     || (/gaming|console/.test(n))
     || /home.appliance|kitchen.appliance|\bappliance\b|electric.kettle|air.fryer|air.condition|microwave|washing.machine|refrigerator|freezer|dishwasher|water.heater|robot.vacuum|vacuum.cleaner|air.purifier|humidifier|electric.fan|space.heater|coffee.maker|\bblender\b|rice.cooker|bread.maker|food.processor|\bjuicer\b|induction.cook|\btoaster\b/.test(n))
     return "Tech Lab";
 
   // ── Shoes & Footwear ───────────────────────────────────────────────────────
-  if (/\bshoe|sneaker|boot(?!h)|slipper|sandal|footwear|loafer|moccasin|oxford|pump|wedge|espadrille|mule|stiletto|trainer|athletic.shoe|running.shoe|basketball.shoe|soccer.cleat/.test(n))
+  if (/\bshoes?\b|sneaker|boot(?!h)|slipper|sandal|footwear|loafer|moccasin|oxford|\bpump\b|wedge|espadrille|stiletto|trainer|athletic.shoe|running.shoe|basketball.shoe|soccer.cleat/.test(n))
     return "Shoes";
 
   // ── Women's Clothing ───────────────────────────────────────────────────────
-  if (/women.s.cloth|women.s.fashion|women.s.dress|women.s.top|ladies.cloth|female.cloth|girls.cloth/.test(n)
-    || /\b(dress|skirt|blouse|lingerie|\bbra\b|women.s.underwear|bikini|swimwear.women|women.s.coat|women.s.jacket|romper|jumpsuit|women.s.pants|women.s.suit)\b/.test(n)
-    || (segs.some(s => s.includes("women") && (s.includes("cloth") || s.includes("fashion") || s.includes("apparel")))))
+  if (/women.?s.cloth|women.?s.fashion|women.?s.dress|women.?s.top|ladies.cloth|female.cloth|girls.cloth/.test(n)
+    || /\b(dress|skirt|blouse|lingerie|\bbra\b|bikini|swimwear|romper|jumpsuit)\b/.test(n)
+    || /\bgown\b|\bwomens?\b|\bladies\b|female.fashion|girl.dress/.test(n)
+    || (segs.some(s => s.includes("women") && (s.includes("cloth") || s.includes("fashion") || s.includes("apparel") || s.includes("top") || s.includes("shirt")))))
     return "Femme";
 
   // ── Beauty & Fragrance ─────────────────────────────────────────────────────
@@ -80,28 +81,37 @@ export const mapOfsType = (categoryName = "") => {
     return "Maison";
 
   // ── Sport & Outdoors ───────────────────────────────────────────────────────
-  if (/\bsport\b|fitness|\bgym\b|\byoga\b|cycling|bicycle|\bhiking\b|\bcamping\b|\bswimming\b|\brunning\b|football|basketball|\btennis\b|\bgolf\b|skiing|martial.arts|\bbox(ing)?\b|\boutdoor\b|exercise|workout|dumbbell|resistance.band|treadmill|jump.rope|activewear/.test(n))
+  if (/\bsport\b|fitness|\bgym\b|\byoga\b|cycling|bicycle|\bhiking\b|\bcamping\b|\bswimming\b|\brunning\b|football|soccer|basketball|\btennis\b|\bgolf\b|skiing|martial.arts|\bbox(ing)?\b|\boutdoor\b|exercise|workout|dumbbell|resistance.band|treadmill|jump.rope|activewear|volleyball|badminton|baseball|cricket|\btraining.ball\b|sportswear/.test(n))
     return "Sport";
 
-  // ── Baby & Kids ────────────────────────────────────────────────────────────
-  if (/\bbaby\b|infant|toddler|\bchild\b|children|\bkids\b|\btoy\b|\bdoll\b|action.figure|lego|puzzle|nursery|stroller|\bcrib\b|baby.seat|diaper|pamper|baby.cloth|kids.cloth|school.bag/.test(n))
+  // ── Baby, Kids & Pets ──────────────────────────────────────────────────────
+  if (/\bbaby\b|infant|toddler|\bchild\b|children|\bkids\b|\btoy\b|\bdoll\b|action.figure|lego|puzzle|nursery|stroller|\bcrib\b|baby.seat|diaper|pamper|baby.cloth|kids.cloth|school.bag|\bpet\b|\bdog\b|\bcat\b|\bpuppy\b|\bkitten\b|pet.supply|pet.accessor|aquarium|\bbird\b/.test(n))
     return "Bébé & Enfants";
 
   // ── Auto & Moto ────────────────────────────────────────────────────────────
-  if (/\bcar\b|\bauto\b|automobile|vehicle|\btruck\b|motorcycle|motorbike|\bmoto\b|scooter|car.accessor|car.seat|car.cover|car.mat|car.charger|car.holder|car.wash|\btire\b|\bwheel\b|\bhelmet\b|auto.tool|navigation/.test(n))
+  if (/\bcar\b|\bauto\b|automobile|vehicle|\btruck\b|motorcycle|motorbike|\bmoto\b|scooter|car.accessor|car.seat|car.cover|car.mat|car.charger|car.holder|car.wash|\btire\b|\bwheel\b|auto.tool|navigation/.test(n))
     return "Auto";
 
   // ── Men's Clothing ─────────────────────────────────────────────────────────
-  if (/hoodie|sweatshirt|pullover|t.shirt|tshirt|\bpolo\b|\bshirt\b(?!.women)|men.s.cloth|men.s.fashion|men.s.shirt|men.s.jacket|men.s.coat|men.s.pant|men.s.suit|men.s.top|men.s.vest|\bjeans?\b|\bdenim\b|trouser|\bblazer\b|men.s.short|men.s.underwear|men.s.sock|jogger|tracksuit|streetwear|hip.hop|urban.fashion/.test(n)
-    || (segs.some(s => s.includes("men") && !s.includes("women") && (s.includes("cloth") || s.includes("fashion") || s.includes("apparel") || s.includes("top") || s.includes("shirt") || s.includes("suit") || s.includes("wear")))))
+  if (/hoodie|sweatshirt|pullover|t.shirt|tshirt|\bpolo\b|\bshirt\b(?!.women)|men.?s.cloth|men.?s.fashion|men.?s.shirt|men.?s.jacket|men.?s.coat|men.?s.pant|men.?s.suit|men.?s.top|\bjeans?\b|\bdenim\b|trouser|\bblazer\b|men.?s.short|men.?s.underwear|jogger|tracksuit|streetwear|urban.fashion/.test(n)
+    || (segs.some(s => s.includes("men") && !s.includes("women") && (s.includes("cloth") || s.includes("fashion") || s.includes("apparel") || s.includes("shirt") || s.includes("suit") || s.includes("wear")))))
     return "Clothing";
 
   // ── Accessories ────────────────────────────────────────────────────────────
-  if (/jewelry|jewellery|necklace|bracelet|\bring\b|earring|\bwatch\b|smartwatch|\bbrooch\b|\bbag\b|handbag|\bpurse\b|backpack|\btote\b|clutch|\bwallet\b|card.holder|sunglasses|\bglasses\b|eyewear|\bbelt\b|\bcap\b|\bhat\b|\bbeanie\b|scarf|\bglove\b|\btie\b|hair.accessor|hair.clip/.test(n))
+  if (/jewelry|jewellery|necklace|bracelet|\bring\b|earring|\bwatch\b|smartwatch|\bbrooch\b|\bbag\b|handbag|\bpurse\b|backpack|\btote\b|clutch|\bwallet\b|card.holder|sunglasses|\bglasses\b|eyewear|\bbelt\b|\bcap\b|\bhat\b|\bbeanie\b|\bscarf\b|\bglove\b|\btie\b|hair.accessor|hair.clip/.test(n))
     return "Accessories";
 
   // Default fallback
   return "Clothing";
+};
+
+// ─── Combined mapper — uses product name when category alone isn't specific ───
+export const mapCjProductType = (categoryName = "", productName = "") => {
+  const fromCat = mapOfsType(categoryName);
+  if (fromCat !== "Clothing") return fromCat;
+  // categoryName didn't give a specific result — try the product name
+  const fromName = mapOfsType(productName);
+  return fromName;
 };
 
 // ─── Subcategory mapping ──────────────────────────────────────────────────────

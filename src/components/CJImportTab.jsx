@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../context/AuthContext";
-import { cjListProducts, cjGetProductDetail, cjGetCategories, mapCjToProduct, mapOfsType, usdToFcfa } from "../lib/cjApi";
+import { cjListProducts, cjGetProductDetail, cjGetCategories, mapCjToProduct, mapCjProductType, usdToFcfa } from "../lib/cjApi";
 
 const PAGE_SIZE = 100;
 
@@ -37,8 +37,8 @@ const Toast = ({ msg, type = "ok" }) => (
 
 // ─── Product card ─────────────────────────────────────────────────────────────
 const CJCard = ({ product, selected, onToggle, onImport, importing }) => {
-  const price = usdToFcfa(product.sellPrice || product.productPrice || 0);
-  const type  = mapOfsType(product.categoryName || "");
+  const price = usdToFcfa(product.sellPrice || product.nowPrice || product.productPrice || 0);
+  const type  = mapCjProductType(product.categoryName || "", product.productNameEn || product.productName || "");
   return (
     <div onClick={() => onToggle(product.pid)}
       className={`relative bg-white border-2 rounded-xl overflow-hidden transition-all cursor-pointer group ${
@@ -114,10 +114,10 @@ const CJImportTab = () => {
 
   const OFS_TYPES = ["Tous", "Audio Lab", "Tech Lab", "Femme", "Clothing", "Shoes", "Beauté", "Accessories", "Maison", "Sport", "Bébé & Enfants", "Auto"];
 
-  // Client-side filter by mapped OFS type
+  // Client-side filter by mapped OFS type (uses both categoryName + productName)
   const filteredProducts = ofsTypeFilter === "Tous"
     ? products
-    : products.filter(p => mapOfsType(p.categoryName || "") === ofsTypeFilter);
+    : products.filter(p => mapCjProductType(p.categoryName || "", p.productNameEn || p.productName || "") === ofsTypeFilter);
 
   const totalPages = Math.ceil(total / PAGE_SIZE);
   const isBulkMode = importProg.total > 0 || batchRunning;
@@ -850,7 +850,7 @@ const CJImportTab = () => {
           {products.length > 0 && (() => {
             const counts = {};
             products.forEach(p => {
-              const t = mapOfsType(p.categoryName || "");
+              const t = mapCjProductType(p.categoryName || "", p.productNameEn || p.productName || "");
               counts[t] = (counts[t] || 0) + 1;
             });
             return (
