@@ -782,7 +782,7 @@ const ProductDetail = ({ addToCart, openModal }) => {
         const fresh = mapCjToProduct(fullData);
         const updates = { updated_at: new Date().toISOString() };
         if (fresh.cj_product_id)                                                    updates.cj_product_id    = fresh.cj_product_id;
-        if (fresh.price > 0 && fresh.price !== product.price)                       updates.price             = fresh.price;
+        if (fresh.price > 0 && fresh.price > product.price)                          updates.price             = fresh.price;
         if (fresh.price_usd)                                                        updates.price_usd         = fresh.price_usd;
         if (fresh.img)                                                              updates.img               = fresh.img;
         if (fresh.images?.length > (product.images?.length || 0))                  updates.images            = fresh.images;
@@ -823,6 +823,13 @@ const ProductDetail = ({ addToCart, openModal }) => {
         if (fresh.variant_key_type)                                                  updates.variant_key_type      = fresh.variant_key_type;
         if (fresh.customs_code)                                                      updates.customs_code          = fresh.customs_code;
         if (fresh.customs_name)                                                      updates.customs_name          = fresh.customs_name;
+        if (fresh.rating_avg > 0)                                                    updates.rating_avg            = fresh.rating_avg;
+        if (fresh.review_count > 0)                                                  updates.review_count          = fresh.review_count;
+        if (fresh.pack_num > 1)                                                      updates.pack_num              = fresh.pack_num;
+        if (fresh.multi_package)                                                     updates.multi_package         = fresh.multi_package;
+        if (fresh.sale_status)                                                       updates.sale_status           = fresh.sale_status;
+        if (fresh.cj_category_path)                                                  updates.cj_category_path      = fresh.cj_category_path;
+        if (fresh.video_thumbnail)                                                   updates.video_thumbnail       = fresh.video_thumbnail;
         await supabase.from("products").update(updates).eq("id", product.id);
         setProduct(prev => prev ? { ...prev, ...updates } : prev);
       } catch { /* silent */ }
