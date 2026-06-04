@@ -3,7 +3,8 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 // @ts-ignore
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 
-const MONETBIL_KEY    = Deno.env.get("MONETBIL_SERVICE_KEY")       || "";
+const MONETBIL_KEY    = Deno.env.get("MONETBIL_SERVICE_KEY")      || "";
+const MONETBIL_SECRET = Deno.env.get("MONETBIL_SERVICE_SECRET")   || "";
 const SUPABASE_URL    = Deno.env.get("SUPABASE_URL")               || "";
 const SUPABASE_SRVKEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")  || "";
 
@@ -22,24 +23,16 @@ serve(async (req: Request) => {
     new Response(JSON.stringify(body), { status, headers: { ...cors, "Content-Type": "application/json" } });
 
   try {
-    // Read body as text first to avoid empty-body parse error
     const rawText = await req.text();
-    if (!rawText || !rawText.trim()) {
-      return json({ error: "Corps de requête vide" }, 400);
-    }
+    if (!rawText?.trim()) return json({ error: "Corps de requête vide" }, 400);
 
     let parsed: { order_ids?: string[]; amount?: number; phone?: string; operator?: string };
-    try {
-      parsed = JSON.parse(rawText);
-    } catch {
-      return json({ error: "JSON invalide dans le corps" }, 400);
-    }
+    try { parsed = JSON.parse(rawText); }
+    catch { return json({ error: "JSON invalide" }, 400); }
 
     const { order_ids, amount, phone, operator } = parsed;
-
-    if (!order_ids?.length || !amount || !phone || !operator) {
-      return json({ error: "Paramètres manquants (order_ids, amount, phone, operator)" }, 400);
-    }
+    if (!order_ids?.length || !amount || !phone || !operator)
+      return json({ error: "Paramètres manquants" }, 400);
 
     const rand = Math.random().toString(36).slice(2, 7).toUpperCase();
     const payment_ref = `OFS-${Date.now()}-${rand}`;
@@ -49,16 +42,16 @@ serve(async (req: Request) => {
       .from("orders")
       .update({ payment_reference: payment_ref })
       .in("id", order_ids);
-
     if (updateErr) throw new Error(updateErr.message);
 
     const body = new URLSearchParams({
-      serviceKey:  MONETBIL_KEY,
-      amount:      String(Math.round(amount)),
+      serviceKey:     MONETBIL_KEY,
+      service_secret: MONETBIL_SECRET,
+      amount:         String(Math.round(amount)),
       phone,
       operator,
       payment_ref,
-      notify_url:  WEBHOOK_URL,
+      notify_url:     WEBHOOK_URL,
     });
 
     const res  = await fetch("https://api.monetbil.com/payment/v1/placePayment", {
@@ -68,10 +61,9 @@ serve(async (req: Request) => {
     });
 
     const data = await res.json();
+    console.log("[MONETBIL RESPONSE]", JSON.stringify(data));
 
-    if (data.success === 0 || !data.success) {
-      return json({ error: data.message || "Erreur Monetbil" });
-    }
+    if (!data.success) return json({ error: data.message || "Erreur Monetbil" });
 
     return json({ success: true, payment_ref });
   } catch (err: unknown) {
