@@ -708,6 +708,7 @@ const ProductDetail = ({ addToCart, openModal }) => {
   const [selectedCity,  setSelectedCity]  = useState(DELIVERY_ZONES[0]);
   const [addedFeedback, setAddedFeedback] = useState(false);
   const [shareToast,    setShareToast]    = useState(false);
+  const [cartBlockMsg,  setCartBlockMsg]  = useState("");
 
   const { user, isMember } = useAuth();
   const { isInWishlist, toggle: toggleWishlist } = useWishlist();
@@ -1096,13 +1097,55 @@ const ProductDetail = ({ addToCart, openModal }) => {
   const reviewCount = product?.review_count || 0;
 
   const handleAddToCart = () => {
-    // Identify the exact CJ variant for order fulfillment (vid + variantSku)
-    const selectedVariant = (Array.isArray(product?.variants) ? product.variants : []).find(v => {
+    const variants = Array.isArray(product?.variants) ? product.variants : [];
+
+    // ── Blocker 2: exact variant matching ─────────────────────────────────────
+    // Priority 1 — variantProperty ("Color:Black;Size:M") — most explicit
+    // Priority 2 — variantKey segment matching ("Army Green-XL")
+    const selectedVariant = variants.find(v => {
+      const prop = (v.variantProperty || v.property || "").toLowerCase();
+      if (prop.includes(":")) {
+        const propMap = {};
+        prop.split(/[;,]/).forEach(kv => {
+          const ci = kv.indexOf(":");
+          if (ci < 0) return;
+          propMap[kv.slice(0, ci).replace(/\s/g, "")] = kv.slice(ci + 1).trim();
+        });
+        const pColor = propMap["color"] || propMap["colour"] || propMap["couleur"] || null;
+        const pSize  = propMap["size"]  || propMap["taille"] || propMap["pointure"]  || null;
+        if (pColor !== null || pSize !== null) {
+          const colorOk = !color || color === "Default" || !pColor
+            || pColor.includes(color.toLowerCase()) || color.toLowerCase().includes(pColor);
+          const sizeOk  = !size  || size === "Unique" || !pSize
+            || pSize === size.toLowerCase();
+          return colorOk && sizeOk;
+        }
+      }
+      // Segment-exact fallback — avoids "Red" matching "Dark Red-M"
       const vKey = (v.variantKey || "").toLowerCase();
-      const colorMatch = !color || vKey.includes(color.toLowerCase());
-      const sizeMatch  = !size  || size === "Unique" || vKey.includes(size.toLowerCase());
-      return colorMatch && sizeMatch;
+      const cLow = color.toLowerCase();
+      const sLow = (size || "").toLowerCase();
+      const colorOk = !color || color === "Default"
+        || vKey === cLow
+        || vKey.startsWith(cLow + "-");
+      const sizeOk  = !size  || size === "Unique"
+        || vKey === sLow
+        || vKey.endsWith("-" + sLow)
+        || vKey.includes("-" + sLow + "-");
+      return colorOk && sizeOk;
     });
+
+    // ── Blocker 3: variantStatus check ────────────────────────────────────────
+    if (selectedVariant) {
+      const vStat = selectedVariant.variantStatus;
+      const available = vStat == null || Number(vStat) === 1 || vStat === true;
+      if (!available) {
+        setCartBlockMsg("Cette variante est épuisée — choisissez une autre option.");
+        setTimeout(() => setCartBlockMsg(""), 3000);
+        return;
+      }
+    }
+
     addToCart({
       ...product,
       selectedSize:       isShoes || isApparel ? size : "Unique",
@@ -1602,6 +1645,12 @@ const ProductDetail = ({ addToCart, openModal }) => {
 
                 {/* ── CTA ── */}
                 <div className="flex flex-col gap-2.5 max-w-sm mb-4">
+                  {cartBlockMsg && (
+                    <div className="flex items-center gap-2 bg-[#CC0C39]/10 border border-[#CC0C39]/30 rounded px-3 py-2 text-[11px] font-bold text-[#CC0C39]">
+                      <i className="fa-solid fa-circle-xmark text-[10px]" />
+                      {cartBlockMsg}
+                    </div>
+                  )}
                   <button onClick={handleAddToCart}
                     className={`w-full py-3 rounded-full font-bold text-sm transition-all flex items-center justify-center gap-2 border active:scale-95 ${
                       addedFeedback

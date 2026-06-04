@@ -268,14 +268,18 @@ const CartSidebar = ({ isOpen, cart, removeFromCart, updateQuantity, toggleCart,
         if (orderError) throw orderError;
 
         const itemsToInsert = vendorItems.map(item => ({
-          order_id:       orderData.id,
-          product_id:     item.id,
-          product_name:   item.name,
-          product_img:    item.img,
-          quantity:       item.quantity,
-          unit_price:     getUnitPrice(item, isMember),
-          selected_size:  item.selectedSize  || null,
-          selected_color: item.selectedColor || null,
+          order_id:            orderData.id,
+          product_id:          item.id,
+          product_name:        item.name,
+          product_img:         item.img,
+          quantity:            item.quantity,
+          unit_price:          getUnitPrice(item, isMember),
+          selected_size:       item.selectedSize       || null,
+          selected_color:      item.selectedColor      || null,
+          selected_variant_id: item.selectedVariantId  || null,
+          selected_variant_sku:item.selectedVariantSku || null,
+          cj_product_id:       item.cj_product_id      || null,
+          delivery_city:       item.deliveryCity        || null,
         }));
 
         await supabase.from('order_items').insert(itemsToInsert);
