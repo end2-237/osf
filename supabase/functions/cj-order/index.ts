@@ -128,19 +128,19 @@ serve(async (req: Request) => {
 
     // ── Build CJ payload ─────────────────────────────────────────────────────
     const cjBody = {
-      orderNumber:      order.payment_reference || `OFS-${order.id.slice(0, 8).toUpperCase()}`,
-      fromCountryCode:  "CN",
-      logisticName:     "CJPacket",
-      shippingZip:      "00237",
-      shippingCountry:  "CM",
-      shippingProvince: "",
-      shippingCity:     order.delivery_city || order.client_address || "",
-      shippingAddress:  order.client_address || "",
-      shippingAddress2: "",
-      shippingName:     order.client_name  || "",
-      shippingPhone:    order.client_phone || "",
-      houseNumber:      "",
-      remark:           "",
+      orderNumber:          order.payment_reference || `OFS-${order.id.slice(0, 8).toUpperCase()}`,
+      fromCountryCode:      "CN",
+      logisticName:         "CJPacket",
+      shippingZip:          "00237",
+      shippingCountry:      "CM",
+      shippingProvince:     "",
+      shippingCity:         order.delivery_city || order.client_address || "",
+      shippingAddress:      order.client_address || "",
+      shippingAddress2:     "",
+      shippingCustomerName: order.client_name  || "",
+      shippingPhone:        order.client_phone || "",
+      houseNumber:          "",
+      remark:               "",
       products: resolvedProducts,
     };
 
