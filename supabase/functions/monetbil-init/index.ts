@@ -22,7 +22,20 @@ serve(async (req: Request) => {
     new Response(JSON.stringify(body), { status, headers: { ...cors, "Content-Type": "application/json" } });
 
   try {
-    const { order_ids, amount, phone, operator } = await req.json();
+    // Read body as text first to avoid empty-body parse error
+    const rawText = await req.text();
+    if (!rawText || !rawText.trim()) {
+      return json({ error: "Corps de requête vide" }, 400);
+    }
+
+    let parsed: { order_ids?: string[]; amount?: number; phone?: string; operator?: string };
+    try {
+      parsed = JSON.parse(rawText);
+    } catch {
+      return json({ error: "JSON invalide dans le corps" }, 400);
+    }
+
+    const { order_ids, amount, phone, operator } = parsed;
 
     if (!order_ids?.length || !amount || !phone || !operator) {
       return json({ error: "Paramètres manquants (order_ids, amount, phone, operator)" }, 400);

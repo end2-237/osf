@@ -333,8 +333,11 @@ const CartSidebar = ({ isOpen, cart, removeFromCart, updateQuantity, toggleCart,
         }),
       });
 
-      const result = await res.json();
-      if (!result.success) throw new Error(result.error || 'Erreur Monetbil');
+      const rawText = await res.text();
+      let result;
+      try { result = JSON.parse(rawText); }
+      catch { throw new Error(`Réponse serveur invalide (${res.status}): ${rawText.slice(0, 120) || 'vide'}`); }
+      if (!result.success) throw new Error(result.error || `Erreur ${res.status}`);
 
       setPendingOrderIds(orderIds);
       setPaymentPhase('awaiting');
