@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../context/AuthContext";
@@ -10,11 +10,14 @@ const isSuperAdmin = (email) => SUPER_ADMIN_EMAILS.includes(email);
 
 // ─── STATUS CONFIG ────────────────────────────────────────────────────────────
 const STATUS = {
-  pending:   { label: "En attente",  color: "text-[#FF9900]",  bg: "bg-[#FFF8D3]",  border: "border-[#FCD200]/40" },
-  confirmed: { label: "Confirmée",   color: "text-[#007185]",  bg: "bg-[#E6F3F5]",  border: "border-[#007185]/30" },
-  shipped:   { label: "Expédiée",    color: "text-[#565959]",  bg: "bg-[#EAEDED]",  border: "border-[#D5D9D9]"    },
-  delivered: { label: "Livrée",      color: "text-[#007600]",  bg: "bg-[#E8F5E8]",  border: "border-[#007600]/30" },
-  cancelled: { label: "Annulée",     color: "text-[#B12704]",  bg: "bg-[#FEE7E5]",  border: "border-[#B12704]/30" },
+  pending:         { label: "En attente",    color: "text-[#FF9900]",  bg: "bg-[#FFF8D3]",  border: "border-[#FCD200]/40" },
+  pending_payment: { label: "Paiement...",   color: "text-[#007185]",  bg: "bg-[#E6F3F5]",  border: "border-[#007185]/30" },
+  confirmed:       { label: "Confirmée",     color: "text-[#007185]",  bg: "bg-[#E6F3F5]",  border: "border-[#007185]/30" },
+  paid:            { label: "Payée",         color: "text-[#007600]",  bg: "bg-[#E8F5E8]",  border: "border-[#007600]/30" },
+  shipped:         { label: "Expédiée",      color: "text-[#565959]",  bg: "bg-[#EAEDED]",  border: "border-[#D5D9D9]"    },
+  delivered:       { label: "Livrée",        color: "text-[#007600]",  bg: "bg-[#E8F5E8]",  border: "border-[#007600]/30" },
+  cancelled:       { label: "Annulée",       color: "text-[#B12704]",  bg: "bg-[#FEE7E5]",  border: "border-[#B12704]/30" },
+  payment_failed:  { label: "Pmt échoué",    color: "text-[#B12704]",  bg: "bg-[#FEE7E5]",  border: "border-[#B12704]/30" },
 };
 
 const fmtDate = (iso) => new Date(iso).toLocaleDateString("fr-FR", { day:"2-digit", month:"short", year:"numeric" });
@@ -123,7 +126,7 @@ const AllOrdersTab = ({ orders, loading, onStatusChange }) => {
           />
         </div>
         <div className="flex gap-1.5 overflow-x-auto hide-scrollbar pb-0.5">
-          {["all", "pending", "confirmed", "shipped", "delivered", "cancelled"].map(s => (
+          {["all", "pending", "pending_payment", "paid", "confirmed", "shipped", "delivered", "cancelled", "payment_failed"].map(s => (
             <button
               key={s}
               onClick={() => setFilter(s)}
@@ -766,6 +769,311 @@ const RepairImagesPanel = () => {
   );
 };
 
+// ─── CJ FULFILLMENT TAB ───────────────────────────────────────────────────────
+const CJ_STATUS = {
+  not_sent: { label: "À envoyer",  color: "text-[#FF9900]",  bg: "bg-[#FFF8D3]",  icon: "fa-clock"       },
+  sent:     { label: "Envoyé",     color: "text-[#007600]",  bg: "bg-[#E8F5E8]",  icon: "fa-check"       },
+  error:    { label: "Erreur CJ",  color: "text-[#B12704]",  bg: "bg-[#FEE7E5]",  icon: "fa-triangle-exclamation" },
+};
+
+const CJFulfillmentTab = () => {
+  const [orders,     setOrders]     = useState([]);
+  const [loading,    setLoading]    = useState(true);
+  const [sending,    setSending]    = useState({});
+  const [sendingAll, setSendingAll] = useState(false);
+  const [autoSend,   setAutoSend]   = useState(false);
+  const [tab,        setTab]        = useState("pending");
+  const timerRef = useRef(null);
+
+  const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+  const ANON_KEY     = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+  const loadOrders = async () => {
+    const { data } = await supabase
+      .from("orders")
+      .select("*, order_items(*)")
+      .eq("status", "paid")
+      .order("paid_at", { ascending: false });
+    const result = data || [];
+    setOrders(result);
+    return result;
+  };
+
+  useEffect(() => {
+    loadOrders().then(() => setLoading(false));
+  }, []);
+
+  const sendOrderToCJ = async (orderId) => {
+    if (sending[orderId] === "loading") return false;
+    setSending(s => ({ ...s, [orderId]: "loading" }));
+    try {
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/cj-order`, {
+        method:  "POST",
+        headers: {
+          "apikey":        ANON_KEY,
+          "Authorization": `Bearer ${ANON_KEY}`,
+          "Content-Type":  "application/json",
+        },
+        body: JSON.stringify({ order_id: orderId }),
+      });
+      const result = await res.json();
+      if (result.success) {
+        setSending(s => ({ ...s, [orderId]: "done" }));
+        setOrders(prev => prev.map(o =>
+          o.id === orderId ? { ...o, cj_order_status: "sent", cj_order_id: result.cj_order_id } : o
+        ));
+        return true;
+      } else {
+        setSending(s => ({ ...s, [orderId]: result.error || "Erreur" }));
+        setOrders(prev => prev.map(o =>
+          o.id === orderId ? { ...o, cj_order_status: "error" } : o
+        ));
+        return false;
+      }
+    } catch (e) {
+      setSending(s => ({ ...s, [orderId]: e.message || "Erreur réseau" }));
+      return false;
+    }
+  };
+
+  const sendAll = async (orderList) => {
+    setSendingAll(true);
+    const pending = (orderList || orders).filter(o =>
+      (o.cj_order_status === "not_sent" || !o.cj_order_status) &&
+      (o.order_items || []).some(i => i.selected_variant_id)
+    );
+    for (const o of pending) {
+      await sendOrderToCJ(o.id);
+    }
+    setSendingAll(false);
+  };
+
+  useEffect(() => {
+    if (autoSend) {
+      sendAll(orders);
+      timerRef.current = setInterval(async () => {
+        const fresh = await loadOrders();
+        await sendAll(fresh);
+      }, 30_000);
+    } else {
+      clearInterval(timerRef.current);
+    }
+    return () => clearInterval(timerRef.current);
+  }, [autoSend]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const pendingOrders = orders.filter(o => o.cj_order_status === "not_sent" || !o.cj_order_status);
+  const sentOrders    = orders.filter(o => o.cj_order_status === "sent");
+  const errorOrders   = orders.filter(o => o.cj_order_status === "error");
+  const displayOrders = tab === "pending" ? pendingOrders : tab === "sent" ? sentOrders : errorOrders;
+
+  return (
+    <div className="space-y-5">
+      {/* Header bar */}
+      <div className="bg-[#131921] rounded-xl px-5 py-4 flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <p className="text-[9px] font-black uppercase tracking-widest text-[#FF9900] mb-0.5">CJ Dropshipping</p>
+          <h2 className="text-white font-black text-lg leading-tight">Fulfillment des commandes</h2>
+          <p className="text-[10px] text-[#ADBAC7] mt-0.5">
+            {pendingOrders.length} à envoyer · {sentOrders.length} envoyées · {errorOrders.length} en erreur
+          </p>
+        </div>
+
+        <div className="flex items-center gap-3 flex-wrap">
+          {/* Auto-send toggle */}
+          <div className="flex items-center gap-2 bg-[#232F3E] border border-[#37475A] rounded-lg px-3 py-2">
+            <span className="text-[10px] font-black uppercase tracking-wider text-[#ADBAC7]">Auto-envoi</span>
+            <button
+              onClick={() => setAutoSend(v => !v)}
+              className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${autoSend ? "bg-[#FF9900]" : "bg-[#37475A]"}`}
+            >
+              <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow transition-transform ${autoSend ? "translate-x-4.5" : "translate-x-0.5"}`} />
+            </button>
+            {autoSend && (
+              <span className="text-[9px] font-bold text-[#FF9900] animate-pulse">ACTIF</span>
+            )}
+          </div>
+
+          {/* Send all button */}
+          <button
+            onClick={() => sendAll(orders)}
+            disabled={sendingAll || pendingOrders.length === 0}
+            className="flex items-center gap-2 bg-[#FF9900] hover:bg-[#E47911] disabled:opacity-40 text-[#0F1111] px-4 py-2 rounded-lg font-bold text-sm transition-all"
+          >
+            <i className={`fa-solid ${sendingAll ? "fa-spinner fa-spin" : "fa-paper-plane"} text-sm`}></i>
+            {sendingAll ? "Envoi…" : `Tout envoyer (${pendingOrders.length})`}
+          </button>
+
+          {/* Refresh */}
+          <button
+            onClick={() => loadOrders()}
+            className="w-9 h-9 bg-[#232F3E] border border-[#37475A] rounded-lg flex items-center justify-center text-[#ADBAC7] hover:text-white hover:border-[#FF9900]/40 transition-all"
+          >
+            <i className="fa-solid fa-rotate text-sm"></i>
+          </button>
+        </div>
+      </div>
+
+      {/* Sub-tabs */}
+      <div className="flex gap-1">
+        {[
+          { key: "pending", label: `À envoyer (${pendingOrders.length})`, color: "text-[#FF9900]" },
+          { key: "sent",    label: `Envoyées (${sentOrders.length})`,      color: "text-[#007600]" },
+          { key: "error",   label: `Erreurs (${errorOrders.length})`,      color: "text-[#B12704]" },
+        ].map(t => (
+          <button
+            key={t.key}
+            onClick={() => setTab(t.key)}
+            className={`px-4 py-2 rounded-lg text-[11px] font-black uppercase tracking-wider border transition-all ${
+              tab === t.key
+                ? `bg-[#232F3E] ${t.color} border-[#37475A]`
+                : "bg-white text-[#565959] border-[#D5D9D9] hover:border-[#FF9900]/30"
+            }`}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Orders list */}
+      {loading ? (
+        <div className="space-y-3">
+          {[...Array(3)].map((_, i) => (
+            <div key={i} className="animate-pulse bg-white border border-[#D5D9D9] rounded-xl h-28"></div>
+          ))}
+        </div>
+      ) : displayOrders.length === 0 ? (
+        <div className="text-center py-16">
+          <i className="fa-solid fa-truck-fast text-4xl text-[#D5D9D9] mb-3 block"></i>
+          <p className="font-bold text-[#565959]">
+            {tab === "pending" ? "Aucune commande en attente de fulfillment" : tab === "sent" ? "Aucune commande envoyée" : "Aucune erreur"}
+          </p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {displayOrders.map(o => {
+            const cjSt       = CJ_STATUS[o.cj_order_status || "not_sent"];
+            const sendState  = sending[o.id];
+            const cjItems    = (o.order_items || []).filter(i => i.selected_variant_id);
+            const hasVariant = cjItems.length > 0;
+
+            return (
+              <div key={o.id} className="bg-white border border-[#D5D9D9] rounded-xl overflow-hidden hover:border-[#FF9900]/30 transition-all">
+                {/* Order header */}
+                <div className="flex items-center justify-between gap-4 px-4 py-3 flex-wrap">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap mb-0.5">
+                        <p className="font-black text-[#0F1111] text-sm font-mono">#{o.id.slice(0, 8).toUpperCase()}</p>
+                        <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full border ${cjSt.bg} ${cjSt.color}`}>
+                          <i className={`fa-solid ${cjSt.icon} mr-1`}></i>{cjSt.label}
+                        </span>
+                        {o.cj_order_id && (
+                          <span className="text-[9px] font-mono bg-[#007185]/10 text-[#007185] px-2 py-0.5 rounded-full border border-[#007185]/20">
+                            CJ#{o.cj_order_id}
+                          </span>
+                        )}
+                        {!hasVariant && (
+                          <span className="text-[9px] font-bold bg-[#FFF8D3] text-[#B12704] px-2 py-0.5 rounded-full border border-[#FCD200]/40">
+                            ⚠ Sans variant_id
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-3 text-[10px] text-[#565959]">
+                        <span><i className="fa-solid fa-user mr-1"></i>{o.client_name}</span>
+                        <span><i className="fa-solid fa-phone mr-1"></i>{o.client_phone}</span>
+                        {o.paid_at && (
+                          <span><i className="fa-solid fa-check-circle mr-1 text-[#007600]"></i>{fmtDate(o.paid_at)}</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <p className="font-black text-[#B12704] text-base">{Number(o.total_amount).toLocaleString()} F</p>
+                    {tab === "pending" && (
+                      <button
+                        onClick={() => sendOrderToCJ(o.id)}
+                        disabled={sendState === "loading" || !hasVariant}
+                        className="flex items-center gap-1.5 px-3 py-1.5 bg-[#007185] hover:bg-[#005f73] disabled:opacity-40 text-white rounded-lg text-[11px] font-bold transition-all"
+                      >
+                        <i className={`fa-solid ${sendState === "loading" ? "fa-spinner fa-spin" : "fa-paper-plane"} text-xs`}></i>
+                        {sendState === "loading" ? "Envoi…" : "Envoyer à CJ"}
+                      </button>
+                    )}
+                    {tab === "error" && (
+                      <button
+                        onClick={() => sendOrderToCJ(o.id)}
+                        disabled={sendState === "loading" || !hasVariant}
+                        className="flex items-center gap-1.5 px-3 py-1.5 bg-[#B12704] hover:bg-[#8a1f04] disabled:opacity-40 text-white rounded-lg text-[11px] font-bold transition-all"
+                      >
+                        <i className={`fa-solid ${sendState === "loading" ? "fa-spinner fa-spin" : "fa-rotate-right"} text-xs`}></i>
+                        {sendState === "loading" ? "Envoi…" : "Réessayer"}
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Error message */}
+                {sendState && sendState !== "loading" && sendState !== "done" && (
+                  <div className="px-4 py-2 bg-[#FEE7E5] border-t border-[#B12704]/10">
+                    <p className="text-[10px] text-[#B12704] font-bold">
+                      <i className="fa-solid fa-triangle-exclamation mr-1"></i>{sendState}
+                    </p>
+                  </div>
+                )}
+
+                {/* Address */}
+                <div className="px-4 py-2 bg-[#F3F4F4] border-t border-[#EAEDED]">
+                  <p className="text-[10px] text-[#565959] truncate">
+                    <i className="fa-solid fa-location-dot text-[#FF9900] mr-1.5"></i>
+                    {o.client_address}
+                    {o.delivery_city && o.delivery_city !== o.client_address && ` · ${o.delivery_city}`}
+                  </p>
+                </div>
+
+                {/* CJ Items */}
+                {cjItems.length > 0 && (
+                  <div className="px-4 py-2 border-t border-[#EAEDED] space-y-1.5">
+                    {cjItems.map((item, idx) => (
+                      <div key={idx} className="flex items-center gap-3">
+                        {item.product_img && (
+                          <img src={item.product_img} alt="" className="w-8 h-8 object-cover rounded border border-[#D5D9D9] flex-shrink-0" />
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[11px] font-bold text-[#0F1111] truncate">{item.product_name}</p>
+                          <div className="flex items-center gap-2 text-[9px] text-[#565959]">
+                            {item.selected_variant_sku && <span className="font-mono bg-[#F3F4F4] px-1 rounded">{item.selected_variant_sku}</span>}
+                            {item.selected_color && <span>{item.selected_color}</span>}
+                            {item.selected_size  && <span>{item.selected_size}</span>}
+                          </div>
+                        </div>
+                        <div className="text-right flex-shrink-0">
+                          <p className="text-[11px] font-black text-[#0F1111]">×{item.quantity}</p>
+                          <p className="text-[9px] text-[#565959]">{Number(item.unit_price).toLocaleString()} F</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Non-CJ items warning */}
+                {(o.order_items || []).filter(i => !i.selected_variant_id).length > 0 && (
+                  <div className="px-4 py-1.5 border-t border-[#EAEDED] bg-[#FFF8D3]">
+                    <p className="text-[9px] text-[#565959]">
+                      <i className="fa-solid fa-info-circle text-[#FF9900] mr-1"></i>
+                      {(o.order_items || []).filter(i => !i.selected_variant_id).length} article(s) non-CJ dans cette commande (ignorés)
+                    </p>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+};
+
 // ─── SUPER ADMIN PAGE ─────────────────────────────────────────────────────────
 const SuperAdmin = () => {
   const { user } = useAuth();
@@ -792,7 +1100,7 @@ const SuperAdmin = () => {
       try {
         const [vendorsR, ordersR, productsR] = await Promise.all([
           supabase.from("vendors").select("*").order("created_at", { ascending: false }),
-          supabase.from("orders").select("*, vendor:vendors!vendor_id(shop_name)").order("created_at", { ascending: false }),
+          supabase.from("orders").select("*, vendor:vendors!vendor_id(shop_name)").order("created_at", { ascending: false }).limit(500),
           supabase.from("products").select("id, vendor_id, price, type"),
         ]);
 
@@ -826,11 +1134,13 @@ const SuperAdmin = () => {
         const totalRevenue  = os.filter(o => o.status === "delivered")
           .reduce((s, o) => s + Number(o.total_amount || 0), 0);
         const pendingCount  = os.filter(o => o.status === "pending").length;
+        const cjPending     = os.filter(o => o.status === "paid" && (o.cj_order_status === "not_sent" || !o.cj_order_status)).length;
 
         setGlobalStats({
           revenue:          totalRevenue,
           orders:           os.length,
           pending:          pendingCount,
+          cjPending,
           products:         ps.length,
           vendorProducts:   vendorProds,
           platformProducts: platformProds,
@@ -853,11 +1163,12 @@ const SuperAdmin = () => {
   if (!user || !isSuperAdmin(user.email)) return null;
 
   const TABS = [
-    { key: "overview",  icon: "fa-gauge-high",     label: "Vue globale"   },
-    { key: "boutiques", icon: "fa-store",           label: "Boutiques"     },
-    { key: "orders",    icon: "fa-bag-shopping",    label: "Commandes",    badge: globalStats.pending || 0 },
-    { key: "products",  icon: "fa-boxes-stacked",   label: "Produits"      },
-    { key: "cj",        icon: "fa-circle-nodes",    label: "CJ Import"     },
+    { key: "overview",     icon: "fa-gauge-high",    label: "Vue globale"     },
+    { key: "boutiques",    icon: "fa-store",          label: "Boutiques"       },
+    { key: "orders",       icon: "fa-bag-shopping",   label: "Commandes",      badge: globalStats.pending    || 0 },
+    { key: "fulfillment",  icon: "fa-truck-fast",     label: "Fulfillment CJ", badge: globalStats.cjPending  || 0 },
+    { key: "products",     icon: "fa-boxes-stacked",  label: "Produits"        },
+    { key: "cj",           icon: "fa-circle-nodes",   label: "CJ Import"       },
   ];
 
   return (
@@ -932,6 +1243,10 @@ const SuperAdmin = () => {
 
         {activeTab === "orders" && (
           <AllOrdersTab orders={allOrders} loading={loading} onStatusChange={handleOrderStatusChange} />
+        )}
+
+        {activeTab === "fulfillment" && (
+          <CJFulfillmentTab />
         )}
 
         {activeTab === "products" && (
