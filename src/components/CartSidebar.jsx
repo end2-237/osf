@@ -158,7 +158,7 @@ const CartSidebar = ({ isOpen, cart, removeFromCart, updateQuantity, toggleCart,
           .in('id', pendingOrderIds);
 
         const allPaid   = data?.length > 0 && data.every(o => o.status === 'paid');
-        const anyFailed = data?.some(o => o.status === 'payment_failed');
+        const anyFailed = data?.some(o => o.status === 'payment_failed' || o.status === 'cancelled');
 
         if (allPaid) {
           clearInterval(pollTimerRef.current);
@@ -378,8 +378,20 @@ const CartSidebar = ({ isOpen, cart, removeFromCart, updateQuantity, toggleCart,
     }
   };
 
+  const cancelPendingOrders = async () => {
+    if (pendingOrderIds.length > 0) {
+      await supabase.from('orders').update({ status: 'cancelled' }).in('id', pendingOrderIds);
+    }
+    clearInterval(pollTimerRef.current);
+    setPaymentPhase('select');
+    setPollError('');
+    setPendingOrderIds([]);
+    setPaymentUrl('');
+    setError('');
+  };
+
   const close = () => {
-    if (paymentPhase === 'awaiting') return;
+    if (paymentPhase === 'awaiting') { cancelPendingOrders(); return; }
     clearInterval(pollTimerRef.current);
     setStep('cart');
     setError('');
@@ -403,7 +415,7 @@ const CartSidebar = ({ isOpen, cart, removeFromCart, updateQuantity, toggleCart,
       {/* BACKDROP */}
       {isOpen && (
         <div
-          className={`fixed inset-0 bg-black/50 z-[240] transition-opacity ${isAwaiting ? 'cursor-not-allowed' : ''}`}
+          className="fixed inset-0 bg-black/50 z-[240] transition-opacity"
           onClick={close}
         />
       )}
@@ -442,8 +454,8 @@ const CartSidebar = ({ isOpen, cart, removeFromCart, updateQuantity, toggleCart,
               </p>
             </div>
           </div>
-          <button onClick={close} disabled={isAwaiting}
-            className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition flex-shrink-0 disabled:opacity-40">
+          <button onClick={close}
+            className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition flex-shrink-0">
             <i className="fa-solid fa-xmark text-white text-sm"></i>
           </button>
         </div>
@@ -757,6 +769,10 @@ const CartSidebar = ({ isOpen, cart, removeFromCart, updateQuantity, toggleCart,
                       <i className="fa-solid fa-spinner fa-spin text-[#FF9900]"></i>
                       En attente de confirmation…
                     </div>
+                    <button onClick={cancelPendingOrders}
+                      className="mt-4 text-xs text-[#565959] hover:text-red-500 underline transition">
+                      Annuler le paiement
+                    </button>
                   </div>
                   <div className={`px-4 py-3 border-t text-xs ${isOM ? 'bg-orange-50 border-orange-100 text-orange-700' : 'bg-yellow-50 border-yellow-100 text-yellow-700'}`}>
                     <i className="fa-solid fa-circle-info mr-1.5"></i>

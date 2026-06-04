@@ -7,7 +7,8 @@ const MONETBIL_SECRET = Deno.env.get("MONETBIL_SERVICE_SECRET")   || "";
 const SUPABASE_URL    = Deno.env.get("SUPABASE_URL")               || "";
 const SUPABASE_SRVKEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")  || "";
 
-const SUCCESS_STATUSES = new Set(["success", "successfull", "successful", "1"]);
+const SUCCESS_STATUSES  = new Set(["success", "successfull", "successful", "1"]);
+const CANCELLED_STATUSES = new Set(["cancelled", "cancel", "canceled", "failed", "expired", "0", "2"]);
 
 async function hmacSha1Hex(secret: string, message: string): Promise<string> {
   const key = await crypto.subtle.importKey(
@@ -56,17 +57,22 @@ serve(async (req: Request) => {
       return ok();
     }
 
-    const isSuccess = SUCCESS_STATUSES.has(status.toLowerCase());
-    const supabase  = createClient(SUPABASE_URL, SUPABASE_SRVKEY);
+    const statusLow  = status.toLowerCase();
+    const isSuccess  = SUCCESS_STATUSES.has(statusLow);
+    const isCancelled = CANCELLED_STATUSES.has(statusLow);
+    const newStatus  = isSuccess ? "paid" : isCancelled ? "cancelled" : "payment_failed";
 
+    const supabase = createClient(SUPABASE_URL, SUPABASE_SRVKEY);
     await supabase
       .from("orders")
       .update({
-        status:         isSuccess ? "paid" : "payment_failed",
+        status:         newStatus,
         monetbil_tx_id: transaction_id || null,
         paid_at:        isSuccess ? new Date().toISOString() : null,
       })
       .eq("payment_reference", payment_ref);
+
+    console.log("[MONETBIL WEBHOOK]", payment_ref, "→", newStatus);
 
   } catch (err) {
     console.error("[MONETBIL WEBHOOK]", err);
