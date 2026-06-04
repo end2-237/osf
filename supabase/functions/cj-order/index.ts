@@ -130,7 +130,8 @@ serve(async (req: Request) => {
     const cjBody = {
       orderNumber:      order.payment_reference || `OFS-${order.id.slice(0, 8).toUpperCase()}`,
       fromCountryCode:  "CN",
-      shippingZip:      "",
+      logisticName:     "CJPacket",
+      shippingZip:      "00237",
       shippingCountry:  "CM",
       shippingProvince: "",
       shippingCity:     order.delivery_city || order.client_address || "",
@@ -139,6 +140,7 @@ serve(async (req: Request) => {
       shippingName:     order.client_name  || "",
       shippingPhone:    order.client_phone || "",
       houseNumber:      "",
+      remark:           "",
       products: resolvedProducts,
     };
 
