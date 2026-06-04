@@ -129,6 +129,7 @@ serve(async (req: Request) => {
     // ── Build CJ payload ─────────────────────────────────────────────────────
     const cjBody = {
       orderNumber:      order.payment_reference || `OFS-${order.id.slice(0, 8).toUpperCase()}`,
+      fromCountryCode:  "CN",
       shippingZip:      "",
       shippingCountry:  "CM",
       shippingProvince: "",
