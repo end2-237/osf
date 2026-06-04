@@ -44,17 +44,18 @@ serve(async (req: Request) => {
       .in("id", order_ids);
     if (updateErr) throw new Error(updateErr.message);
 
+    // Correct Monetbil field names: "service" and "phonenumber"
     const body = new URLSearchParams({
-      serviceKey:     MONETBIL_KEY,
-      service_secret: MONETBIL_SECRET,
-      amount:         String(Math.round(amount)),
-      phone,
+      service:     MONETBIL_KEY,
+      secret:      MONETBIL_SECRET,
+      amount:      String(Math.round(amount)),
+      phonenumber: phone,
       operator,
       payment_ref,
-      notify_url:     WEBHOOK_URL,
+      notify_url:  WEBHOOK_URL,
     });
 
-    const res  = await fetch("https://api.monetbil.com/payment/v1/placePayment", {
+    const res = await fetch("https://api.monetbil.com/payment/v1/placePayment", {
       method:  "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body:    body.toString(),
