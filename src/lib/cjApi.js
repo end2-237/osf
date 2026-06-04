@@ -117,6 +117,15 @@ export const mapCjProductType = (categoryName = "", productName = "") => {
   return mapOfsType(categoryName);
 };
 
+// Same priority logic for subcategory: product name first, categoryName as fallback.
+// CJ category paths often contain generic terms (e.g. "Storage" in camera accessories)
+// that would wrongly override the actual subcategory derived from the product name.
+export const mapCjSubcategory = (categoryName = "", productName = "") => {
+  const fromName = mapSubcategory(productName);
+  if (fromName) return fromName;
+  return mapSubcategory(categoryName) || null;
+};
+
 // ─── Subcategory mapping ──────────────────────────────────────────────────────
 export const mapSubcategory = (categoryName = "") => {
   const n = (categoryName || "").toLowerCase();
@@ -589,7 +598,7 @@ export const mapCjToProduct = (p) => {
     img:              images.find(u => !isVideoUrl(u)) || mainImg,
     images,
     type:             mapCjProductType(p.categoryName || "", p.productNameEn || p.productName || ""),
-    subcategory:      mapSubcategory(p.categoryName || "") || mapSubcategory(p.productNameEn || p.productName || "") || null,
+    subcategory:      mapCjSubcategory(p.categoryName || "", p.productNameEn || p.productName || ""),
     status,
     description,
     features,

@@ -494,22 +494,28 @@ const SubcategoryBackfillPanel = () => {
     stopRef.current = false;
     setState({ running: true, total: 0, done: 0, updated: 0, skipped: 0, log: [] });
 
-    const { mapSubcategory } = await import("../lib/cjApi");
+    const { mapCjSubcategory } = await import("../lib/cjApi");
 
-    // Fetch all products that have cj_category_name but no subcategory
+    // Fetch ALL CJ products (re-map even those that already have a subcategory,
+    // in case the old value was wrong — e.g. "Rangement" for an action camera)
     const { data: products, error } = await supabase
       .from("products")
-      .select("id, cj_category_name, subcategory")
+      .select("id, name, cj_category_name, subcategory")
       .not("cj_category_name", "is", null);
 
     if (error) { addLog(`❌ Erreur fetch: ${error.message}`); setState(s => ({ ...s, running: false })); return; }
 
-    const toFix = (products || []).filter(p => !p.subcategory);
+    // Re-map everything and keep only those where the new value differs
+    const toFix = (products || []).map(p => ({
+      ...p,
+      newSub: mapCjSubcategory(p.cj_category_name || "", p.name || ""),
+    })).filter(p => p.newSub && p.newSub !== p.subcategory);
+
     setState(s => ({ ...s, total: toFix.length }));
-    addLog(`${products?.length || 0} produits avec cj_category_name · ${toFix.length} sans sous-catégorie`);
+    addLog(`${products?.length || 0} produits CJ scannés · ${toFix.length} à corriger`);
 
     if (toFix.length === 0) {
-      addLog("✅ Tous les produits ont déjà une sous-catégorie");
+      addLog("✅ Toutes les sous-catégories sont déjà correctes");
       setState(s => ({ ...s, running: false }));
       return;
     }
@@ -522,7 +528,7 @@ const SubcategoryBackfillPanel = () => {
       if (stopRef.current) { addLog("⛔ Arrêté"); break; }
 
       const batch = toFix.slice(i, i + BATCH);
-      const withSub = batch.map(p => ({ id: p.id, sub: mapSubcategory(p.cj_category_name) }));
+      const withSub = batch.map(p => ({ id: p.id, sub: p.newSub }));
 
       // Group by subcategory value for efficient bulk updates
       const bySub = {};
