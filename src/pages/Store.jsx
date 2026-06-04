@@ -706,6 +706,13 @@ const Store = ({ openModal, addToCart }) => {
   // Keep categoryCountsRef in sync so fetchPage can read latest counts without it as a dep
   useEffect(() => { categoryCountsRef.current = categoryCounts; }, [categoryCounts]);
 
+  // ── Sync URL params → filters on first render ──────────────────────────────
+  useEffect(() => {
+    const t = searchParams.get("type");
+    const s = searchParams.get("subcat");
+    if (t) { setCategory(t); if (s) setSubcategory(s); }
+  }, []);  // eslint-disable-line react-hooks/exhaustive-deps
+
   // ── Fetch one page ─────────────────────────────────────────────────────────
   const fetchPage = useCallback(async (pageNum, reset = false) => {
     if (reset) setLoading(true); else setLoadingMore(true);

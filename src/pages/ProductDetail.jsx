@@ -91,9 +91,23 @@ const Breadcrumb = ({ product }) => (
       <span className="mx-1 text-[#D5D9D9]">›</span>
       <Link to="/store" className="hover:text-[#C45500] hover:underline">Store</Link>
       <span className="mx-1 text-[#D5D9D9]">›</span>
-      <Link to={`/store?type=${encodeURIComponent(product?.type || "")}`} className="hover:text-[#C45500] hover:underline">
+      <Link
+        to={`/store?type=${encodeURIComponent(product?.type || "")}`}
+        className="hover:text-[#C45500] hover:underline"
+      >
         {product?.type}
       </Link>
+      {product?.subcategory && (
+        <>
+          <span className="mx-1 text-[#D5D9D9]">›</span>
+          <Link
+            to={`/store?type=${encodeURIComponent(product.type || "")}&subcat=${encodeURIComponent(product.subcategory)}`}
+            className="hover:text-[#C45500] hover:underline"
+          >
+            {product.subcategory}
+          </Link>
+        </>
+      )}
       <span className="mx-1 text-[#D5D9D9]">›</span>
       <span className="text-[#0F1111] truncate max-w-[300px]">{product?.name}</span>
     </div>
