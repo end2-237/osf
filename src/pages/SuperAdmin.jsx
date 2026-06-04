@@ -839,8 +839,7 @@ const CJFulfillmentTab = () => {
   const sendAll = async (orderList) => {
     setSendingAll(true);
     const pending = (orderList || orders).filter(o =>
-      (o.cj_order_status === "not_sent" || !o.cj_order_status) &&
-      (o.order_items || []).some(i => i.selected_variant_id)
+      o.cj_order_status === "not_sent" || !o.cj_order_status
     );
     for (const o of pending) {
       await sendOrderToCJ(o.id);
@@ -953,8 +952,7 @@ const CJFulfillmentTab = () => {
           {displayOrders.map(o => {
             const cjSt       = CJ_STATUS[o.cj_order_status || "not_sent"];
             const sendState  = sending[o.id];
-            const cjItems    = (o.order_items || []).filter(i => i.selected_variant_id);
-            const hasVariant = cjItems.length > 0;
+            const cjItems    = (o.order_items || []).filter(i => i.selected_variant_id || i.cj_product_id);
 
             return (
               <div key={o.id} className="bg-white border border-[#D5D9D9] rounded-xl overflow-hidden hover:border-[#FF9900]/30 transition-all">
@@ -970,11 +968,6 @@ const CJFulfillmentTab = () => {
                         {o.cj_order_id && (
                           <span className="text-[9px] font-mono bg-[#007185]/10 text-[#007185] px-2 py-0.5 rounded-full border border-[#007185]/20">
                             CJ#{o.cj_order_id}
-                          </span>
-                        )}
-                        {!hasVariant && (
-                          <span className="text-[9px] font-bold bg-[#FFF8D3] text-[#B12704] px-2 py-0.5 rounded-full border border-[#FCD200]/40">
-                            ⚠ Sans variant_id
                           </span>
                         )}
                       </div>
@@ -993,7 +986,7 @@ const CJFulfillmentTab = () => {
                     {tab === "pending" && (
                       <button
                         onClick={() => sendOrderToCJ(o.id)}
-                        disabled={sendState === "loading" || !hasVariant}
+                        disabled={sendState === "loading"}
                         className="flex items-center gap-1.5 px-3 py-1.5 bg-[#007185] hover:bg-[#005f73] disabled:opacity-40 text-white rounded-lg text-[11px] font-bold transition-all"
                       >
                         <i className={`fa-solid ${sendState === "loading" ? "fa-spinner fa-spin" : "fa-paper-plane"} text-xs`}></i>
@@ -1003,7 +996,7 @@ const CJFulfillmentTab = () => {
                     {tab === "error" && (
                       <button
                         onClick={() => sendOrderToCJ(o.id)}
-                        disabled={sendState === "loading" || !hasVariant}
+                        disabled={sendState === "loading"}
                         className="flex items-center gap-1.5 px-3 py-1.5 bg-[#B12704] hover:bg-[#8a1f04] disabled:opacity-40 text-white rounded-lg text-[11px] font-bold transition-all"
                       >
                         <i className={`fa-solid ${sendState === "loading" ? "fa-spinner fa-spin" : "fa-rotate-right"} text-xs`}></i>
