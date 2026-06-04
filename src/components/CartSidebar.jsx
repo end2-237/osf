@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 
-const MEMBER_DISCOUNT = 0.20;
+const MEMBER_DISCOUNT            = 0.20;
 const BUNDLE_DISCOUNT_NON_MEMBER = 0.02;
 const BUNDLE_DISCOUNT_MEMBER     = 0.05;
 
@@ -47,70 +47,6 @@ const StepBar = ({ step }) => {
   );
 };
 
-// ─── PAYMENT TRANSACTION BLOCK ────────────────────────────────────────────────
-const TransactionBlock = ({ method, vendorIds, cartVendors, paymentRefs, setPaymentRefs, cart, getVendorAmount }) => {
-  const isOM = method === 'orange_money';
-  const color    = isOM ? 'text-orange-500'  : 'text-yellow-600';
-  const bgLight  = isOM ? 'bg-orange-50'     : 'bg-yellow-50';
-  const border   = isOM ? 'border-orange-200': 'border-yellow-200';
-  const ids = [...vendorIds, ...(cart.some(i => !i.vendor_id) ? ['no_vendor'] : [])];
-
-  return (
-    <div className="mt-3 space-y-3">
-      {ids.map(vId => {
-        const v   = cartVendors[vId];
-        const amt = getVendorAmount(vId);
-        const txId = paymentRefs[vId] || '';
-        return (
-          <div key={vId} className={`rounded border ${border} ${bgLight} overflow-hidden`}>
-            {/* Header boutique */}
-            <div className="flex items-center justify-between px-3 py-2 border-b border-current/10">
-              <span className={`font-bold text-xs ${color}`}>
-                <i className="fa-solid fa-store mr-1.5 text-[10px]"></i>{v?.shop_name || 'Boutique OFS'}
-              </span>
-              <span className="font-bold text-sm text-[#0F1111]">{amt.toLocaleString()} FCFA</span>
-            </div>
-            {/* Instructions */}
-            <div className="px-3 py-3 space-y-1.5 text-xs text-[#565959]">
-              <p><span className={`font-bold ${color}`}>① </span>
-                {isOM ? <>Composez <code className="bg-white border border-orange-100 px-1 rounded text-orange-600 font-mono">#150*50#</code> ou app Orange Money</> : <>Composez <code className="bg-white border border-yellow-100 px-1 rounded text-yellow-700 font-mono">*126#</code> ou app MTN MoMo</>}
-              </p>
-              <p><span className={`font-bold ${color}`}>② </span>
-                Envoyez <strong className="text-[#0F1111]">{amt.toLocaleString()} FCFA</strong> au{' '}
-                <strong className="text-[#0F1111] font-mono">{v?.phone || '...'}</strong>
-              </p>
-              <p><span className={`font-bold ${color}`}>③ </span>
-                Copiez l'<strong className="text-[#0F1111]">ID de transaction</strong> reçu par SMS
-              </p>
-              <p className={`font-mono text-[10px] ${color} pl-4`}>
-                {isOM ? 'Ex : MP241201.1234.A12345' : 'Ex : 2312345678'}
-              </p>
-            </div>
-            {/* ID input */}
-            <div className="px-3 pb-3">
-              <label className={`text-[10px] font-bold uppercase tracking-widest mb-1.5 block ${color}`}>
-                ID de transaction *
-              </label>
-              <div className="relative">
-                <input
-                  type="text"
-                  placeholder={isOM ? 'MP241201.1234.A12345' : '2312345678'}
-                  value={txId}
-                  onChange={e => setPaymentRefs(p => ({ ...p, [vId]: e.target.value }))}
-                  className={`w-full bg-white border rounded px-3 py-2 text-sm font-mono text-[#0F1111] focus:outline-none transition-colors ${txId.trim() ? (isOM ? 'border-orange-400' : 'border-yellow-400') : 'border-[#D5D9D9] focus:border-[#FF9900]'}`}
-                />
-                {txId.trim() && (
-                  <i className={`fa-solid fa-circle-check absolute right-3 top-1/2 -translate-y-1/2 ${color} text-sm`}></i>
-                )}
-              </div>
-            </div>
-          </div>
-        );
-      })}
-    </div>
-  );
-};
-
 // ─── MAIN COMPONENT ───────────────────────────────────────────────────────────
 const CartSidebar = ({ isOpen, cart, removeFromCart, updateQuantity, toggleCart, clearCart }) => {
   const { user, isMember } = useAuth();
@@ -121,11 +57,17 @@ const CartSidebar = ({ isOpen, cart, removeFromCart, updateQuantity, toggleCart,
   const [showToast,      setShowToast]      = useState(false);
   const [loading,        setLoading]        = useState(false);
   const [error,          setError]          = useState('');
-  const [paymentRefs,    setPaymentRefs]    = useState({});
   const [cartVendors,    setCartVendors]    = useState({});
   const [userProfile,    setUserProfile]    = useState(null);
   const [userAddresses,  setUserAddresses]  = useState([]);
   const [selectedAddrId, setSelectedAddrId] = useState(null);
+
+  // Monetbil
+  const [monetbilPhone,   setMonetbilPhone]   = useState('');
+  const [paymentPhase,    setPaymentPhase]    = useState('select'); // 'select' | 'awaiting' | 'failed'
+  const [pendingOrderIds, setPendingOrderIds] = useState([]);
+  const [pollError,       setPollError]       = useState('');
+  const pollTimerRef = useRef(null);
 
   useEffect(() => {
     if (!user || !isOpen) return;
@@ -174,7 +116,6 @@ const CartSidebar = ({ isOpen, cart, removeFromCart, updateQuantity, toggleCart,
     [info.neighborhood, info.street, info.extra, 'Douala 🇨🇲'].filter(Boolean).join(', ');
 
   const vendorIds     = [...new Set(cart.map(i => i.vendor_id || 'no_vendor'))].filter(id => id !== 'no_vendor');
-  const isMultiVendor = vendorIds.length > 1;
 
   useEffect(() => {
     if (step !== 'payment' || vendorIds.length === 0) return;
@@ -187,6 +128,62 @@ const CartSidebar = ({ isOpen, cart, removeFromCart, updateQuantity, toggleCart,
         }
       });
   }, [step]);
+
+  // Pre-fill Monetbil phone from checkout info
+  useEffect(() => {
+    if (step === 'payment' && !monetbilPhone && info.phone) {
+      setMonetbilPhone(info.phone);
+    }
+  }, [step]);
+
+  // ─── POLLING ─────────────────────────────────────────────────────────────────
+  useEffect(() => {
+    if (paymentPhase !== 'awaiting' || pendingOrderIds.length === 0) return;
+
+    const started   = Date.now();
+    const TIMEOUT   = 3 * 60 * 1000;
+
+    const check = async () => {
+      if (Date.now() - started > TIMEOUT) {
+        clearInterval(pollTimerRef.current);
+        setPaymentPhase('failed');
+        setPollError('Délai dépassé (3 min). Vérifiez votre téléphone et réessayez.');
+        return;
+      }
+      try {
+        const { data } = await supabase
+          .from('orders')
+          .select('id, status')
+          .in('id', pendingOrderIds);
+
+        const allPaid   = data?.length > 0 && data.every(o => o.status === 'paid');
+        const anyFailed = data?.some(o => o.status === 'payment_failed');
+
+        if (allPaid) {
+          clearInterval(pollTimerRef.current);
+          setShowToast(true);
+          setTimeout(() => {
+            setShowToast(false);
+            setStep('cart');
+            setInfo({ name:'', phone:'', neighborhood:'', street:'', extra:'' });
+            setPaymentMethod('');
+            setMonetbilPhone('');
+            setPaymentPhase('select');
+            setPendingOrderIds([]);
+            clearCart();
+            toggleCart();
+          }, 3500);
+        } else if (anyFailed) {
+          clearInterval(pollTimerRef.current);
+          setPaymentPhase('failed');
+          setPollError('Paiement refusé ou annulé. Vérifiez votre solde et réessayez.');
+        }
+      } catch { /* network glitch — keep polling */ }
+    };
+
+    pollTimerRef.current = setInterval(check, 5000);
+    return () => clearInterval(pollTimerRef.current);
+  }, [paymentPhase, pendingOrderIds]);
 
   // ─── CALCULS ─────────────────────────────────────────────────────────────────
   const rawTotal            = cart.reduce((s, i) => s + (Number(i.price)||0) * (Number(i.quantity)||1), 0);
@@ -209,42 +206,43 @@ const CartSidebar = ({ isOpen, cart, removeFromCart, updateQuantity, toggleCart,
     return hasBundle ? Math.round(sub * (1 - bundleRate)) : sub;
   };
 
-  // ─── NAVIGATION STEPS ────────────────────────────────────────────────────────
-  const handleProcess = async () => {
-    setError('');
-    if (step === 'cart') {
-      setStep('checkout');
-    } else if (step === 'checkout') {
-      if (!info.name || !info.phone || (!info.neighborhood && !info.street)) {
-        setError('Veuillez remplir le nom, le téléphone et l\'adresse');
-        return;
-      }
-      setStep('payment');
-    } else if (step === 'payment') {
-      if (!paymentMethod) { setError('Veuillez choisir un mode de paiement'); return; }
-      if (paymentMethod === 'orange_money' || paymentMethod === 'mtn_momo') {
-        const ids = [...vendorIds, ...(cart.some(i => !i.vendor_id) ? ['no_vendor'] : [])];
-        if (!ids.every(id => (paymentRefs[id]||'').trim())) {
-          setError(isMultiVendor ? 'Saisissez l\'ID de transaction pour chaque boutique' : 'Saisissez l\'ID de transaction');
-          return;
-        }
-      }
-      await createOrder();
-    }
+  const formatPhoneForMonetbil = (phone) => {
+    let p = phone.replace(/[\s\-\.\(\)]/g, '');
+    if (p.startsWith('+')) p = p.slice(1);
+    if (/^6\d{8}$/.test(p)) p = '237' + p;
+    return p;
   };
 
+  // ─── ORDER HELPERS ────────────────────────────────────────────────────────────
+  const buildOrderItems = (vendorItems, orderId) =>
+    vendorItems.map(item => ({
+      order_id:             orderId,
+      product_id:           item.id,
+      product_name:         item.name,
+      product_img:          item.img,
+      quantity:             item.quantity,
+      unit_price:           getUnitPrice(item, isMember),
+      selected_size:        item.selectedSize       || null,
+      selected_color:       item.selectedColor      || null,
+      selected_variant_id:  item.selectedVariantId  || null,
+      selected_variant_sku: item.selectedVariantSku || null,
+      cj_product_id:        item.cj_product_id      || null,
+      delivery_city:        item.deliveryCity        || null,
+    }));
+
+  const groupByVendor = () =>
+    cart.reduce((acc, item) => {
+      const vId = item.vendor_id || 'no_vendor';
+      if (!acc[vId]) acc[vId] = [];
+      acc[vId].push(item);
+      return acc;
+    }, {});
+
+  // Cash-on-delivery order creation
   const createOrder = async () => {
     setLoading(true); setError('');
     try {
-      const ordersByVendor = cart.reduce((acc, item) => {
-        const vId = item.vendor_id || 'no_vendor';
-        if (!acc[vId]) acc[vId] = [];
-        acc[vId].push(item);
-        return acc;
-      }, {});
-
-      for (const vId of Object.keys(ordersByVendor)) {
-        const vendorItems = ordersByVendor[vId];
+      for (const [vId, vendorItems] of Object.entries(groupByVendor())) {
         const vendorSub   = vendorItems.reduce((s, i) => s + getUnitPrice(i, isMember) * (Number(i.quantity)||1), 0);
         const vendorFinal = hasBundle ? Math.round(vendorSub * (1 - bundleRate)) : vendorSub;
 
@@ -256,7 +254,7 @@ const CartSidebar = ({ isOpen, cart, removeFromCart, updateQuantity, toggleCart,
             client_address:          fullAddress(),
             total_amount:            vendorFinal,
             payment_method:          paymentMethod,
-            payment_reference:       paymentRefs[vId] || null,
+            payment_reference:       null,
             status:                  'pending',
             vendor_id:               vId === 'no_vendor' ? null : vId,
             member_discount_applied: isMember && hasMemberSavings,
@@ -266,23 +264,7 @@ const CartSidebar = ({ isOpen, cart, removeFromCart, updateQuantity, toggleCart,
           .single();
 
         if (orderError) throw orderError;
-
-        const itemsToInsert = vendorItems.map(item => ({
-          order_id:            orderData.id,
-          product_id:          item.id,
-          product_name:        item.name,
-          product_img:         item.img,
-          quantity:            item.quantity,
-          unit_price:          getUnitPrice(item, isMember),
-          selected_size:       item.selectedSize       || null,
-          selected_color:      item.selectedColor      || null,
-          selected_variant_id: item.selectedVariantId  || null,
-          selected_variant_sku:item.selectedVariantSku || null,
-          cj_product_id:       item.cj_product_id      || null,
-          delivery_city:       item.deliveryCity        || null,
-        }));
-
-        await supabase.from('order_items').insert(itemsToInsert);
+        await supabase.from('order_items').insert(buildOrderItems(vendorItems, orderData.id));
       }
 
       setShowToast(true);
@@ -290,25 +272,131 @@ const CartSidebar = ({ isOpen, cart, removeFromCart, updateQuantity, toggleCart,
         setShowToast(false);
         setStep('cart');
         setInfo({ name:'', phone:'', neighborhood:'', street:'', extra:'' });
-        setPaymentMethod(''); setPaymentRefs({}); setCartVendors({});
-        clearCart(); toggleCart();
+        setPaymentMethod('');
+        clearCart();
+        toggleCart();
       }, 3500);
-    } catch (err) {
+    } catch {
       setError('Une erreur est survenue. Réessayez.');
     } finally {
       setLoading(false);
     }
   };
 
-  const close = () => { setStep('cart'); setError(''); toggleCart(); };
+  // Monetbil USSD push order creation
+  const createOrdersForMonetbil = async () => {
+    setLoading(true); setError('');
+    try {
+      const orderIds = [];
+
+      for (const [vId, vendorItems] of Object.entries(groupByVendor())) {
+        const vendorSub   = vendorItems.reduce((s, i) => s + getUnitPrice(i, isMember) * (Number(i.quantity)||1), 0);
+        const vendorFinal = hasBundle ? Math.round(vendorSub * (1 - bundleRate)) : vendorSub;
+
+        const { data: orderData, error: orderError } = await supabase
+          .from('orders')
+          .insert({
+            client_name:             info.name,
+            client_phone:            info.phone,
+            client_address:          fullAddress(),
+            total_amount:            vendorFinal,
+            payment_method:          paymentMethod,
+            payment_reference:       null,
+            status:                  'pending_payment',
+            vendor_id:               vId === 'no_vendor' ? null : vId,
+            member_discount_applied: isMember && hasMemberSavings,
+            user_id:                 user?.id || null,
+          })
+          .select()
+          .single();
+
+        if (orderError) throw orderError;
+        orderIds.push(orderData.id);
+        await supabase.from('order_items').insert(buildOrderItems(vendorItems, orderData.id));
+      }
+
+      const supabaseUrl  = import.meta.env.VITE_SUPABASE_URL;
+      const supabaseAnon = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+      const res = await fetch(`${supabaseUrl}/functions/v1/monetbil-init`, {
+        method:  'POST',
+        headers: {
+          'Content-Type':  'application/json',
+          'Authorization': `Bearer ${supabaseAnon}`,
+          'apikey':        supabaseAnon,
+        },
+        body: JSON.stringify({
+          order_ids: orderIds,
+          amount:    Math.round(finalTotal),
+          phone:     formatPhoneForMonetbil(monetbilPhone),
+          operator:  paymentMethod === 'orange_money' ? 'ORANGE_CM' : 'MTN_CM',
+        }),
+      });
+
+      const result = await res.json();
+      if (!result.success) throw new Error(result.error || 'Erreur Monetbil');
+
+      setPendingOrderIds(orderIds);
+      setPaymentPhase('awaiting');
+    } catch (err) {
+      setError(err.message || 'Une erreur est survenue. Réessayez.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ─── NAVIGATION ──────────────────────────────────────────────────────────────
+  const handleProcess = async () => {
+    setError('');
+    if (step === 'cart') {
+      setStep('checkout');
+    } else if (step === 'checkout') {
+      if (!info.name || !info.phone || (!info.neighborhood && !info.street)) {
+        setError("Veuillez remplir le nom, le téléphone et l'adresse");
+        return;
+      }
+      setStep('payment');
+    } else if (step === 'payment') {
+      if (!paymentMethod) { setError('Veuillez choisir un mode de paiement'); return; }
+      if (paymentMethod === 'orange_money' || paymentMethod === 'mtn_momo') {
+        if (!monetbilPhone.trim()) {
+          setError('Saisissez votre numéro de téléphone Mobile Money');
+          return;
+        }
+        await createOrdersForMonetbil();
+      } else {
+        await createOrder();
+      }
+    }
+  };
+
+  const close = () => {
+    if (paymentPhase === 'awaiting') return;
+    clearInterval(pollTimerRef.current);
+    setStep('cart');
+    setError('');
+    setPaymentPhase('select');
+    setPollError('');
+    setPendingOrderIds([]);
+    toggleCart();
+  };
+
   const inputCls = 'w-full bg-white border border-[#D5D9D9] focus:border-[#FF9900] focus:outline-none rounded px-3 py-2.5 text-sm text-[#0F1111] placeholder-[#adb5bd] transition-colors';
+
+  const isOM          = paymentMethod === 'orange_money';
+  const isMTN         = paymentMethod === 'mtn_momo';
+  const isMobileMoney = isOM || isMTN;
+  const isAwaiting    = paymentPhase === 'awaiting';
 
   // ─── RENDU ────────────────────────────────────────────────────────────────────
   return (
     <>
       {/* BACKDROP */}
       {isOpen && (
-        <div className="fixed inset-0 bg-black/50 z-[240] transition-opacity" onClick={close} />
+        <div
+          className={`fixed inset-0 bg-black/50 z-[240] transition-opacity ${isAwaiting ? 'cursor-not-allowed' : ''}`}
+          onClick={close}
+        />
       )}
 
       {/* SUCCESS TOAST */}
@@ -327,7 +415,7 @@ const CartSidebar = ({ isOpen, cart, removeFromCart, updateQuantity, toggleCart,
       {/* PANEL */}
       <div className={`fixed top-0 right-0 h-full w-full sm:w-[480px] z-[250] flex flex-col shadow-2xl transform transition-transform duration-300 ${isOpen ? 'translate-x-0' : 'translate-x-full'}`}>
 
-        {/* ── HEADER AMAZON NAVY ── */}
+        {/* ── HEADER ── */}
         <div className="bg-[#131921] px-4 py-3 flex items-center justify-between flex-shrink-0">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 bg-[#FF9900] rounded flex items-center justify-center flex-shrink-0">
@@ -345,13 +433,13 @@ const CartSidebar = ({ isOpen, cart, removeFromCart, updateQuantity, toggleCart,
               </p>
             </div>
           </div>
-          <button onClick={close}
-            className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition flex-shrink-0">
+          <button onClick={close} disabled={isAwaiting}
+            className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition flex-shrink-0 disabled:opacity-40">
             <i className="fa-solid fa-xmark text-white text-sm"></i>
           </button>
         </div>
 
-        {/* ── STEP BREADCRUMB ── */}
+        {/* ── STEP BAR ── */}
         <StepBar step={step} />
 
         {/* ── ERROR BANNER ── */}
@@ -368,7 +456,6 @@ const CartSidebar = ({ isOpen, cart, removeFromCart, updateQuantity, toggleCart,
           {/* ════ STEP CART ════ */}
           {step === 'cart' && (
             <>
-              {/* DEAL BANNERS */}
               {cart.length > 0 && (hasBundle || (isMember && hasMemberSavings) || (!user && potentialMemberSavings > 0)) && (
                 <div className="bg-white border-b border-[#D5D9D9] divide-y divide-[#D5D9D9]">
                   {hasBundle && (
@@ -404,7 +491,6 @@ const CartSidebar = ({ isOpen, cart, removeFromCart, updateQuantity, toggleCart,
                 </div>
               )}
 
-              {/* ITEMS */}
               {cart.length === 0 ? (
                 <div className="bg-white flex flex-col items-center justify-center py-20 px-6 text-center min-h-[50vh]">
                   <div className="w-24 h-24 bg-[#EAEDED] rounded-full flex items-center justify-center mb-5">
@@ -427,7 +513,6 @@ const CartSidebar = ({ isOpen, cart, removeFromCart, updateQuantity, toggleCart,
                     const isDisc    = unitEff < base;
                     return (
                       <div key={`${item.id}-${idx}`} className="p-4 flex gap-3">
-                        {/* IMAGE */}
                         <div className="w-[88px] h-[88px] flex-shrink-0 bg-white border border-[#D5D9D9] rounded overflow-hidden">
                           <img
                             src={item.img || 'https://via.placeholder.com/100'}
@@ -435,13 +520,8 @@ const CartSidebar = ({ isOpen, cart, removeFromCart, updateQuantity, toggleCart,
                             alt={item.name}
                           />
                         </div>
-
-                        {/* DETAILS */}
                         <div className="flex-grow min-w-0 flex flex-col gap-1">
-                          {/* Name */}
                           <p className="text-sm text-[#0F1111] leading-snug line-clamp-2">{item.name || 'Produit'}</p>
-
-                          {/* Variants */}
                           {(item.selectedSize || item.selectedColor) && (
                             <p className="text-xs text-[#565959]">
                               {item.selectedSize && `Taille: ${item.selectedSize}`}
@@ -449,14 +529,10 @@ const CartSidebar = ({ isOpen, cart, removeFromCart, updateQuantity, toggleCart,
                               {item.selectedColor && `Couleur: ${item.selectedColor}`}
                             </p>
                           )}
-
-                          {/* Delivery tag */}
                           <p className="text-[10px] text-[#007600] font-bold flex items-center gap-1">
                             <i className="fa-solid fa-bolt text-[#FF9900]"></i>
                             Livraison 2h · Douala 🇨🇲
                           </p>
-
-                          {/* Price */}
                           <div className="flex items-baseline gap-2">
                             <span className={`font-bold text-base leading-none ${isDisc ? 'text-[#B12704]' : 'text-[#0F1111]'}`}>
                               {lineTotal.toLocaleString()} FCFA
@@ -467,8 +543,6 @@ const CartSidebar = ({ isOpen, cart, removeFromCart, updateQuantity, toggleCart,
                               </span>
                             )}
                           </div>
-
-                          {/* QTY + ACTIONS */}
                           <div className="flex items-center gap-2 mt-0.5">
                             <div className="flex items-center border border-[#D5D9D9] rounded overflow-hidden">
                               <button onClick={() => updateQuantity(idx, -1)}
@@ -501,13 +575,12 @@ const CartSidebar = ({ isOpen, cart, removeFromCart, updateQuantity, toggleCart,
                 </div>
               )}
 
-              {/* CONTINUES SHOPPING */}
               {cart.length > 0 && (
                 <div className="bg-white border-t border-[#D5D9D9] px-4 py-3 flex items-center justify-between mt-2">
                   <Link to="/store" onClick={close} className="text-sm text-[#007185] hover:text-[#C45500] hover:underline flex items-center gap-1.5">
                     <i className="fa-solid fa-arrow-left text-xs"></i> Continuer mes achats
                   </Link>
-                  <button onClick={() => { if (window.confirm('Vider le panier ?')) { clearCart(); } }}
+                  <button onClick={() => { if (window.confirm('Vider le panier ?')) clearCart(); }}
                     className="text-xs text-[#565959] hover:text-red-500 transition">
                     Vider le panier
                   </button>
@@ -519,7 +592,6 @@ const CartSidebar = ({ isOpen, cart, removeFromCart, updateQuantity, toggleCart,
           {/* ════ STEP CHECKOUT ════ */}
           {step === 'checkout' && (
             <div className="bg-white p-4 space-y-5">
-              {/* Connected user badge */}
               {user && (
                 <div className="flex items-center gap-3 bg-[#F3F4F4] border border-[#D5D9D9] rounded p-3">
                   <div className="w-10 h-10 rounded-full bg-[#FF9900]/10 border border-[#FF9900]/20 flex items-center justify-center flex-shrink-0">
@@ -537,7 +609,6 @@ const CartSidebar = ({ isOpen, cart, removeFromCart, updateQuantity, toggleCart,
                 </div>
               )}
 
-              {/* Saved addresses */}
               {user && userAddresses.length > 0 && (
                 <div>
                   <p className="text-[10px] font-bold uppercase tracking-widest text-[#565959] mb-2">
@@ -573,7 +644,6 @@ const CartSidebar = ({ isOpen, cart, removeFromCart, updateQuantity, toggleCart,
                 </div>
               )}
 
-              {/* Guest login prompt */}
               {!user && (
                 <div className="flex items-center justify-between gap-3 bg-[#F3F4F4] border border-[#D5D9D9] rounded p-3">
                   <div>
@@ -587,15 +657,14 @@ const CartSidebar = ({ isOpen, cart, removeFromCart, updateQuantity, toggleCart,
                 </div>
               )}
 
-              {/* Address form */}
               {(selectedAddrId === null || !user || userAddresses.length === 0) && (
                 <div className="space-y-3">
                   <p className="text-[10px] font-bold uppercase tracking-widest text-[#565959]">
                     <i className="fa-solid fa-pen text-[#FF9900] mr-1.5"></i>Infos de livraison
                   </p>
                   {[
-                    { key: 'name',         label: 'Nom complet *',        ph: 'Ex: Jean Mbarga',          icon: 'fa-user'   },
-                    { key: 'phone',        label: 'Téléphone (livraison) *', ph: '+237 6XX XXX XXX',       icon: 'fa-phone'  },
+                    { key: 'name',  label: 'Nom complet *',           ph: 'Ex: Jean Mbarga',  icon: 'fa-user'  },
+                    { key: 'phone', label: 'Téléphone (livraison) *', ph: '+237 6XX XXX XXX', icon: 'fa-phone' },
                   ].map(f => (
                     <div key={f.key}>
                       <label className="block text-[10px] font-bold uppercase tracking-widest text-[#565959] mb-1.5">{f.label}</label>
@@ -630,7 +699,6 @@ const CartSidebar = ({ isOpen, cart, removeFromCart, updateQuantity, toggleCart,
                 </div>
               )}
 
-              {/* Address recap (when selected) */}
               {user && selectedAddrId !== null && userAddresses.length > 0 && (
                 <div className="bg-[#F3F4F4] border border-[#D5D9D9] rounded p-4">
                   <p className="text-[10px] font-bold uppercase tracking-widest text-[#565959] mb-2">
@@ -656,92 +724,177 @@ const CartSidebar = ({ isOpen, cart, removeFromCart, updateQuantity, toggleCart,
           {step === 'payment' && (
             <div className="p-4 space-y-3">
 
-              {/* ORANGE MONEY */}
-              <div className="bg-white rounded border border-[#D5D9D9] overflow-hidden">
-                <button onClick={() => setPaymentMethod('orange_money')}
-                  className={`w-full flex items-center gap-3 px-4 py-3.5 transition ${paymentMethod === 'orange_money' ? 'bg-orange-50' : 'hover:bg-[#F3F4F4]'}`}>
-                  <div className={`w-10 h-10 rounded flex items-center justify-center flex-shrink-0 ${paymentMethod === 'orange_money' ? 'bg-orange-100' : 'bg-[#F3F4F4]'}`}>
-                    <i className="fa-solid fa-mobile-screen-button text-orange-500 text-lg"></i>
-                  </div>
-                  <div className="flex-grow text-left">
-                    <p className={`font-bold text-sm ${paymentMethod === 'orange_money' ? 'text-orange-600' : 'text-[#0F1111]'}`}>Orange Money</p>
-                    <p className="text-xs text-[#565959]">Paiement mobile sécurisé · Instantané</p>
-                  </div>
-                  <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${paymentMethod === 'orange_money' ? 'border-orange-500 bg-orange-500' : 'border-[#D5D9D9]'}`}>
-                    {paymentMethod === 'orange_money' && <i className="fa-solid fa-check text-white text-[8px]"></i>}
-                  </div>
-                </button>
-                {paymentMethod === 'orange_money' && (
-                  <div className="border-t border-orange-100 px-4 pb-4">
-                    <TransactionBlock method="orange_money" vendorIds={vendorIds} cartVendors={cartVendors}
-                      paymentRefs={paymentRefs} setPaymentRefs={setPaymentRefs} cart={cart} getVendorAmount={getVendorAmount} />
-                  </div>
-                )}
-              </div>
-
-              {/* MTN MOMO */}
-              <div className="bg-white rounded border border-[#D5D9D9] overflow-hidden">
-                <button onClick={() => setPaymentMethod('mtn_momo')}
-                  className={`w-full flex items-center gap-3 px-4 py-3.5 transition ${paymentMethod === 'mtn_momo' ? 'bg-yellow-50' : 'hover:bg-[#F3F4F4]'}`}>
-                  <div className={`w-10 h-10 rounded flex items-center justify-center flex-shrink-0 ${paymentMethod === 'mtn_momo' ? 'bg-yellow-100' : 'bg-[#F3F4F4]'}`}>
-                    <i className="fa-solid fa-mobile-screen-button text-yellow-600 text-lg"></i>
-                  </div>
-                  <div className="flex-grow text-left">
-                    <p className={`font-bold text-sm ${paymentMethod === 'mtn_momo' ? 'text-yellow-700' : 'text-[#0F1111]'}`}>MTN MoMo</p>
-                    <p className="text-xs text-[#565959]">Mobile Money MTN · Confirmation SMS</p>
-                  </div>
-                  <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${paymentMethod === 'mtn_momo' ? 'border-yellow-500 bg-yellow-500' : 'border-[#D5D9D9]'}`}>
-                    {paymentMethod === 'mtn_momo' && <i className="fa-solid fa-check text-white text-[8px]"></i>}
-                  </div>
-                </button>
-                {paymentMethod === 'mtn_momo' && (
-                  <div className="border-t border-yellow-100 px-4 pb-4">
-                    <TransactionBlock method="mtn_momo" vendorIds={vendorIds} cartVendors={cartVendors}
-                      paymentRefs={paymentRefs} setPaymentRefs={setPaymentRefs} cart={cart} getVendorAmount={getVendorAmount} />
-                  </div>
-                )}
-              </div>
-
-              {/* CASH ON DELIVERY */}
-              <div className="bg-white rounded border border-[#D5D9D9] overflow-hidden">
-                <button onClick={() => setPaymentMethod('cash_on_delivery')}
-                  className={`w-full flex items-center gap-3 px-4 py-3.5 transition ${paymentMethod === 'cash_on_delivery' ? 'bg-green-50' : 'hover:bg-[#F3F4F4]'}`}>
-                  <div className={`w-10 h-10 rounded flex items-center justify-center flex-shrink-0 ${paymentMethod === 'cash_on_delivery' ? 'bg-green-100' : 'bg-[#F3F4F4]'}`}>
-                    <i className="fa-solid fa-truck-fast text-[#007600] text-lg"></i>
-                  </div>
-                  <div className="flex-grow text-left">
-                    <p className={`font-bold text-sm ${paymentMethod === 'cash_on_delivery' ? 'text-[#007600]' : 'text-[#0F1111]'}`}>
-                      Payer à la livraison
+              {/* ── AWAITING SCREEN ── */}
+              {paymentPhase === 'awaiting' && (
+                <div className="bg-white rounded border border-[#D5D9D9] overflow-hidden">
+                  <div className="p-6 text-center">
+                    <div className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 ${isOM ? 'bg-orange-100' : 'bg-yellow-100'}`}>
+                      <i className={`fa-solid fa-mobile-screen-button text-2xl animate-pulse ${isOM ? 'text-orange-500' : 'text-yellow-600'}`}></i>
+                    </div>
+                    <p className="font-bold text-[#0F1111] text-base mb-1">Confirmation en cours…</p>
+                    <p className="text-sm text-[#565959] mb-1">Un push USSD a été envoyé au</p>
+                    <p className={`font-mono font-bold text-sm mb-3 ${isOM ? 'text-orange-600' : 'text-yellow-700'}`}>
+                      {monetbilPhone}
                     </p>
-                    <p className="text-xs text-[#565959]">Cash · Espèces à la réception · Douala 2h</p>
-                  </div>
-                  <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${paymentMethod === 'cash_on_delivery' ? 'border-[#007600] bg-[#007600]' : 'border-[#D5D9D9]'}`}>
-                    {paymentMethod === 'cash_on_delivery' && <i className="fa-solid fa-check text-white text-[8px]"></i>}
-                  </div>
-                </button>
-                {paymentMethod === 'cash_on_delivery' && (
-                  <div className="border-t border-green-100 px-4 py-3 bg-green-50">
-                    <p className="text-xs text-[#007600] font-bold flex items-center gap-2">
-                      <i className="fa-solid fa-circle-info"></i>
-                      Préparez le montant exact à la livraison. Notre livreur contactera le <strong>{info.phone || '...'}</strong>
+                    <p className="text-xs text-[#565959] mb-4">
+                      Validez le paiement de{' '}
+                      <strong className="text-[#0F1111]">{Math.round(finalTotal).toLocaleString()} FCFA</strong>{' '}
+                      sur votre application <strong>{isOM ? 'Orange Money' : 'MTN MoMo'}</strong>.
                     </p>
+                    <div className="flex items-center justify-center gap-2 text-xs text-[#adb5bd]">
+                      <i className="fa-solid fa-spinner fa-spin text-[#FF9900]"></i>
+                      En attente de validation…
+                    </div>
                   </div>
-                )}
-              </div>
+                  <div className={`px-4 py-3 border-t text-xs ${isOM ? 'bg-orange-50 border-orange-100 text-orange-700' : 'bg-yellow-50 border-yellow-100 text-yellow-700'}`}>
+                    <i className="fa-solid fa-circle-info mr-1.5"></i>
+                    Ne fermez pas cette fenêtre. La page se met à jour automatiquement.
+                  </div>
+                </div>
+              )}
 
-              {/* RECAP COMMANDE */}
-              <div className="bg-white rounded border border-[#D5D9D9] p-4">
-                <p className="text-[10px] font-bold uppercase tracking-widest text-[#565959] mb-3">
-                  <i className="fa-solid fa-location-dot text-[#FF9900] mr-1.5"></i>Livraison vers
-                </p>
-                <p className="font-bold text-sm text-[#0F1111]">{info.name}</p>
-                <p className="text-xs text-[#565959] mt-0.5">{info.phone}</p>
-                <p className="text-xs text-[#565959] mt-0.5">{fullAddress()}</p>
-                <button onClick={() => setStep('checkout')}
-                  className="text-xs text-[#007185] hover:text-[#C45500] hover:underline mt-2 block">
-                  Modifier l'adresse →
-                </button>
-              </div>
+              {/* ── FAILED SCREEN ── */}
+              {paymentPhase === 'failed' && (
+                <div className="bg-white rounded border border-red-200 overflow-hidden">
+                  <div className="p-5 text-center">
+                    <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                      <i className="fa-solid fa-circle-xmark text-red-400 text-xl"></i>
+                    </div>
+                    <p className="font-bold text-[#0F1111] text-sm mb-1">Paiement non confirmé</p>
+                    <p className="text-xs text-[#565959] mb-4">{pollError}</p>
+                    <button
+                      onClick={() => { setPaymentPhase('select'); setPollError(''); setPendingOrderIds([]); setError(''); }}
+                      className="bg-[#FFD814] hover:bg-[#F7CA00] text-[#0F1111] border border-[#FCD200] px-5 py-2 rounded font-bold text-sm transition">
+                      Réessayer
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* ── SELECT SCREEN ── */}
+              {paymentPhase === 'select' && (
+                <>
+                  {/* ORANGE MONEY */}
+                  <div className="bg-white rounded border border-[#D5D9D9] overflow-hidden">
+                    <button onClick={() => { setPaymentMethod('orange_money'); setError(''); }}
+                      className={`w-full flex items-center gap-3 px-4 py-3.5 transition ${isOM ? 'bg-orange-50' : 'hover:bg-[#F3F4F4]'}`}>
+                      <div className={`w-10 h-10 rounded flex items-center justify-center flex-shrink-0 ${isOM ? 'bg-orange-100' : 'bg-[#F3F4F4]'}`}>
+                        <i className="fa-solid fa-mobile-screen-button text-orange-500 text-lg"></i>
+                      </div>
+                      <div className="flex-grow text-left">
+                        <p className={`font-bold text-sm ${isOM ? 'text-orange-600' : 'text-[#0F1111]'}`}>Orange Money</p>
+                        <p className="text-xs text-[#565959]">Push USSD automatique · Confirmation instantanée</p>
+                      </div>
+                      <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${isOM ? 'border-orange-500 bg-orange-500' : 'border-[#D5D9D9]'}`}>
+                        {isOM && <i className="fa-solid fa-check text-white text-[8px]"></i>}
+                      </div>
+                    </button>
+                    {isOM && (
+                      <div className="border-t border-orange-100 px-4 pb-4 pt-3 bg-orange-50/30">
+                        <label className="block text-[10px] font-bold uppercase tracking-widest text-orange-600 mb-1.5">
+                          Numéro Orange Money *
+                        </label>
+                        <div className="relative">
+                          <i className="fa-solid fa-phone absolute left-3 top-1/2 -translate-y-1/2 text-orange-400 text-sm"></i>
+                          <input
+                            type="tel"
+                            value={monetbilPhone}
+                            onChange={e => setMonetbilPhone(e.target.value)}
+                            placeholder="+237 6 9X XX XX XX"
+                            className="w-full bg-white border border-orange-200 focus:border-orange-400 focus:outline-none rounded pl-9 pr-3 py-2.5 text-sm font-mono text-[#0F1111] placeholder-[#adb5bd] transition-colors"
+                          />
+                        </div>
+                        <p className="text-[10px] text-orange-500 mt-1.5">
+                          <i className="fa-solid fa-circle-info mr-1"></i>
+                          Un push USSD sera envoyé sur ce numéro pour valider le paiement.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* MTN MOMO */}
+                  <div className="bg-white rounded border border-[#D5D9D9] overflow-hidden">
+                    <button onClick={() => { setPaymentMethod('mtn_momo'); setError(''); }}
+                      className={`w-full flex items-center gap-3 px-4 py-3.5 transition ${isMTN ? 'bg-yellow-50' : 'hover:bg-[#F3F4F4]'}`}>
+                      <div className={`w-10 h-10 rounded flex items-center justify-center flex-shrink-0 ${isMTN ? 'bg-yellow-100' : 'bg-[#F3F4F4]'}`}>
+                        <i className="fa-solid fa-mobile-screen-button text-yellow-600 text-lg"></i>
+                      </div>
+                      <div className="flex-grow text-left">
+                        <p className={`font-bold text-sm ${isMTN ? 'text-yellow-700' : 'text-[#0F1111]'}`}>MTN MoMo</p>
+                        <p className="text-xs text-[#565959]">Push USSD automatique · Confirmation instantanée</p>
+                      </div>
+                      <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${isMTN ? 'border-yellow-500 bg-yellow-500' : 'border-[#D5D9D9]'}`}>
+                        {isMTN && <i className="fa-solid fa-check text-white text-[8px]"></i>}
+                      </div>
+                    </button>
+                    {isMTN && (
+                      <div className="border-t border-yellow-100 px-4 pb-4 pt-3 bg-yellow-50/30">
+                        <label className="block text-[10px] font-bold uppercase tracking-widest text-yellow-700 mb-1.5">
+                          Numéro MTN MoMo *
+                        </label>
+                        <div className="relative">
+                          <i className="fa-solid fa-phone absolute left-3 top-1/2 -translate-y-1/2 text-yellow-500 text-sm"></i>
+                          <input
+                            type="tel"
+                            value={monetbilPhone}
+                            onChange={e => setMonetbilPhone(e.target.value)}
+                            placeholder="+237 6 7X XX XX XX"
+                            className="w-full bg-white border border-yellow-200 focus:border-yellow-400 focus:outline-none rounded pl-9 pr-3 py-2.5 text-sm font-mono text-[#0F1111] placeholder-[#adb5bd] transition-colors"
+                          />
+                        </div>
+                        <p className="text-[10px] text-yellow-600 mt-1.5">
+                          <i className="fa-solid fa-circle-info mr-1"></i>
+                          Un push USSD sera envoyé sur ce numéro pour valider le paiement.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* CASH ON DELIVERY */}
+                  <div className="bg-white rounded border border-[#D5D9D9] overflow-hidden">
+                    <button onClick={() => { setPaymentMethod('cash_on_delivery'); setError(''); }}
+                      className={`w-full flex items-center gap-3 px-4 py-3.5 transition ${paymentMethod === 'cash_on_delivery' ? 'bg-green-50' : 'hover:bg-[#F3F4F4]'}`}>
+                      <div className={`w-10 h-10 rounded flex items-center justify-center flex-shrink-0 ${paymentMethod === 'cash_on_delivery' ? 'bg-green-100' : 'bg-[#F3F4F4]'}`}>
+                        <i className="fa-solid fa-truck-fast text-[#007600] text-lg"></i>
+                      </div>
+                      <div className="flex-grow text-left">
+                        <p className={`font-bold text-sm ${paymentMethod === 'cash_on_delivery' ? 'text-[#007600]' : 'text-[#0F1111]'}`}>
+                          Payer à la livraison
+                        </p>
+                        <p className="text-xs text-[#565959]">Cash · Espèces à la réception · Douala 2h</p>
+                      </div>
+                      <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${paymentMethod === 'cash_on_delivery' ? 'border-[#007600] bg-[#007600]' : 'border-[#D5D9D9]'}`}>
+                        {paymentMethod === 'cash_on_delivery' && <i className="fa-solid fa-check text-white text-[8px]"></i>}
+                      </div>
+                    </button>
+                    {paymentMethod === 'cash_on_delivery' && (
+                      <div className="border-t border-green-100 px-4 py-3 bg-green-50">
+                        <p className="text-xs text-[#007600] font-bold flex items-center gap-2">
+                          <i className="fa-solid fa-circle-info"></i>
+                          Préparez le montant exact à la livraison. Notre livreur contactera le{' '}
+                          <strong>{info.phone || '...'}</strong>
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
+
+              {/* RECAP LIVRAISON (toujours visible sauf pendant awaiting) */}
+              {!isAwaiting && (
+                <div className="bg-white rounded border border-[#D5D9D9] p-4">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-[#565959] mb-3">
+                    <i className="fa-solid fa-location-dot text-[#FF9900] mr-1.5"></i>Livraison vers
+                  </p>
+                  <p className="font-bold text-sm text-[#0F1111]">{info.name}</p>
+                  <p className="text-xs text-[#565959] mt-0.5">{info.phone}</p>
+                  <p className="text-xs text-[#565959] mt-0.5">{fullAddress()}</p>
+                  <button onClick={() => setStep('checkout')}
+                    className="text-xs text-[#007185] hover:text-[#C45500] hover:underline mt-2 block">
+                    Modifier l'adresse →
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -789,16 +942,26 @@ const CartSidebar = ({ isOpen, cart, removeFromCart, updateQuantity, toggleCart,
               )}
 
               {/* CTA BUTTON */}
-              <button onClick={handleProcess} disabled={loading || (step === 'cart' && cart.length === 0)}
-                className="w-full bg-[#FFD814] hover:bg-[#F7CA00] text-[#0F1111] border border-[#FCD200] py-3.5 rounded font-bold text-sm transition active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-sm">
-                {loading
-                  ? <><i className="fa-solid fa-spinner fa-spin text-xs"></i> Traitement...</>
-                  : step === 'cart'
-                    ? <><i className="fa-solid fa-truck-fast text-xs"></i> Passer à la livraison</>
-                  : step === 'checkout'
-                    ? <><i className="fa-solid fa-mobile-screen-button text-xs"></i> Choisir le paiement</>
-                    : <><i className="fa-solid fa-circle-check text-xs"></i> Confirmer la commande</>}
-              </button>
+              {isAwaiting ? (
+                <button disabled
+                  className="w-full bg-[#F3F4F4] text-[#565959] border border-[#D5D9D9] py-3.5 rounded font-bold text-sm flex items-center justify-center gap-2 cursor-not-allowed">
+                  <i className="fa-solid fa-spinner fa-spin text-xs text-[#FF9900]"></i>
+                  En attente de paiement…
+                </button>
+              ) : (
+                <button onClick={handleProcess} disabled={loading || (step === 'cart' && cart.length === 0)}
+                  className="w-full bg-[#FFD814] hover:bg-[#F7CA00] text-[#0F1111] border border-[#FCD200] py-3.5 rounded font-bold text-sm transition active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-sm">
+                  {loading
+                    ? <><i className="fa-solid fa-spinner fa-spin text-xs"></i> Traitement...</>
+                    : step === 'cart'
+                      ? <><i className="fa-solid fa-truck-fast text-xs"></i> Passer à la livraison</>
+                    : step === 'checkout'
+                      ? <><i className="fa-solid fa-mobile-screen-button text-xs"></i> Choisir le paiement</>
+                    : isMobileMoney
+                      ? <><i className="fa-solid fa-bolt text-xs"></i> Payer {Math.round(finalTotal).toLocaleString()} FCFA maintenant</>
+                      : <><i className="fa-solid fa-circle-check text-xs"></i> Confirmer la commande</>}
+                </button>
+              )}
 
               {/* TRUST BADGES */}
               <div className="flex items-center justify-center gap-4 pt-1">
