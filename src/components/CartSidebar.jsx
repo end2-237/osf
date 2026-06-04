@@ -73,7 +73,7 @@ const CartSidebar = ({ isOpen, cart, removeFromCart, updateQuantity, toggleCart,
     if (!user || !isOpen) return;
     const load = async () => {
       const [{ data: prof }, { data: addrs }] = await Promise.all([
-        supabase.from('profiles').select('full_name,phone').eq('id', user.id).single(),
+        supabase.from('profiles').select('full_name,phone').eq('id', user.id).maybeSingle(),
         supabase.from('user_addresses').select('*').eq('user_id', user.id).order('is_default', { ascending: false }),
       ]);
       if (prof) setUserProfile(prof);
