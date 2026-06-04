@@ -569,6 +569,18 @@ export const mapCjToProduct = (p) => {
   // ── Cost price (stored for admin only — never shown to customers) ─────────────
   const cost_price_usd = price_usd;
 
+  // ── Promo / discount from CJ ──────────────────────────────────────────────────
+  const is_discount_sell = Boolean(p.isDiscountSell || p.discountSell || false);
+
+  // ── Custom processing (engraving, logo, etc.) ─────────────────────────────────
+  const is_customizable = Boolean(p.isProcessCustom || p.processCustom || p.customizable || false);
+
+  // ── Light unit classification (faster/cheaper shipping) ───────────────────────
+  const light_unit = Boolean(p.lightUnit || p.isLightUnit || false);
+
+  // ── Language of CJ listing ───────────────────────────────────────────────────
+  const product_language = (p.productLanguage || "").trim() || null;
+
   return {
     // Core
     name:             p.productNameEn || p.productName || p.nameEn || "Produit",
@@ -629,5 +641,9 @@ export const mapCjToProduct = (p) => {
     cj_category_path,
     video_thumbnail,
     cost_price_usd,
+    is_discount_sell,
+    is_customizable,
+    light_unit,
+    product_language,
   };
 };

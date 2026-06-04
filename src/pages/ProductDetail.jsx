@@ -130,8 +130,13 @@ const ImageGallery = ({ images, activeImg, setActiveImg, name, status }) => {
       }`}
     >
       {isVideoUrl(img) ? (
-        <div className="w-full h-full bg-[#131921] flex items-center justify-center">
-          <i className="fa-solid fa-play text-[#FF9900] text-xs" />
+        <div className="w-full h-full bg-[#131921] flex items-center justify-center relative overflow-hidden">
+          {product?.video_thumbnail && (
+            <img src={product.video_thumbnail} alt="" className="absolute inset-0 w-full h-full object-cover opacity-50" />
+          )}
+          <div className="relative z-10 w-5 h-5 bg-[#FF9900] rounded-full flex items-center justify-center shadow">
+            <i className="fa-solid fa-play text-[#0F1111] text-[8px] ml-px" />
+          </div>
         </div>
       ) : (
         <img src={img} alt="" className="w-full h-full object-cover" />
@@ -830,6 +835,10 @@ const ProductDetail = ({ addToCart, openModal }) => {
         if (fresh.sale_status)                                                       updates.sale_status           = fresh.sale_status;
         if (fresh.cj_category_path)                                                  updates.cj_category_path      = fresh.cj_category_path;
         if (fresh.video_thumbnail)                                                   updates.video_thumbnail       = fresh.video_thumbnail;
+        if (fresh.is_discount_sell)                                                  updates.is_discount_sell      = fresh.is_discount_sell;
+        if (fresh.is_customizable)                                                   updates.is_customizable       = fresh.is_customizable;
+        if (fresh.light_unit)                                                        updates.light_unit            = fresh.light_unit;
+        if (fresh.product_language)                                                  updates.product_language      = fresh.product_language;
         await supabase.from("products").update(updates).eq("id", product.id);
         setProduct(prev => prev ? { ...prev, ...updates } : prev);
       } catch { /* silent */ }
@@ -1186,6 +1195,16 @@ const ProductDetail = ({ addToCart, openModal }) => {
                   <span className="text-xs bg-[#FF9900]/10 text-[#FF9900] border border-[#FF9900]/25 px-2 py-0.5 rounded font-bold uppercase tracking-wide">
                     OFS Certifié
                   </span>
+                  {product.is_discount_sell && (
+                    <span className="text-xs bg-[#CC0C39] text-white px-2 py-0.5 rounded font-bold uppercase tracking-wide">
+                      <i className="fa-solid fa-tag mr-1 text-[9px]" />PROMO
+                    </span>
+                  )}
+                  {product.is_customizable && (
+                    <span className="text-xs bg-purple-100 text-purple-700 border border-purple-200 px-2 py-0.5 rounded font-bold uppercase tracking-wide">
+                      <i className="fa-solid fa-pen-nib mr-1 text-[9px]" />Personnalisable
+                    </span>
+                  )}
                 </div>
 
                 {/* ── KEY SPECS (électronique) ── */}
@@ -1295,6 +1314,14 @@ const ProductDetail = ({ addToCart, openModal }) => {
                     </div>
                   )}
 
+                  {/* Pack size notice */}
+                  {product.pack_num > 1 && (
+                    <div className="flex items-center gap-1.5 mb-2 text-[10px] font-bold text-[#007600] bg-[#007600]/8 border border-[#007600]/20 rounded px-2.5 py-1.5 w-fit">
+                      <i className="fa-solid fa-boxes-stacked text-[9px]" />
+                      Vendu par lot de {product.pack_num} unités
+                    </div>
+                  )}
+
                   {/* Trust row */}
                   <div className="flex items-center gap-3 flex-wrap mb-2">
                     <span className="flex items-center gap-1 text-[10px] text-[#565959]">
@@ -1376,6 +1403,14 @@ const ProductDetail = ({ addToCart, openModal }) => {
                         </span>
                         <i className="fa-solid fa-plane text-[#767676] text-[8px] flex-shrink-0" />
                         <span className="text-[#767676] flex-shrink-0">Transit {transit}</span>
+                        {product.light_unit && (
+                          <>
+                            <span className="text-[#D5D9D9] text-[8px] flex-shrink-0">·</span>
+                            <span className="flex items-center gap-0.5 text-[#007185] flex-shrink-0">
+                              <i className="fa-solid fa-feather text-[8px]" />Colis léger
+                            </span>
+                          </>
+                        )}
                         <i className="fa-solid fa-arrow-right text-[#D5D9D9] text-[8px] flex-shrink-0" />
                         <span className="flex items-center gap-1 flex-shrink-0">
                           <span>🏭</span>
@@ -1727,6 +1762,13 @@ const ProductDetail = ({ addToCart, openModal }) => {
                       product.supplier_name        && { label: "Fournisseur",          value: product.supplier_name },
                       realSizes.length > 0         && { label: "Variantes dispo",      value: realSizes.join(", ") },
                       product.customs_code         && { label: "Code douanier (HS)",   value: `${product.customs_code}${product.customs_name ? ` — ${product.customs_name}` : ""}` },
+                      product.pack_num > 1         && { label: "Contenu du lot",        value: `${product.pack_num} unités par lot` },
+                      product.multi_package        && { label: "Expédition",            value: "Livraison en plusieurs colis" },
+                      product.light_unit           && { label: "Classification colis",  value: "Colis léger — traitement prioritaire" },
+                      product.is_discount_sell     && { label: "Offre spéciale",        value: "Prix remisé fournisseur" },
+                      product.is_customizable      && { label: "Personnalisation",      value: "Gravure / logo / emballage sur mesure disponible" },
+                      product.product_language && product.product_language !== "en" && product.product_language !== "EN"
+                                                   && { label: "Fiche origine",         value: `Fiche fournisseur en ${product.product_language === "zh" || product.product_language === "CN" ? "Chinois" : product.product_language}` },
                       { label: "Livraison locale",   value: "Douala · Yaoundé · tout le Cameroun" },
                       { label: "Modes de paiement",  value: "Orange Money · MTN MoMo · Cash" },
                       { label: "Politique retour",   value: "7 jours — Remboursement intégral" },
