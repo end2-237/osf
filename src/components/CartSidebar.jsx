@@ -67,6 +67,7 @@ const CartSidebar = ({ isOpen, cart, removeFromCart, updateQuantity, toggleCart,
   const [paymentPhase,    setPaymentPhase]    = useState('select'); // 'select' | 'awaiting' | 'failed'
   const [pendingOrderIds, setPendingOrderIds] = useState([]);
   const [pollError,       setPollError]       = useState('');
+  const [paymentUrl,      setPaymentUrl]      = useState('');
   const pollTimerRef = useRef(null);
 
   useEffect(() => {
@@ -170,6 +171,7 @@ const CartSidebar = ({ isOpen, cart, removeFromCart, updateQuantity, toggleCart,
             setMonetbilPhone('');
             setPaymentPhase('select');
             setPendingOrderIds([]);
+            setPaymentUrl('');
             clearCart();
             toggleCart();
           }, 3500);
@@ -329,7 +331,7 @@ const CartSidebar = ({ isOpen, cart, removeFromCart, updateQuantity, toggleCart,
           order_ids: orderIds,
           amount:    Math.round(finalTotal),
           phone:     formatPhoneForMonetbil(monetbilPhone),
-          operator:  paymentMethod === 'orange_money' ? 'ORANGE_CM' : 'MTN_CM',
+          operator:  paymentMethod === 'orange_money' ? 'CM_ORANGEMONEY' : 'CM_MTNMOBILEMONEY',
         }),
       });
 
@@ -339,8 +341,11 @@ const CartSidebar = ({ isOpen, cart, removeFromCart, updateQuantity, toggleCart,
       catch { throw new Error(`Réponse serveur invalide (${res.status}): ${rawText.slice(0, 120) || 'vide'}`); }
       if (!result.success) throw new Error(result.error || `Erreur ${res.status}`);
 
+      setPaymentUrl(result.payment_url || '');
       setPendingOrderIds(orderIds);
       setPaymentPhase('awaiting');
+      // Open payment URL automatically in new tab
+      if (result.payment_url) window.open(result.payment_url, '_blank');
     } catch (err) {
       setError(err.message || 'Une erreur est survenue. Réessayez.');
     } finally {
@@ -381,6 +386,7 @@ const CartSidebar = ({ isOpen, cart, removeFromCart, updateQuantity, toggleCart,
     setPaymentPhase('select');
     setPollError('');
     setPendingOrderIds([]);
+    setPaymentUrl('');
     toggleCart();
   };
 
@@ -730,28 +736,31 @@ const CartSidebar = ({ isOpen, cart, removeFromCart, updateQuantity, toggleCart,
               {/* ── AWAITING SCREEN ── */}
               {paymentPhase === 'awaiting' && (
                 <div className="bg-white rounded border border-[#D5D9D9] overflow-hidden">
-                  <div className="p-6 text-center">
-                    <div className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 ${isOM ? 'bg-orange-100' : 'bg-yellow-100'}`}>
+                  <div className="p-5 text-center">
+                    <div className={`w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-3 ${isOM ? 'bg-orange-100' : 'bg-yellow-100'}`}>
                       <i className={`fa-solid fa-mobile-screen-button text-2xl animate-pulse ${isOM ? 'text-orange-500' : 'text-yellow-600'}`}></i>
                     </div>
-                    <p className="font-bold text-[#0F1111] text-base mb-1">Confirmation en cours…</p>
-                    <p className="text-sm text-[#565959] mb-1">Un push USSD a été envoyé au</p>
-                    <p className={`font-mono font-bold text-sm mb-3 ${isOM ? 'text-orange-600' : 'text-yellow-700'}`}>
-                      {monetbilPhone}
-                    </p>
-                    <p className="text-xs text-[#565959] mb-4">
-                      Validez le paiement de{' '}
+                    <p className="font-bold text-[#0F1111] text-base mb-1">Paiement initié</p>
+                    <p className="text-sm text-[#565959] mb-3">
+                      Complétez le paiement de{' '}
                       <strong className="text-[#0F1111]">{Math.round(finalTotal).toLocaleString()} FCFA</strong>{' '}
-                      sur votre application <strong>{isOM ? 'Orange Money' : 'MTN MoMo'}</strong>.
+                      sur la page Monetbil.
                     </p>
-                    <div className="flex items-center justify-center gap-2 text-xs text-[#adb5bd]">
+                    {paymentUrl && (
+                      <a href={paymentUrl} target="_blank" rel="noopener noreferrer"
+                        className={`inline-flex items-center gap-2 px-5 py-2.5 rounded font-bold text-sm text-white mb-3 ${isOM ? 'bg-orange-500 hover:bg-orange-600' : 'bg-yellow-500 hover:bg-yellow-600'} transition`}>
+                        <i className="fa-solid fa-external-link text-xs"></i>
+                        Ouvrir la page de paiement
+                      </a>
+                    )}
+                    <div className="flex items-center justify-center gap-2 text-xs text-[#adb5bd] mt-1">
                       <i className="fa-solid fa-spinner fa-spin text-[#FF9900]"></i>
-                      En attente de validation…
+                      En attente de confirmation…
                     </div>
                   </div>
                   <div className={`px-4 py-3 border-t text-xs ${isOM ? 'bg-orange-50 border-orange-100 text-orange-700' : 'bg-yellow-50 border-yellow-100 text-yellow-700'}`}>
                     <i className="fa-solid fa-circle-info mr-1.5"></i>
-                    Ne fermez pas cette fenêtre. La page se met à jour automatiquement.
+                    La commande se confirme automatiquement dès validation sur Monetbil.
                   </div>
                 </div>
               )}

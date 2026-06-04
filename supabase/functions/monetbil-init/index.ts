@@ -4,7 +4,6 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 
 const MONETBIL_KEY    = Deno.env.get("MONETBIL_SERVICE_KEY")      || "";
-const MONETBIL_SECRET = Deno.env.get("MONETBIL_SERVICE_SECRET")   || "";
 const SUPABASE_URL    = Deno.env.get("SUPABASE_URL")               || "";
 const SUPABASE_SRVKEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")  || "";
 
@@ -44,18 +43,18 @@ serve(async (req: Request) => {
       .in("id", order_ids);
     if (updateErr) throw new Error(updateErr.message);
 
-    // Correct Monetbil field names: "service" and "phonenumber"
+    // Widget API v2.1 — service_key in URL path, not in body
     const body = new URLSearchParams({
-      service:     MONETBIL_KEY,
-      secret:      MONETBIL_SECRET,
       amount:      String(Math.round(amount)),
-      phonenumber: phone,
+      phone,
+      phone_lock:  "true",
       operator,
       payment_ref,
       notify_url:  WEBHOOK_URL,
+      currency:    "XAF",
     });
 
-    const res = await fetch("https://api.monetbil.com/payment/v1/placePayment", {
+    const res = await fetch(`https://api.monetbil.com/widget/v2.1/${MONETBIL_KEY}`, {
       method:  "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body:    body.toString(),
@@ -66,7 +65,7 @@ serve(async (req: Request) => {
 
     if (!data.success) return json({ error: data.message || "Erreur Monetbil" });
 
-    return json({ success: true, payment_ref });
+    return json({ success: true, payment_ref, payment_url: data.payment_url });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
     return json({ error: msg }, 500);
