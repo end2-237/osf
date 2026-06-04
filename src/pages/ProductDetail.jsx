@@ -6,7 +6,7 @@ import ReviewsSection from "../components/ReviewsSection";
 import SponsoredBanner from "../components/SponsoredBanner";
 import { useWishlist } from "../hooks/useWishlist";
 import { useAuth } from "../context/AuthContext";
-import { cjGetProductDetail, mapCjToProduct, isVideoUrl } from "../lib/cjApi";
+import { cjGetProductDetail, mapCjToProduct, isVideoUrl, PRICE_MARGIN } from "../lib/cjApi";
 
 const MEMBER_DISCOUNT = 0.2;
 
@@ -149,6 +149,7 @@ const ImageGallery = ({ images, activeImg, setActiveImg, name, status }) => {
     >
       {isVideoUrl(images[activeImg]) ? (
         <video key={images[activeImg]} src={images[activeImg]}
+          poster={product?.video_thumbnail || undefined}
           className="w-full h-full object-contain" controls autoPlay muted loop playsInline />
       ) : (
         <img
@@ -854,7 +855,7 @@ const ProductDetail = ({ addToCart, openModal }) => {
       // First non-zero variant price per color
       if (!priceMap[cName]) {
         const vp = parseFloat(v.variantSellPrice || v.variantPrice || v.sellPrice || 0);
-        if (vp > 0) priceMap[cName] = Math.round(vp * 610);
+        if (vp > 0) priceMap[cName] = Math.round(vp * 610 * PRICE_MARGIN);
       }
     });
     return { priceMap, availMap };
@@ -1061,8 +1062,8 @@ const ProductDetail = ({ addToCart, openModal }) => {
     return { galleryImages: imgs, colorImageMap: cMap };
   }, [product?.images, product?.img, product?.variants]);
 
-  const ratingVal   = 3.8 + ((product?.id?.charCodeAt(0) || 65) % 12) * 0.1;
-  const reviewCount = 10  + ((product?.id?.charCodeAt(0) || 65) % 200);
+  const ratingVal   = product?.rating_avg  || 4.2;
+  const reviewCount = product?.review_count || 0;
 
   const handleAddToCart = () => {
     // Identify the exact CJ variant for order fulfillment (vid + variantSku)

@@ -215,6 +215,10 @@ export const usdToFcfa = (usd) => {
   return isNaN(n) || n <= 0 ? 0 : Math.round(n * 610);
 };
 
+// Silent profit margin applied to all customer-facing prices
+export const PRICE_MARGIN = 1.15;
+const withMargin = (fcfa) => Math.round(fcfa * PRICE_MARGIN);
+
 // Detect video URLs stored inline in images array
 export const isVideoUrl = (url = "") =>
   /\.(mp4|webm|ogg|mov)(\?.*)?$/i.test(url);
@@ -462,7 +466,7 @@ export const mapCjToProduct = (p) => {
       const pct  = parseFloat(tier.discount || tier.discountPercent || 0) / 100;
       const min  = parseInt(tier.quantity || tier.qty || tier.minQty) || 1;
       const max  = sorted[i + 1] ? (parseInt(sorted[i + 1].quantity || sorted[i + 1].qty) - 1) : null;
-      const fp   = usdToFcfa(baseUsd * (1 - pct));
+      const fp   = withMargin(usdToFcfa(baseUsd * (1 - pct)));
       if (min && fp > 0) quantity_prices.push({ min, max, price_fcfa: fp });
     });
   } else if (Array.isArray(p.priceList) && p.priceList.length > 0) {
@@ -470,14 +474,14 @@ export const mapCjToProduct = (p) => {
     sorted.forEach((tier, i) => {
       const min = parseInt(tier.quantity || tier.qty || tier.minNum) || 1;
       const max = sorted[i + 1] ? (parseInt(sorted[i + 1].quantity || sorted[i + 1].qty) - 1) : null;
-      const fp  = usdToFcfa(parseFloat(tier.price || tier.sellPrice || 0));
+      const fp  = withMargin(usdToFcfa(parseFloat(tier.price || tier.sellPrice || 0)));
       if (min && fp > 0) quantity_prices.push({ min, max, price_fcfa: fp });
     });
   } else if (Array.isArray(p.quantityPrices) && p.quantityPrices.length > 0) {
     p.quantityPrices.forEach(tier => {
       const min = parseInt(tier.minNum || tier.minQty || tier.quantity) || 1;
       const max = tier.maxNum || tier.maxQty ? parseInt(tier.maxNum || tier.maxQty) : null;
-      const fp  = usdToFcfa(parseFloat(tier.price || tier.sellPrice || 0));
+      const fp  = withMargin(usdToFcfa(parseFloat(tier.price || tier.sellPrice || 0)));
       if (min && fp > 0) quantity_prices.push({ min, max, price_fcfa: fp });
     });
   }
@@ -533,10 +537,42 @@ export const mapCjToProduct = (p) => {
   // ── CJ product creation date ──────────────────────────────────────────────────
   const cj_added_at = p.addMarkTime || p.createTime || null;
 
+  // ── Rating & reviews ─────────────────────────────────────────────────────────
+  const rating_avg    = parseFloat(p.productRatingAvg || p.ratingAvg || p.avgRating || 0) || null;
+  const review_count  = parseInt(p.reviewCount || p.totalReview || p.reviewNum || 0) || 0;
+
+  // ── Advertising images (append to gallery) ────────────────────────────────────
+  const adImgs = [];
+  if (p.advertisingImageSet) {
+    const raw = Array.isArray(p.advertisingImageSet) ? p.advertisingImageSet : p.advertisingImageSet.split(",");
+    raw.map(s => s.trim()).filter(Boolean).forEach(u => { if (!images.includes(u) && !isVideoUrl(u)) adImgs.push(u); });
+  } else if (Array.isArray(p.advertisingImages)) {
+    p.advertisingImages.forEach(u => { if (u && !images.includes(u) && !isVideoUrl(u)) adImgs.push(u); });
+  }
+  if (adImgs.length > 0) images = [...images, ...adImgs];
+
+  // ── Pack / multi-package info ─────────────────────────────────────────────────
+  const pack_num      = parseInt(p.packNum || p.packageNum || 1) || 1;
+  const multi_package = Boolean(p.multiPackage || p.isMultiPackage || false);
+
+  // ── CJ sale status (ONLINE / OFFLINE) ────────────────────────────────────────
+  const sale_status = (p.saleStatus || p.productStatus || "").trim() || null;
+
+  // ── Category hierarchy ────────────────────────────────────────────────────────
+  const cj_category_path = [
+    p.firstCategoryName, p.secondCategoryName, p.thirdCategoryName
+  ].filter(Boolean).join(" > ") || p.categoryName || null;
+
+  // ── Video thumbnail ───────────────────────────────────────────────────────────
+  const video_thumbnail = (p.productVideoImage || p.videoThumbnail || p.videoImage || "").trim() || null;
+
+  // ── Cost price (stored for admin only — never shown to customers) ─────────────
+  const cost_price_usd = price_usd;
+
   return {
     // Core
     name:             p.productNameEn || p.productName || p.nameEn || "Produit",
-    price:            usdToFcfa(parsePrice(p.nowPrice ?? p.sellPrice ?? p.productPrice ?? 0)),
+    price:            withMargin(usdToFcfa(parsePrice(p.nowPrice ?? p.sellPrice ?? p.productPrice ?? 0))),
     price_usd,
     img:              images.find(u => !isVideoUrl(u)) || mainImg,
     images,
@@ -584,5 +620,14 @@ export const mapCjToProduct = (p) => {
     variant_key_type,
     customs_code,
     customs_name,
+    // New CJ fields
+    rating_avg,
+    review_count,
+    pack_num,
+    multi_package,
+    sale_status,
+    cj_category_path,
+    video_thumbnail,
+    cost_price_usd,
   };
 };
