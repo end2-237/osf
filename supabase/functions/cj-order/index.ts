@@ -132,7 +132,7 @@ serve(async (req: Request) => {
       fromCountryCode:      "CN",
       logisticName:         "CJPacket",
       shippingZip:          "00237",
-      shippingCountry:      "CM",
+      shippingCountryCode:  "CM",
       shippingProvince:     "",
       shippingCity:         order.delivery_city || order.client_address || "",
       shippingAddress:      order.client_address || "",
