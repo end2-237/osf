@@ -1146,12 +1146,18 @@ const ProductDetail = ({ addToCart, openModal }) => {
       }
     }
 
+    // Fallback: if no exact variant match, use the first in-stock variant so
+    // CJ fulfillment always has a vid to work with.
+    const effectiveVariant = selectedVariant || (variants.length > 0
+      ? (variants.find(v => { const s = v.variantStatus; return s == null || Number(s) === 1 || s === true; }) || variants[0])
+      : null);
+
     addToCart({
       ...product,
       selectedSize:       isShoes || isApparel ? size : "Unique",
       selectedColor:      color,
-      selectedVariantId:  selectedVariant?.vid || selectedVariant?.variantId || null,
-      selectedVariantSku: selectedVariant?.variantSku || selectedVariant?.sku || null,
+      selectedVariantId:  effectiveVariant?.vid || effectiveVariant?.variantId || null,
+      selectedVariantSku: effectiveVariant?.variantSku || effectiveVariant?.sku || null,
       quantity:           qty,
       deliveryCity:       selectedCity.city,
       deliveryFee:        selectedCity.price,
