@@ -694,13 +694,27 @@ const ProductDetail = ({ addToCart, openModal }) => {
   const wishlist  = isInWishlist(product?.id);
 
   useEffect(() => {
+    // Reset UI state for the new product
     setGalleryIndex(0);
-    if (!product) {
-      supabase.from("products").select("*").eq("id", productId).single()
-        .then(({ data, error }) => { if (!error && data) setProduct(data); setLoading(false); });
-    } else {
+    setQty(1);
+
+    // If navigation passed the exact product via state, use it instantly
+    const stateProduct = location.state?.product;
+    if (stateProduct && String(stateProduct.id) === String(productId)) {
+      setProduct(stateProduct);
       setLoading(false);
+      return;
     }
+
+    // Otherwise always fetch fresh — covers related-product clicks where
+    // product state was non-null (old product) causing the previous bug
+    setProduct(null);
+    setLoading(true);
+    supabase.from("products").select("*").eq("id", productId).single()
+      .then(({ data, error }) => {
+        if (!error && data) setProduct(data);
+        setLoading(false);
+      });
   }, [productId]);
 
   useEffect(() => {
