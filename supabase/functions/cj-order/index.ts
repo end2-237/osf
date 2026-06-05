@@ -174,7 +174,7 @@ serve(async (req: Request) => {
     const cjBody = {
       orderNumber:   order.payment_reference || `OFS-${order.id.slice(0, 8).toUpperCase()}`,
       fromCountryCode: "CN",
-      logisticName:  "CJPacket",
+      logisticName:  use_transitaire ? "YTO" : "CJPacket",
       platform:      "shopify",
       orderFlow:     1,
       ...shippingConfig,
