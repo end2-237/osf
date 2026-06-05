@@ -53,12 +53,23 @@ export const mapOfsType = (categoryName = "") => {
   if (/headphone|earphone|earbuds?|casque|oreillette|in.ear|over.ear|on.ear|speaker|soundbar|subwoofer|enceinte|bluetooth.speaker|portable.speaker|microphone|amplifier|home.theater|sound.system|musical.instrument|audio.equipment|hi.fi/.test(n))
     return "Audio Lab";
 
+  // ── Kitchen, Cookware & Dining (ustensiles MANUELS — avant l'électroménager électrique) ──
+  // Important : « dishwasher safe », « microwave safe » sont des attributs de cookware,
+  // pas des appareils. On capte ici les poêles, casseroles, hachoirs, éplucheurs, etc.
+  if (/frying.pan|\bskillet\b|sauce.?pan|stock.?pot|\bwok\b|cookware|bakeware|cast.iron|non.?stick|casserole|dutch.oven|roasting.pan|grill.pan|cooking.pot|crepe.maker|baking.(?:tray|sheet|mold|pan)|cake.(?:mold|pan)|muffin.pan|pizza.pan/.test(n)
+    || /kitchen.(?:tool|gadget|utensil|ware|accessor)|kitchen.?ware|\butensils?\b|\bspatula\b|\bwhisk\b|\bladle\b|\bcolander\b|\bstrainer\b|\bsieve\b|cooking.tongs|kitchen.tongs|food.tongs|bbq.tongs|serving.tongs|salad.tongs|\bgrater\b|\bpeeler\b|\bmasher\b|rolling.pin|garlic.press|can.opener|bottle.opener|cork.?screw|salad.spinner|kitchen.scale/.test(n)
+    || /vegetable.chopper|food.chopper|veggie.chopper|hand.chopper|manual.chopper|\bslicer\b|\bdicer\b|vegetable.shredder|cheese.shredder|mandoline|vegetable.cutter|fruit.cutter|kitchen.cutter|onion.cutter|salad.cutter/.test(n)
+    || /pasta.maker|noodle.maker|dough.(?:maker|press|roller)|dumpling.(?:maker|mold)/.test(n)
+    || /egg.poacher|poach.*egg|egg.mold|egg.ring|egg.boat|silicone.egg|egg.separator|egg.cooker|egg.boiler/.test(n)
+    || /cutting.board|chopping.board|\bcutlery\b|dinnerware|tableware|flatware|silverware|mixing.bowl|salad.bowl|measuring.(?:cup|spoon)|lunch.box|\bbento\b|food.container|meal.prep|\bthermos\b|insulated.(?:bottle|mug|cup)|water.bottle|\btumbler\b|coffee.mug|\bteapot\b|tea.infuser|\bcoaster\b|\btrivet\b|oven.mitt|pot.holder|\bapron\b|dish.rack|drying.rack|knife.(?:set|holder|block|sharpener)|\bknives\b|kitchen.knife/.test(n))
+    return "Maison";
+
   // ── Tech & Electronics (+ électroménager, avant Maison) ───────────────────
   if (/smartphone|mobile.phone|cell.phone|\bphone\b|telecom|telecommunication|television|televiseur|\btv\b|tablet|ipad|laptop|notebook|computer|pc.desktop|gaming|game.controller|drone|action.camera|projector|smart.home|iot|robot|3d.printer|vr.headset|power.bank|usb.hub|screen.protector|phone.case|phone.bag|phone.holder|consumer.electronics|electronics/.test(n)
     || (/charger|cable|usb/.test(n) && !/car.charger/.test(n))
     || (/\bcamera\b/.test(n) && !/security.camera|doorbell/.test(n))
     || (/gaming|console/.test(n))
-    || /home.appliance|kitchen.appliance|\bappliance\b|electric.kettle|air.fryer|air.condition|microwave|washing.machine|refrigerator|freezer|dishwasher|water.heater|robot.vacuum|vacuum.cleaner|air.purifier|humidifier|electric.fan|space.heater|coffee.maker|\bblender\b|rice.cooker|bread.maker|food.processor|\bjuicer\b|induction.cook|\btoaster\b/.test(n)
+    || /home.appliance|kitchen.appliance|\bappliance\b|electric.kettle|air.fryer|air.condition|\bmicrowave\b(?!\W+safe)|washing.machine|refrigerator|freezer|\bdishwasher\b(?!\W+safe)|water.heater|robot.vacuum|vacuum.cleaner|air.purifier|humidifier|electric.fan|space.heater|coffee.maker|\bblender\b|rice.cooker|bread.maker|food.processor|\bjuicer\b|induction.cooker|\btoaster\b/.test(n)
     // Outils électriques & machines
     || /\belectric\b(?!.*(?:blue|red|green|yellow|pink|white|black|purple|orange))|power.tool|hand.tool|tool.set|\bdriller\b|\bgrinder\b|\bsander\b|\bstripper\b|soldering|\bwelder\b|oscillat|laser.engrav|cnc.machine|3d.print/.test(n))
     return "Tech Lab";
@@ -147,7 +158,7 @@ export const mapSubcategory = (categoryName = "") => {
   if (/charger|power.bank|usb.hub|\bcable\b|data.cable/.test(n))                return "Câbles & Chargeurs";
   if (/smart.home|smart.plug|smart.bulb|security.camera|doorbell/.test(n))      return "Maison Connectée";
   if (/smartwatch|wearable|fitness.tracker|smart.band/.test(n))                 return "Objets Connectés";
-  if (/appliance|air.fryer|air.condition|microwave|washing.machine|refrigerator|freezer|dishwasher|water.heater|robot.vacuum|vacuum.cleaner|air.purifier|humidifier|electric.fan|coffee.maker|\bblender\b|rice.cooker|bread.maker|food.processor|\bjuicer\b|induction|toaster|electric.kettle/.test(n)) return "Électroménager";
+  if (/appliance|air.fryer|air.condition|\bmicrowave\b(?!\W+safe)|washing.machine|refrigerator|freezer|\bdishwasher\b(?!\W+safe)|water.heater|robot.vacuum|vacuum.cleaner|air.purifier|humidifier|electric.fan|coffee.maker|\bblender\b|rice.cooker|bread.maker|food.processor|\bjuicer\b|induction.cooker|\btoaster\b|electric.kettle/.test(n)) return "Électroménager";
 
   // Shoes
   if (/sneaker|trainer|athletic.shoe|running.shoe|basketball.shoe/.test(n))     return "Sneakers";
@@ -190,7 +201,7 @@ export const mapSubcategory = (categoryName = "") => {
   if (/\bcap\b|\bhat\b|\bbeanie\b/.test(n))                                      return "Chapeaux";
 
   // Maison
-  if (/kitchen|cookware|tableware|cutlery|baking/.test(n))                       return "Cuisine";
+  if (/kitchen|cookware|bakeware|baking|tableware|dinnerware|cutlery|flatware|frying.pan|\bskillet\b|sauce.?pan|\bwok\b|cast.iron|non.?stick|casserole|dutch.oven|\bpans?\b|\bpots?\b|chopper|\bslicer\b|\bdicer\b|\bpeeler\b|\bgrater\b|mandoline|fruit.cutter|kitchen.cutter|pasta.maker|noodle.maker|egg.poach|poach.*egg|silicone.egg|egg.cooker|egg.boiler|\bwhisk\b|\bspatula\b|\bladle\b|\bcolander\b|\bstrainer\b|cutting.board|mixing.bowl|measuring.(?:cup|spoon)|\butensils?\b|garlic.press|can.opener|food.container|lunch.box|\bbento\b|\bthermos\b|water.bottle|\btumbler\b|coffee.mug|\bteapot\b|\bknives\b|kitchen.knife/.test(n)) return "Cuisine";
   if (/home.decor|\bdecor\b|wall.art|picture.frame|\bcandle\b|\bvase\b/.test(n)) return "Décoration";
   if (/bedding|\bpillow\b|mattress|\bblanket\b|\bduvet\b|bed.sheet/.test(n))     return "Literie";
   if (/\blamp\b|\blighting\b|led.strip|\bbulb\b|\blight\b/.test(n))             return "Éclairage";
