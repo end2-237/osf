@@ -195,7 +195,13 @@ const CartSidebar = ({ isOpen, cart, removeFromCart, updateQuantity, toggleCart,
   const hasBundle           = cart.length >= 2;
   const bundleRate          = isMember ? BUNDLE_DISCOUNT_MEMBER : BUNDLE_DISCOUNT_NON_MEMBER;
   const bundleAmount        = hasBundle ? Math.round(subtotalAfterMember * bundleRate) : 0;
-  const finalTotal          = subtotalAfterMember - bundleAmount;
+
+  // CJ international shipping estimate (transitaire)
+  const cjItems      = cart.filter(i => !i.vendor_id);
+  const cjShipWeightG = cjItems.reduce((s, i) => s + ((i.ship_weight_g || i.weight_g || 200) * (i.quantity || 1)), 0);
+  const cjShipping   = cjItems.length > 0 ? Math.round(1015 + (cjShipWeightG / 1000) * 10000) : 0;
+
+  const finalTotal   = subtotalAfterMember - bundleAmount + cjShipping;
 
   const potentialMemberSavings = cart.reduce((s, i) => {
     const has = i.vendor?.member_discount_enabled ?? i.vendor_member_discount_enabled ?? false;
@@ -950,10 +956,20 @@ const CartSidebar = ({ isOpen, cart, removeFromCart, updateQuantity, toggleCart,
                       <span className="font-bold text-[#007600]">−{bundleAmount.toLocaleString()} F</span>
                     </div>
                   )}
-                  <div className="flex justify-between text-sm">
-                    <span className="text-[#565959]">Livraison · Douala 🇨🇲</span>
-                    <span className="font-bold text-[#007600]">Gratuite</span>
-                  </div>
+                  {cjShipping > 0 ? (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-[#565959] flex items-center gap-1">
+                        <i className="fa-solid fa-plane text-[#007185] text-[9px]" />
+                        Expédition internationale
+                      </span>
+                      <span className="font-bold text-[#007185]">~{cjShipping.toLocaleString()} F</span>
+                    </div>
+                  ) : (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-[#565959]">Livraison · Douala 🇨🇲</span>
+                      <span className="font-bold text-[#007600]">Gratuite</span>
+                    </div>
+                  )}
                   <div className="flex justify-between items-baseline pt-2 border-t border-[#D5D9D9]">
                     <span className="font-bold text-[#0F1111]">Total de la commande :</span>
                     <div className="text-right">
@@ -961,6 +977,12 @@ const CartSidebar = ({ isOpen, cart, removeFromCart, updateQuantity, toggleCart,
                       <span className="text-sm text-[#565959] ml-1">FCFA</span>
                     </div>
                   </div>
+                  {cjShipping > 0 && (
+                    <p className="text-[10px] text-[#007185] text-right">
+                      <i className="fa-solid fa-circle-info text-[9px] mr-1" />
+                      dont ~{cjShipping.toLocaleString()} F d'expédition internationale inclus
+                    </p>
+                  )}
                   {(hasMemberSavings || hasBundle) && (
                     <p className="text-xs text-[#007600] font-bold text-right">
                       Vous économisez {(memberSavingsAmount + bundleAmount).toLocaleString()} FCFA 🎉

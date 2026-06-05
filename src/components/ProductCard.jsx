@@ -206,6 +206,16 @@ const ProductCard = React.memo(({ product, openModal, addToCart }) => {
           )}
         </div>
 
+        {/* Shipping estimate for CJ products */}
+        {!product.vendor_id && (
+          <p className="text-[10px] text-[#007185] -mt-1 mb-1.5 flex items-center gap-1">
+            <i className="fa-solid fa-plane text-[9px]" />
+            <span>
+              + ~{Math.round(1015 + ((product.ship_weight_g || product.weight_g || 200) / 1000) * 10000).toLocaleString()} F livraison
+            </span>
+          </p>
+        )}
+
         {/* ADD TO CART */}
         <button
           onClick={(e) => { e.stopPropagation(); handleAddToCart(e); }}

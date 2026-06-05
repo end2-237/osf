@@ -349,10 +349,10 @@ const formatEstimatedDate = (delayStr) => {
   return `${fmt(min)} – ${fmt(max)}`;
 };
 
-const DeliveryPanel = ({ price: productPrice, qty, selectedCity, onCityChange, weight }) => {
+const DeliveryPanel = ({ price: productPrice, qty, selectedCity, onCityChange, weight, transitaireShipping = 0 }) => {
   const [open, setOpen] = useState(false);
   const deliveryFee  = selectedCity.price;
-  const totalOrder   = Number(productPrice) * qty + deliveryFee;
+  const totalOrder   = Number(productPrice) * qty + deliveryFee + transitaireShipping;
   const estimatedDate = formatEstimatedDate(selectedCity.delay);
 
   // Weight-based shipping hint (CJ products are shipped from China)
@@ -485,8 +485,19 @@ const DeliveryPanel = ({ price: productPrice, qty, selectedCity, onCityChange, w
             </span>
             <span className="font-bold">{(Number(productPrice) * qty).toLocaleString()} FCFA</span>
           </div>
+          {transitaireShipping > 0 && (
+            <div className="flex justify-between text-sm">
+              <span className="text-[#565959] flex items-center gap-1">
+                <i className="fa-solid fa-plane text-[#007185] text-[9px]" />
+                Expédition internationale
+              </span>
+              <span className="font-bold text-[#007185]">~{transitaireShipping.toLocaleString()} FCFA</span>
+            </div>
+          )}
           <div className="flex justify-between text-sm">
-            <span className="text-[#565959]">Livraison → {selectedCity.city}</span>
+            <span className="text-[#565959]">
+              {transitaireShipping > 0 ? "Livraison locale →" : "Livraison →"} {selectedCity.city}
+            </span>
             <span className={`font-bold ${deliveryFee === 0 ? "text-[#007600]" : ""}`}>
               {deliveryFee === 0 ? "Gratuite 🎁" : `+${deliveryFee.toLocaleString()} FCFA`}
             </span>
@@ -864,6 +875,11 @@ const ProductDetail = ({ addToCart, openModal }) => {
   const price       = Number(product?.price) || 0;
   const memberPrice = Math.round(price * (1 - MEMBER_DISCOUNT));
   const ofsPoints   = Math.max(1, Math.floor(price / 500));
+
+  const isCjProduct      = !product?.vendor_id;
+  const shippingEstimate = isCjProduct
+    ? Math.round(1015 + ((product?.ship_weight_g || product?.weight_g || 200) / 1000) * 10000)
+    : 0;
 
   // Variant-level price and availability (keyed by color name, from raw CJ variant objects)
   const variantMeta = useMemo(() => {
@@ -1400,6 +1416,33 @@ const ProductDetail = ({ addToCart, openModal }) => {
                       +{ofsPoints} pts
                     </span>
                   </div>
+
+                  {/* ── Shipping banner (CJ products only) ── */}
+                  {isCjProduct && shippingEstimate > 0 && (
+                    <div className="flex items-center gap-3 bg-[#E6F3F5] border border-[#007185]/20 rounded-lg px-3 py-2.5 mb-3">
+                      <div className="w-9 h-9 bg-[#007185]/10 rounded-full flex items-center justify-center flex-shrink-0">
+                        <i className="fa-solid fa-plane-arrival text-[#007185] text-sm" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[11px] font-black text-[#007185] uppercase tracking-wider leading-none mb-0.5">
+                          Livré depuis la Chine · 15–20 jours
+                        </p>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-[10px] text-[#565959]">
+                            <i className="fa-solid fa-box text-[9px] mr-0.5" />
+                            YTO Chine + avion → Douala
+                          </span>
+                        </div>
+                      </div>
+                      <div className="text-right flex-shrink-0 border-l border-[#007185]/20 pl-3">
+                        <p className="text-[8px] text-[#007185] font-black uppercase tracking-wider mb-0.5">Prix livré</p>
+                        <p className="text-lg font-black text-[#007185] leading-none">
+                          {(activeTierPrice + shippingEstimate).toLocaleString()}
+                        </p>
+                        <p className="text-[9px] text-[#565959]">FCFA (dont ~{shippingEstimate.toLocaleString()} transport)</p>
+                      </div>
+                    </div>
+                  )}
                   {/* Certification badges (CE, FCC, RoHS…) */}
                   {product.label_codes && (
                     <div className="flex gap-1.5 flex-wrap mb-2">
@@ -1666,7 +1709,7 @@ const ProductDetail = ({ addToCart, openModal }) => {
                     <i className={`fa-solid ${addedFeedback ? "fa-check" : "fa-bag-shopping"} text-sm`} />
                     {addedFeedback
                       ? "Ajouté au panier !"
-                      : `Ajouter au panier — ${(activeTierPrice * qty + selectedCity.price).toLocaleString()} FCFA`}
+                      : `Ajouter au panier — ${(activeTierPrice * qty + selectedCity.price + shippingEstimate).toLocaleString()} FCFA`}
                   </button>
 
                   {!isElectronics && (
@@ -1868,6 +1911,7 @@ const ProductDetail = ({ addToCart, openModal }) => {
                   selectedCity={selectedCity}
                   onCityChange={setSelectedCity}
                   weight={product.weight_g || product.ship_weight_g}
+                  transitaireShipping={shippingEstimate}
                 />
               </div>
             </div>
