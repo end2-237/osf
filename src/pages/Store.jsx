@@ -667,7 +667,8 @@ const ActiveFilters = ({ category, subcategory, search, sortBy, count, onReset }
 };
 
 /* ─────────────────── MAIN STORE PAGE ─────────────────── */
-const PAGE_SIZE = 48;
+const PAGE_SIZE      = 48;
+const STORE_SESS_KEY = 'ofs_store_scroll_v1';
 
 const Store = ({ openModal, addToCart }) => {
   const [searchParams] = useSearchParams();
@@ -699,9 +700,15 @@ const Store = ({ openModal, addToCart }) => {
   const [selectedSize, setSelectedSize] = useState("All");
   const [viewMode,     setViewMode]     = useState("grid");
 
-  const loadMoreRef      = useRef(null);
-  const fetchPageRef     = useRef(null);
+  const loadMoreRef       = useRef(null);
+  const fetchPageRef      = useRef(null);
   const categoryCountsRef = useRef({});
+  const skipFetchRef      = useRef(false);   // prevents re-fetch after session restore
+  const stateRef          = useRef(null);    // latest state snapshot for unmount save
+  const pendingScroll     = useRef(null);    // scroll Y to restore after render
+
+  // Sync latest values into stateRef on every render (read at unmount)
+  stateRef.current = { products, currentPage, hasMore, category, subcategory, searchQuery, sortBy, maxPrice, selectedSize, orderCounts };
 
   // Keep categoryCountsRef in sync so fetchPage can read latest counts without it as a dep
   useEffect(() => { categoryCountsRef.current = categoryCounts; }, [categoryCounts]);
@@ -712,6 +719,31 @@ const Store = ({ openModal, addToCart }) => {
     const s = searchParams.get("subcat");
     if (t) { setCategory(t); if (s) setSubcategory(s); }
   }, []);  // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Session restore: retour depuis une fiche produit ────────────────────
+  useEffect(() => {
+    try {
+      const raw = sessionStorage.getItem(STORE_SESS_KEY);
+      if (!raw) return;
+      const saved = JSON.parse(raw);
+      sessionStorage.removeItem(STORE_SESS_KEY);
+      if (!saved || Date.now() - saved.ts > 600_000 || !saved.products?.length) return;
+
+      skipFetchRef.current = true;
+      setProducts(saved.products);
+      setCurrentPage(saved.page    || 0);
+      setHasMore(saved.hasMore     ?? false);
+      setOrderCounts(saved.orderCounts || {});
+      setLoading(false);
+      if (saved.category    != null) setCategory(saved.category);
+      if (saved.subcategory != null) setSubcategory(saved.subcategory);
+      if (saved.searchQuery)         { setSearchQuery(saved.searchQuery); setSearchInput(saved.searchQuery); }
+      if (saved.sortBy)              setSortBy(saved.sortBy);
+      if (saved.maxPrice)            setMaxPrice(saved.maxPrice);
+      if (saved.selectedSize)        setSelectedSize(saved.selectedSize);
+      pendingScroll.current = saved.scrollY || 0;
+    } catch { /* données session malformées */ }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Fetch one page ─────────────────────────────────────────────────────────
   const fetchPage = useCallback(async (pageNum, reset = false) => {
@@ -866,8 +898,11 @@ const Store = ({ openModal, addToCart }) => {
     init();
   }, []);
 
-  // Re-fetch from page 0 when any filter changes
-  useEffect(() => { fetchPage(0, true); }, [fetchPage]);
+  // Re-fetch from page 0 when any filter changes (skip after session restore)
+  useEffect(() => {
+    if (skipFetchRef.current) { skipFetchRef.current = false; return; }
+    fetchPage(0, true);
+  }, [fetchPage]);
 
   // ── Infinite scroll ───────────────────────────────────────────────────────
   useEffect(() => {
@@ -883,6 +918,27 @@ const Store = ({ openModal, addToCart }) => {
     obs.observe(el);
     return () => obs.disconnect();
   }, [hasMore, loading, loadingMore, currentPage]);
+
+  // ── Restaurer le scroll après la session restore ────────────────────────
+  useEffect(() => {
+    if (pendingScroll.current === null || products.length === 0) return;
+    const y = pendingScroll.current;
+    pendingScroll.current = null;
+    requestAnimationFrame(() => window.scrollTo(0, y));
+  }, [products.length]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Sauvegarder l'état au démontage (navigation vers fiche produit) ──────
+  useEffect(() => {
+    return () => {
+      const s = stateRef.current;
+      if (!s?.products?.length) return;
+      try {
+        sessionStorage.setItem(STORE_SESS_KEY, JSON.stringify({
+          ...s, scrollY: window.scrollY, ts: Date.now(),
+        }));
+      } catch { /* quota dépassé, on ignore */ }
+    };
+  }, []);
 
   const handleSearch         = () => setSearchQuery(searchInput);
   const handleCategoryChange = (cat) => {
