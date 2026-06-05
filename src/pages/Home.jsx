@@ -139,163 +139,176 @@ const FullscreenAd = ({ ad, adIndex, total, onClose, onNext, isLast }) => {
     }, 280);
   };
 
+  const R    = 16;
+  const CIRC = 2 * Math.PI * R;
+  const firstWord = ad.title.split(" ")[0];
+  const restTitle = ad.title.split(" ").slice(1).join(" ");
+
   return (
-    <div style={{
-      position: "fixed", inset: 0, zIndex: 9000,
-      display: "flex", alignItems: "center", justifyContent: "center",
-      background: "rgba(0,0,0,0.82)", backdropFilter: "blur(6px)",
-      animation: closing ? "adOut 0.28s ease forwards" : "adIn 0.35s cubic-bezier(0.2,0,0,1) both",
-    }}>
+    <div
+      className="fixed inset-0 z-[9000] flex items-center justify-center p-3 md:p-6"
+      style={{
+        background: "radial-gradient(120% 120% at 50% 0%, rgba(20,22,28,0.86) 0%, rgba(0,0,0,0.9) 100%)",
+        backdropFilter: "blur(10px)",
+        WebkitBackdropFilter: "blur(10px)",
+        animation: closing ? "adOut 0.28s ease forwards" : "adIn 0.45s cubic-bezier(0.16,1,0.3,1) both",
+      }}
+    >
       {/* ── CARD ── */}
-      <div style={{
-        position: "relative", width: "min(92vw, 860px)", maxHeight: "90dvh",
-        borderRadius: 16, overflow: "hidden",
-        boxShadow: "0 32px 80px rgba(0,0,0,0.7)",
-        display: "flex", flexDirection: "column",
-        background: "#0F1111",
-      }}>
-        {/* PROGRESS BAR */}
-        <div style={{ height: 3, background: "rgba(255,255,255,0.08)", flexShrink: 0 }}>
-          <div style={{ height: "100%", width: progress + "%", background: ad.accent, transition: "none", borderRadius: 9999 }} />
+      <div
+        className="relative w-full max-w-[940px] flex flex-col md:flex-row rounded-2xl overflow-hidden bg-[#0F1111]"
+        style={{ maxHeight: "94dvh", boxShadow: "0 40px 120px rgba(0,0,0,0.75), 0 0 0 1px rgba(255,255,255,0.06)" }}
+      >
+        {/* ── STORY PROGRESS BARS (top, full width) ── */}
+        <div className="absolute top-0 left-0 right-0 z-30 flex gap-1.5 px-3.5 pt-3">
+          {Array.from({ length: total }).map((_, i) => (
+            <div key={i} className="flex-1 h-[3px] rounded-full bg-white/15 overflow-hidden">
+              <div
+                className="h-full rounded-full"
+                style={{
+                  width: i < adIndex ? "100%" : i === adIndex ? progress + "%" : "0%",
+                  background: ad.accent,
+                  transition: i === adIndex ? "none" : "width 0.3s",
+                }}
+              />
+            </div>
+          ))}
         </div>
 
-        {/* IMAGE */}
-        <div style={{ position: "relative", flex: "0 0 auto" }}>
-          <img src={ad.img} alt={ad.title}
-            style={{ width: "100%", height: "clamp(200px, 38vh, 320px)", objectFit: "cover", objectPosition: "center 20%", display: "block" }}
+        {/* ── IMAGE SIDE ── */}
+        <div className="relative flex-shrink-0 md:w-[44%] h-[195px] md:h-auto md:min-h-[472px] bg-black overflow-hidden">
+          <img
+            src={ad.img}
+            alt={ad.title}
+            className="w-full h-full object-cover"
+            style={{ objectPosition: "center 25%", animation: "adKenBurns 9s ease-out both" }}
           />
-          {/* dark gradient overlay on image */}
-          <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to bottom, rgba(0,0,0,0.1) 0%, rgba(15,17,17,0.85) 100%)" }} />
+          {/* blend gradient: bottom on mobile, right on desktop */}
+          <div className="absolute inset-0 md:hidden" style={{ background: "linear-gradient(to bottom, rgba(15,17,17,0) 35%, rgba(15,17,17,0.95) 100%)" }} />
+          <div className="absolute inset-0 hidden md:block" style={{ background: "linear-gradient(to right, rgba(15,17,17,0) 55%, rgba(15,17,17,0.98) 100%)" }} />
 
-          {/* TOP BAR inside image */}
-          <div style={{ position: "absolute", top: 14, left: 16, right: 16, display: "flex", alignItems: "center", justifyContent: "space-between", zIndex: 5 }}>
-            {/* Series dots */}
-            <div style={{ display: "flex", gap: 5 }}>
-              {Array.from({ length: total }).map((_, i) => (
-                <div key={i} style={{
-                  height: 3, borderRadius: 9999, transition: "all 0.35s",
-                  width: i === adIndex ? 24 : 8,
-                  background: i < adIndex ? ad.accent : i === adIndex ? ad.accent : "rgba(255,255,255,0.25)",
-                }} />
-              ))}
-            </div>
-            {/* Close or countdown */}
-            {canClose ? (
-              <button onClick={dismiss} style={{
-                width: 36, height: 36, borderRadius: "50%", border: "1.5px solid rgba(255,255,255,0.25)",
-                background: "rgba(0,0,0,0.6)", backdropFilter: "blur(6px)",
-                display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer",
-              }}>
-                <i className="fa-solid fa-xmark" style={{ color: "white", fontSize: 13 }}></i>
-              </button>
-            ) : (
-              <div style={{
-                display: "flex", alignItems: "center", gap: 5,
-                background: "rgba(0,0,0,0.55)", backdropFilter: "blur(6px)",
-                border: "1px solid rgba(255,255,255,0.12)", padding: "5px 12px", borderRadius: 9999,
-              }}>
-                <span style={{ color: ad.accent, fontWeight: 900, fontSize: 12, fontFamily: "monospace" }}>{timeLeft}s</span>
-                <span style={{ color: "rgba(255,255,255,0.3)", fontSize: 8, fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.1em" }}>
-                  PUB {adIndex + 1}/{total}
-                </span>
-              </div>
-            )}
-          </div>
-
-          {/* Badge on image bottom-left */}
-          <div style={{ position: "absolute", bottom: 14, left: 16, display: "flex", gap: 8, alignItems: "center", zIndex: 5 }}>
-            <span style={{
-              fontSize: 8, fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.14em",
-              padding: "5px 10px", borderRadius: 9999,
-              border: `1px solid ${ad.accent}60`, color: ad.accent, background: `${ad.accent}18`,
-            }}>
-              <i className={`fa-solid ${ad.tagIcon} mr-1`} style={{ fontSize: 7 }}></i>
+          {/* tag + badge over image, bottom-left */}
+          <div className="absolute bottom-3.5 left-4 right-4 flex flex-wrap items-center gap-2 z-10">
+            <span
+              className="inline-flex items-center gap-1.5 text-[8.5px] font-black uppercase tracking-[0.14em] px-2.5 py-1.5 rounded-full backdrop-blur-md"
+              style={{ border: `1px solid ${ad.accent}70`, color: ad.accent, background: `${ad.accent}1f` }}
+            >
+              <i className={`fa-solid ${ad.tagIcon}`} style={{ fontSize: 8 }} />
               {ad.tag}
             </span>
-            <span style={{
-              fontSize: 8, fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.1em",
-              padding: "5px 10px", borderRadius: 9999,
-              background: "white", color: "#0F1111",
-            }}>
+            <span className="inline-flex items-center text-[8.5px] font-black uppercase tracking-[0.1em] px-2.5 py-1.5 rounded-full bg-white text-[#0F1111] shadow-sm">
               {ad.badge}
             </span>
           </div>
         </div>
 
-        {/* ── TEXT + CTA PANEL ── */}
-        <div style={{ padding: "20px 24px 24px", background: "#0F1111", flexShrink: 0 }}>
-          {/* OFS branding strip */}
-          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
-            <div style={{ width: 3, height: 18, background: "#FF9900", borderRadius: 9999 }} />
-            <span style={{ fontSize: 8, fontWeight: 900, textTransform: "uppercase", letterSpacing: "0.2em", color: "#FF9900" }}>
-              OneFreestyle · Douala, Cameroun 🇨🇲
-            </span>
-            <span style={{ fontSize: 7, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", color: "rgba(255,255,255,0.2)", marginLeft: "auto" }}>
-              Publicité
-            </span>
+        {/* ── CONTENT SIDE ── */}
+        <div className="relative flex-1 flex flex-col p-6 md:p-8 pt-6 md:pt-9 overflow-y-auto">
+
+          {/* top row: OFS brand + countdown/close */}
+          <div className="flex items-start justify-between mb-5 md:mb-6">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-xl bg-[#FF9900] flex items-center justify-center flex-shrink-0 shadow-lg shadow-[#FF9900]/30">
+                <i className="fa-solid fa-bolt text-[#0F1111] text-sm" />
+              </div>
+              <div className="leading-none">
+                <p className="text-[12px] font-black text-white tracking-tight leading-none">
+                  OneFree<span className="text-[#FF9900]">Style</span>
+                </p>
+                <p className="text-[8px] font-bold text-white/40 uppercase tracking-[0.16em] mt-1">
+                  Douala 🇨🇲 · Sélection Elite
+                </p>
+              </div>
+            </div>
+
+            {/* countdown ring → close button */}
+            {canClose ? (
+              <button
+                onClick={dismiss}
+                aria-label="Fermer"
+                className="w-9 h-9 rounded-full border border-white/20 bg-white/5 hover:bg-white/15 flex items-center justify-center transition-colors flex-shrink-0"
+              >
+                <i className="fa-solid fa-xmark text-white text-sm" />
+              </button>
+            ) : (
+              <div className="relative w-9 h-9 flex items-center justify-center flex-shrink-0" title="Publicité">
+                <svg className="absolute inset-0 -rotate-90" viewBox="0 0 36 36">
+                  <circle cx="18" cy="18" r={R} fill="none" stroke="rgba(255,255,255,0.14)" strokeWidth="2.5" />
+                  <circle
+                    cx="18" cy="18" r={R} fill="none" stroke={ad.accent} strokeWidth="2.5" strokeLinecap="round"
+                    strokeDasharray={CIRC} strokeDashoffset={CIRC * (1 - progress / 100)}
+                    style={{ transition: "stroke-dashoffset 0.1s linear" }}
+                  />
+                </svg>
+                <span className="text-[11px] font-black text-white tabular-nums">{timeLeft}</span>
+              </div>
+            )}
           </div>
 
-          <h2 style={{
-            fontWeight: 900, letterSpacing: "-0.03em", lineHeight: 1.05,
-            color: "white", fontSize: "clamp(1.4rem, 4vw, 2rem)",
-            margin: "0 0 10px 0",
-          }}>
-            <span style={{ color: ad.accent }}>{ad.title.split(" ")[0]}</span>{" "}
-            {ad.title.split(" ").slice(1).join(" ")}
+          {/* PUB label */}
+          <span className="text-[8px] font-bold uppercase tracking-[0.22em] text-white/25 mb-3">
+            Publicité · {adIndex + 1}/{total}
+          </span>
+
+          {/* headline */}
+          <h2
+            className="font-black text-white tracking-tight mb-3"
+            style={{ lineHeight: 1.04, fontSize: "clamp(1.6rem, 4.6vw, 2.4rem)" }}
+          >
+            <span style={{ color: ad.accent }}>{firstWord}</span>{restTitle ? " " + restTitle : ""}
           </h2>
 
-          <p style={{ color: "rgba(200,200,200,0.8)", fontSize: "clamp(0.78rem, 1.8vw, 0.9rem)", lineHeight: 1.6, marginBottom: 20, maxWidth: 520 }}>
+          {/* sub */}
+          <p
+            className="text-white/65 leading-relaxed mb-6 max-w-[440px]"
+            style={{ fontSize: "clamp(0.82rem, 1.8vw, 0.95rem)" }}
+          >
             {ad.sub}
           </p>
 
-          <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-            <button onClick={handleCta} style={{
-              display: "flex", alignItems: "center", gap: 10,
-              padding: "12px 24px", borderRadius: 8, border: "none", cursor: "pointer",
-              fontWeight: 900, fontSize: "clamp(0.65rem, 1.5vw, 0.75rem)",
-              textTransform: "uppercase", letterSpacing: "0.1em",
-              background: ad.accent, color: "#0F1111",
-              boxShadow: `0 4px 20px ${ad.accent}55`,
-              transition: "transform 0.15s, box-shadow 0.15s",
-            }}
-              onMouseEnter={e => { e.currentTarget.style.transform = "scale(1.04)"; e.currentTarget.style.boxShadow = `0 6px 28px ${ad.accent}77`; }}
-              onMouseLeave={e => { e.currentTarget.style.transform = "scale(1)";    e.currentTarget.style.boxShadow = `0 4px 20px ${ad.accent}55`; }}
+          {/* trust row */}
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 mb-7">
+            {[
+              { icon: "fa-shield-halved", label: "Paiement sécurisé" },
+              { icon: "fa-truck-fast",    label: "Livraison Douala" },
+              { icon: "fa-headset",       label: "Support 7j/7" },
+            ].map((t) => (
+              <span key={t.label} className="inline-flex items-center gap-1.5 text-[10px] font-semibold text-white/55">
+                <i className={`fa-solid ${t.icon} text-[#FF9900]`} style={{ fontSize: 10 }} />
+                {t.label}
+              </span>
+            ))}
+          </div>
+
+          {/* CTA row — pinned to bottom */}
+          <div className="mt-auto flex items-center gap-2 flex-wrap">
+            <button
+              onClick={handleCta}
+              className="group/cta inline-flex items-center gap-2.5 px-6 py-3.5 rounded-xl font-black uppercase tracking-wider text-[#0F1111] transition-transform active:scale-95 hover:scale-[1.03]"
+              style={{ background: ad.accent, fontSize: "clamp(0.7rem, 1.6vw, 0.8rem)", boxShadow: `0 8px 30px ${ad.accent}55` }}
             >
               {ad.cta}
-              <i className={`fa-solid ${ad.external ? "fa-arrow-up-right-from-square" : "fa-arrow-right"}`} style={{ fontSize: 10 }}></i>
+              <i className={`fa-solid ${ad.external ? "fa-arrow-up-right-from-square" : "fa-arrow-right"} group-hover/cta:translate-x-0.5 transition-transform`} style={{ fontSize: 11 }} />
             </button>
 
-            {!isLast ? (
-              <button onClick={goNext} style={{
-                display: "flex", alignItems: "center", gap: 7, background: "none", border: "1px solid rgba(255,255,255,0.15)",
-                padding: "11px 18px", borderRadius: 8, cursor: "pointer",
-                color: "rgba(255,255,255,0.5)", fontWeight: 800, fontSize: "clamp(0.62rem,1.4vw,0.7rem)",
-                textTransform: "uppercase", letterSpacing: "0.1em", transition: "border-color 0.2s, color 0.2s",
-              }}
-                onMouseEnter={e => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.35)"; e.currentTarget.style.color = "rgba(255,255,255,0.8)"; }}
-                onMouseLeave={e => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.15)"; e.currentTarget.style.color = "rgba(255,255,255,0.5)"; }}
+            {(!isLast || canClose) && (
+              <button
+                onClick={!isLast ? goNext : dismiss}
+                className="inline-flex items-center gap-2 px-4 py-3 rounded-xl text-white/45 hover:text-white/85 font-bold uppercase tracking-wider transition-colors"
+                style={{ fontSize: "clamp(0.64rem, 1.4vw, 0.72rem)" }}
               >
-                Pub suivante
-                <i className="fa-solid fa-chevron-right" style={{ fontSize: 9 }}></i>
+                {!isLast ? "Passer" : "Fermer"}
+                <i className={`fa-solid ${!isLast ? "fa-chevron-right" : "fa-xmark"}`} style={{ fontSize: 9 }} />
               </button>
-            ) : canClose ? (
-              <button onClick={dismiss} style={{
-                display: "flex", alignItems: "center", gap: 7, background: "none", border: "1px solid rgba(255,255,255,0.15)",
-                padding: "11px 18px", borderRadius: 8, cursor: "pointer",
-                color: "rgba(255,255,255,0.5)", fontWeight: 800, fontSize: "clamp(0.62rem,1.4vw,0.7rem)",
-                textTransform: "uppercase", letterSpacing: "0.1em",
-              }}>
-                <i className="fa-solid fa-xmark" style={{ fontSize: 10 }}></i>
-                Fermer
-              </button>
-            ) : null}
+            )}
           </div>
         </div>
       </div>
 
       <style>{`
-        @keyframes adIn  { from { opacity:0; transform:scale(0.96) translateY(8px); } to { opacity:1; transform:scale(1) translateY(0); } }
-        @keyframes adOut { from { opacity:1; transform:scale(1) translateY(0); }       to { opacity:0; transform:scale(0.97) translateY(4px); } }
+        @keyframes adIn  { from { opacity:0; transform:scale(0.95) translateY(12px); } to { opacity:1; transform:scale(1) translateY(0); } }
+        @keyframes adOut { from { opacity:1; transform:scale(1) translateY(0); }        to { opacity:0; transform:scale(0.97) translateY(6px); } }
+        @keyframes adKenBurns { from { transform:scale(1.12); } to { transform:scale(1); } }
       `}</style>
     </div>
   );
