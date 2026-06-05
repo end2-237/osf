@@ -16,6 +16,17 @@ const cors = {
 
 type Variant = Record<string, unknown>;
 
+interface TransitaireConfig {
+  name?:            string;
+  address_china?:   string;
+  city_china?:      string;
+  phone_china?:     string;
+  wechat?:          string;
+  phone_cm?:        string;
+  rate_fcfa_per_kg?: number;
+  notes?:           string;
+}
+
 /** Find the best matching CJ variant vid from a product's variants array. */
 function resolveVid(variants: Variant[], selectedColor: string, selectedSize: string): string {
   const sc = selectedColor.toLowerCase();
@@ -55,11 +66,11 @@ serve(async (req: Request) => {
     const rawText = await req.text();
     if (!rawText?.trim()) return json({ error: "Corps vide" }, 400);
 
-    let parsed: { order_id?: string };
+    let parsed: { order_id?: string; use_transitaire?: boolean; transitaire?: TransitaireConfig };
     try { parsed = JSON.parse(rawText); }
     catch { return json({ error: "JSON invalide" }, 400); }
 
-    const { order_id } = parsed;
+    const { order_id, use_transitaire, transitaire } = parsed;
     if (!order_id) return json({ error: "order_id requis" }, 400);
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SRVKEY);
@@ -85,8 +96,6 @@ serve(async (req: Request) => {
     if (!items?.length) return json({ error: "Aucun article dans cette commande" }, 400);
 
     // ── Resolve variant IDs ──────────────────────────────────────────────────
-    // For items placed before the migration (selected_variant_id = null), we
-    // fall back to the product's stored variants in Supabase.
     const resolvedProducts: Array<{ vid: string; quantity: number }> = [];
     const skipped: string[] = [];
 
@@ -94,7 +103,6 @@ serve(async (req: Request) => {
       let vid = (item.selected_variant_id as string) || "";
 
       if (!vid) {
-        // Try to resolve from the products table
         const cjPid = (item.cj_product_id as string) || "";
         const prodId = (item.product_id   as string) || "";
 
@@ -105,7 +113,6 @@ serve(async (req: Request) => {
 
         const { data: prod } = await q.maybeSingle();
 
-        // Skip vendor (non-CJ) products
         if (!prod || prod.vendor_id !== null) { skipped.push(item.product_name as string); continue; }
 
         const vArr: Variant[] = Array.isArray(prod.variants) ? prod.variants : [];
@@ -126,38 +133,67 @@ serve(async (req: Request) => {
     if (!resolvedProducts.length)
       return json({ error: "Aucun produit CJ avec variant résolvable. Articles: " + (skipped.join(", ") || "vide") }, 400);
 
+    // ── Build shipping config (DHL direct vs Transitaire) ────────────────────
+    let shippingConfig: Record<string, string>;
+    let remarkText = "";
+
+    if (use_transitaire && transitaire?.address_china) {
+      // Ship to transitaire warehouse in China
+      const tr = transitaire;
+      shippingConfig = {
+        shippingCountry:      "CN",
+        shippingCountryCode:  "CN",
+        shippingProvince:     "",
+        shippingCity:         tr.city_china || "Guangzhou",
+        shippingCounty:       "",
+        shippingAddress:      tr.address_china || "",
+        shippingAddress2:     "",
+        shippingCustomerName: tr.name || "OFS Transitaire",
+        shippingPhone:        tr.phone_china || "",
+        shippingZip:          "",
+      };
+      // Put client info in remark so the transitaire knows the final destination
+      remarkText = `CLIENT: ${order.client_name} / ${order.client_phone} / ${order.client_address}${order.delivery_city ? " / " + order.delivery_city : ""} / Cameroun`;
+    } else {
+      // Ship directly to client in Cameroon via DHL
+      shippingConfig = {
+        shippingCountry:      "CM",
+        shippingCountryCode:  "CM",
+        shippingProvince:     "",
+        shippingCity:         order.delivery_city || order.client_address || "",
+        shippingCounty:       "",
+        shippingAddress:      order.client_address || "",
+        shippingAddress2:     "",
+        shippingCustomerName: order.client_name  || "",
+        shippingPhone:        order.client_phone || "",
+        shippingZip:          "00237",
+      };
+    }
+
     // ── Build CJ payload ─────────────────────────────────────────────────────
     const cjBody = {
-      orderNumber:          order.payment_reference || `OFS-${order.id.slice(0, 8).toUpperCase()}`,
-      fromCountryCode:      "CN",
-      logisticName:         "CJPacket",
-      platform:             "shopify",
-      orderFlow:            1,
-      shippingZip:          "00237",
-      shippingCountry:      "CM",
-      shippingCountryCode:  "CM",
-      shippingProvince:     "",
-      shippingCity:         order.delivery_city || order.client_address || "",
-      shippingCounty:       "",
-      shippingAddress:      order.client_address || "",
-      shippingAddress2:     "",
-      shippingCustomerName: order.client_name  || "",
-      shippingPhone:        order.client_phone || "",
-      houseNumber:          "",
-      email:                "",
-      taxId:                "",
-      consigneeID:          "",
-      payType:              "",
-      shopAmount:           "",
-      iossType:             "",
-      iossNumber:           "",
-      remark:               "",
+      orderNumber:   order.payment_reference || `OFS-${order.id.slice(0, 8).toUpperCase()}`,
+      fromCountryCode: "CN",
+      logisticName:  "CJPacket",
+      platform:      "shopify",
+      orderFlow:     1,
+      ...shippingConfig,
+      houseNumber:   "",
+      email:         "",
+      taxId:         "",
+      consigneeID:   "",
+      payType:       "",
+      shopAmount:    "",
+      iossType:      "",
+      iossNumber:    "",
+      remark:        remarkText,
       products: resolvedProducts.map((p, i) => ({
         ...p,
         storeLineItemId: `${order.id.slice(0, 8)}-${i}`,
       })),
     };
 
+    console.log("[CJ ORDER] Mode:", use_transitaire ? "transitaire" : "dhl_direct");
     console.log("[CJ ORDER] Payload:", JSON.stringify(cjBody));
 
     const cjRes = await fetch(`${CJ_BASE}/shopping/order/createOrderV2`, {
@@ -186,17 +222,28 @@ serve(async (req: Request) => {
       cjData.data.cjOrderId ||
       "";
 
+    // ── Update order in DB ────────────────────────────────────────────────────
+    const dbUpdate: Record<string, unknown> = {
+      cj_order_id:     cjOrderId,
+      cj_order_status: "sent",
+      fulfilled_at:    new Date().toISOString(),
+    };
+
+    if (use_transitaire) {
+      dbUpdate.status        = "sent_to_cj";
+      dbUpdate.shipping_mode = "transitaire";
+    } else {
+      dbUpdate.shipping_mode = "dhl_direct";
+    }
+
     await supabase
       .from("orders")
-      .update({
-        cj_order_id:     cjOrderId,
-        cj_order_status: "sent",
-        fulfilled_at:    new Date().toISOString(),
-      })
+      .update(dbUpdate)
       .eq("id", order_id);
 
-    console.log("[CJ ORDER] Envoyé →", cjOrderId, `(${skipped.length} articles non-CJ ignorés)`);
-    return json({ success: true, cj_order_id: cjOrderId, skipped });
+    const mode = use_transitaire ? "transitaire" : "dhl_direct";
+    console.log("[CJ ORDER] Envoyé →", cjOrderId, `mode=${mode}`, `(${skipped.length} articles non-CJ ignorés)`);
+    return json({ success: true, cj_order_id: cjOrderId, skipped, mode });
 
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);

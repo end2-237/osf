@@ -10,14 +10,17 @@ const isSuperAdmin = (email) => SUPER_ADMIN_EMAILS.includes(email);
 
 // ─── STATUS CONFIG ────────────────────────────────────────────────────────────
 const STATUS = {
-  pending:         { label: "En attente",    color: "text-[#FF9900]",  bg: "bg-[#FFF8D3]",  border: "border-[#FCD200]/40" },
-  pending_payment: { label: "Paiement...",   color: "text-[#007185]",  bg: "bg-[#E6F3F5]",  border: "border-[#007185]/30" },
-  confirmed:       { label: "Confirmée",     color: "text-[#007185]",  bg: "bg-[#E6F3F5]",  border: "border-[#007185]/30" },
-  paid:            { label: "Payée",         color: "text-[#007600]",  bg: "bg-[#E8F5E8]",  border: "border-[#007600]/30" },
-  shipped:         { label: "Expédiée",      color: "text-[#565959]",  bg: "bg-[#EAEDED]",  border: "border-[#D5D9D9]"    },
-  delivered:       { label: "Livrée",        color: "text-[#007600]",  bg: "bg-[#E8F5E8]",  border: "border-[#007600]/30" },
-  cancelled:       { label: "Annulée",       color: "text-[#B12704]",  bg: "bg-[#FEE7E5]",  border: "border-[#B12704]/30" },
-  payment_failed:  { label: "Pmt échoué",    color: "text-[#B12704]",  bg: "bg-[#FEE7E5]",  border: "border-[#B12704]/30" },
+  pending:         { label: "En attente",     color: "text-[#FF9900]",  bg: "bg-[#FFF8D3]",  border: "border-[#FCD200]/40" },
+  pending_payment: { label: "Paiement...",    color: "text-[#007185]",  bg: "bg-[#E6F3F5]",  border: "border-[#007185]/30" },
+  confirmed:       { label: "Confirmée",      color: "text-[#007185]",  bg: "bg-[#E6F3F5]",  border: "border-[#007185]/30" },
+  paid:            { label: "Payée",          color: "text-[#007600]",  bg: "bg-[#E8F5E8]",  border: "border-[#007600]/30" },
+  sent_to_cj:      { label: "Chez transit.",  color: "text-[#7c3aed]",  bg: "bg-[#f5f3ff]",  border: "border-[#7c3aed]/30" },
+  at_warehouse:    { label: "Entrepôt CN",    color: "text-[#FF9900]",  bg: "bg-[#FFF8D3]",  border: "border-[#FCD200]/40" },
+  in_transit:      { label: "En transit",     color: "text-[#007185]",  bg: "bg-[#E6F3F5]",  border: "border-[#007185]/30" },
+  shipped:         { label: "Expédiée",       color: "text-[#565959]",  bg: "bg-[#EAEDED]",  border: "border-[#D5D9D9]"    },
+  delivered:       { label: "Livrée",         color: "text-[#007600]",  bg: "bg-[#E8F5E8]",  border: "border-[#007600]/30" },
+  cancelled:       { label: "Annulée",        color: "text-[#B12704]",  bg: "bg-[#FEE7E5]",  border: "border-[#B12704]/30" },
+  payment_failed:  { label: "Pmt échoué",     color: "text-[#B12704]",  bg: "bg-[#FEE7E5]",  border: "border-[#B12704]/30" },
 };
 
 const fmtDate = (iso) => new Date(iso).toLocaleDateString("fr-FR", { day:"2-digit", month:"short", year:"numeric" });
@@ -769,30 +772,138 @@ const RepairImagesPanel = () => {
   );
 };
 
+// ─── TRANSITAIRE SETTINGS ─────────────────────────────────────────────────────
+const TRANSITAIRE_KEY = "ofs_transitaire_v1";
+const getTransitaireSettings = () => {
+  try { const s = localStorage.getItem(TRANSITAIRE_KEY); return s ? JSON.parse(s) : null; }
+  catch { return null; }
+};
+
+const TransitaireSettingsPanel = () => {
+  const [form, setForm] = useState(() => getTransitaireSettings() || {
+    name: "", address_china: "", city_china: "Guangzhou", phone_china: "",
+    wechat: "", phone_cm: "", rate_fcfa_per_kg: 10000, notes: "",
+  });
+  const [saved, setSaved] = useState(false);
+
+  const save = () => {
+    localStorage.setItem(TRANSITAIRE_KEY, JSON.stringify(form));
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
+  };
+
+  const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+
+  return (
+    <div className="space-y-5">
+      <div className="bg-[#131921] rounded-xl px-5 py-4">
+        <p className="text-[9px] font-black uppercase tracking-widest text-[#FF9900] mb-0.5">Logistique</p>
+        <h2 className="text-white font-black text-lg leading-tight">Paramètres Transitaire</h2>
+        <p className="text-[10px] text-[#ADBAC7] mt-0.5">Adresse de l'entrepôt en Chine pour les expéditions par voie aérienne</p>
+      </div>
+
+      <div className="bg-white border border-[#D5D9D9] rounded-xl p-5 space-y-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {[
+            { key: "name",           label: "Nom du transitaire",          placeholder: "Ex: Guangzhou Freight Co."  },
+            { key: "wechat",         label: "WeChat / Contact",            placeholder: "WeChat ID ou contact"        },
+            { key: "address_china",  label: "Adresse entrepôt (Chine)",    placeholder: "123 Huangpu Ave, Guangzhou"  },
+            { key: "city_china",     label: "Ville (Chine)",               placeholder: "Guangzhou"                   },
+            { key: "phone_china",    label: "Téléphone Chine",             placeholder: "+86 XXX XXX XXXX"            },
+            { key: "phone_cm",       label: "Téléphone Cameroun",          placeholder: "+237 6XX XXX XXX"            },
+          ].map(f => (
+            <div key={f.key}>
+              <label className="text-[10px] font-black uppercase tracking-wider text-[#565959] mb-1.5 block">{f.label}</label>
+              <input
+                value={form[f.key] || ""}
+                onChange={e => set(f.key, e.target.value)}
+                placeholder={f.placeholder}
+                className="w-full border border-[#D5D9D9] rounded-lg px-3 py-2 text-sm text-[#0F1111] focus:outline-none focus:border-[#FF9900] focus:ring-1 focus:ring-[#FF9900]/20"
+              />
+            </div>
+          ))}
+        </div>
+
+        <div>
+          <label className="text-[10px] font-black uppercase tracking-wider text-[#565959] mb-1.5 block">Tarif (FCFA / kg)</label>
+          <input
+            type="number"
+            value={form.rate_fcfa_per_kg || 10000}
+            onChange={e => set("rate_fcfa_per_kg", Number(e.target.value))}
+            className="w-full md:w-48 border border-[#D5D9D9] rounded-lg px-3 py-2 text-sm text-[#0F1111] focus:outline-none focus:border-[#FF9900] focus:ring-1 focus:ring-[#FF9900]/20"
+          />
+        </div>
+
+        <div>
+          <label className="text-[10px] font-black uppercase tracking-wider text-[#565959] mb-1.5 block">Notes</label>
+          <textarea
+            value={form.notes || ""}
+            onChange={e => set("notes", e.target.value)}
+            rows={3}
+            placeholder="Instructions spéciales, délais, etc."
+            className="w-full border border-[#D5D9D9] rounded-lg px-3 py-2 text-sm text-[#0F1111] focus:outline-none focus:border-[#FF9900] focus:ring-1 focus:ring-[#FF9900]/20 resize-none"
+          />
+        </div>
+
+        <button
+          onClick={save}
+          className={`flex items-center gap-2 px-5 py-2.5 rounded-lg font-bold text-sm transition-all ${saved ? "bg-[#007600] text-white" : "bg-[#FF9900] hover:bg-[#E47911] text-[#0F1111]"}`}
+        >
+          <i className={`fa-solid ${saved ? "fa-check" : "fa-floppy-disk"} text-sm`}></i>
+          {saved ? "Sauvegardé !" : "Sauvegarder"}
+        </button>
+      </div>
+
+      {/* Info box */}
+      <div className="bg-[#E6F3F5] border border-[#007185]/20 rounded-xl px-4 py-3 space-y-1">
+        <p className="text-[11px] font-black text-[#007185] uppercase tracking-wider">Flux transitaire</p>
+        <p className="text-[11px] text-[#565959] leading-relaxed">
+          CJ expédie à l'entrepôt Chine → transitaire regroupe les colis → avion vers Douala → livraison client.
+          Le statut commande suit : <span className="font-bold">Chez transitaire → Entrepôt CN → En transit → Livré</span>.
+        </p>
+      </div>
+    </div>
+  );
+};
+
+// ─── TRANSIT STEPS ────────────────────────────────────────────────────────────
+const TRANSIT_STEPS = [
+  { status: "sent_to_cj",   label: "Chez transitaire CN", next: "at_warehouse", nextLabel: "Reçu entrepôt", color: "text-[#7c3aed]", bg: "bg-[#f5f3ff]", border: "border-[#7c3aed]/30", icon: "fa-warehouse"    },
+  { status: "at_warehouse", label: "Entrepôt Chine",       next: "in_transit",  nextLabel: "Expédié avion",  color: "text-[#FF9900]", bg: "bg-[#FFF8D3]", border: "border-[#FCD200]/40", icon: "fa-box-open"     },
+  { status: "in_transit",   label: "En transit (avion)",   next: "delivered",   nextLabel: "Livré",          color: "text-[#007185]", bg: "bg-[#E6F3F5]", border: "border-[#007185]/30", icon: "fa-plane"        },
+  { status: "delivered",    label: "Livré au client",       next: null,          nextLabel: null,             color: "text-[#007600]", bg: "bg-[#E8F5E8]", border: "border-[#007600]/30", icon: "fa-circle-check" },
+];
+
 // ─── CJ FULFILLMENT TAB ───────────────────────────────────────────────────────
 const CJ_STATUS = {
-  not_sent: { label: "À envoyer",  color: "text-[#FF9900]",  bg: "bg-[#FFF8D3]",  icon: "fa-clock"       },
-  sent:     { label: "Envoyé",     color: "text-[#007600]",  bg: "bg-[#E8F5E8]",  icon: "fa-check"       },
-  error:    { label: "Erreur CJ",  color: "text-[#B12704]",  bg: "bg-[#FEE7E5]",  icon: "fa-triangle-exclamation" },
+  not_sent: { label: "À envoyer", color: "text-[#FF9900]", bg: "bg-[#FFF8D3]", icon: "fa-clock"                  },
+  sent:     { label: "Envoyé",    color: "text-[#007600]", bg: "bg-[#E8F5E8]", icon: "fa-check"                  },
+  error:    { label: "Erreur CJ", color: "text-[#B12704]", bg: "bg-[#FEE7E5]", icon: "fa-triangle-exclamation"   },
 };
 
 const CJFulfillmentTab = () => {
-  const [orders,     setOrders]     = useState([]);
-  const [loading,    setLoading]    = useState(true);
-  const [sending,    setSending]    = useState({});
-  const [sendingAll, setSendingAll] = useState(false);
-  const [autoSend,   setAutoSend]   = useState(false);
-  const [tab,        setTab]        = useState("pending");
+  const [orders,         setOrders]         = useState([]);
+  const [loading,        setLoading]        = useState(true);
+  const [sending,        setSending]        = useState({});
+  const [sendingAll,     setSendingAll]     = useState(false);
+  const [autoSend,       setAutoSend]       = useState(false);
+  const [tab,            setTab]            = useState("pending");
+  const [deliveryMode,   setDeliveryMode]   = useState("dhl");
+  const [orderModes,     setOrderModes]     = useState({});
+  const [updatingStatus, setUpdatingStatus] = useState({});
+  const [transitaire,    setTransitaire]    = useState(() => getTransitaireSettings());
   const timerRef = useRef(null);
 
-  const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-  const ANON_KEY     = import.meta.env.VITE_SUPABASE_ANON_KEY;
+  const SUPABASE_URL_ENV = import.meta.env.VITE_SUPABASE_URL;
+  const ANON_KEY         = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+  const getMode = (orderId) => orderModes[orderId] || deliveryMode;
 
   const loadOrders = async () => {
     const { data } = await supabase
       .from("orders")
       .select("*, order_items(*)")
-      .eq("status", "paid")
+      .in("status", ["paid", "sent_to_cj", "at_warehouse", "in_transit", "delivered"])
       .order("paid_at", { ascending: false });
     const result = data || [];
     setOrders(result);
@@ -803,31 +914,54 @@ const CJFulfillmentTab = () => {
     loadOrders().then(() => setLoading(false));
   }, []);
 
+  const updateOrderStatus = async (orderId, newStatus) => {
+    setUpdatingStatus(s => ({ ...s, [orderId]: newStatus }));
+    await supabase.from("orders").update({ status: newStatus }).eq("id", orderId);
+    setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: newStatus } : o));
+    setUpdatingStatus(s => ({ ...s, [orderId]: null }));
+  };
+
   const sendOrderToCJ = async (orderId) => {
     if (sending[orderId] === "loading") return false;
     setSending(s => ({ ...s, [orderId]: "loading" }));
     try {
-      const res = await fetch(`${SUPABASE_URL}/functions/v1/cj-order`, {
+      const mode = getMode(orderId);
+      const tr = getTransitaireSettings();
+      if (mode === "transitaire" && !tr?.address_china) {
+        setSending(s => ({ ...s, [orderId]: "Configurez l'adresse du transitaire dans Paramètres" }));
+        return false;
+      }
+      const payload = { order_id: orderId };
+      if (mode === "transitaire" && tr) {
+        payload.use_transitaire = true;
+        payload.transitaire = tr;
+      }
+      const res = await fetch(`${SUPABASE_URL_ENV}/functions/v1/cj-order`, {
         method:  "POST",
         headers: {
           "apikey":        ANON_KEY,
           "Authorization": `Bearer ${ANON_KEY}`,
           "Content-Type":  "application/json",
         },
-        body: JSON.stringify({ order_id: orderId }),
+        body: JSON.stringify(payload),
       });
       const result = await res.json();
       if (result.success) {
         setSending(s => ({ ...s, [orderId]: "done" }));
-        setOrders(prev => prev.map(o =>
-          o.id === orderId ? { ...o, cj_order_status: "sent", cj_order_id: result.cj_order_id } : o
-        ));
+        setOrders(prev => prev.map(o => {
+          if (o.id !== orderId) return o;
+          return {
+            ...o,
+            cj_order_status: "sent",
+            cj_order_id:     result.cj_order_id,
+            status:          mode === "transitaire" ? "sent_to_cj" : o.status,
+            shipping_mode:   mode === "transitaire" ? "transitaire" : "dhl_direct",
+          };
+        }));
         return true;
       } else {
         setSending(s => ({ ...s, [orderId]: result.error || "Erreur" }));
-        setOrders(prev => prev.map(o =>
-          o.id === orderId ? { ...o, cj_order_status: "error" } : o
-        ));
+        setOrders(prev => prev.map(o => o.id === orderId ? { ...o, cj_order_status: "error" } : o));
         return false;
       }
     } catch (e) {
@@ -839,7 +973,7 @@ const CJFulfillmentTab = () => {
   const sendAll = async (orderList) => {
     setSendingAll(true);
     const pending = (orderList || orders).filter(o =>
-      o.cj_order_status === "not_sent" || !o.cj_order_status
+      o.status === "paid" && (o.cj_order_status === "not_sent" || !o.cj_order_status)
     );
     for (const o of pending) {
       await sendOrderToCJ(o.id);
@@ -860,10 +994,18 @@ const CJFulfillmentTab = () => {
     return () => clearInterval(timerRef.current);
   }, [autoSend]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const pendingOrders = orders.filter(o => o.cj_order_status === "not_sent" || !o.cj_order_status);
-  const sentOrders    = orders.filter(o => o.cj_order_status === "sent");
-  const errorOrders   = orders.filter(o => o.cj_order_status === "error");
-  const displayOrders = tab === "pending" ? pendingOrders : tab === "sent" ? sentOrders : errorOrders;
+  const pendingOrders   = orders.filter(o => o.status === "paid" && (o.cj_order_status === "not_sent" || !o.cj_order_status));
+  const sentOrders      = orders.filter(o => o.cj_order_status === "sent" && o.status === "paid");
+  const transitOrders   = orders.filter(o => ["sent_to_cj", "at_warehouse", "in_transit"].includes(o.status));
+  const deliveredOrders = orders.filter(o => o.status === "delivered");
+  const errorOrders     = orders.filter(o => o.cj_order_status === "error");
+
+  const displayOrders =
+    tab === "pending"   ? pendingOrders   :
+    tab === "sent"      ? sentOrders      :
+    tab === "transit"   ? transitOrders   :
+    tab === "delivered" ? deliveredOrders :
+    errorOrders;
 
   return (
     <div className="space-y-5">
@@ -873,11 +1015,30 @@ const CJFulfillmentTab = () => {
           <p className="text-[9px] font-black uppercase tracking-widest text-[#FF9900] mb-0.5">CJ Dropshipping</p>
           <h2 className="text-white font-black text-lg leading-tight">Fulfillment des commandes</h2>
           <p className="text-[10px] text-[#ADBAC7] mt-0.5">
-            {pendingOrders.length} à envoyer · {sentOrders.length} envoyées · {errorOrders.length} en erreur
+            {pendingOrders.length} à envoyer · {transitOrders.length} en transit · {errorOrders.length} en erreur
           </p>
         </div>
 
         <div className="flex items-center gap-3 flex-wrap">
+          {/* Global delivery mode toggle */}
+          <div className="flex items-center gap-1 bg-[#232F3E] border border-[#37475A] rounded-lg p-1">
+            {[
+              { key: "dhl",         label: "DHL Direct",  icon: "fa-truck"     },
+              { key: "transitaire", label: "Transitaire", icon: "fa-warehouse" },
+            ].map(m => (
+              <button
+                key={m.key}
+                onClick={() => setDeliveryMode(m.key)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[10px] font-black uppercase tracking-wider transition-all ${
+                  deliveryMode === m.key ? "bg-[#FF9900] text-[#0F1111]" : "text-[#ADBAC7] hover:text-white"
+                }`}
+              >
+                <i className={`fa-solid ${m.icon} text-[9px]`}></i>
+                {m.label}
+              </button>
+            ))}
+          </div>
+
           {/* Auto-send toggle */}
           <div className="flex items-center gap-2 bg-[#232F3E] border border-[#37475A] rounded-lg px-3 py-2">
             <span className="text-[10px] font-black uppercase tracking-wider text-[#ADBAC7]">Auto-envoi</span>
@@ -887,9 +1048,7 @@ const CJFulfillmentTab = () => {
             >
               <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow transition-transform ${autoSend ? "translate-x-4.5" : "translate-x-0.5"}`} />
             </button>
-            {autoSend && (
-              <span className="text-[9px] font-bold text-[#FF9900] animate-pulse">ACTIF</span>
-            )}
+            {autoSend && <span className="text-[9px] font-bold text-[#FF9900] animate-pulse">ACTIF</span>}
           </div>
 
           {/* Send all button */}
@@ -912,12 +1071,25 @@ const CJFulfillmentTab = () => {
         </div>
       </div>
 
+      {/* Transitaire not configured warning */}
+      {deliveryMode === "transitaire" && !transitaire?.address_china && (
+        <div className="bg-[#FFF8D3] border border-[#FCD200]/40 rounded-xl px-4 py-3 flex items-center gap-3">
+          <i className="fa-solid fa-triangle-exclamation text-[#FF9900] flex-shrink-0"></i>
+          <p className="text-sm text-[#565959]">
+            <span className="font-bold">Adresse transitaire non configurée.</span>{" "}
+            Allez dans l'onglet <span className="font-bold">Paramètres</span> pour configurer l'entrepôt Chine.
+          </p>
+        </div>
+      )}
+
       {/* Sub-tabs */}
-      <div className="flex gap-1">
+      <div className="flex gap-1 flex-wrap">
         {[
-          { key: "pending", label: `À envoyer (${pendingOrders.length})`, color: "text-[#FF9900]" },
-          { key: "sent",    label: `Envoyées (${sentOrders.length})`,      color: "text-[#007600]" },
-          { key: "error",   label: `Erreurs (${errorOrders.length})`,      color: "text-[#B12704]" },
+          { key: "pending",   label: `À envoyer (${pendingOrders.length})`,   color: "text-[#FF9900]" },
+          { key: "sent",      label: `DHL envoyées (${sentOrders.length})`,    color: "text-[#007600]" },
+          { key: "transit",   label: `En transit (${transitOrders.length})`,   color: "text-[#7c3aed]" },
+          { key: "delivered", label: `Livrées (${deliveredOrders.length})`,    color: "text-[#007600]" },
+          { key: "error",     label: `Erreurs (${errorOrders.length})`,        color: "text-[#B12704]" },
         ].map(t => (
           <button
             key={t.key}
@@ -944,45 +1116,83 @@ const CJFulfillmentTab = () => {
         <div className="text-center py-16">
           <i className="fa-solid fa-truck-fast text-4xl text-[#D5D9D9] mb-3 block"></i>
           <p className="font-bold text-[#565959]">
-            {tab === "pending" ? "Aucune commande en attente de fulfillment" : tab === "sent" ? "Aucune commande envoyée" : "Aucune erreur"}
+            {tab === "pending" ? "Aucune commande en attente" :
+             tab === "transit" ? "Aucune commande en transit" :
+             tab === "delivered" ? "Aucune commande livrée" :
+             tab === "sent" ? "Aucune commande DHL envoyée" : "Aucune erreur"}
           </p>
         </div>
       ) : (
         <div className="space-y-3">
           {displayOrders.map(o => {
-            const cjSt       = CJ_STATUS[o.cj_order_status || "not_sent"];
-            const sendState  = sending[o.id];
-            const cjItems    = (o.order_items || []).filter(i => i.selected_variant_id || i.cj_product_id);
+            const cjSt      = CJ_STATUS[o.cj_order_status || "not_sent"];
+            const sendState = sending[o.id];
+            const cjItems   = (o.order_items || []).filter(i => i.selected_variant_id || i.cj_product_id);
+            const orderMode = getMode(o.id);
+            const transitStep = TRANSIT_STEPS.find(s => s.status === o.status);
 
             return (
               <div key={o.id} className="bg-white border border-[#D5D9D9] rounded-xl overflow-hidden hover:border-[#FF9900]/30 transition-all">
                 {/* Order header */}
                 <div className="flex items-center justify-between gap-4 px-4 py-3 flex-wrap">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap mb-0.5">
-                        <p className="font-black text-[#0F1111] text-sm font-mono">#{o.id.slice(0, 8).toUpperCase()}</p>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap mb-0.5">
+                      <p className="font-black text-[#0F1111] text-sm font-mono">#{o.id.slice(0, 8).toUpperCase()}</p>
+                      {o.status === "paid" && (
                         <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full border ${cjSt.bg} ${cjSt.color}`}>
                           <i className={`fa-solid ${cjSt.icon} mr-1`}></i>{cjSt.label}
                         </span>
-                        {o.cj_order_id && (
-                          <span className="text-[9px] font-mono bg-[#007185]/10 text-[#007185] px-2 py-0.5 rounded-full border border-[#007185]/20">
-                            CJ#{o.cj_order_id}
-                          </span>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-3 text-[10px] text-[#565959]">
-                        <span><i className="fa-solid fa-user mr-1"></i>{o.client_name}</span>
-                        <span><i className="fa-solid fa-phone mr-1"></i>{o.client_phone}</span>
-                        {o.paid_at && (
-                          <span><i className="fa-solid fa-check-circle mr-1 text-[#007600]"></i>{fmtDate(o.paid_at)}</span>
-                        )}
-                      </div>
+                      )}
+                      {transitStep && (
+                        <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full border ${transitStep.bg} ${transitStep.color} ${transitStep.border}`}>
+                          <i className={`fa-solid ${transitStep.icon} mr-1`}></i>{transitStep.label}
+                        </span>
+                      )}
+                      {o.cj_order_id && (
+                        <span className="text-[9px] font-mono bg-[#007185]/10 text-[#007185] px-2 py-0.5 rounded-full border border-[#007185]/20">
+                          CJ#{o.cj_order_id}
+                        </span>
+                      )}
+                      {o.shipping_mode === "transitaire" && (
+                        <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded-full border bg-[#f5f3ff] text-[#7c3aed] border-[#7c3aed]/30">
+                          <i className="fa-solid fa-warehouse mr-1 text-[8px]"></i>Transit
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-3 text-[10px] text-[#565959]">
+                      <span><i className="fa-solid fa-user mr-1"></i>{o.client_name}</span>
+                      <span><i className="fa-solid fa-phone mr-1"></i>{o.client_phone}</span>
+                      {o.paid_at && (
+                        <span><i className="fa-solid fa-check-circle mr-1 text-[#007600]"></i>{fmtDate(o.paid_at)}</span>
+                      )}
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2 flex-shrink-0">
+                  <div className="flex items-center gap-2 flex-shrink-0 flex-wrap justify-end">
                     <p className="font-black text-[#B12704] text-base">{Number(o.total_amount).toLocaleString()} F</p>
+
+                    {/* Per-order mode toggle (pending only) */}
+                    {tab === "pending" && (
+                      <div className="flex items-center gap-0.5 bg-[#F3F4F4] border border-[#D5D9D9] rounded-lg p-0.5">
+                        {[
+                          { key: "dhl",         label: "DHL",     icon: "fa-truck"     },
+                          { key: "transitaire", label: "Transit", icon: "fa-warehouse" },
+                        ].map(m => (
+                          <button
+                            key={m.key}
+                            onClick={() => setOrderModes(prev => ({ ...prev, [o.id]: m.key }))}
+                            className={`flex items-center gap-1 px-2 py-1 rounded-md text-[9px] font-black uppercase tracking-wider transition-all ${
+                              orderMode === m.key ? "bg-white text-[#FF9900] shadow-sm" : "text-[#ADBAC7] hover:text-[#565959]"
+                            }`}
+                          >
+                            <i className={`fa-solid ${m.icon} text-[8px]`}></i>
+                            {m.label}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Send to CJ */}
                     {tab === "pending" && (
                       <button
                         onClick={() => sendOrderToCJ(o.id)}
@@ -990,9 +1200,23 @@ const CJFulfillmentTab = () => {
                         className="flex items-center gap-1.5 px-3 py-1.5 bg-[#007185] hover:bg-[#005f73] disabled:opacity-40 text-white rounded-lg text-[11px] font-bold transition-all"
                       >
                         <i className={`fa-solid ${sendState === "loading" ? "fa-spinner fa-spin" : "fa-paper-plane"} text-xs`}></i>
-                        {sendState === "loading" ? "Envoi…" : "Envoyer à CJ"}
+                        {sendState === "loading" ? "Envoi…" : orderMode === "transitaire" ? "→ Transitaire" : "Envoyer à CJ"}
                       </button>
                     )}
+
+                    {/* Advance transit step */}
+                    {transitStep?.next && (
+                      <button
+                        onClick={() => updateOrderStatus(o.id, transitStep.next)}
+                        disabled={!!updatingStatus[o.id]}
+                        className="flex items-center gap-1.5 px-3 py-1.5 bg-[#7c3aed] hover:bg-[#6d28d9] disabled:opacity-40 text-white rounded-lg text-[11px] font-bold transition-all"
+                      >
+                        <i className={`fa-solid ${updatingStatus[o.id] ? "fa-spinner fa-spin" : "fa-arrow-right"} text-xs`}></i>
+                        {transitStep.nextLabel}
+                      </button>
+                    )}
+
+                    {/* Error retry */}
                     {tab === "error" && (
                       <button
                         onClick={() => sendOrderToCJ(o.id)}
@@ -1049,12 +1273,12 @@ const CJFulfillmentTab = () => {
                   </div>
                 )}
 
-                {/* Non-CJ items warning */}
+                {/* Non-CJ items note */}
                 {(o.order_items || []).filter(i => !i.selected_variant_id).length > 0 && (
                   <div className="px-4 py-1.5 border-t border-[#EAEDED] bg-[#FFF8D3]">
                     <p className="text-[9px] text-[#565959]">
                       <i className="fa-solid fa-info-circle text-[#FF9900] mr-1"></i>
-                      {(o.order_items || []).filter(i => !i.selected_variant_id).length} article(s) non-CJ dans cette commande (ignorés)
+                      {(o.order_items || []).filter(i => !i.selected_variant_id).length} article(s) non-CJ (ignorés)
                     </p>
                   </div>
                 )}
@@ -1162,6 +1386,7 @@ const SuperAdmin = () => {
     { key: "fulfillment",  icon: "fa-truck-fast",     label: "Fulfillment CJ", badge: globalStats.cjPending  || 0 },
     { key: "products",     icon: "fa-boxes-stacked",  label: "Produits"        },
     { key: "cj",           icon: "fa-circle-nodes",   label: "CJ Import"       },
+    { key: "settings",     icon: "fa-gear",            label: "Paramètres"      },
   ];
 
   return (
@@ -1259,6 +1484,10 @@ const SuperAdmin = () => {
             <RepairImagesPanel />
             <CJImportTab />
           </div>
+        )}
+
+        {activeTab === "settings" && (
+          <TransitaireSettingsPanel />
         )}
       </div>
     </div>
