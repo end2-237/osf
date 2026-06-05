@@ -38,8 +38,11 @@ function AppContent() {
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isVisualSearchOpen, setIsVisualSearchOpen] = useState(false);
 
-  // Détection des pages d'authentification pour isoler le layout
-  const isAuthPage = location.pathname === '/login' || location.pathname === '/register';
+  // Pages sans Navbar / Footer / Cart (auth + dashboards admin)
+  const isAuthPage = location.pathname === '/login'
+    || location.pathname === '/register'
+    || location.pathname === '/admin'
+    || location.pathname.startsWith('/super-admin');
 
   useEffect(() => {
     isDark
