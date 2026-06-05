@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../context/AuthContext";
 import { cjListProducts, cjGetProductDetail, cjGetCategories, mapCjToProduct, mapCjProductType, usdToFcfa } from "../lib/cjApi";
@@ -36,20 +36,39 @@ const Toast = ({ msg, type = "ok" }) => (
 );
 
 // ─── Product card ─────────────────────────────────────────────────────────────
-const CJCard = ({ product, selected, onToggle, onImport, importing }) => {
+const CJCard = ({ product, selected, onToggle, onImport, importing, alreadyImported }) => {
   const price = usdToFcfa(product.sellPrice || product.nowPrice || product.productPrice || 0);
   const type  = mapCjProductType(product.categoryName || "", product.productNameEn || product.productName || "");
   return (
-    <div onClick={() => onToggle(product.pid)}
-      className={`relative bg-white border-2 rounded-xl overflow-hidden transition-all cursor-pointer group ${
-        selected ? "border-[#FF9900] shadow-[0_0_0_3px_rgba(255,153,0,0.15)]" : "border-[#D5D9D9] hover:border-[#FF9900]/50"
+    <div onClick={() => !alreadyImported && onToggle(product.pid)}
+      className={`relative bg-white border-2 rounded-xl overflow-hidden transition-all group ${
+        alreadyImported
+          ? "border-[#007600]/40 opacity-70 cursor-default"
+          : selected
+            ? "border-[#FF9900] shadow-[0_0_0_3px_rgba(255,153,0,0.15)] cursor-pointer"
+            : "border-[#D5D9D9] hover:border-[#FF9900]/50 cursor-pointer"
       }`}>
-      <div className={`absolute top-2 left-2 z-10 w-5 h-5 rounded border-2 flex items-center justify-center transition-all ${
-        selected ? "bg-[#FF9900] border-[#FF9900]" : "bg-white/90 border-[#D5D9D9]"
-      }`}>
-        {selected && <i className="fa-solid fa-check text-[#0F1111] text-[8px]"></i>}
-      </div>
+
+      {/* Selection checkbox — hidden when already imported */}
+      {!alreadyImported && (
+        <div className={`absolute top-2 left-2 z-10 w-5 h-5 rounded border-2 flex items-center justify-center transition-all ${
+          selected ? "bg-[#FF9900] border-[#FF9900]" : "bg-white/90 border-[#D5D9D9]"
+        }`}>
+          {selected && <i className="fa-solid fa-check text-[#0F1111] text-[8px]"></i>}
+        </div>
+      )}
+
+      {/* Already-imported overlay badge */}
+      {alreadyImported && (
+        <div className="absolute top-2 left-2 z-10 flex items-center gap-1 bg-[#007600] text-white text-[8px] font-black px-2 py-1 rounded-full">
+          <i className="fa-solid fa-check text-[8px]"></i>
+          Importé
+        </div>
+      )}
+
+      {/* Category badge */}
       <div className="absolute top-2 right-2 z-10 bg-[#232F3E]/90 text-[#FF9900] text-[7px] font-black px-1.5 py-0.5 rounded uppercase tracking-wider">{type}</div>
+
       <div className="aspect-square bg-[#F3F4F4] overflow-hidden">
         {product.productImage
           ? <img src={product.productImage} alt={product.productNameEn} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
@@ -60,12 +79,18 @@ const CJCard = ({ product, selected, onToggle, onImport, importing }) => {
         <div className="flex items-center justify-between">
           <div>
             <p className="text-[10px] text-[#565959]">${product.sellPrice || "—"} USD</p>
-            <p className="text-sm font-bold text-[#B12704]">{price.toLocaleString()} F</p>
+            <p className={`text-sm font-bold ${alreadyImported ? "text-[#007600]" : "text-[#B12704]"}`}>{price.toLocaleString()} F</p>
           </div>
-          <button onClick={e => { e.stopPropagation(); onImport([product]); }} disabled={importing}
-            className="w-8 h-8 bg-[#FFD814] hover:bg-[#F7CA00] disabled:opacity-50 border border-[#FCD200] rounded-lg flex items-center justify-center transition-all active:scale-95">
-            <i className="fa-solid fa-plus text-[#0F1111] text-xs"></i>
-          </button>
+          {alreadyImported ? (
+            <div className="w-8 h-8 bg-[#E8F5E8] border border-[#007600]/30 rounded-lg flex items-center justify-center">
+              <i className="fa-solid fa-check text-[#007600] text-xs"></i>
+            </div>
+          ) : (
+            <button onClick={e => { e.stopPropagation(); onImport([product]); }} disabled={importing}
+              className="w-8 h-8 bg-[#FFD814] hover:bg-[#F7CA00] disabled:opacity-50 border border-[#FCD200] rounded-lg flex items-center justify-center transition-all active:scale-95">
+              <i className="fa-solid fa-plus text-[#0F1111] text-xs"></i>
+            </button>
+          )}
         </div>
       </div>
     </div>
@@ -103,11 +128,15 @@ const CJImportTab = () => {
   const [batchLog,    setBatchLog]    = useState([]);
 
   // Selection & import
+  // Tracks CJ pids already in the DB — prevents re-init on token refresh
+  const initDoneRef = useRef(false);
+
   const [selected,     setSelected]     = useState(new Set());
   const [importing,    setImporting]    = useState(false);
   const [importProg,   setImportProg]   = useState({ done: 0, total: 0 });
   const [toast,        setToast]        = useState(null);
   const [alreadyCount, setAlreadyCount] = useState(0);
+  const [importedIds,  setImportedIds]  = useState(new Set()); // cj_product_id set
   const [showImportN,  setShowImportN]  = useState(false);
   const [importNValue, setImportNValue] = useState("");
   const [ofsTypeFilter, setOfsTypeFilter] = useState("Tous");
@@ -127,9 +156,16 @@ const CJImportTab = () => {
     setTimeout(() => setToast(null), 3500);
   };
 
+  // Load all already-imported CJ product IDs once on mount
   useEffect(() => {
-    supabase.from("products").select("id", { count: "exact", head: true }).is("vendor_id", null)
-      .then(({ count }) => setAlreadyCount(count || 0));
+    supabase.from("products")
+      .select("cj_product_id", { count: "exact" })
+      .is("vendor_id", null)
+      .not("cj_product_id", "is", null)
+      .then(({ data, count }) => {
+        setAlreadyCount(count || 0);
+        setImportedIds(new Set((data || []).map(p => p.cj_product_id).filter(Boolean)));
+      });
   }, []);
 
   const [catsError, setCatsError] = useState(null);
@@ -196,8 +232,13 @@ const CJImportTab = () => {
     }
   }, []);
 
+  // Run only once — token refreshes fire onAuthStateChange with a new user object
+  // but we must NOT reset the CJ page/filters on each refresh.
   useEffect(() => {
-    if (user) { fetchProducts(1, "", ""); loadCategories(); }
+    if (!user || initDoneRef.current) return;
+    initDoneRef.current = true;
+    fetchProducts(1, "", "");
+    loadCategories();
   }, [user]);
 
   const [translating, setTranslating] = useState(false);
@@ -290,6 +331,9 @@ const CJImportTab = () => {
       showToast(`${done} produits importés !`, "success");
       setSelected(new Set());
       setAlreadyCount(c => c + done);
+      // Mark these pids as imported in the local set
+      const newPids = list.map(p => p.pid).filter(Boolean);
+      setImportedIds(prev => { const n = new Set(prev); newPids.forEach(id => n.add(id)); return n; });
     } catch (err) { showToast(err.message, "error"); }
     finally { setImporting(false); setImportProg({ done: 0, total: 0 }); }
   };
@@ -309,6 +353,8 @@ const CJImportTab = () => {
       const done = await batchInsert(list, (d) => setImportProg({ done: d, total: list.length }));
       showToast(`${done} produits importés !`, "success");
       setAlreadyCount(c => c + done);
+      const newPids = list.map(p => p.pid).filter(Boolean);
+      setImportedIds(prev => { const n = new Set(prev); newPids.forEach(id => n.add(id)); return n; });
     } catch (err) { showToast(err.message, "error"); }
     finally { setImporting(false); setImportProg({ done: 0, total: 0 }); setImportNValue(""); }
   };
@@ -320,6 +366,7 @@ const CJImportTab = () => {
     setImporting(true);
     setImportProg({ done: 0, total: cap });
     let done = 0;
+    const allNewPids = [];
     for (let p = 1; done < cap; p++) {
       try {
         const data = await cjListProducts(p, PAGE_SIZE, search, selCatId);
@@ -327,12 +374,14 @@ const CJImportTab = () => {
         if (!list.length) break;
         const inserted = await batchInsert(list, () => {});
         done += inserted;
+        list.forEach(item => item.pid && allNewPids.push(item.pid));
         setImportProg({ done, total: cap });
         await new Promise(r => setTimeout(r, 300));
       } catch { break; }
     }
     showToast(`Import terminé : ${done} produits ajoutés`, "success");
     setAlreadyCount(c => c + done);
+    setImportedIds(prev => { const n = new Set(prev); allNewPids.forEach(id => n.add(id)); return n; });
     setImporting(false);
     setImportProg({ done: 0, total: 0 });
   };
@@ -371,6 +420,8 @@ const CJImportTab = () => {
         setQueue(prev => prev.map(q => q.id === item.id ? { ...q, status: "done", imported: done } : q));
         setBatchLog(prev => prev.map(l => l.id === item.id ? { ...l, msg: `✓ ${done} produits importés`, ok: true } : l));
         setAlreadyCount(c => c + done);
+        const newPids = list.map(p => p.pid).filter(Boolean);
+        setImportedIds(prev => { const n = new Set(prev); newPids.forEach(id => n.add(id)); return n; });
       } catch (err) {
         setQueue(prev => prev.map(q => q.id === item.id ? { ...q, status: "error" } : q));
         setBatchLog(prev => prev.map(l => l.id === item.id ? { ...l, msg: `Erreur : ${err.message}`, ok: false } : l));
@@ -455,7 +506,7 @@ const CJImportTab = () => {
           {[
             { label: "Total CJ",     value: total.toLocaleString(),        color: "#FF9900" },
             { label: "Catégories",   value: categories.length || "…",      color: "#FFD814" },
-            { label: "Importés OFS", value: alreadyCount.toLocaleString(), color: "#007185" },
+            { label: "Importés OFS", value: alreadyCount.toLocaleString(), color: "#007185", sub: importedIds.size > 0 ? `${importedIds.size} IDs connus` : null },
             { label: `Page ${page}/${totalPages||"…"}`, value: `${products.length} affichés`, color: "#007600" },
           ].map(s => (
             <div key={s.label} className="px-4 py-3">
@@ -869,12 +920,23 @@ const CJImportTab = () => {
             );
           })()}
 
-          <div className="flex items-center justify-between">
-            <p className="text-xs text-[#565959]">
-              {filteredProducts.length} affichés
-              {ofsTypeFilter !== "Tous" && <span className="text-[#FF9900] font-bold"> · {ofsTypeFilter}</span>}
-              {" "}· {total.toLocaleString()} au total{selCatName ? ` dans "${selCatName}"` : ""}
-            </p>
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
+              <p className="text-xs text-[#565959]">
+                {filteredProducts.length} affichés
+                {ofsTypeFilter !== "Tous" && <span className="text-[#FF9900] font-bold"> · {ofsTypeFilter}</span>}
+                {" "}· {total.toLocaleString()} au total{selCatName ? ` dans "${selCatName}"` : ""}
+              </p>
+              {(() => {
+                const alreadyOnPage = filteredProducts.filter(p => importedIds.has(p.pid)).length;
+                return alreadyOnPage > 0 ? (
+                  <span className="inline-flex items-center gap-1 bg-[#E8F5E8] border border-[#007600]/20 text-[#007600] text-[9px] font-black px-2 py-0.5 rounded-full">
+                    <i className="fa-solid fa-check text-[8px]"></i>
+                    {alreadyOnPage} déjà importé{alreadyOnPage > 1 ? "s" : ""}
+                  </span>
+                ) : null;
+              })()}
+            </div>
             <button onClick={selected.size === filteredProducts.length ? clearAll : selectAll}
               className="text-xs text-[#007185] hover:text-[#C45500] font-bold transition-colors">
               {selected.size === filteredProducts.length ? "Désélectionner tout" : "Sélectionner tout"}
@@ -884,7 +946,8 @@ const CJImportTab = () => {
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
             {filteredProducts.map(p => (
               <CJCard key={p.pid} product={p} selected={selected.has(p.pid)}
-                onToggle={toggleSelect} onImport={importProducts} importing={importing} />
+                onToggle={toggleSelect} onImport={importProducts} importing={importing}
+                alreadyImported={importedIds.has(p.pid)} />
             ))}
           </div>
 
