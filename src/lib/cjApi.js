@@ -309,7 +309,14 @@ export const mapCjToProduct = (p) => {
     }
   }
   if (images.length === 0 && mainImg) images = [mainImg];
-  const videoUrl = (p.productVideo || "").trim();
+  // productVideo = full URL (detail endpoint); videoList = hex IDs (list endpoint)
+  const videoUrl = (() => {
+    const direct = (p.productVideo || "").trim();
+    if (direct) return direct;
+    const ids = Array.isArray(p.videoList) ? p.videoList.filter(Boolean) : [];
+    if (ids.length > 0) return `https://cbu01.alicdn.com/img/ibank/video/${ids[0]}.mp4`;
+    return "";
+  })();
   if (videoUrl && !images.includes(videoUrl)) images = [...images, videoUrl];
 
   // ── CJ product ID (try all known field names) ───────────────────────────────
