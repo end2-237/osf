@@ -239,9 +239,12 @@ export const usdToFcfa = (usd) => {
 export const PRICE_MARGIN = 1.15;
 const withMargin = (fcfa) => Math.round(fcfa * PRICE_MARGIN);
 
-// Detect video URLs stored inline in images array
+// Detect video URLs — extension-based OR known CJ/Alibaba video CDN patterns
 export const isVideoUrl = (url = "") =>
-  /\.(mp4|webm|ogg|mov)(\?.*)?$/i.test(url);
+  /\.(mp4|webm|ogg|mov)(\?.*)?$/i.test(url) ||
+  /\/product[_-]?video\//i.test(url) ||
+  /video\.cjdropshipping\.com\//i.test(url) ||
+  /cbu01\.alicdn\.com\/img\/ibank\/video\//i.test(url);
 
 // Parse price strings — handles CJ list ranges like "0.05 -- 0.20" (returns higher end)
 const parsePrice = (raw) => {
@@ -660,6 +663,7 @@ export const mapCjToProduct = (p) => {
     sale_status,
     cj_category_path,
     video_thumbnail,
+    product_video:    videoUrl || null,
     cost_price_usd,
     is_discount_sell,
     is_customizable,

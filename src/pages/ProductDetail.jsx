@@ -861,6 +861,7 @@ const ProductDetail = ({ addToCart, openModal }) => {
         if (fresh.sale_status)                                                       updates.sale_status           = fresh.sale_status;
         if (fresh.cj_category_path)                                                  updates.cj_category_path      = fresh.cj_category_path;
         if (fresh.video_thumbnail)                                                   updates.video_thumbnail       = fresh.video_thumbnail;
+        if (fresh.product_video)                                                     updates.product_video         = fresh.product_video;
         if (fresh.is_discount_sell)                                                  updates.is_discount_sell      = fresh.is_discount_sell;
         if (fresh.is_customizable)                                                   updates.is_customizable       = fresh.is_customizable;
         if (fresh.light_unit)                                                        updates.light_unit            = fresh.light_unit;
@@ -1102,6 +1103,13 @@ const ProductDetail = ({ addToCart, openModal }) => {
     const imgs = product?.images?.length > 0
       ? [...product.images]
       : product?.img ? [product.img] : [];
+
+    // Inject product_video at position 1 (after first image) if not already present
+    const pv = product?.product_video;
+    if (pv && !imgs.includes(pv)) {
+      const insertAt = Math.min(1, imgs.length);
+      imgs.splice(insertAt, 0, pv);
+    }
 
     const cMap = {};
     const seenColors = new Set();
