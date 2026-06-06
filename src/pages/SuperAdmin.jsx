@@ -396,7 +396,7 @@ const AllProductsTab = ({ loading }) => {
   const fetch = async (q = "", type = "") => {
     setFetching(true);
     let query = supabase.from("products").select("*, vendor:vendors!vendor_id(shop_name)", { count: "exact" });
-    if (q) query = query.ilike("name", `%${q}%`);
+    if (q) query = query.or(`name.ilike.%${q}%,sku.ilike.%${q}%,cj_product_id.eq.${q}`);
     if (type && type !== "Tous") query = query.eq("type", type);
     const { data, count } = await query.order("created_at", { ascending: false }).limit(100);
     setProducts(data || []);
@@ -422,7 +422,7 @@ const AllProductsTab = ({ loading }) => {
         <form onSubmit={handleSearch} className="flex gap-2 flex-1">
           <div className="relative flex-1">
             <i className="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-[#FF9900] text-sm"></i>
-            <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Rechercher un produit…"
+            <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Nom, SKU ou ID CJ…"
               className="w-full pl-10 pr-4 py-2.5 bg-white border border-[#D5D9D9] focus:border-[#FF9900] focus:outline-none rounded-xl text-sm placeholder-[#ADBAC7]" />
           </div>
           <button type="submit" className="px-4 py-2.5 bg-[#FFD814] text-[#0F1111] rounded-xl font-bold text-sm border border-[#FCD200]">
