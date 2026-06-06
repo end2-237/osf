@@ -251,12 +251,12 @@ const CJImportTab = () => {
   };
 
   const batchInsert = async (list, onProgress) => {
-    const DETAIL_BATCH = 5;
+    const DETAIL_BATCH = 2;
     const INSERT_BATCH = 20;
     let enriched = [];
     for (let i = 0; i < list.length; i += DETAIL_BATCH) {
       enriched = [...enriched, ...await Promise.all(list.slice(i, i + DETAIL_BATCH).map(enrichOne))];
-      if (i + DETAIL_BATCH < list.length) await new Promise(r => setTimeout(r, 350));
+      if (i + DETAIL_BATCH < list.length) await new Promise(r => setTimeout(r, 1200));
     }
     let done = 0;
     for (let i = 0; i < enriched.length; i += INSERT_BATCH) {
@@ -270,12 +270,12 @@ const CJImportTab = () => {
 
   // Upsert variant — updates price, stock, images for already-imported products
   const batchUpsert = async (list, onProgress) => {
-    const DETAIL_BATCH = 5;
+    const DETAIL_BATCH = 2;
     const UPSERT_BATCH = 20;
     let enriched = [];
     for (let i = 0; i < list.length; i += DETAIL_BATCH) {
       enriched = [...enriched, ...await Promise.all(list.slice(i, i + DETAIL_BATCH).map(enrichOne))];
-      if (i + DETAIL_BATCH < list.length) await new Promise(r => setTimeout(r, 350));
+      if (i + DETAIL_BATCH < list.length) await new Promise(r => setTimeout(r, 1200));
     }
     let done = 0;
     for (let i = 0; i < enriched.length; i += UPSERT_BATCH) {

@@ -3,8 +3,10 @@
 const EDGE_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/cj-proxy`;
 const ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || "";
 
-// ─── Raw fetch via Edge Function ──────────────────────────────────────────────
-const cjFetch = async (path, params = {}) => {
+// ─── Raw fetch via Edge Function — auto-retry on 429 ─────────────────────────
+const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+
+const cjFetch = async (path, params = {}, _attempt = 0) => {
   const url = new URL(EDGE_URL);
   url.searchParams.set("path",   path);
   url.searchParams.set("params", JSON.stringify(params));
@@ -16,6 +18,13 @@ const cjFetch = async (path, params = {}) => {
       "Content-Type":  "application/json",
     },
   });
+
+  if (res.status === 429) {
+    if (_attempt >= 4) throw new Error("HTTP 429 – rate limit");
+    // Exponential backoff: 2s, 4s, 8s, 16s
+    await sleep(2000 * 2 ** _attempt);
+    return cjFetch(path, params, _attempt + 1);
+  }
 
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   const json = await res.json();
