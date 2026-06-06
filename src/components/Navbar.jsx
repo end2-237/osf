@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import ofsLogo from "../assets/ofs.png";
 import { useAuth } from "../context/AuthContext";
+import { useLang } from "../context/LangContext";
 
 const ScrollToTop = () => {
   const { pathname } = useLocation();
@@ -104,6 +105,7 @@ const ProfileDropdown = ({ user, profile, signOut, isDark }) => {
 
 const Navbar = ({ isDark, toggleTheme, cartCount, toggleCart, toggleVisualSearch }) => {
   const { user, isMember, signOut } = useAuth();
+  const { lang, toggleLang } = useLang();
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [searchQuery,    setSearchQuery]    = useState("");
@@ -378,6 +380,17 @@ const Navbar = ({ isDark, toggleTheme, cartCount, toggleCart, toggleVisualSearch
               </Link>
             )}
 
+            {/* LANG TOGGLE */}
+            <button onClick={toggleLang} title={lang === "fr" ? "Désactiver la traduction FR" : "Activer la traduction FR"}
+              className={`hidden md:flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[11px] font-black uppercase tracking-wide transition-all border ${
+                lang === "fr"
+                  ? "bg-[#FF9900] text-[#0F1111] border-[#FF9900] shadow-sm"
+                  : `border-transparent ${textPri} ${hoverEl} opacity-60 hover:opacity-100`
+              }`}>
+              <span>{lang === "fr" ? "🇫🇷" : "🌐"}</span>
+              <span>FR</span>
+            </button>
+
             {/* THEME TOGGLE */}
             <button onClick={toggleTheme}
               className={`hidden md:flex ${textPri} border border-transparent ${hoverEl} rounded p-2 transition-all`}
@@ -588,6 +601,20 @@ const Navbar = ({ isDark, toggleTheme, cartCount, toggleCart, toggleVisualSearch
                 {cat.isNew && <span className="ml-1 text-[9px] bg-pink-500 text-white px-1.5 py-0.5 rounded font-bold">NEW</span>}
               </Link>
             ))}
+          </div>
+
+          {/* LANG */}
+          <div className="py-1 px-4">
+            <button onClick={toggleLang}
+              className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-sm transition-all ${
+                lang === "fr"
+                  ? "bg-[#FF9900] text-[#0F1111] font-bold"
+                  : `${drawerTextCls} ${drawerHoverCls}`
+              }`}>
+              <span className="w-4 text-center text-base">{lang === "fr" ? "🇫🇷" : "🌐"}</span>
+              <span>{lang === "fr" ? "Traduction FR activée" : "Activer la traduction FR"}</span>
+              {lang === "fr" && <i className="fa-solid fa-check ml-auto text-[#0F1111]" />}
+            </button>
           </div>
 
           {/* THEME */}

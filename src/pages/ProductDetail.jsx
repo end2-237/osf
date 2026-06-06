@@ -7,6 +7,9 @@ import SponsoredBanner from "../components/SponsoredBanner";
 import { useWishlist } from "../hooks/useWishlist";
 import { useAuth } from "../context/AuthContext";
 import { cjGetProductDetail, mapCjToProduct, isVideoUrl, PRICE_MARGIN } from "../lib/cjApi";
+import { useTranslate } from "../hooks/useTranslate";
+import { useLang } from "../context/LangContext";
+import { translateText, stripHtml } from "../lib/translate";
 
 const MEMBER_DISCOUNT = 0.2;
 
@@ -1138,6 +1141,21 @@ const ProductDetail = ({ addToCart, openModal }) => {
   const ratingVal   = product?.rating_avg  || 4.2;
   const reviewCount = product?.review_count || 0;
 
+  // ── Translation ────────────────────────────────────────────────────────────
+  const { lang } = useLang();
+  const translatedName = useTranslate(product?.name);
+  const [translatedDesc, setTranslatedDesc] = useState("");
+  const [descLoading,    setDescLoading]    = useState(false);
+  useEffect(() => {
+    if (lang !== "fr" || !product?.description) { setTranslatedDesc(""); return; }
+    const plain = stripHtml(product.description).slice(0, 1500);
+    if (!plain) return;
+    setDescLoading(true);
+    translateText(plain, "en", "fr")
+      .then(t => setTranslatedDesc(t))
+      .finally(() => setDescLoading(false));
+  }, [lang, product?.description]);
+
   const handleAddToCart = () => {
     const variants = Array.isArray(product?.variants) ? product.variants : [];
 
@@ -1285,7 +1303,7 @@ const ProductDetail = ({ addToCart, openModal }) => {
 
                 {/* Title */}
                 <h1 className="text-xl md:text-2xl font-medium text-[#0F1111] leading-snug mb-3">
-                  {product.name}
+                  {translatedName}
                 </h1>
 
                 {/* Rating + sold */}
@@ -1871,14 +1889,35 @@ const ProductDetail = ({ addToCart, openModal }) => {
             {/* Product description */}
             {product.description && (
               <div className="bg-white border border-[#D5D9D9] rounded">
-                <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-[#D5D9D9]">
+                <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-[#D5D9D9] flex items-center justify-between gap-2 flex-wrap">
                   <h2 className="text-base sm:text-lg font-bold text-[#0F1111]">Description du produit</h2>
+                  {lang === "fr" && (
+                    <span className="inline-flex items-center gap-1.5 text-[10px] font-bold bg-[#FF9900]/10 text-[#C45500] border border-[#FF9900]/30 rounded-full px-2.5 py-1">
+                      🇫🇷 Traduit automatiquement
+                    </span>
+                  )}
                 </div>
                 <div className="px-4 sm:px-6 py-4 sm:py-5">
-                  <div
-                    className="cj-description text-sm text-[#565959] leading-relaxed"
-                    dangerouslySetInnerHTML={{ __html: product.description }}
-                  />
+                  {lang === "fr" ? (
+                    descLoading ? (
+                      <div className="flex items-center gap-2 text-sm text-[#565959]">
+                        <i className="fa-solid fa-spinner animate-spin text-[#FF9900]" />
+                        Traduction en cours…
+                      </div>
+                    ) : translatedDesc ? (
+                      <p className="text-sm text-[#565959] leading-relaxed whitespace-pre-line">{translatedDesc}</p>
+                    ) : (
+                      <div
+                        className="cj-description text-sm text-[#565959] leading-relaxed"
+                        dangerouslySetInnerHTML={{ __html: product.description }}
+                      />
+                    )
+                  ) : (
+                    <div
+                      className="cj-description text-sm text-[#565959] leading-relaxed"
+                      dangerouslySetInnerHTML={{ __html: product.description }}
+                    />
+                  )}
                 </div>
               </div>
             )}

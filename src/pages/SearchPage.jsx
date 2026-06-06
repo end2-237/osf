@@ -1,7 +1,9 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { Link, useSearchParams, useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../context/AuthContext";
+import { useLang } from "../context/LangContext";
+import { translateText } from "../lib/translate";
 
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
 const CATEGORIES = [
@@ -463,7 +465,9 @@ const SearchPage = ({ openModal, addToCart }) => {
   const navigate = useNavigate();
   const { isMember } = useAuth();
 
+  const { lang }                            = useLang();
   const [query,          setQuery]          = useState(searchParams.get("q") || "");
+  const [searchQuery,    setSearchQuery]    = useState(searchParams.get("q") || ""); // translated query used for filtering
   const [products,       setProducts]       = useState([]);
   const [vendors,        setVendors]        = useState([]);
   const [activeCategory, setActiveCategory] = useState("All");
@@ -503,6 +507,13 @@ const SearchPage = ({ openModal, addToCart }) => {
     setActiveVendors(new Set());
   }, [searchParams]);
 
+  // ── Translate search query FR → EN when French mode is ON ─────────────────
+  useEffect(() => {
+    const raw = query.trim();
+    if (!raw || lang !== "fr") { setSearchQuery(raw); return; }
+    translateText(raw, "fr", "en").then(t => setSearchQuery(t));
+  }, [query, lang]);
+
   const submitSearch = (q) => {
     const trimmed = String(q ?? "").trim();
     if (!trimmed) return;
@@ -528,8 +539,8 @@ const SearchPage = ({ openModal, addToCart }) => {
   const results = useMemo(() => {
     let list = products;
 
-    if (query.trim()) {
-      const q = query.toLowerCase();
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
       list = list.filter(p =>
         p.name.toLowerCase().includes(q) ||
         p.type?.toLowerCase().includes(q) ||
@@ -552,7 +563,7 @@ const SearchPage = ({ openModal, addToCart }) => {
       if (sortBy === "price-desc") return Number(b.price) - Number(a.price);
       return new Date(b.created_at) - new Date(a.created_at);
     });
-  }, [products, query, activeCategory, activePriceRange, activeVendors, memberOnly, sortBy]);
+  }, [products, searchQuery, activeCategory, activePriceRange, activeVendors, memberOnly, sortBy]);
 
   const isSearching  = !!query.trim() || !!searchParams.get("cat");
   const hasFilters   = activeCategory !== "All" || activePriceRange !== null || activeVendors.size > 0 || memberOnly;

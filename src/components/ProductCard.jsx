@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useWishlist } from "../hooks/useWishlist";
 import { useNavigate } from "react-router-dom";
+import { useTranslate } from "../hooks/useTranslate";
 
 const MEMBER_DISCOUNT = 0.2;
 
@@ -50,6 +51,7 @@ const ProductCard = React.memo(({ product, openModal, addToCart }) => {
   const { isInWishlist, toggle: toggleWishlist } = useWishlist();
   const inWishlist = isInWishlist(product.id);
   const { user, isMember } = useAuth();
+  const translatedName = useTranslate(product.name);
 
   const originalPrice  = (() => { const n = parseFloat(product.price); return isNaN(n) || n <= 0 ? 0 : n; })();
   const vendorHasPromo = product.vendor?.member_discount_enabled ?? product.vendor_member_discount_enabled ?? false;
@@ -170,7 +172,7 @@ const ProductCard = React.memo(({ product, openModal, addToCart }) => {
 
         {/* NAME */}
         <h3 className="text-[12px] text-[#0F1111] leading-snug line-clamp-2 mb-1 group-hover:text-[#C45500] transition-colors flex-grow">
-          {product.name}
+          {translatedName}
         </h3>
 
         {/* STARS */}
