@@ -791,9 +791,17 @@ const ProductDetail = ({ addToCart, openModal }) => {
     // Only skip refresh if we already have full data: images + real colors (not just "Default")
     const hasRealColors  = product.colors?.some(c => c && c !== "Default");
     const hasFullData    = product.images?.length > 1 && hasRealColors;
-    if (hasFullData) {
+    const needsVideo     = !!product.cj_product_id && !product.product_video;
+    if (hasFullData && !needsVideo) {
       const updatedAt = product.updated_at ? new Date(product.updated_at) : new Date(0);
       if (Date.now() - updatedAt.getTime() < 6 * 60 * 60 * 1000) return;
+    }
+    if (hasFullData && needsVideo) {
+      // Throttle video-only retries: once per 24h per product
+      const vKey  = `cj_vsync_${product.id}`;
+      const last  = parseInt(localStorage.getItem(vKey) || "0", 10);
+      if (Date.now() - last < 24 * 60 * 60 * 1000) return;
+      localStorage.setItem(vKey, String(Date.now()));
     }
 
     const refreshCjData = async () => {
