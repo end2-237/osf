@@ -864,6 +864,7 @@ const ProductDetail = ({ addToCart, openModal }) => {
         if (fresh.sale_status)                                                       updates.sale_status           = fresh.sale_status;
         if (fresh.cj_category_path)                                                  updates.cj_category_path      = fresh.cj_category_path;
         if (fresh.video_thumbnail)                                                   updates.video_thumbnail       = fresh.video_thumbnail;
+        if (fresh.product_video)                                                     updates.product_video         = fresh.product_video;
         if (fresh.is_discount_sell)                                                  updates.is_discount_sell      = fresh.is_discount_sell;
         if (fresh.is_customizable)                                                   updates.is_customizable       = fresh.is_customizable;
         if (fresh.light_unit)                                                        updates.light_unit            = fresh.light_unit;
