@@ -42,7 +42,8 @@ function AppContent() {
   const isAuthPage = location.pathname === '/login'
     || location.pathname === '/register'
     || location.pathname === '/admin'
-    || location.pathname.startsWith('/super-admin');
+    || location.pathname.startsWith('/super-admin')
+    || location.pathname === '/track';
 
   useEffect(() => {
     isDark
