@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { BrowserRouter as Router, Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { LangProvider } from './context/LangContext';
@@ -35,9 +35,12 @@ function AppContent() {
 
   // Configuration du thème et panier
   const [isDark, setIsDark] = useState(false);
-  const [cart, setCart] = useState([]);
+  const [cart, setCart] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('ofs_cart') || '[]'); } catch { return []; }
+  });
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isVisualSearchOpen, setIsVisualSearchOpen] = useState(false);
+  const sharedCartLoaded = useRef(false);
 
   // Pages sans Navbar / Footer / Cart (auth + dashboards admin)
   const isAuthPage = location.pathname === '/login'
@@ -45,6 +48,30 @@ function AppContent() {
     || location.pathname === '/admin'
     || location.pathname.startsWith('/super-admin')
     || location.pathname === '/track';
+
+  // Persist cart to localStorage on every change
+  useEffect(() => {
+    try { localStorage.setItem('ofs_cart', JSON.stringify(cart)); } catch {}
+  }, [cart]);
+
+  // Load shared cart from URL ?cart=BASE64 (once per session)
+  useEffect(() => {
+    if (sharedCartLoaded.current) return;
+    sharedCartLoaded.current = true;
+    const params = new URLSearchParams(location.search);
+    const encoded = params.get('cart');
+    if (!encoded) return;
+    try {
+      const items = JSON.parse(atob(encoded));
+      if (Array.isArray(items) && items.length > 0) {
+        setCart(items);
+        setIsCartOpen(true);
+        const url = new URL(window.location.href);
+        url.searchParams.delete('cart');
+        window.history.replaceState({}, '', url.toString());
+      }
+    } catch {}
+  }, [location.search]);
 
   useEffect(() => {
     isDark
@@ -86,6 +113,15 @@ function AppContent() {
   };
 
   const clearCart = () => setCart([]);
+
+  const shareCart = () => {
+    const FIELDS = ['id','name','price','img','quantity','selectedSize','selectedColor',
+      'vendor_id','vendor_member_discount_enabled','cj_product_id','weight_g','ship_weight_g'];
+    const minimal = cart.map(item =>
+      Object.fromEntries(FIELDS.filter(k => item[k] != null).map(k => [k, item[k]]))
+    );
+    return `${window.location.origin}/store?cart=${btoa(JSON.stringify(minimal))}`;
+  };
 
   const openModal = (productOrId) => {
     if (typeof productOrId === 'object' && productOrId !== null) {
@@ -149,6 +185,7 @@ function AppContent() {
             updateQuantity={updateQuantity}
             toggleCart={toggleCart}
             clearCart={clearCart}
+            shareCart={shareCart}
             vendor={vendor}
           />
           <VisualSearchModal

@@ -48,13 +48,14 @@ const StepBar = ({ step }) => {
 };
 
 // ─── MAIN COMPONENT ───────────────────────────────────────────────────────────
-const CartSidebar = ({ isOpen, cart, removeFromCart, updateQuantity, toggleCart, clearCart }) => {
+const CartSidebar = ({ isOpen, cart, removeFromCart, updateQuantity, toggleCart, clearCart, shareCart }) => {
   const { user, isMember } = useAuth();
 
   const [step,           setStep]           = useState('cart');
   const [info,           setInfo]           = useState({ name:'', phone:'', neighborhood:'', street:'', extra:'' });
   const [paymentMethod,  setPaymentMethod]  = useState('');
   const [showToast,      setShowToast]      = useState(false);
+  const [shareCopied,    setShareCopied]    = useState(false);
   const [loading,        setLoading]        = useState(false);
   const [error,          setError]          = useState('');
   const [cartVendors,    setCartVendors]    = useState({});
@@ -1010,6 +1011,23 @@ const CartSidebar = ({ isOpen, cart, removeFromCart, updateQuantity, toggleCart,
                     : isMobileMoney
                       ? <><i className="fa-solid fa-bolt text-xs"></i> Payer {Math.round(finalTotal).toLocaleString()} FCFA maintenant</>
                       : <><i className="fa-solid fa-circle-check text-xs"></i> Confirmer la commande</>}
+                </button>
+              )}
+
+              {/* SHARE CART */}
+              {step === 'cart' && cart.length > 0 && shareCart && (
+                <button
+                  onClick={() => {
+                    const url = shareCart();
+                    navigator.clipboard.writeText(url).then(() => {
+                      setShareCopied(true);
+                      setTimeout(() => setShareCopied(false), 2500);
+                    });
+                  }}
+                  className="w-full flex items-center justify-center gap-2 py-2 text-[12px] text-[#007185] hover:text-[#C45500] border border-[#D5D9D9] rounded hover:border-[#C45500] transition-colors"
+                >
+                  <i className={`fa-solid ${shareCopied ? 'fa-circle-check text-[#007600]' : 'fa-share-nodes'} text-xs`}></i>
+                  {shareCopied ? 'Lien copié !' : 'Partager mon panier'}
                 </button>
               )}
 
