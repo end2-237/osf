@@ -396,7 +396,7 @@ const AllProductsTab = ({ loading }) => {
   const fetch = async (q = "", type = "") => {
     setFetching(true);
     let query = supabase.from("products").select("*, vendor:vendors!vendor_id(shop_name)", { count: "exact" });
-    if (q) query = query.or(`name.ilike.%${q}%,sku.ilike.%${q}%,cj_product_id.eq.${q}`);
+    if (q) query = query.or(`name.ilike.%${q}%,sku.ilike.%${q}%,cj_product_id.ilike.%${q}%`);
     if (type && type !== "Tous") query = query.eq("type", type);
     const { data, count } = await query.order("created_at", { ascending: false }).limit(100);
     setProducts(data || []);
