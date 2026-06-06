@@ -908,6 +908,24 @@ const ProductDetail = ({ addToCart, openModal }) => {
     return { priceMap, availMap };
   }, [product?.variants]);
 
+  // Price range (min–max) — spread across all variants + quantity tiers.
+  // CJ products are priced per-variant, so a single price hides the real floor/ceiling.
+  const priceRange = useMemo(() => {
+    const prices = [];
+    (Array.isArray(product?.variants) ? product.variants : []).forEach(v => {
+      const vp = parseFloat(v.variantSellPrice || v.variantPrice || v.sellPrice || 0);
+      if (vp > 0) prices.push(Math.round(vp * 610 * PRICE_MARGIN));
+    });
+    Object.values(variantMeta.priceMap).forEach(p => { if (p > 0) prices.push(p); });
+    (Array.isArray(product?.quantity_prices) ? product.quantity_prices : []).forEach(t => {
+      if (t.price_fcfa > 0) prices.push(t.price_fcfa);
+    });
+    if (price > 0) prices.push(price);
+    if (product?.suggest_price_fcfa > 0) prices.push(product.suggest_price_fcfa);
+    if (!prices.length) return null;
+    return { min: Math.min(...prices), max: Math.max(...prices) };
+  }, [product?.variants, product?.quantity_prices, product?.suggest_price_fcfa, variantMeta, price]);
+
   // Quantity price tiers — derived from CJ import or null
   const quantityTiers = Array.isArray(product?.quantity_prices) && product.quantity_prices.length > 1
     ? [...product.quantity_prices].sort((a, b) => a.min - b.min)
@@ -1361,6 +1379,18 @@ const ProductDetail = ({ addToCart, openModal }) => {
                     )}
                   </div>
 
+                  {/* Price range (min–max across variants) */}
+                  {priceRange && priceRange.max > priceRange.min && (
+                    <div className="flex items-center gap-2 mb-2.5 w-fit bg-[#FFF8F0] border border-[#FF9900]/25 rounded px-2.5 py-1.5">
+                      <i className="fa-solid fa-arrows-left-right text-[#FF9900] text-[10px]" />
+                      <span className="text-[10px] font-black uppercase tracking-wider text-[#C45500]">Fourchette de prix</span>
+                      <span className="text-[12px] font-bold text-[#0F1111]">
+                        {priceRange.min.toLocaleString()} – {priceRange.max.toLocaleString()} FCFA
+                      </span>
+                      <span className="text-[9px] text-[#565959]">selon la variante</span>
+                    </div>
+                  )}
+
                   {/* Quantity price tiers table */}
                   {quantityTiers.length > 0 && (
                     <div className="mb-3">
@@ -1678,13 +1708,23 @@ const ProductDetail = ({ addToCart, openModal }) => {
                       +{Math.max(1, Math.floor((activeTierPrice * qty) / 500))} pts OFS
                     </span>
                   </div>
-                  {minQty > 1 && (
-                    <p className="text-[10px] text-[#CC0C39] flex items-center gap-1 mb-1">
-                      <i className="fa-solid fa-circle-info text-[9px]" />
-                      Commande minimale : {minQty} {product?.product_unit === "pair" ? "paires" : "pcs"}
-                      {maxQty && ` · max ${maxQty}`}
-                    </p>
-                  )}
+                  {(() => {
+                    const unit = product?.product_unit === "pair" ? "paires" : product?.product_unit === "set" ? "lots" : "pcs";
+                    return (
+                      <div className="flex items-center gap-2 mb-1 flex-wrap">
+                        <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded border ${
+                          minQty > 1 ? "text-[#CC0C39] bg-[#CC0C39]/8 border-[#CC0C39]/25" : "text-[#565959] bg-[#F3F4F4] border-[#D5D9D9]"
+                        }`}>
+                          <i className="fa-solid fa-down-left-and-up-right-to-center text-[8px]" />
+                          Min : {minQty} {unit}
+                        </span>
+                        <span className="inline-flex items-center gap-1 text-[10px] font-bold text-[#565959] bg-[#F3F4F4] border border-[#D5D9D9] px-2 py-0.5 rounded">
+                          <i className="fa-solid fa-up-right-and-down-left-from-center text-[8px]" />
+                          Max : {maxQty ? `${maxQty.toLocaleString()} ${unit}` : "illimité"}
+                        </span>
+                      </div>
+                    );
+                  })()}
                   <p className="text-[10px] text-[#565959] flex items-center gap-1.5">
                     <i className="fa-solid fa-calendar-check text-[#007600] text-[9px]" />
                     Livraison estimée : <b className="text-[#0F1111]">{formatEstimatedDate(selectedCity.delay)}</b>
