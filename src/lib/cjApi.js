@@ -663,7 +663,6 @@ export const mapCjToProduct = (p) => {
     sale_status,
     cj_category_path,
     video_thumbnail,
-    product_video:    videoUrl || null,
     cost_price_usd,
     is_discount_sell,
     is_customizable,
