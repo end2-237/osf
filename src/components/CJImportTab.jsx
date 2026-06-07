@@ -190,11 +190,15 @@ const CJImportTab = () => {
     }
   }, []);
 
+  // SKU pattern: starts with CJ or is all-caps alphanumeric ≥6 chars
+  const isSku = (q) => /^CJ[A-Z0-9]{4,}$/i.test(q.trim()) || /^[A-Z0-9\-]{6,}$/.test(q.trim());
+
   const fetchProducts = useCallback(async (p, q, catId) => {
     setLoading(true);
     setFetchError(null);
     try {
-      const data = await cjListProducts(p, PAGE_SIZE, q, catId);
+      const skuMode = q && isSku(q);
+      const data = await cjListProducts(p, PAGE_SIZE, skuMode ? "" : q, catId, skuMode ? q.trim() : "");
       setProducts(data?.list || []);
       setTotal(data?.total || 0);
       setPage(p);
@@ -217,8 +221,11 @@ const CJImportTab = () => {
 
   const handleSearch = async (e) => {
     e.preventDefault();
+    const raw = search.trim();
+    if (!raw) { fetchProducts(1, "", selCatId); return; }
+    if (isSku(raw)) { fetchProducts(1, raw, selCatId); return; }
     setTranslating(true);
-    const q = await translateToEnglish(search);
+    const q = await translateToEnglish(raw);
     setTranslating(false);
     fetchProducts(1, q, selCatId);
   };
@@ -550,7 +557,7 @@ const CJImportTab = () => {
               <div className="relative flex-1">
                 <i className="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-[#FF9900] text-sm"></i>
                 <input type="text" value={search} onChange={e => setSearch(e.target.value)}
-                  placeholder="Rechercher dans CJ… (FR ou EN)"
+                  placeholder="Nom (FR/EN) ou SKU (ex: CJJJCFCF01619)…"
                   className="w-full pl-10 pr-4 py-2.5 bg-white border border-[#D5D9D9] focus:border-[#FF9900] focus:outline-none rounded-xl text-sm placeholder-[#ADBAC7] transition-colors" />
               </div>
               <button type="submit" disabled={loading || translating}

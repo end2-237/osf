@@ -33,10 +33,11 @@ const cjFetch = async (path, params = {}, _attempt = 0) => {
 };
 
 // ─── Products ─────────────────────────────────────────────────────────────────
-export const cjListProducts = (pageNum = 1, pageSize = 200, search = "", categoryId = "") =>
+export const cjListProducts = (pageNum = 1, pageSize = 200, search = "", categoryId = "", sku = "") =>
   cjFetch("/product/list", {
     pageNum,
     pageSize,
+    ...(sku        ? { sku }                   : {}),
     ...(search     ? { productNameEn: search } : {}),
     ...(categoryId ? { categoryId }            : {}),
   });
