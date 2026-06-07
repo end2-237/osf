@@ -394,18 +394,32 @@ const ProductAdminCard = ({ p, onDelete }) => {
     if (!p.cj_product_id) { setSyncState("error"); return; }
     setSyncing(true); setSyncState("idle");
     try {
-      const { cjGetProductDetail, cjListProducts, cjListProductsV2, cjQueryVariantByVid, mapCjToProduct, resolveVideoUrl } = await import("../lib/cjApi");
+      const { cjGetProductDetail, cjGetProductVideos, cjListProducts, cjListProductsV2, cjQueryVariantByVid, mapCjToProduct, resolveVideoUrl } = await import("../lib/cjApi");
 
       let videoUrl = null;
       let thumbUrl = null;
       const cjId = p.cj_product_id;
 
-      // Step 1: detail endpoint
-      const detail = await cjGetProductDetail(cjId).catch(() => null);
-      if (detail) {
-        const fresh = mapCjToProduct(detail);
-        videoUrl = fresh.product_video || null;
-        thumbUrl = fresh.video_thumbnail || null;
+      // Step 1: dedicated video endpoint (POST /product/queryVideosByProductId)
+      try {
+        const videos = await cjGetProductVideos(cjId);
+        const freeVid = Array.isArray(videos)
+          ? videos.find(v => v.videoState === "ON_STATE" && (v.isFree === "1" || v.isBuy))
+          : null;
+        if (freeVid?.videoUrl) {
+          videoUrl = freeVid.videoUrl;
+          thumbUrl = freeVid.coverURL || null;
+        }
+      } catch {}
+
+      // Step 2: detail endpoint (productVideo field)
+      if (!videoUrl) {
+        const detail = await cjGetProductDetail(cjId).catch(() => null);
+        if (detail) {
+          const fresh = mapCjToProduct(detail);
+          videoUrl = fresh.product_video || null;
+          thumbUrl = fresh.video_thumbnail || thumbUrl;
+        }
       }
 
       // Step 2: listV2 endpoint (may return richer video data)

@@ -21,7 +21,6 @@ const cjFetch = async (path, params = {}, _attempt = 0) => {
 
   if (res.status === 429) {
     if (_attempt >= 4) throw new Error("HTTP 429 – rate limit");
-    // Exponential backoff: 2s, 4s, 8s, 16s
     await sleep(2000 * 2 ** _attempt);
     return cjFetch(path, params, _attempt + 1);
   }
@@ -29,6 +28,24 @@ const cjFetch = async (path, params = {}, _attempt = 0) => {
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   const json = await res.json();
   if (json.code !== 200 && !json.result) throw new Error(json.message || "CJ error");
+  return json.data;
+};
+
+const cjPost = async (path, body = {}) => {
+  const url = new URL(EDGE_URL);
+  url.searchParams.set("path", path);
+  url.searchParams.set("body", JSON.stringify(body));
+  const res = await fetch(url.toString(), {
+    headers: {
+      "apikey":        ANON_KEY,
+      "Authorization": `Bearer ${ANON_KEY}`,
+      "Content-Type":  "application/json",
+    },
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const json = await res.json();
+  // Video endpoint returns { success, code, data } not { code: 200, data }
+  if (json.success === false) throw new Error(json.message || "CJ error");
   return json.data;
 };
 
@@ -353,6 +370,10 @@ export const cjListProductsV2 = (pageNum = 1, pageSize = 20, search = "", catego
 
 export const cjQueryVariantByVid = (vid) =>
   cjFetch("/product/variant/queryByVid", { vid });
+
+// POST endpoint — returns array of video objects with videoUrl, coverURL, isFree
+export const cjGetProductVideos = (productId) =>
+  cjPost("/product/queryVideosByProductId", { productId });
 
 // ─── CJ product → Supabase product schema ────────────────────────────────────
 export const mapCjToProduct = (p) => {

@@ -18,7 +18,8 @@ serve(async (req: Request) => {
   try {
     const url   = new URL(req.url);
     const path  = url.searchParams.get("path");   // e.g. /product/list
-    const query = url.searchParams.get("params"); // JSON-encoded params object
+    const query = url.searchParams.get("params"); // JSON-encoded params for GET
+    const body  = url.searchParams.get("body");   // JSON-encoded body for POST
 
     if (!path) {
       return new Response(JSON.stringify({ error: "missing path" }), {
@@ -28,21 +29,36 @@ serve(async (req: Request) => {
     }
 
     const target = new URL(`${CJ_BASE}${path}`);
-    if (query) {
-      const params = JSON.parse(query);
-      Object.entries(params).forEach(([k, v]) => {
-        if (v !== "" && v !== null && v !== undefined) {
-          target.searchParams.set(k, String(v));
-        }
+
+    let cjRes: Response;
+
+    if (body) {
+      // POST request — body is JSON string, sent as-is
+      cjRes = await fetch(target.toString(), {
+        method: "POST",
+        headers: {
+          "CJ-Access-Token": CJ_TOKEN,
+          "Content-Type":    "application/json",
+        },
+        body,
+      });
+    } else {
+      // GET request — params go into query string
+      if (query) {
+        const params = JSON.parse(query);
+        Object.entries(params).forEach(([k, v]) => {
+          if (v !== "" && v !== null && v !== undefined) {
+            target.searchParams.set(k, String(v));
+          }
+        });
+      }
+      cjRes = await fetch(target.toString(), {
+        headers: {
+          "CJ-Access-Token": CJ_TOKEN,
+          "Content-Type":    "application/json",
+        },
       });
     }
-
-    const cjRes = await fetch(target.toString(), {
-      headers: {
-        "CJ-Access-Token": CJ_TOKEN,
-        "Content-Type":    "application/json",
-      },
-    });
 
     const data = await cjRes.json();
 
