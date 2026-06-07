@@ -6,7 +6,7 @@ import ReviewsSection from "../components/ReviewsSection";
 import SponsoredBanner from "../components/SponsoredBanner";
 import { useWishlist } from "../hooks/useWishlist";
 import { useAuth } from "../context/AuthContext";
-import { cjGetProductDetail, mapCjToProduct, isVideoUrl, toProxyStreamUrl, PRICE_MARGIN } from "../lib/cjApi";
+import { cjGetProductDetail, mapCjToProduct, isVideoUrl, PRICE_MARGIN } from "../lib/cjApi";
 import { useTranslate } from "../hooks/useTranslate";
 import { useLang } from "../context/LangContext";
 import { translateText, stripHtml } from "../lib/translate";
@@ -1131,11 +1131,10 @@ const ProductDetail = ({ addToCart, openModal }) => {
       : product?.img ? [product.img] : [];
 
     // Inject product_video at position 1.
-    // download-only-api URLs require CJ auth — rewrite to proxy stream URL.
+    // Skip download-only-api URLs — IP-restricted by CJ, inaccessible externally.
     const pv = product?.product_video;
-    if (pv) {
-      const videoSrc = pv.includes("download-only-api") ? toProxyStreamUrl(pv) : pv;
-      if (!imgs.includes(videoSrc)) imgs.splice(Math.min(1, imgs.length), 0, videoSrc);
+    if (pv && !pv.includes("download-only-api") && !imgs.includes(pv)) {
+      imgs.splice(Math.min(1, imgs.length), 0, pv);
     }
 
     const cMap = {};

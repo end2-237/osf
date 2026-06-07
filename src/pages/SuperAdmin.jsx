@@ -414,8 +414,8 @@ const ProductAdminCard = ({ p, onDelete }) => {
           } else {
             // Try server-side redirect follow with CJ auth token
             const cdnUrl = await resolveDownloadUrl(freeVid.videoUrl);
-            // Fall back to storing the download-only URL — frontend will proxy it
-            videoUrl = cdnUrl || freeVid.videoUrl;
+            if (cdnUrl) videoUrl = cdnUrl;
+            // download-only-api is IP-restricted (403) — cannot proxy, skip
           }
         }
       } catch {}
@@ -635,7 +635,8 @@ const AllProductsTab = ({ loading }) => {
               videoUrl = freeVid.videoUrl;
             } else {
               const cdnUrl = await resolveDownloadUrl(freeVid.videoUrl);
-              videoUrl = cdnUrl || freeVid.videoUrl; // store download-only as fallback
+              if (cdnUrl) videoUrl = cdnUrl;
+              // download-only-api is IP-restricted (403) — cannot proxy, skip
             }
           }
         } catch {}
