@@ -118,7 +118,7 @@ const Breadcrumb = ({ product }) => (
 );
 
 // ─── IMAGE GALLERY ─────────────────────────────────────────────────────────────
-const ImageGallery = ({ images, activeImg, setActiveImg, name, status }) => {
+const ImageGallery = ({ images, activeImg, setActiveImg, name, status, videoThumbnail }) => {
   const [zoomed, setZoomed]   = useState(false);
   const thumbContainerRef     = useRef(null);
 
@@ -148,8 +148,8 @@ const ImageGallery = ({ images, activeImg, setActiveImg, name, status }) => {
     >
       {isVideoUrl(img) ? (
         <div className="w-full h-full bg-[#131921] flex items-center justify-center relative overflow-hidden">
-          {product?.video_thumbnail && (
-            <img src={product.video_thumbnail} alt="" className="absolute inset-0 w-full h-full object-cover opacity-50" />
+          {videoThumbnail && (
+            <img src={videoThumbnail} alt="" className="absolute inset-0 w-full h-full object-cover opacity-50" />
           )}
           <div className="relative z-10 w-5 h-5 bg-[#FF9900] rounded-full flex items-center justify-center shadow">
             <i className="fa-solid fa-play text-[#0F1111] text-[8px] ml-px" />
@@ -171,7 +171,7 @@ const ImageGallery = ({ images, activeImg, setActiveImg, name, status }) => {
     >
       {isVideoUrl(images[activeImg]) ? (
         <video key={images[activeImg]} src={images[activeImg]}
-          poster={product?.video_thumbnail || undefined}
+          poster={videoThumbnail || undefined}
           className="w-full h-full object-contain" controls autoPlay muted loop playsInline />
       ) : (
         <img
@@ -1286,6 +1286,7 @@ const ProductDetail = ({ addToCart, openModal }) => {
                   setActiveImg={setGalleryIndex}
                   name={product.name}
                   status={product.status}
+                  videoThumbnail={product.video_thumbnail}
                 />
               </div>
             </div>
