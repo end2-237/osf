@@ -768,9 +768,19 @@ const ProductDetail = ({ addToCart, openModal }) => {
   }, [productId]);
 
   useEffect(() => {
-    if (product?.name) document.title = product.name;
-    return () => { document.title = "OFS"; };
-  }, [product?.name]);
+    if (product?.name) {
+      document.title = product.name;
+      window.__ofs_product = {
+        name: product.name,
+        img:  product.img || product.images?.[0] || '',
+        url:  window.location.href,
+      };
+    }
+    return () => {
+      document.title = "OFS";
+      delete window.__ofs_product;
+    };
+  }, [product?.name, product?.img]);
 
   useEffect(() => {
     if (product?.vendor_id) {

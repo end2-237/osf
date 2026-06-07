@@ -34,15 +34,22 @@ const WhatsAppButton = () => {
 
   const getMessage = () => {
     const path = location.pathname;
+    const pageUrl = window.location.href;
+
     if (path.startsWith('/product/')) {
-      const name = document.title !== 'OFS' ? document.title : '';
+      const prod = window.__ofs_product || {};
+      const name = prod.name || (document.title !== 'OFS' ? document.title : '');
       const tpl = settings.whatsapp_msg_product || 'Bonjour, je suis intéressé par "{product}" sur OFS';
-      return name ? tpl.replace('{product}', name) : (settings.whatsapp_msg_default || "Bonjour, j'ai une question sur OFS");
+      const text = name ? tpl.replace('{product}', name) : (settings.whatsapp_msg_default || "Bonjour, j'ai une question sur OFS");
+      // Include product URL so WhatsApp shows a link (and possibly a preview)
+      const lines = [text, pageUrl];
+      if (prod.img) lines.push(prod.img);
+      return lines.join('\n');
     }
     if (path.startsWith('/cart')) {
       return settings.whatsapp_msg_cart || "Bonjour, j'ai besoin d'aide pour finaliser ma commande sur OFS";
     }
-    return settings.whatsapp_msg_default || "Bonjour, j'ai une question sur OFS";
+    return `${settings.whatsapp_msg_default || "Bonjour, j'ai une question sur OFS"}\n${pageUrl}`;
   };
 
   const handleClick = () => {
