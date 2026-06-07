@@ -394,14 +394,37 @@ const ProductAdminCard = ({ p, onDelete }) => {
     if (!p.cj_product_id) { setSyncState("error"); return; }
     setSyncing(true); setSyncState("idle");
     try {
-      const { cjGetProductDetail, mapCjToProduct } = await import("../lib/cjApi");
-      const detail = await cjGetProductDetail(p.cj_product_id);
-      if (!detail) { setSyncState("error"); return; }
-      const fresh = mapCjToProduct(detail);
-      if (fresh.product_video) {
+      const { cjGetProductDetail, cjListProducts, mapCjToProduct, resolveVideoUrl } = await import("../lib/cjApi");
+
+      // Step 1: try detail endpoint
+      let videoUrl = null;
+      let thumbUrl = null;
+      const detail = await cjGetProductDetail(p.cj_product_id).catch(() => null);
+      if (detail) {
+        const fresh = mapCjToProduct(detail);
+        videoUrl = fresh.product_video || null;
+        thumbUrl = fresh.video_thumbnail || null;
+      }
+
+      // Step 2: if no video from detail, search list endpoint for this product to get videoList IDs
+      if (!videoUrl) {
+        const name = p.name || detail?.productNameEn || "";
+        if (name) {
+          const listData = await cjListProducts(1, 50, name, "").catch(() => null);
+          const match = (listData?.list || []).find(item =>
+            (item.id || item.pid || "").toLowerCase() === p.cj_product_id.toLowerCase() ||
+            (item.sku || "").toLowerCase() === (p.sku || "").toLowerCase()
+          );
+          if (match?.videoList?.length) {
+            videoUrl = await resolveVideoUrl(match.videoList);
+          }
+        }
+      }
+
+      if (videoUrl) {
         await supabase.from("products").update({
-          product_video:   fresh.product_video,
-          video_thumbnail: fresh.video_thumbnail || null,
+          product_video:   videoUrl,
+          video_thumbnail: thumbUrl || null,
           updated_at:      new Date().toISOString(),
         }).eq("id", p.id);
         setHasVideo(true);

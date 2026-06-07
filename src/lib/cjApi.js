@@ -278,7 +278,8 @@ export const isVideoUrl = (url = "") =>
   /\.(mp4|webm|ogg|mov)(\?.*)?$/i.test(url) ||
   /\/product[_-]?video\//i.test(url) ||
   /video\.cjdropshipping\.com\//i.test(url) ||
-  /cbu01\.alicdn\.com\/img\/ibank\/video\//i.test(url);
+  /cbu01\.alicdn\.com\/img\/ibank\/video\//i.test(url) ||
+  /aliecdn\.com\/video\//i.test(url);
 
 // Parse price strings — handles CJ list ranges like "0.05 -- 0.20" (returns higher end)
 const parsePrice = (raw) => {
@@ -321,6 +322,27 @@ const parseHtmlDescription = (html = "") => {
   return { safeHtml, extraImages };
 };
 
+// Build candidate video URLs from a 32-char hex video ID (CJ/Aliexpress CDN patterns)
+export const videoUrlsFromId = (id) => [
+  `https://aliecdn.com/video/${id}.mp4`,
+  `https://cbu01.alicdn.com/img/ibank/video/${id}.mp4`,
+  `https://ae01.alicdn.com/kf/video/${id}.mp4`,
+  `https://video.cjdropshipping.com/${id}.mp4`,
+];
+
+// Probe candidate URLs and return the first one that loads (HEAD request)
+export const resolveVideoUrl = async (ids = []) => {
+  for (const id of ids.filter(Boolean)) {
+    for (const url of videoUrlsFromId(id)) {
+      try {
+        const r = await fetch(url, { method: "HEAD", signal: AbortSignal.timeout(4000) });
+        if (r.ok) return url;
+      } catch {}
+    }
+  }
+  return null;
+};
+
 // ─── CJ product → Supabase product schema ────────────────────────────────────
 export const mapCjToProduct = (p) => {
   // ── Images ─────────────────────────────────────────────────────────────────
@@ -336,10 +358,11 @@ export const mapCjToProduct = (p) => {
   if (images.length === 0 && mainImg) images = [mainImg];
   // productVideo = full URL (detail endpoint); videoList = hex IDs (list endpoint)
   const videoUrl = (() => {
-    const direct = (p.productVideo || "").trim();
+    const direct = (p.productVideo || p.productVideoUrl || "").trim();
     if (direct) return direct;
     const ids = Array.isArray(p.videoList) ? p.videoList.filter(Boolean) : [];
-    if (ids.length > 0) return `https://cbu01.alicdn.com/img/ibank/video/${ids[0]}.mp4`;
+    // Use aliecdn.com as primary CDN for 32-char hex IDs
+    if (ids.length > 0) return `https://aliecdn.com/video/${ids[0]}.mp4`;
     return "";
   })();
   if (videoUrl && !images.includes(videoUrl)) images = [...images, videoUrl];
