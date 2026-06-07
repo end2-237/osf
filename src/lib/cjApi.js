@@ -296,7 +296,10 @@ export const isVideoUrl = (url = "") =>
   /\/product[_-]?video\//i.test(url) ||
   /video\.cjdropshipping\.com\//i.test(url) ||
   /cbu01\.alicdn\.com\/img\/ibank\/video\//i.test(url) ||
-  /aliecdn\.com\/video\//i.test(url);
+  /cbu01\.alicdn\.com\/.*\/video\//i.test(url) ||
+  /aliecdn\.com\/video\//i.test(url) ||
+  /alicdn\.com\/.*\.(mp4|webm|mov)/i.test(url) ||
+  /cjdropshipping\.com\/.*video/i.test(url);
 
 // Parse price strings — handles CJ list ranges like "0.05 -- 0.20" (returns higher end)
 const parsePrice = (raw) => {

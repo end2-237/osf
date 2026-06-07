@@ -153,12 +153,9 @@ const ImageGallery = ({ images, activeImg, setActiveImg, name, status, videoThum
     if (btns[activeImg]) btns[activeImg].scrollIntoView({ block: "nearest", behavior: "smooth" });
   }, [activeImg]);
 
-  // Programmatic play — more reliable than the autoPlay attribute alone
-  useEffect(() => {
-    const vid = videoRef.current;
-    if (!vid) return;
-    vid.play().catch(() => {});
-  }, [activeImg]);
+  const handleVideoCanPlay = (e) => {
+    e.target.play().catch(() => {});
+  };
 
   if (!images || images.length === 0)
     return (
@@ -185,7 +182,9 @@ const ImageGallery = ({ images, activeImg, setActiveImg, name, status, videoThum
           src={images[activeImg].replace(/^http:\/\//i, "https://")}
           poster={videoThumbnail || undefined}
           className="w-full h-full object-contain"
-          controls muted loop playsInline autoPlay
+          controls muted loop playsInline
+          onCanPlay={handleVideoCanPlay}
+          onError={(e) => console.error("[OFS video error]", e.target.src, e.target.error)}
         />
       ) : (
         <img
@@ -1160,7 +1159,7 @@ const ProductDetail = ({ addToCart, openModal }) => {
     });
 
     return { galleryImages: imgs, colorImageMap: cMap };
-  }, [product?.images, product?.img, product?.variants]);
+  }, [product?.images, product?.img, product?.variants, product?.product_video]);
 
   const ratingVal   = product?.rating_avg  || 4.2;
   const reviewCount = product?.review_count || 0;
