@@ -3,7 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../context/AuthContext";
 import CJImportTab from "../components/CJImportTab";
-import { WA_KEY, getWhatsAppSettings } from "../components/WhatsAppButton";
+import { fetchSiteSettings, saveSiteSettings } from "../components/WhatsAppButton";
 
 // ─── SUPER ADMIN EMAILS ───────────────────────────────────────────────────────
 const SUPER_ADMIN_EMAILS = ["emansoga@gmail.com", "nsogadavid01@gmail.com"];
@@ -1034,17 +1034,27 @@ const RepairImagesPanel = () => {
 
 // ─── TRANSITAIRE SETTINGS ─────────────────────────────────────────────────────
 // ─── WHATSAPP SETTINGS ────────────────────────────────────────────────────────
+const WA_KEYS = ['whatsapp_phone', 'whatsapp_msg_default', 'whatsapp_msg_product', 'whatsapp_msg_cart'];
+
 const WhatsAppSettingsPanel = () => {
-  const [form, setForm] = useState(() => getWhatsAppSettings() || {
-    phone: "",
-    message_default: "Bonjour, j'ai une question sur OFS",
-    message_product: "Bonjour, je suis intéressé par \"{product}\" sur OFS",
-    message_cart:    "Bonjour, j'ai besoin d'aide pour finaliser ma commande sur OFS",
+  const [form, setForm] = useState({
+    whatsapp_phone:       "",
+    whatsapp_msg_default: "Bonjour, j'ai une question sur OFS",
+    whatsapp_msg_product: 'Bonjour, je suis intéressé par "{product}" sur OFS',
+    whatsapp_msg_cart:    "Bonjour, j'ai besoin d'aide pour finaliser ma commande sur OFS",
   });
   const [saved, setSaved] = useState(false);
+  const [loading, setLoading] = useState(true);
 
-  const save = () => {
-    localStorage.setItem(WA_KEY, JSON.stringify(form));
+  useEffect(() => {
+    fetchSiteSettings(WA_KEYS).then(s => {
+      if (Object.keys(s).length > 0) setForm(f => ({ ...f, ...s }));
+      setLoading(false);
+    });
+  }, []);
+
+  const save = async () => {
+    await saveSiteSettings(form);
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
   };
@@ -1052,9 +1062,9 @@ const WhatsAppSettingsPanel = () => {
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
   const testWA = () => {
-    const phone = form.phone.replace(/\D/g, '');
+    const phone = form.whatsapp_phone.replace(/\D/g, '');
     if (!phone) return;
-    window.open(`https://wa.me/${phone}?text=${encodeURIComponent(form.message_default)}`, '_blank');
+    window.open(`https://wa.me/${phone}?text=${encodeURIComponent(form.whatsapp_msg_default)}`, '_blank');
   };
 
   return (
@@ -1071,10 +1081,11 @@ const WhatsAppSettingsPanel = () => {
             Numéro WhatsApp Business
           </label>
           <input
-            value={form.phone || ""}
-            onChange={e => set("phone", e.target.value)}
+            value={form.whatsapp_phone || ""}
+            onChange={e => set("whatsapp_phone", e.target.value)}
             placeholder="237XXXXXXXXX (avec indicatif, sans + ni espaces)"
-            className="w-full md:w-80 border border-[#D5D9D9] rounded-lg px-3 py-2 text-sm text-[#0F1111] focus:outline-none focus:border-[#25D366] focus:ring-1 focus:ring-[#25D366]/20"
+            disabled={loading}
+            className="w-full md:w-80 border border-[#D5D9D9] rounded-lg px-3 py-2 text-sm text-[#0F1111] focus:outline-none focus:border-[#25D366] focus:ring-1 focus:ring-[#25D366]/20 disabled:opacity-50"
           />
           <p className="text-[10px] text-[#565959] mt-1">Ex: <span className="font-mono">237690000000</span> pour +237 690 000 000</p>
         </div>
@@ -1082,16 +1093,17 @@ const WhatsAppSettingsPanel = () => {
         <div className="space-y-3">
           <p className="text-[10px] font-black uppercase tracking-wider text-[#565959]">Messages pré-remplis</p>
           {[
-            { key: "message_default", label: "Message par défaut (toutes les pages)" },
-            { key: "message_product", label: "Page produit — utilise {product} pour le nom" },
-            { key: "message_cart",    label: "Page panier / commande" },
+            { key: "whatsapp_msg_default", label: "Message par défaut (toutes les pages)" },
+            { key: "whatsapp_msg_product", label: "Page produit — utilise {product} pour le nom" },
+            { key: "whatsapp_msg_cart",    label: "Page panier / commande" },
           ].map(f => (
             <div key={f.key}>
               <label className="text-[10px] text-[#565959] mb-1 block">{f.label}</label>
               <input
                 value={form[f.key] || ""}
                 onChange={e => set(f.key, e.target.value)}
-                className="w-full border border-[#D5D9D9] rounded-lg px-3 py-2 text-sm text-[#0F1111] focus:outline-none focus:border-[#25D366] focus:ring-1 focus:ring-[#25D366]/20"
+                disabled={loading}
+                className="w-full border border-[#D5D9D9] rounded-lg px-3 py-2 text-sm text-[#0F1111] focus:outline-none focus:border-[#25D366] focus:ring-1 focus:ring-[#25D366]/20 disabled:opacity-50"
               />
             </div>
           ))}
@@ -1105,7 +1117,7 @@ const WhatsAppSettingsPanel = () => {
             <i className={`fa-solid ${saved ? "fa-check" : "fa-floppy-disk"} text-sm`}></i>
             {saved ? "Sauvegardé !" : "Sauvegarder"}
           </button>
-          {form.phone && (
+          {form.whatsapp_phone && (
             <button
               onClick={testWA}
               className="flex items-center gap-2 px-4 py-2.5 rounded-lg font-bold text-sm border border-[#25D366]/40 text-[#25D366] hover:bg-[#25D366]/5 transition-all"
