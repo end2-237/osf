@@ -9,6 +9,7 @@ import Navbar from './components/Navbar';
 import Footer from './components/Footer';
 import CartSidebar from './components/CartSidebar';
 import VisualSearchModal from './components/VisualSearchModal';
+import WhatsAppButton from './components/WhatsAppButton';
 
 // Pages
 import Home from './pages/Home';
@@ -193,6 +194,7 @@ function AppContent() {
             onClose={() => setIsVisualSearchOpen(false)}
             addToCart={addToCart}
           />
+          <WhatsAppButton />
         </>
       )}
     </div>

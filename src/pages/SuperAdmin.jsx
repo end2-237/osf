@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../context/AuthContext";
 import CJImportTab from "../components/CJImportTab";
+import { WA_KEY, getWhatsAppSettings } from "../components/WhatsAppButton";
 
 // ─── SUPER ADMIN EMAILS ───────────────────────────────────────────────────────
 const SUPER_ADMIN_EMAILS = ["emansoga@gmail.com", "nsogadavid01@gmail.com"];
@@ -1032,6 +1033,102 @@ const RepairImagesPanel = () => {
 };
 
 // ─── TRANSITAIRE SETTINGS ─────────────────────────────────────────────────────
+// ─── WHATSAPP SETTINGS ────────────────────────────────────────────────────────
+const WhatsAppSettingsPanel = () => {
+  const [form, setForm] = useState(() => getWhatsAppSettings() || {
+    phone: "",
+    message_default: "Bonjour, j'ai une question sur OFS",
+    message_product: "Bonjour, je suis intéressé par \"{product}\" sur OFS",
+    message_cart:    "Bonjour, j'ai besoin d'aide pour finaliser ma commande sur OFS",
+  });
+  const [saved, setSaved] = useState(false);
+
+  const save = () => {
+    localStorage.setItem(WA_KEY, JSON.stringify(form));
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
+  };
+
+  const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+
+  const testWA = () => {
+    const phone = form.phone.replace(/\D/g, '');
+    if (!phone) return;
+    window.open(`https://wa.me/${phone}?text=${encodeURIComponent(form.message_default)}`, '_blank');
+  };
+
+  return (
+    <div className="space-y-5">
+      <div className="bg-[#131921] rounded-xl px-5 py-4">
+        <p className="text-[9px] font-black uppercase tracking-widest text-[#25D366] mb-0.5">Support client</p>
+        <h2 className="text-white font-black text-lg leading-tight">Bouton WhatsApp</h2>
+        <p className="text-[10px] text-[#ADBAC7] mt-0.5">Bouton flottant sur le site — les clients cliquent et arrivent directement sur WhatsApp</p>
+      </div>
+
+      <div className="bg-white border border-[#D5D9D9] rounded-xl p-5 space-y-4">
+        <div>
+          <label className="text-[10px] font-black uppercase tracking-wider text-[#565959] mb-1.5 block">
+            Numéro WhatsApp Business
+          </label>
+          <input
+            value={form.phone || ""}
+            onChange={e => set("phone", e.target.value)}
+            placeholder="237XXXXXXXXX (avec indicatif, sans + ni espaces)"
+            className="w-full md:w-80 border border-[#D5D9D9] rounded-lg px-3 py-2 text-sm text-[#0F1111] focus:outline-none focus:border-[#25D366] focus:ring-1 focus:ring-[#25D366]/20"
+          />
+          <p className="text-[10px] text-[#565959] mt-1">Ex: <span className="font-mono">237690000000</span> pour +237 690 000 000</p>
+        </div>
+
+        <div className="space-y-3">
+          <p className="text-[10px] font-black uppercase tracking-wider text-[#565959]">Messages pré-remplis</p>
+          {[
+            { key: "message_default", label: "Message par défaut (toutes les pages)" },
+            { key: "message_product", label: "Page produit — utilise {product} pour le nom" },
+            { key: "message_cart",    label: "Page panier / commande" },
+          ].map(f => (
+            <div key={f.key}>
+              <label className="text-[10px] text-[#565959] mb-1 block">{f.label}</label>
+              <input
+                value={form[f.key] || ""}
+                onChange={e => set(f.key, e.target.value)}
+                className="w-full border border-[#D5D9D9] rounded-lg px-3 py-2 text-sm text-[#0F1111] focus:outline-none focus:border-[#25D366] focus:ring-1 focus:ring-[#25D366]/20"
+              />
+            </div>
+          ))}
+        </div>
+
+        <div className="flex items-center gap-3 pt-1">
+          <button
+            onClick={save}
+            className={`flex items-center gap-2 px-5 py-2.5 rounded-lg font-bold text-sm transition-all ${saved ? "bg-[#007600] text-white" : "bg-[#25D366] hover:bg-[#1ebe5d] text-white"}`}
+          >
+            <i className={`fa-solid ${saved ? "fa-check" : "fa-floppy-disk"} text-sm`}></i>
+            {saved ? "Sauvegardé !" : "Sauvegarder"}
+          </button>
+          {form.phone && (
+            <button
+              onClick={testWA}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-lg font-bold text-sm border border-[#25D366]/40 text-[#25D366] hover:bg-[#25D366]/5 transition-all"
+            >
+              <i className="fa-brands fa-whatsapp text-sm"></i>
+              Tester
+            </button>
+          )}
+        </div>
+      </div>
+
+      <div className="bg-[#E8F5E8] border border-[#25D366]/20 rounded-xl px-4 py-3 space-y-1">
+        <p className="text-[11px] font-black text-[#007600] uppercase tracking-wider">Comment ça marche</p>
+        <p className="text-[11px] text-[#565959] leading-relaxed">
+          Un bouton vert flottant apparaît sur toutes les pages du site. En cliquant, le client ouvre WhatsApp avec un message pré-rempli selon la page où il se trouve.
+          Si le numéro est vide, le bouton est masqué.
+        </p>
+      </div>
+    </div>
+  );
+};
+
+// ─── TRANSITAIRE SETTINGS ─────────────────────────────────────────────────────
 const TRANSITAIRE_KEY = "ofs_transitaire_v1";
 const getTransitaireSettings = () => {
   try { const s = localStorage.getItem(TRANSITAIRE_KEY); return s ? JSON.parse(s) : null; }
@@ -1746,7 +1843,10 @@ const SuperAdmin = () => {
         )}
 
         {activeTab === "settings" && (
-          <TransitaireSettingsPanel />
+          <div className="space-y-8">
+            <WhatsAppSettingsPanel />
+            <TransitaireSettingsPanel />
+          </div>
         )}
       </div>
     </div>
