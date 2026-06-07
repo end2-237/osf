@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../context/AuthContext";
-import { cjListProducts, cjGetProductDetail, cjGetProductBySku, cjGetCategories, mapCjToProduct, mapCjProductType, usdToFcfa } from "../lib/cjApi";
+import { cjListProducts, cjGetProductDetail, cjSearchBySku, cjGetCategories, mapCjToProduct, mapCjProductType, usdToFcfa } from "../lib/cjApi";
 
 const PAGE_SIZE = 100;
 
@@ -197,34 +197,14 @@ const CJImportTab = () => {
     setLoading(true);
     setFetchError(null);
     try {
-      // Try /product/query with sku param first, then with pid param
-      let detail = null;
-      try { detail = await cjGetProductBySku(sku.trim()); } catch {}
-      if (!detail) {
-        try { detail = await cjGetProductDetail(sku.trim()); } catch {}
-      }
-      if (detail) {
-        // Normalize to list-item shape so the grid renders it
-        const item = {
-          pid:         detail.pid || detail.productId || detail.cjProductId || sku,
-          productId:   detail.productId || detail.pid,
-          nameEn:      detail.productNameEn || detail.productName || detail.nameEn || "",
-          bigImage:    detail.productImage  || detail.bigImage    || "",
-          sellPrice:   detail.sellPrice     || detail.nowPrice    || "0",
-          nowPrice:    detail.nowPrice      || detail.sellPrice   || "0",
-          sku:         detail.sku           || sku,
-          isVideo:     detail.isVideo       || 0,
-          videoList:   detail.videoList     || [],
-          saleStatus:  detail.saleStatus    || "",
-          categoryId:  detail.categoryId    || "",
-          ...detail,
-        };
-        setProducts([item]);
+      const raw = await cjSearchBySku(sku.trim());
+      if (raw) {
+        setProducts([raw]);
         setTotal(1);
       } else {
         setProducts([]);
         setTotal(0);
-        setFetchError(`Aucun produit trouvé pour le SKU "${sku}"`);
+        setFetchError(`Aucun produit CJ trouvé pour le SKU "${sku}"`);
       }
       setPage(1);
       setPageInput("1");

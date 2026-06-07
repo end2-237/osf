@@ -44,8 +44,30 @@ export const cjListProducts = (pageNum = 1, pageSize = 200, search = "", categor
 export const cjGetProductDetail = (pid) =>
   cjFetch("/product/query", { pid });
 
-export const cjGetProductBySku = (sku) =>
-  cjFetch("/product/query", { sku });
+// Try multiple CJ parameter names — CJ v2 uses productSku in list endpoint
+export const cjSearchBySku = async (sku) => {
+  // Attempt 1: /product/list with productSku param
+  try {
+    const r1 = await cjFetch("/product/list", { pageNum: 1, pageSize: 20, productSku: sku });
+    const list1 = r1?.list || [];
+    const match1 = list1.find(p => (p.sku || "").toLowerCase() === sku.toLowerCase());
+    if (match1) return match1;
+    if (list1.length === 1) return list1[0]; // single result — likely the right one
+  } catch {}
+  // Attempt 2: /product/list with sku param (older API versions)
+  try {
+    const r2 = await cjFetch("/product/list", { pageNum: 1, pageSize: 20, sku });
+    const list2 = r2?.list || [];
+    const match2 = list2.find(p => (p.sku || "").toLowerCase() === sku.toLowerCase());
+    if (match2) return match2;
+  } catch {}
+  // Attempt 3: /product/query treating SKU as pid (works for some product-level SKUs)
+  try {
+    const r3 = await cjFetch("/product/query", { pid: sku });
+    if (r3 && (r3.pid || r3.productId)) return r3;
+  } catch {}
+  return null;
+};
 
 // ─── Categories ───────────────────────────────────────────────────────────────
 export const cjGetCategories = () =>
