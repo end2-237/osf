@@ -62,9 +62,8 @@ serve(async (req: Request) => {
 
     const data = await cjRes.json();
 
-    // Always 200 — let the client parse CJ's own error codes (code/message)
     return new Response(JSON.stringify(data), {
-      status: 200,
+      status: cjRes.status,
       headers: { ...cors, "Content-Type": "application/json" },
     });
   } catch (err: unknown) {
