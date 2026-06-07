@@ -309,7 +309,6 @@ export const toProxyStreamUrl = (downloadUrl) => {
   const url = new URL(EDGE_URL);
   url.searchParams.set("path", "/stream-video");
   url.searchParams.set("params", JSON.stringify({ url: downloadUrl }));
-  url.searchParams.set("apikey", ANON_KEY);
   return url.toString();
 };
 
