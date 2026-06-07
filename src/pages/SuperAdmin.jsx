@@ -400,29 +400,27 @@ const ProductAdminCard = ({ p, onDelete }) => {
       let thumbUrl = null;
       const cjId = p.cj_product_id;
 
-      // Step 1: dedicated video endpoint (POST /product/queryVideosByProductId)
+      // Step 1: queryVideosByProductId — coverURL only (videoUrl is a download-only protected
+      // URL that browsers cannot play; it requires CJ auth token)
       try {
         const videos = await cjGetProductVideos(cjId);
         const freeVid = Array.isArray(videos)
           ? videos.find(v => v.videoState === "ON_STATE" && (v.isFree === "1" || v.isBuy))
           : null;
-        if (freeVid?.videoUrl) {
-          videoUrl = freeVid.videoUrl;
-          thumbUrl = freeVid.coverURL || null;
-        }
+        if (freeVid?.coverURL) thumbUrl = freeVid.coverURL;
       } catch {}
 
-      // Step 2: detail endpoint (productVideo field)
-      if (!videoUrl) {
-        const detail = await cjGetProductDetail(cjId).catch(() => null);
-        if (detail) {
-          const fresh = mapCjToProduct(detail);
-          videoUrl = fresh.product_video || null;
+      // Step 2: detail endpoint — productVideo is a public CDN URL (embeddable)
+      const detail = await cjGetProductDetail(cjId).catch(() => null);
+      if (detail) {
+        const fresh = mapCjToProduct(detail);
+        if (fresh.product_video && !fresh.product_video.includes("download-only-api")) {
+          videoUrl = fresh.product_video;
           thumbUrl = fresh.video_thumbnail || thumbUrl;
         }
       }
 
-      // Step 2: listV2 endpoint (may return richer video data)
+      // Step 3: listV2 endpoint
       if (!videoUrl) {
         const name = p.name || detail?.productNameEn || "";
         if (name) {
@@ -433,13 +431,15 @@ const ProductAdminCard = ({ p, onDelete }) => {
           );
           if (matchV2) {
             const freshV2 = mapCjToProduct(matchV2);
-            videoUrl = freshV2.product_video || null;
-            thumbUrl = freshV2.video_thumbnail || thumbUrl;
+            if (freshV2.product_video && !freshV2.product_video.includes("download-only-api")) {
+              videoUrl = freshV2.product_video;
+              thumbUrl = freshV2.video_thumbnail || thumbUrl;
+            }
           }
         }
       }
 
-      // Step 3: list v1 — extract videoList IDs, probe CDN URLs
+      // Step 4: list v1 — probe videoList hex IDs against known public CDN patterns
       if (!videoUrl) {
         const name = p.name || detail?.productNameEn || "";
         if (name) {
@@ -454,13 +454,13 @@ const ProductAdminCard = ({ p, onDelete }) => {
         }
       }
 
-      // Step 4: try variant/queryByVid with each video ID (in case vid = video ID)
+      // Step 5: variant/queryByVid
       if (!videoUrl && detail?.videoList?.length) {
         for (const vid of detail.videoList.slice(0, 2)) {
           const vdata = await cjQueryVariantByVid(vid).catch(() => null);
           if (vdata?.productVideo || vdata?.videoUrl) {
-            videoUrl = vdata.productVideo || vdata.videoUrl;
-            break;
+            const candidate = vdata.productVideo || vdata.videoUrl;
+            if (!candidate.includes("download-only-api")) { videoUrl = candidate; break; }
           }
         }
       }
@@ -589,7 +589,7 @@ const AllProductsTab = ({ loading }) => {
       .from("products")
       .select("id, name, cj_product_id, sku")
       .is("vendor_id", null)
-      .is("product_video", null)
+      .or("product_video.is.null,product_video.ilike.%download-only-api%")
       .not("cj_product_id", "is", null);
 
     if (!toSync?.length) {
@@ -598,7 +598,7 @@ const AllProductsTab = ({ loading }) => {
     }
 
     setVideoSync({ running: true, done: 0, total: toSync.length, updated: 0, stopped: false });
-    const { cjGetProductVideos } = await import("../lib/cjApi");
+    const { cjGetProductDetail, cjListProducts, mapCjToProduct, resolveVideoUrl } = await import("../lib/cjApi");
     let updated = 0;
 
     for (let i = 0; i < toSync.length; i++) {
@@ -608,23 +608,40 @@ const AllProductsTab = ({ loading }) => {
       }
       const p = toSync[i];
       try {
-        const videos = await cjGetProductVideos(p.cj_product_id);
-        const vid = Array.isArray(videos)
-          ? videos.find(v => v.videoState === "ON_STATE" && (v.isFree === "1" || v.isBuy))
-          : null;
-        if (vid?.videoUrl) {
+        let videoUrl = null;
+        let thumbUrl = null;
+
+        // Try detail endpoint first — productVideo is a public embeddable CDN URL
+        const detail = await cjGetProductDetail(p.cj_product_id).catch(() => null);
+        if (detail) {
+          const fresh = mapCjToProduct(detail);
+          if (fresh.product_video && !fresh.product_video.includes("download-only-api")) {
+            videoUrl = fresh.product_video;
+            thumbUrl = fresh.video_thumbnail || null;
+          }
+        }
+
+        // Fallback: list endpoint + probe videoList hex IDs against public CDN URLs
+        if (!videoUrl) {
+          const listData = await cjListProducts(1, 20, p.name || "", "").catch(() => null);
+          const match = (listData?.list || []).find(item =>
+            (item.id || item.pid || "").toLowerCase() === p.cj_product_id.toLowerCase() ||
+            (item.sku || "").toLowerCase() === (p.sku || "").toLowerCase()
+          );
+          if (match?.videoList?.length) videoUrl = await resolveVideoUrl(match.videoList);
+        }
+
+        if (videoUrl) {
           await supabase.from("products").update({
-            product_video:   vid.videoUrl,
-            video_thumbnail: vid.coverURL || null,
+            product_video:   videoUrl,
+            video_thumbnail: thumbUrl || null,
             updated_at:      new Date().toISOString(),
           }).eq("id", p.id);
           updated++;
-          // Update the displayed card if it's in the current grid
-          setProducts(prev => prev.map(x => x.id === p.id ? { ...x, product_video: vid.videoUrl } : x));
+          setProducts(prev => prev.map(x => x.id === p.id ? { ...x, product_video: videoUrl } : x));
         }
       } catch {}
       setVideoSync(s => ({ ...s, done: i + 1, updated }));
-      // Pause 800ms between requests to avoid rate limiting
       if (i < toSync.length - 1) await new Promise(r => setTimeout(r, 800));
     }
     setVideoSync(s => ({ ...s, running: false }));

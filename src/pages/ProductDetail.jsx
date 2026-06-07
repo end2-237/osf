@@ -806,7 +806,8 @@ const ProductDetail = ({ addToCart, openModal }) => {
     // Only skip refresh if we already have full data: images + real colors (not just "Default")
     const hasRealColors  = product.colors?.some(c => c && c !== "Default");
     const hasFullData    = product.images?.length > 1 && hasRealColors;
-    const needsVideo     = !!product.cj_product_id && !product.product_video;
+    const badVideoUrl    = (product.product_video || "").includes("download-only-api");
+    const needsVideo     = !!product.cj_product_id && (!product.product_video || badVideoUrl);
     if (hasFullData && !needsVideo) {
       const updatedAt = product.updated_at ? new Date(product.updated_at) : new Date(0);
       if (Date.now() - updatedAt.getTime() < 6 * 60 * 60 * 1000) return;
@@ -1130,9 +1131,9 @@ const ProductDetail = ({ addToCart, openModal }) => {
       ? [...product.images]
       : product?.img ? [product.img] : [];
 
-    // Inject product_video at position 1 (after first image) if not already present
+    // Inject product_video at position 1 — skip protected download-only URLs (not embeddable)
     const pv = product?.product_video;
-    if (pv && !imgs.includes(pv)) {
+    if (pv && !pv.includes("download-only-api") && !imgs.includes(pv)) {
       const insertAt = Math.min(1, imgs.length);
       imgs.splice(insertAt, 0, pv);
     }
