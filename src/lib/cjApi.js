@@ -299,7 +299,19 @@ export const isVideoUrl = (url = "") =>
   /cbu01\.alicdn\.com\/.*\/video\//i.test(url) ||
   /aliecdn\.com\/video\//i.test(url) ||
   /alicdn\.com\/.*\.(mp4|webm|mov)/i.test(url) ||
-  /cjdropshipping\.com\/.*video/i.test(url);
+  /cjdropshipping\.com\/.*video/i.test(url) ||
+  /path.*stream-video/i.test(url);  // proxy stream URLs
+
+// Rewrite a CJ download-only URL to a proxy stream URL the browser can play.
+// apikey as query param authenticates the Edge Function without needing request headers.
+export const toProxyStreamUrl = (downloadUrl) => {
+  if (!downloadUrl) return downloadUrl;
+  const url = new URL(EDGE_URL);
+  url.searchParams.set("path", "/stream-video");
+  url.searchParams.set("params", JSON.stringify({ url: downloadUrl }));
+  url.searchParams.set("apikey", ANON_KEY);
+  return url.toString();
+};
 
 // Parse price strings — handles CJ list ranges like "0.05 -- 0.20" (returns higher end)
 const parsePrice = (raw) => {

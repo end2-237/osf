@@ -28,6 +28,34 @@ serve(async (req: Request) => {
       });
     }
 
+    // ── /stream-video: proxy CJ authenticated video with Range support ──────────
+    // CJ videos at download-only-api require CJ-Access-Token. We forward the
+    // request server-side so the browser can play via a plain src= URL.
+    if (path === "/stream-video") {
+      const params = query ? JSON.parse(query) : {};
+      const videoUrl: string = params.url || "";
+      if (!videoUrl || !videoUrl.includes("cjdropshipping.com")) {
+        return new Response("invalid url", { status: 400, headers: cors });
+      }
+      const fetchHeaders: Record<string, string> = { "CJ-Access-Token": CJ_TOKEN };
+      // Forward Range header so video seeking works in the browser
+      const rangeHeader = req.headers.get("Range");
+      if (rangeHeader) fetchHeaders["Range"] = rangeHeader;
+
+      const r = await fetch(videoUrl, { headers: fetchHeaders });
+
+      const resHeaders = new Headers(cors);
+      resHeaders.set("Content-Type", r.headers.get("Content-Type") || "video/mp4");
+      const cl = r.headers.get("Content-Length");
+      if (cl) resHeaders.set("Content-Length", cl);
+      const cr = r.headers.get("Content-Range");
+      if (cr) resHeaders.set("Content-Range", cr);
+      resHeaders.set("Accept-Ranges", "bytes");
+      resHeaders.set("Cache-Control", "public, max-age=86400");
+
+      return new Response(r.body, { status: r.status, headers: resHeaders });
+    }
+
     // ── /probe: server-side URL probe — HEAD-tests a list of candidate URLs ────
     // Runs server-side so there are no browser CORS restrictions.
     if (path === "/probe") {

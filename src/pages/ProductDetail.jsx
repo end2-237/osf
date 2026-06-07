@@ -6,7 +6,7 @@ import ReviewsSection from "../components/ReviewsSection";
 import SponsoredBanner from "../components/SponsoredBanner";
 import { useWishlist } from "../hooks/useWishlist";
 import { useAuth } from "../context/AuthContext";
-import { cjGetProductDetail, mapCjToProduct, isVideoUrl, PRICE_MARGIN } from "../lib/cjApi";
+import { cjGetProductDetail, mapCjToProduct, isVideoUrl, toProxyStreamUrl, PRICE_MARGIN } from "../lib/cjApi";
 import { useTranslate } from "../hooks/useTranslate";
 import { useLang } from "../context/LangContext";
 import { translateText, stripHtml } from "../lib/translate";
@@ -806,8 +806,7 @@ const ProductDetail = ({ addToCart, openModal }) => {
     // Only skip refresh if we already have full data: images + real colors (not just "Default")
     const hasRealColors  = product.colors?.some(c => c && c !== "Default");
     const hasFullData    = product.images?.length > 1 && hasRealColors;
-    const badVideoUrl    = (product.product_video || "").includes("download-only-api");
-    const needsVideo     = !!product.cj_product_id && (!product.product_video || badVideoUrl);
+    const needsVideo     = !!product.cj_product_id && !product.product_video;
     if (hasFullData && !needsVideo) {
       const updatedAt = product.updated_at ? new Date(product.updated_at) : new Date(0);
       if (Date.now() - updatedAt.getTime() < 6 * 60 * 60 * 1000) return;
@@ -1131,11 +1130,12 @@ const ProductDetail = ({ addToCart, openModal }) => {
       ? [...product.images]
       : product?.img ? [product.img] : [];
 
-    // Inject product_video at position 1 — skip protected download-only URLs (not embeddable)
+    // Inject product_video at position 1.
+    // download-only-api URLs require CJ auth — rewrite to proxy stream URL.
     const pv = product?.product_video;
-    if (pv && !pv.includes("download-only-api") && !imgs.includes(pv)) {
-      const insertAt = Math.min(1, imgs.length);
-      imgs.splice(insertAt, 0, pv);
+    if (pv) {
+      const videoSrc = pv.includes("download-only-api") ? toProxyStreamUrl(pv) : pv;
+      if (!imgs.includes(videoSrc)) imgs.splice(Math.min(1, imgs.length), 0, videoSrc);
     }
 
     const cMap = {};
