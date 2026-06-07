@@ -28,6 +28,39 @@ serve(async (req: Request) => {
       });
     }
 
+    // ── /debug-video: diagnose what CJ returns for a video URL ──────────────────
+    if (path === "/debug-video") {
+      const params = query ? JSON.parse(query) : {};
+      const videoUrl: string = params.url || "";
+      if (!videoUrl) {
+        return new Response(JSON.stringify({ error: "missing url" }), {
+          status: 400, headers: { ...cors, "Content-Type": "application/json" },
+        });
+      }
+      const results: Record<string, unknown>[] = [];
+      for (const [label, hdrs] of [
+        ["no-auth",         {}],
+        ["CJ-Access-Token", { "CJ-Access-Token": CJ_TOKEN }],
+        ["Bearer",          { "Authorization": `Bearer ${CJ_TOKEN}` }],
+      ] as [string, Record<string, string>][]) {
+        try {
+          const r = await fetch(videoUrl, {
+            method: "HEAD", headers: hdrs,
+            signal: AbortSignal.timeout(6000),
+          });
+          results.push({
+            auth: label, status: r.status, ok: r.ok,
+            contentType: r.headers.get("Content-Type"),
+            contentLength: r.headers.get("Content-Length"),
+            finalUrl: r.url,
+          });
+        } catch (e) { results.push({ auth: label, error: String(e) }); }
+      }
+      return new Response(JSON.stringify(results, null, 2), {
+        status: 200, headers: { ...cors, "Content-Type": "application/json" },
+      });
+    }
+
     // ── /stream-video: proxy CJ authenticated video with Range support ──────────
     // CJ videos at download-only-api require CJ-Access-Token. We forward the
     // request server-side so the browser can play via a plain src= URL.
