@@ -118,16 +118,46 @@ const Breadcrumb = ({ product }) => (
 );
 
 // ─── IMAGE GALLERY ─────────────────────────────────────────────────────────────
+const GalleryThumb = ({ img, i, activeImg, setActiveImg, videoThumbnail, size = "w-[56px] h-[56px]" }) => (
+  <button
+    onMouseEnter={() => setActiveImg(i)}
+    onClick={() => setActiveImg(i)}
+    className={`${size} rounded overflow-hidden border-2 flex-shrink-0 transition-all ${
+      activeImg === i ? "border-[#FF9900]" : "border-[#D5D9D9] hover:border-[#FF9900]"
+    }`}
+  >
+    {isVideoUrl(img) ? (
+      <div className="w-full h-full bg-[#131921] flex items-center justify-center relative overflow-hidden">
+        {videoThumbnail && (
+          <img src={videoThumbnail} alt="" className="absolute inset-0 w-full h-full object-cover opacity-50" />
+        )}
+        <div className="relative z-10 w-5 h-5 bg-[#FF9900] rounded-full flex items-center justify-center shadow">
+          <i className="fa-solid fa-play text-[#0F1111] text-[8px] ml-px" />
+        </div>
+      </div>
+    ) : (
+      <img src={img} alt="" className="w-full h-full object-cover" />
+    )}
+  </button>
+);
+
 const ImageGallery = ({ images, activeImg, setActiveImg, name, status, videoThumbnail }) => {
   const [zoomed, setZoomed]   = useState(false);
   const thumbContainerRef     = useRef(null);
+  const videoRef              = useRef(null);
 
-  // Auto-scroll thumbnail strip to keep active thumb visible
   useEffect(() => {
     const el = thumbContainerRef.current;
     if (!el) return;
     const btns = el.querySelectorAll("button");
     if (btns[activeImg]) btns[activeImg].scrollIntoView({ block: "nearest", behavior: "smooth" });
+  }, [activeImg]);
+
+  // Programmatic play — more reliable than the autoPlay attribute alone
+  useEffect(() => {
+    const vid = videoRef.current;
+    if (!vid) return;
+    vid.play().catch(() => {});
   }, [activeImg]);
 
   if (!images || images.length === 0)
@@ -137,42 +167,26 @@ const ImageGallery = ({ images, activeImg, setActiveImg, name, status, videoThum
       </div>
     );
 
-  const Thumb = ({ img, i, size = "w-[56px] h-[56px]" }) => (
-    <button
-      key={i}
-      onMouseEnter={() => setActiveImg(i)}
-      onClick={() => setActiveImg(i)}
-      className={`${size} rounded overflow-hidden border-2 flex-shrink-0 transition-all ${
-        activeImg === i ? "border-[#FF9900]" : "border-[#D5D9D9] hover:border-[#FF9900]"
-      }`}
-    >
-      {isVideoUrl(img) ? (
-        <div className="w-full h-full bg-[#131921] flex items-center justify-center relative overflow-hidden">
-          {videoThumbnail && (
-            <img src={videoThumbnail} alt="" className="absolute inset-0 w-full h-full object-cover opacity-50" />
-          )}
-          <div className="relative z-10 w-5 h-5 bg-[#FF9900] rounded-full flex items-center justify-center shadow">
-            <i className="fa-solid fa-play text-[#0F1111] text-[8px] ml-px" />
-          </div>
-        </div>
-      ) : (
-        <img src={img} alt="" className="w-full h-full object-cover" />
-      )}
-    </button>
-  );
+  const currentIsVideo = isVideoUrl(images[activeImg]);
 
-  const MainImage = () => (
+  // Inline main-image JSX — avoids unmount/remount from nested component pattern
+  const mainImageJsx = (
     <div
       className={`relative w-full bg-white border border-[#D5D9D9] rounded overflow-hidden group ${
-        isVideoUrl(images[activeImg]) ? "cursor-default" : zoomed ? "cursor-zoom-out" : "cursor-zoom-in"
+        currentIsVideo ? "cursor-default" : zoomed ? "cursor-zoom-out" : "cursor-zoom-in"
       }`}
       style={{ aspectRatio: "1/1" }}
-      onClick={() => { if (!isVideoUrl(images[activeImg])) setZoomed(z => !z); }}
+      onClick={() => { if (!currentIsVideo) setZoomed(z => !z); }}
     >
-      {isVideoUrl(images[activeImg]) ? (
-        <video key={images[activeImg]} src={images[activeImg]}
+      {currentIsVideo ? (
+        <video
+          ref={videoRef}
+          key={images[activeImg]}
+          src={images[activeImg].replace(/^http:\/\//i, "https://")}
           poster={videoThumbnail || undefined}
-          className="w-full h-full object-contain" controls autoPlay muted loop playsInline />
+          className="w-full h-full object-contain"
+          controls muted loop playsInline autoPlay
+        />
       ) : (
         <img
           src={images[activeImg]}
@@ -185,9 +199,7 @@ const ImageGallery = ({ images, activeImg, setActiveImg, name, status, videoThum
       {status && (
         <div className="absolute top-2 left-2 z-10">
           <span className={`text-[9px] font-bold px-2 py-0.5 rounded-sm uppercase ${
-            status === "Nouveau"
-              ? "bg-[#007600] text-white"
-              : "bg-[#CC0C39] text-white"
+            status === "Nouveau" ? "bg-[#007600] text-white" : "bg-[#CC0C39] text-white"
           }`}>
             {status}
           </span>
@@ -196,7 +208,7 @@ const ImageGallery = ({ images, activeImg, setActiveImg, name, status, videoThum
       <div className="absolute top-2 right-2 z-10 opacity-60 hover:opacity-100 transition-opacity">
         <OFSSeal size={44} />
       </div>
-      {!isVideoUrl(images[activeImg]) && !zoomed && (
+      {!currentIsVideo && !zoomed && (
         <div className="absolute bottom-2 left-1/2 -translate-x-1/2 bg-black/60 text-white text-[9px] px-2.5 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
           <i className="fa-solid fa-magnifying-glass-plus mr-1" />
           Survolez pour zoomer
@@ -215,7 +227,7 @@ const ImageGallery = ({ images, activeImg, setActiveImg, name, status, videoThum
       {/* Desktop: relative wrapper — thumbs absolute left, main image padded right */}
       <div className="hidden sm:block relative">
         <div className={images.length > 1 ? "pl-[68px]" : ""}>
-          <MainImage />
+          {mainImageJsx}
         </div>
         {images.length > 1 && (
           <div
@@ -223,17 +235,21 @@ const ImageGallery = ({ images, activeImg, setActiveImg, name, status, videoThum
             className="absolute top-0 left-0 w-[56px] overflow-y-auto hide-scrollbar flex flex-col gap-2"
             style={{ height: "100%" }}
           >
-            {images.map((img, i) => <Thumb key={i} img={img} i={i} />)}
+            {images.map((img, i) => (
+              <GalleryThumb key={i} img={img} i={i} activeImg={activeImg} setActiveImg={setActiveImg} videoThumbnail={videoThumbnail} />
+            ))}
           </div>
         )}
       </div>
 
       {/* Mobile: main image + horizontal thumbs below */}
       <div className="sm:hidden">
-        <MainImage />
+        {mainImageJsx}
         {images.length > 1 && (
           <div className="flex gap-2 overflow-x-auto hide-scrollbar mt-2 pb-1">
-            {images.map((img, i) => <Thumb key={i} img={img} i={i} size="w-14 h-14" />)}
+            {images.map((img, i) => (
+              <GalleryThumb key={i} img={img} i={i} activeImg={activeImg} setActiveImg={setActiveImg} videoThumbnail={videoThumbnail} size="w-14 h-14" />
+            ))}
           </div>
         )}
       </div>
