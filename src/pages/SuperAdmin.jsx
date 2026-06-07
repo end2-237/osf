@@ -394,29 +394,59 @@ const ProductAdminCard = ({ p, onDelete }) => {
     if (!p.cj_product_id) { setSyncState("error"); return; }
     setSyncing(true); setSyncState("idle");
     try {
-      const { cjGetProductDetail, cjListProducts, mapCjToProduct, resolveVideoUrl } = await import("../lib/cjApi");
+      const { cjGetProductDetail, cjListProducts, cjListProductsV2, cjQueryVariantByVid, mapCjToProduct, resolveVideoUrl } = await import("../lib/cjApi");
 
-      // Step 1: try detail endpoint
       let videoUrl = null;
       let thumbUrl = null;
-      const detail = await cjGetProductDetail(p.cj_product_id).catch(() => null);
+      const cjId = p.cj_product_id;
+
+      // Step 1: detail endpoint
+      const detail = await cjGetProductDetail(cjId).catch(() => null);
       if (detail) {
         const fresh = mapCjToProduct(detail);
         videoUrl = fresh.product_video || null;
         thumbUrl = fresh.video_thumbnail || null;
       }
 
-      // Step 2: if no video from detail, search list endpoint for this product to get videoList IDs
+      // Step 2: listV2 endpoint (may return richer video data)
+      if (!videoUrl) {
+        const name = p.name || detail?.productNameEn || "";
+        if (name) {
+          const v2 = await cjListProductsV2(1, 50, name, "").catch(() => null);
+          const matchV2 = (v2?.list || v2?.data?.list || []).find(item =>
+            (item.id || item.pid || "").toLowerCase() === cjId.toLowerCase() ||
+            (item.sku || "").toLowerCase() === (p.sku || "").toLowerCase()
+          );
+          if (matchV2) {
+            const freshV2 = mapCjToProduct(matchV2);
+            videoUrl = freshV2.product_video || null;
+            thumbUrl = freshV2.video_thumbnail || thumbUrl;
+          }
+        }
+      }
+
+      // Step 3: list v1 — extract videoList IDs, probe CDN URLs
       if (!videoUrl) {
         const name = p.name || detail?.productNameEn || "";
         if (name) {
           const listData = await cjListProducts(1, 50, name, "").catch(() => null);
           const match = (listData?.list || []).find(item =>
-            (item.id || item.pid || "").toLowerCase() === p.cj_product_id.toLowerCase() ||
+            (item.id || item.pid || "").toLowerCase() === cjId.toLowerCase() ||
             (item.sku || "").toLowerCase() === (p.sku || "").toLowerCase()
           );
           if (match?.videoList?.length) {
             videoUrl = await resolveVideoUrl(match.videoList);
+          }
+        }
+      }
+
+      // Step 4: try variant/queryByVid with each video ID (in case vid = video ID)
+      if (!videoUrl && detail?.videoList?.length) {
+        for (const vid of detail.videoList.slice(0, 2)) {
+          const vdata = await cjQueryVariantByVid(vid).catch(() => null);
+          if (vdata?.productVideo || vdata?.videoUrl) {
+            videoUrl = vdata.productVideo || vdata.videoUrl;
+            break;
           }
         }
       }

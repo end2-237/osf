@@ -325,6 +325,7 @@ const parseHtmlDescription = (html = "") => {
 // Build candidate video URLs from a 32-char hex video ID (CJ/Aliexpress CDN patterns)
 export const videoUrlsFromId = (id) => [
   `https://aliecdn.com/video/${id}.mp4`,
+  `https://ae01.alicdn.com/kf/H${id}.mp4`,       // H-prefix format used by Aliexpress
   `https://cbu01.alicdn.com/img/ibank/video/${id}.mp4`,
   `https://ae01.alicdn.com/kf/video/${id}.mp4`,
   `https://video.cjdropshipping.com/${id}.mp4`,
@@ -342,6 +343,16 @@ export const resolveVideoUrl = async (ids = []) => {
   }
   return null;
 };
+
+export const cjListProductsV2 = (pageNum = 1, pageSize = 20, search = "", categoryId = "") =>
+  cjFetch("/product/listV2", {
+    pageNum, pageSize,
+    ...(search     ? { productNameEn: search } : {}),
+    ...(categoryId ? { categoryId }            : {}),
+  });
+
+export const cjQueryVariantByVid = (vid) =>
+  cjFetch("/product/variant/queryByVid", { vid });
 
 // ─── CJ product → Supabase product schema ────────────────────────────────────
 export const mapCjToProduct = (p) => {
