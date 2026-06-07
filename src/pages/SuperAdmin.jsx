@@ -514,23 +514,25 @@ const ProductAdminCard = ({ p, onDelete }) => {
         <div className="flex items-center justify-between gap-1">
           <p className="text-sm font-black text-[#B12704]">{Number(p.price).toLocaleString()} F</p>
           <div className="flex items-center gap-1">
-            {/* SYNC VIDEO — shown for all CJ products without video */}
-            {isCj && !hasVideo && (
+            {/* SYNC VIDEO — all CJ products */}
+            {isCj && (
               <button onClick={syncVideo} disabled={syncing || !p.cj_product_id} title={
-                !p.cj_product_id ? "ID CJ manquant — réimporter ce produit"
-                : syncing        ? "Sync en cours…"
+                !p.cj_product_id      ? "ID CJ manquant — réimporter ce produit"
+                : syncing             ? "Sync en cours…"
                 : syncState === "error"       ? "Erreur — réessayer"
                 : syncState === "unavailable" ? "CJ n'a pas de vidéo pour ce produit"
+                : hasVideo            ? "Re-sync vidéo depuis CJ"
                 : "Synchroniser la vidéo depuis CJ"
               }
                 className={`flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold border transition-all ${
-                  !p.cj_product_id   ? "border-[#D5D9D9] text-[#adb5bd] cursor-not-allowed"
-                  : syncState === "error" ? "border-[#B12704]/40 text-[#B12704] hover:bg-[#FEE7E5]"
+                  !p.cj_product_id          ? "border-[#D5D9D9] text-[#adb5bd] cursor-not-allowed"
+                  : syncState === "error"       ? "border-[#B12704]/40 text-[#B12704] hover:bg-[#FEE7E5]"
                   : syncState === "unavailable" ? "border-[#565959]/30 text-[#565959]"
+                  : hasVideo                ? "border-[#FF9900]/40 text-[#FF9900] hover:bg-[#FFF8D3]"
                   : "border-[#007185]/40 text-[#007185] hover:bg-[#E6F3F5]"
                 }`}>
-                <i className={`fa-solid ${syncing ? "fa-spinner animate-spin" : syncState === "error" ? "fa-rotate-right" : "fa-film"} text-[8px]`}></i>
-                <span>{syncing ? "…" : syncState === "error" ? "Retry" : "Vidéo"}</span>
+                <i className={`fa-solid ${syncing ? "fa-spinner animate-spin" : syncState === "error" || hasVideo ? "fa-rotate-right" : "fa-film"} text-[8px]`}></i>
+                <span>{syncing ? "…" : syncState === "error" ? "Retry" : hasVideo ? "Re-sync" : "Vidéo"}</span>
               </button>
             )}
             <button onClick={() => onDelete(p.id)} className="w-6 h-6 rounded border border-[#B12704]/30 bg-[#FEE7E5] text-[#B12704] flex items-center justify-center hover:bg-[#B12704] hover:text-white transition-all">
