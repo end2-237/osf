@@ -345,22 +345,46 @@ const parseHtmlDescription = (html = "") => {
 // Build candidate video URLs from a 32-char hex video ID (CJ/Aliexpress CDN patterns)
 export const videoUrlsFromId = (id) => [
   `https://aliecdn.com/video/${id}.mp4`,
-  `https://ae01.alicdn.com/kf/H${id}.mp4`,       // H-prefix format used by Aliexpress
+  `https://ae01.alicdn.com/kf/H${id}.mp4`,
   `https://cbu01.alicdn.com/img/ibank/video/${id}.mp4`,
   `https://ae01.alicdn.com/kf/video/${id}.mp4`,
   `https://video.cjdropshipping.com/${id}.mp4`,
 ];
 
-// Probe candidate URLs and return the first one that loads (HEAD request)
+// Server-side URL probe via cj-proxy (no CORS restrictions)
 export const resolveVideoUrl = async (ids = []) => {
-  for (const id of ids.filter(Boolean)) {
-    for (const url of videoUrlsFromId(id)) {
-      try {
-        const r = await fetch(url, { method: "HEAD", signal: AbortSignal.timeout(4000) });
-        if (r.ok) return url;
-      } catch {}
-    }
+  const candidates = ids.filter(Boolean).flatMap(id => videoUrlsFromId(id));
+  if (candidates.length === 0) return null;
+  try {
+    const url = new URL(EDGE_URL);
+    url.searchParams.set("path", "/probe");
+    url.searchParams.set("params", JSON.stringify({ urls: candidates }));
+    const res = await fetch(url.toString(), {
+      headers: { "apikey": ANON_KEY, "Authorization": `Bearer ${ANON_KEY}` },
+    });
+    const json = await res.json();
+    return json.url || null;
+  } catch {
+    return null;
   }
+};
+
+// Resolve CJ download-only URL to public CDN URL via server-side redirect follow
+export const resolveDownloadUrl = async (downloadUrl) => {
+  if (!downloadUrl) return null;
+  try {
+    const url = new URL(EDGE_URL);
+    url.searchParams.set("path", "/resolve-video");
+    url.searchParams.set("params", JSON.stringify({ url: downloadUrl }));
+    const res = await fetch(url.toString(), {
+      headers: { "apikey": ANON_KEY, "Authorization": `Bearer ${ANON_KEY}` },
+    });
+    const json = await res.json();
+    // Only use if the final URL is different (redirect happened) and not protected
+    if (json.url && json.ok && !json.url.includes("download-only-api")) {
+      return json.url;
+    }
+  } catch {}
   return null;
 };
 
@@ -394,9 +418,9 @@ export const mapCjToProduct = (p) => {
   // productVideo = full URL (detail endpoint); videoList = hex IDs (list endpoint)
   const videoUrl = (() => {
     const direct = (p.productVideo || p.productVideoUrl || "").trim();
-    if (direct) return direct;
+    // Skip download-only protected URLs — they require CJ auth and can't be embedded
+    if (direct && !direct.includes("download-only-api")) return direct;
     const ids = Array.isArray(p.videoList) ? p.videoList.filter(Boolean) : [];
-    // Use aliecdn.com as primary CDN for 32-char hex IDs
     if (ids.length > 0) return `https://aliecdn.com/video/${ids[0]}.mp4`;
     return "";
   })();

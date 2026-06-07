@@ -17,9 +17,9 @@ serve(async (req: Request) => {
 
   try {
     const url   = new URL(req.url);
-    const path  = url.searchParams.get("path");   // e.g. /product/list
-    const query = url.searchParams.get("params"); // JSON-encoded params for GET
-    const body  = url.searchParams.get("body");   // JSON-encoded body for POST
+    const path  = url.searchParams.get("path");
+    const query = url.searchParams.get("params");
+    const body  = url.searchParams.get("body");
 
     if (!path) {
       return new Response(JSON.stringify({ error: "missing path" }), {
@@ -28,6 +28,63 @@ serve(async (req: Request) => {
       });
     }
 
+    // ── /probe: server-side URL probe — HEAD-tests a list of candidate URLs ────
+    // Runs server-side so there are no browser CORS restrictions.
+    if (path === "/probe") {
+      const params = query ? JSON.parse(query) : {};
+      const urls: string[] = Array.isArray(params.urls) ? params.urls : [];
+      for (const testUrl of urls) {
+        try {
+          const r = await fetch(testUrl, {
+            method: "HEAD",
+            signal: AbortSignal.timeout(5000),
+          });
+          if (r.ok) {
+            return new Response(JSON.stringify({ url: testUrl }), {
+              status: 200,
+              headers: { ...cors, "Content-Type": "application/json" },
+            });
+          }
+        } catch { /* try next */ }
+      }
+      return new Response(JSON.stringify({ url: null }), {
+        status: 200,
+        headers: { ...cors, "Content-Type": "application/json" },
+      });
+    }
+
+    // ── /resolve-video: follow CJ download-only URL with auth ─────────────────
+    // CJ's queryVideosByProductId returns protected URLs. A server-side HEAD
+    // request with the CJ token may redirect to the actual public CDN URL.
+    if (path === "/resolve-video") {
+      const params = query ? JSON.parse(query) : {};
+      const videoUrl: string = params.url || "";
+      if (!videoUrl) {
+        return new Response(JSON.stringify({ url: null }), {
+          status: 200,
+          headers: { ...cors, "Content-Type": "application/json" },
+        });
+      }
+      try {
+        const r = await fetch(videoUrl, {
+          method: "HEAD",
+          headers: { "CJ-Access-Token": CJ_TOKEN },
+          signal: AbortSignal.timeout(8000),
+          // redirect: "follow" is the default — Deno follows Location headers
+        });
+        return new Response(
+          JSON.stringify({ url: r.url, ok: r.ok, status: r.status }),
+          { status: 200, headers: { ...cors, "Content-Type": "application/json" } }
+        );
+      } catch {
+        return new Response(JSON.stringify({ url: null }), {
+          status: 200,
+          headers: { ...cors, "Content-Type": "application/json" },
+        });
+      }
+    }
+
+    // ── Forward to CJ API ─────────────────────────────────────────────────────
     const target = new URL(`${CJ_BASE}${path}`);
 
     let cjRes: Response;

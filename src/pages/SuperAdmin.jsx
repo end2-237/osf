@@ -394,20 +394,29 @@ const ProductAdminCard = ({ p, onDelete }) => {
     if (!p.cj_product_id) { setSyncState("error"); return; }
     setSyncing(true); setSyncState("idle");
     try {
-      const { cjGetProductDetail, cjGetProductVideos, cjListProducts, cjListProductsV2, cjQueryVariantByVid, mapCjToProduct, resolveVideoUrl } = await import("../lib/cjApi");
+      const { cjGetProductDetail, cjGetProductVideos, cjListProducts, cjListProductsV2, cjQueryVariantByVid, mapCjToProduct, resolveVideoUrl, resolveDownloadUrl } = await import("../lib/cjApi");
 
       let videoUrl = null;
       let thumbUrl = null;
       const cjId = p.cj_product_id;
 
-      // Step 1: queryVideosByProductId — coverURL only (videoUrl is a download-only protected
-      // URL that browsers cannot play; it requires CJ auth token)
+      // Step 1: queryVideosByProductId — ask proxy to follow redirect with CJ auth,
+      // which may reveal the actual public CDN URL; also grab coverURL as thumbnail
       try {
         const videos = await cjGetProductVideos(cjId);
         const freeVid = Array.isArray(videos)
           ? videos.find(v => v.videoState === "ON_STATE" && (v.isFree === "1" || v.isBuy))
-          : null;
+          : (Array.isArray(videos) ? videos[0] : null);
         if (freeVid?.coverURL) thumbUrl = freeVid.coverURL;
+        if (freeVid?.videoUrl) {
+          if (!freeVid.videoUrl.includes("download-only-api")) {
+            videoUrl = freeVid.videoUrl; // Direct public URL
+          } else {
+            // Try server-side redirect follow with CJ auth token
+            const cdnUrl = await resolveDownloadUrl(freeVid.videoUrl);
+            if (cdnUrl) videoUrl = cdnUrl;
+          }
+        }
       } catch {}
 
       // Step 2: detail endpoint — productVideo is a public CDN URL (embeddable)
@@ -600,7 +609,7 @@ const AllProductsTab = ({ loading }) => {
     }
 
     setVideoSync({ running: true, done: 0, total: toSync.length, updated: 0, stopped: false });
-    const { cjGetProductDetail, cjListProducts, mapCjToProduct, resolveVideoUrl } = await import("../lib/cjApi");
+    const { cjGetProductDetail, cjGetProductVideos, cjListProducts, mapCjToProduct, resolveVideoUrl, resolveDownloadUrl } = await import("../lib/cjApi");
     let updated = 0;
 
     for (let i = 0; i < toSync.length; i++) {
@@ -613,17 +622,36 @@ const AllProductsTab = ({ loading }) => {
         let videoUrl = null;
         let thumbUrl = null;
 
-        // Try detail endpoint first — productVideo is a public embeddable CDN URL
-        const detail = await cjGetProductDetail(p.cj_product_id).catch(() => null);
-        if (detail) {
-          const fresh = mapCjToProduct(detail);
-          if (fresh.product_video && !fresh.product_video.includes("download-only-api")) {
-            videoUrl = fresh.product_video;
-            thumbUrl = fresh.video_thumbnail || null;
+        // Step A: queryVideosByProductId — resolve download URL to CDN URL via proxy
+        try {
+          const videos = await cjGetProductVideos(p.cj_product_id);
+          const freeVid = Array.isArray(videos)
+            ? (videos.find(v => v.videoState === "ON_STATE" && (v.isFree === "1" || v.isBuy)) || videos[0])
+            : null;
+          if (freeVid?.coverURL) thumbUrl = freeVid.coverURL;
+          if (freeVid?.videoUrl) {
+            if (!freeVid.videoUrl.includes("download-only-api")) {
+              videoUrl = freeVid.videoUrl;
+            } else {
+              const cdnUrl = await resolveDownloadUrl(freeVid.videoUrl);
+              if (cdnUrl) videoUrl = cdnUrl;
+            }
+          }
+        } catch {}
+
+        // Step B: detail endpoint — productVideo may be a public CDN URL
+        if (!videoUrl) {
+          const detail = await cjGetProductDetail(p.cj_product_id).catch(() => null);
+          if (detail) {
+            const fresh = mapCjToProduct(detail);
+            if (fresh.product_video && !fresh.product_video.includes("download-only-api")) {
+              videoUrl = fresh.product_video;
+              thumbUrl = fresh.video_thumbnail || thumbUrl;
+            }
           }
         }
 
-        // Fallback: list endpoint + probe videoList hex IDs against public CDN URLs
+        // Step C: list endpoint + server-side probe of videoList hex IDs
         if (!videoUrl) {
           const listData = await cjListProducts(1, 20, p.name || "", "").catch(() => null);
           const match = (listData?.list || []).find(item =>
