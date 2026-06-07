@@ -190,30 +190,49 @@ const CJImportTab = () => {
     }
   }, []);
 
-  // SKU pattern: starts with CJ or is all-caps alphanumeric ≥6 chars (no spaces)
-  const isSku = (q) => /^CJ[A-Z0-9]{4,}$/i.test(q.trim()) || /^[A-Z0-9\-]{6,}$/.test(q.trim());
+  const isUuid = (q) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(q.trim());
+  const isSku  = (q) => !isUuid(q) && /^CJ[A-Z0-9]{4,}$/i.test(q.trim());
 
-  const fetchBySku = useCallback(async (sku) => {
-    setLoading(true);
-    setFetchError(null);
+  // UUID → fetch from CJ directly (works 100%)
+  const fetchByUuid = useCallback(async (uuid) => {
+    setLoading(true); setFetchError(null);
     try {
-      const raw = await cjSearchBySku(sku.trim());
-      if (raw) {
-        setProducts([raw]);
-        setTotal(1);
+      const detail = await cjGetProductDetail(uuid.trim());
+      if (detail) { setProducts([detail]); setTotal(1); }
+      else { setProducts([]); setTotal(0); setFetchError(`Aucun produit CJ pour l'ID "${uuid}"`); }
+      setPage(1); setPageInput("1"); setOfsTypeFilter("Tous");
+    } catch (err) { setFetchError(err.message); }
+    finally { setLoading(false); }
+  }, []);
+
+  // SKU → search our own Supabase database
+  const fetchBySku = useCallback(async (sku) => {
+    setLoading(true); setFetchError(null);
+    try {
+      const { data } = await supabase.from("products").select("*").ilike("sku", sku.trim()).limit(20);
+      if (data && data.length > 0) {
+        // Convert DB rows to CJ list shape so the grid renders them
+        const mapped = data.map(p => ({
+          pid:       p.cj_product_id || p.id,
+          id:        p.cj_product_id || p.id,
+          nameEn:    p.name,
+          bigImage:  p.img,
+          sellPrice: String(p.price || 0),
+          nowPrice:  String(p.price || 0),
+          sku:       p.sku,
+          isVideo:   p.product_video ? 1 : 0,
+          videoList: p.product_video ? [p.product_video] : [],
+          saleStatus: p.status || "",
+          _fromDb:   true, // flag so we know it's already imported
+        }));
+        setProducts(mapped); setTotal(mapped.length);
       } else {
-        setProducts([]);
-        setTotal(0);
-        setFetchError(`Aucun produit CJ trouvé pour le SKU "${sku}"`);
+        setProducts([]); setTotal(0);
+        setFetchError(`SKU "${sku}" non trouvé. Utilise l'UUID CJ pour importer un nouveau produit.`);
       }
-      setPage(1);
-      setPageInput("1");
-      setOfsTypeFilter("Tous");
-    } catch (err) {
-      setFetchError(err.message);
-    } finally {
-      setLoading(false);
-    }
+      setPage(1); setPageInput("1"); setOfsTypeFilter("Tous");
+    } catch (err) { setFetchError(err.message); }
+    finally { setLoading(false); }
   }, []);
 
   const fetchProducts = useCallback(async (p, q, catId) => {
@@ -245,7 +264,8 @@ const CJImportTab = () => {
     e.preventDefault();
     const raw = search.trim();
     if (!raw) { fetchProducts(1, "", selCatId); return; }
-    if (isSku(raw)) { fetchBySku(raw); return; }
+    if (isUuid(raw)) { fetchByUuid(raw); return; }
+    if (isSku(raw))  { fetchBySku(raw);  return; }
     setTranslating(true);
     const q = await translateToEnglish(raw);
     setTranslating(false);
@@ -579,7 +599,7 @@ const CJImportTab = () => {
               <div className="relative flex-1">
                 <i className="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-[#FF9900] text-sm"></i>
                 <input type="text" value={search} onChange={e => setSearch(e.target.value)}
-                  placeholder="Nom (FR/EN) ou SKU (ex: CJJJCFCF01619)…"
+                  placeholder="Nom (FR/EN), SKU ou UUID CJ…"
                   className="w-full pl-10 pr-4 py-2.5 bg-white border border-[#D5D9D9] focus:border-[#FF9900] focus:outline-none rounded-xl text-sm placeholder-[#ADBAC7] transition-colors" />
               </div>
               <button type="submit" disabled={loading || translating}
