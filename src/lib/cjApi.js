@@ -33,17 +33,19 @@ const cjFetch = async (path, params = {}, _attempt = 0) => {
 };
 
 // ─── Products ─────────────────────────────────────────────────────────────────
-export const cjListProducts = (pageNum = 1, pageSize = 200, search = "", categoryId = "", sku = "") =>
+export const cjListProducts = (pageNum = 1, pageSize = 200, search = "", categoryId = "") =>
   cjFetch("/product/list", {
     pageNum,
     pageSize,
-    ...(sku        ? { sku }                   : {}),
     ...(search     ? { productNameEn: search } : {}),
     ...(categoryId ? { categoryId }            : {}),
   });
 
 export const cjGetProductDetail = (pid) =>
   cjFetch("/product/query", { pid });
+
+export const cjGetProductBySku = (sku) =>
+  cjFetch("/product/query", { sku });
 
 // ─── Categories ───────────────────────────────────────────────────────────────
 export const cjGetCategories = () =>

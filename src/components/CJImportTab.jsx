@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../context/AuthContext";
-import { cjListProducts, cjGetProductDetail, cjGetCategories, mapCjToProduct, mapCjProductType, usdToFcfa } from "../lib/cjApi";
+import { cjListProducts, cjGetProductDetail, cjGetProductBySku, cjGetCategories, mapCjToProduct, mapCjProductType, usdToFcfa } from "../lib/cjApi";
 
 const PAGE_SIZE = 100;
 
@@ -190,15 +190,57 @@ const CJImportTab = () => {
     }
   }, []);
 
-  // SKU pattern: starts with CJ or is all-caps alphanumeric ≥6 chars
+  // SKU pattern: starts with CJ or is all-caps alphanumeric ≥6 chars (no spaces)
   const isSku = (q) => /^CJ[A-Z0-9]{4,}$/i.test(q.trim()) || /^[A-Z0-9\-]{6,}$/.test(q.trim());
+
+  const fetchBySku = useCallback(async (sku) => {
+    setLoading(true);
+    setFetchError(null);
+    try {
+      // Try /product/query with sku param first, then with pid param
+      let detail = null;
+      try { detail = await cjGetProductBySku(sku.trim()); } catch {}
+      if (!detail) {
+        try { detail = await cjGetProductDetail(sku.trim()); } catch {}
+      }
+      if (detail) {
+        // Normalize to list-item shape so the grid renders it
+        const item = {
+          pid:         detail.pid || detail.productId || detail.cjProductId || sku,
+          productId:   detail.productId || detail.pid,
+          nameEn:      detail.productNameEn || detail.productName || detail.nameEn || "",
+          bigImage:    detail.productImage  || detail.bigImage    || "",
+          sellPrice:   detail.sellPrice     || detail.nowPrice    || "0",
+          nowPrice:    detail.nowPrice      || detail.sellPrice   || "0",
+          sku:         detail.sku           || sku,
+          isVideo:     detail.isVideo       || 0,
+          videoList:   detail.videoList     || [],
+          saleStatus:  detail.saleStatus    || "",
+          categoryId:  detail.categoryId    || "",
+          ...detail,
+        };
+        setProducts([item]);
+        setTotal(1);
+      } else {
+        setProducts([]);
+        setTotal(0);
+        setFetchError(`Aucun produit trouvé pour le SKU "${sku}"`);
+      }
+      setPage(1);
+      setPageInput("1");
+      setOfsTypeFilter("Tous");
+    } catch (err) {
+      setFetchError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   const fetchProducts = useCallback(async (p, q, catId) => {
     setLoading(true);
     setFetchError(null);
     try {
-      const skuMode = q && isSku(q);
-      const data = await cjListProducts(p, PAGE_SIZE, skuMode ? "" : q, catId, skuMode ? q.trim() : "");
+      const data = await cjListProducts(p, PAGE_SIZE, q, catId);
       setProducts(data?.list || []);
       setTotal(data?.total || 0);
       setPage(p);
@@ -223,7 +265,7 @@ const CJImportTab = () => {
     e.preventDefault();
     const raw = search.trim();
     if (!raw) { fetchProducts(1, "", selCatId); return; }
-    if (isSku(raw)) { fetchProducts(1, raw, selCatId); return; }
+    if (isSku(raw)) { fetchBySku(raw); return; }
     setTranslating(true);
     const q = await translateToEnglish(raw);
     setTranslating(false);
