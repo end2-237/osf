@@ -1659,6 +1659,141 @@ const CJFulfillmentTab = () => {
   );
 };
 
+// ─── REVIEWS MODERATION ───────────────────────────────────────────────────────
+const ReviewsModerationTab = () => {
+  const [reviews, setReviews] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [filter,  setFilter]  = useState("pending"); // pending | approved | all
+  const [acting,  setActing]  = useState({});
+
+  const load = async () => {
+    setLoading(true);
+    let q = supabase.from("reviews").select("*, product:products(name, img)").order("created_at", { ascending: false });
+    if (filter === "pending")  q = q.eq("approved", false);
+    if (filter === "approved") q = q.eq("approved", true);
+    const { data } = await q;
+    setReviews(data || []);
+    setLoading(false);
+  };
+
+  useEffect(() => { load(); }, [filter]);
+
+  const approve = async (id) => {
+    setActing(a => ({ ...a, [id]: "approving" }));
+    await supabase.from("reviews").update({ approved: true }).eq("id", id);
+    setActing(a => ({ ...a, [id]: null }));
+    load();
+  };
+
+  const reject = async (id) => {
+    setActing(a => ({ ...a, [id]: "rejecting" }));
+    await supabase.from("reviews").delete().eq("id", id);
+    setActing(a => ({ ...a, [id]: null }));
+    load();
+  };
+
+  const Stars = ({ v }) => (
+    <div className="flex gap-0.5">
+      {[1,2,3,4,5].map(i => <i key={i} className={`fa-solid fa-star text-[10px] ${i <= v ? "text-[#FF9900]" : "text-[#D5D9D9]"}`} />)}
+    </div>
+  );
+
+  return (
+    <div className="space-y-5">
+      <div className="bg-[#131921] rounded-xl px-5 py-4">
+        <p className="text-[9px] font-black uppercase tracking-widest text-[#FF9900] mb-0.5">Contenu</p>
+        <h2 className="text-white font-black text-lg leading-tight">Modération des avis</h2>
+        <p className="text-[10px] text-[#ADBAC7] mt-0.5">Approuver ou supprimer les avis clients avant publication</p>
+      </div>
+
+      {/* Filter tabs */}
+      <div className="flex gap-2">
+        {[
+          { key: "pending",  label: "En attente" },
+          { key: "approved", label: "Approuvés"  },
+          { key: "all",      label: "Tous"        },
+        ].map(opt => (
+          <button key={opt.key} onClick={() => setFilter(opt.key)}
+            className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-wider border transition-all ${
+              filter === opt.key
+                ? "bg-[#131921] text-[#FF9900] border-[#131921]"
+                : "bg-white text-[#565959] border-[#D5D9D9] hover:border-[#565959]"
+            }`}>
+            {opt.label}
+          </button>
+        ))}
+      </div>
+
+      {loading ? (
+        <div className="space-y-3">{[1,2,3].map(i => <div key={i} className="animate-pulse h-24 bg-white rounded-xl" />)}</div>
+      ) : reviews.length === 0 ? (
+        <div className="bg-white border border-dashed border-[#D5D9D9] rounded-xl p-10 text-center">
+          <i className="fa-regular fa-star text-3xl text-[#D5D9D9] mb-3 block" />
+          <p className="text-[#565959] font-bold text-sm">Aucun avis {filter === "pending" ? "en attente" : ""}</p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {reviews.map(rev => (
+            <div key={rev.id} className="bg-white border border-[#D5D9D9] rounded-xl p-4">
+              <div className="flex items-start gap-4">
+                {/* Product thumb */}
+                {rev.product?.img && (
+                  <img src={rev.product.img} alt="" className="w-12 h-12 rounded-lg object-cover border border-[#D5D9D9] flex-shrink-0" />
+                )}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-start justify-between gap-2 flex-wrap">
+                    <div>
+                      <p className="text-[10px] font-black text-[#0F1111]">{rev.user_name}</p>
+                      <p className="text-[9px] text-[#565959] truncate max-w-[200px]">{rev.product?.name}</p>
+                      <Stars v={rev.rating} />
+                    </div>
+                    <p className="text-[8px] text-[#767676]">{new Date(rev.created_at).toLocaleDateString("fr-FR")}</p>
+                  </div>
+                  {rev.text && <p className="text-[11px] text-[#0F1111] mt-2 leading-relaxed line-clamp-3">{rev.text}</p>}
+                  {(rev.images || []).length > 0 && (
+                    <div className="flex gap-1.5 mt-2">
+                      {(rev.images || []).map((url, i) => (
+                        <img key={i} src={url} alt="" className="w-10 h-10 rounded object-cover border border-[#D5D9D9]" />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+              {/* Actions */}
+              {filter !== "approved" && (
+                <div className="flex gap-2 mt-3 pt-3 border-t border-[#EAEDED]">
+                  <button onClick={() => approve(rev.id)} disabled={!!acting[rev.id]}
+                    className="flex items-center gap-1.5 px-4 py-2 bg-[#E8F5E8] hover:bg-[#007600]/10 border border-[#007600]/20 text-[#007600] font-black text-[9px] uppercase rounded-lg transition-all disabled:opacity-50">
+                    {acting[rev.id] === "approving"
+                      ? <i className="fa-solid fa-circle-notch animate-spin text-[9px]" />
+                      : <i className="fa-solid fa-check text-[9px]" />}
+                    Approuver
+                  </button>
+                  <button onClick={() => reject(rev.id)} disabled={!!acting[rev.id]}
+                    className="flex items-center gap-1.5 px-4 py-2 bg-[#FEE7E5] hover:bg-[#B12704]/10 border border-[#B12704]/20 text-[#B12704] font-black text-[9px] uppercase rounded-lg transition-all disabled:opacity-50">
+                    {acting[rev.id] === "rejecting"
+                      ? <i className="fa-solid fa-circle-notch animate-spin text-[9px]" />
+                      : <i className="fa-solid fa-trash text-[9px]" />}
+                    Supprimer
+                  </button>
+                </div>
+              )}
+              {filter === "approved" && (
+                <div className="flex justify-end mt-3 pt-3 border-t border-[#EAEDED]">
+                  <button onClick={() => reject(rev.id)} disabled={!!acting[rev.id]}
+                    className="flex items-center gap-1.5 px-4 py-2 bg-[#FEE7E5] hover:bg-[#B12704]/10 border border-[#B12704]/20 text-[#B12704] font-black text-[9px] uppercase rounded-lg transition-all disabled:opacity-50">
+                    <i className="fa-solid fa-trash text-[9px]" /> Supprimer
+                  </button>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
 // ─── SUPER ADMIN PAGE ─────────────────────────────────────────────────────────
 const SuperAdmin = () => {
   const { user } = useAuth();
@@ -1721,11 +1856,16 @@ const SuperAdmin = () => {
         const pendingCount  = os.filter(o => o.status === "pending").length;
         const cjPending     = os.filter(o => o.status === "paid" && (o.cj_order_status === "not_sent" || !o.cj_order_status)).length;
 
+        const { count: pendingReviews } = await supabase
+          .from("reviews").select("id", { count: "exact", head: true })
+          .eq("approved", false);
+
         setGlobalStats({
           revenue:          totalRevenue,
           orders:           os.length,
           pending:          pendingCount,
           cjPending,
+          pendingReviews:   pendingReviews || 0,
           products:         ps.length,
           vendorProducts:   vendorProds,
           platformProducts: platformProds,
@@ -1754,6 +1894,7 @@ const SuperAdmin = () => {
     { key: "fulfillment",  icon: "fa-truck-fast",     label: "Fulfillment CJ", badge: globalStats.cjPending  || 0 },
     { key: "products",     icon: "fa-boxes-stacked",  label: "Produits"        },
     { key: "cj",           icon: "fa-circle-nodes",   label: "CJ Import"       },
+    { key: "reviews",      icon: "fa-star",            label: "Avis",           badge: globalStats.pendingReviews || 0 },
     { key: "settings",     icon: "fa-gear",            label: "Paramètres"      },
   ];
 
@@ -1852,6 +1993,10 @@ const SuperAdmin = () => {
             <RepairImagesPanel />
             <CJImportTab />
           </div>
+        )}
+
+        {activeTab === "reviews" && (
+          <ReviewsModerationTab />
         )}
 
         {activeTab === "settings" && (

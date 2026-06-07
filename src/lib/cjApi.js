@@ -805,3 +805,10 @@ export const mapCjToProduct = (p) => {
     product_language,
   };
 };
+
+// ─── PRODUCT REVIEWS (CJ) ─────────────────────────────────────────────────────
+export const cjGetProductComments = async (pid, { score, pageNum = 1, pageSize = 50 } = {}) => {
+  const params = { pid, pageNum, pageSize };
+  if (score) params.score = score;
+  return cjFetch("/product/productComments", params);
+};

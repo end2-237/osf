@@ -2090,7 +2090,7 @@ const ProductDetail = ({ addToCart, openModal }) => {
                 <span className="text-sm text-[#565959]">({reviewCount})</span>
               </div>
               <div className="px-4 sm:px-6 py-4 sm:py-5">
-                <ReviewsSection productId={product.id} />
+                <ReviewsSection productId={product.id} cjProductId={product.cj_product_id} />
               </div>
             </div>
 
