@@ -35,9 +35,9 @@ const WhatsAppButton = () => {
   const getMessage = () => {
     const path = location.pathname;
     if (path.startsWith('/product/')) {
-      const name = document.title.replace(/\s*[-|].*$/, '').trim();
+      const name = document.title !== 'OFS' ? document.title : '';
       const tpl = settings.whatsapp_msg_product || 'Bonjour, je suis intéressé par "{product}" sur OFS';
-      return tpl.replace('{product}', name);
+      return name ? tpl.replace('{product}', name) : (settings.whatsapp_msg_default || "Bonjour, j'ai une question sur OFS");
     }
     if (path.startsWith('/cart')) {
       return settings.whatsapp_msg_cart || "Bonjour, j'ai besoin d'aide pour finaliser ma commande sur OFS";

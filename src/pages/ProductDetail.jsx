@@ -768,6 +768,11 @@ const ProductDetail = ({ addToCart, openModal }) => {
   }, [productId]);
 
   useEffect(() => {
+    if (product?.name) document.title = product.name;
+    return () => { document.title = "OFS"; };
+  }, [product?.name]);
+
+  useEffect(() => {
     if (product?.vendor_id) {
       supabase.from("vendors").select("*").eq("id", product.vendor_id).single()
         .then(({ data }) => setVendor(data));
