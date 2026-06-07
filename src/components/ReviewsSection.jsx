@@ -408,12 +408,15 @@ const ReviewsSection = ({ productId, cjProductId }) => {
   }, [productId, user]);
 
   const fetchCj = useCallback(async () => {
-    if (!cjProductId) return;
+    if (!cjProductId) { console.log("[Reviews] pas de cjProductId"); return; }
     setCjLoading(true);
     try {
       const data = await cjGetProductComments(cjProductId, { pageSize: 50 });
+      console.log("[Reviews CJ]", cjProductId, data);
       setCjReviews(data?.list || []);
-    } catch { /* CJ reviews are optional */ }
+    } catch (e) {
+      console.warn("[Reviews CJ error]", e.message);
+    }
     setCjLoading(false);
   }, [cjProductId]);
 

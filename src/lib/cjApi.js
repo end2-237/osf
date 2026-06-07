@@ -27,7 +27,9 @@ const cjFetch = async (path, params = {}, _attempt = 0) => {
 
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   const json = await res.json();
-  if (json.code !== 200 && !json.result) throw new Error(json.message || "CJ error");
+  // CJ uses code:200 on most endpoints, but code:0 + success:true on others (e.g. reviews)
+  const ok = json.code === 200 || json.success === true || json.result === true;
+  if (!ok) throw new Error(json.message || "CJ error");
   return json.data;
 };
 
