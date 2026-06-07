@@ -385,39 +385,33 @@ const OverviewTab = ({ stats, topVendors, recentOrders, loading }) => (
 
 // ─── PRODUCT ADMIN CARD ───────────────────────────────────────────────────────
 const ProductAdminCard = ({ p, onDelete }) => {
-  const [videoState, setVideoState] = useState(
-    p.product_video ? "ok" : p.cj_product_id ? "missing" : "none"
-  );
+  const isCj = !p.vendor_id;
+  const [syncing,   setSyncing]   = useState(false);
+  const [hasVideo,  setHasVideo]  = useState(!!p.product_video);
+  const [syncState, setSyncState] = useState("idle"); // idle | ok | error | unavailable
 
   const syncVideo = async () => {
-    setVideoState("syncing");
+    if (!p.cj_product_id) { setSyncState("error"); return; }
+    setSyncing(true); setSyncState("idle");
     try {
       const { cjGetProductDetail, mapCjToProduct } = await import("../lib/cjApi");
       const detail = await cjGetProductDetail(p.cj_product_id);
-      if (!detail) { setVideoState("error"); return; }
+      if (!detail) { setSyncState("error"); return; }
       const fresh = mapCjToProduct(detail);
-      const vid = fresh.product_video;
-      if (vid) {
+      if (fresh.product_video) {
         await supabase.from("products").update({
-          product_video: vid,
+          product_video:   fresh.product_video,
           video_thumbnail: fresh.video_thumbnail || null,
-          updated_at: new Date().toISOString(),
+          updated_at:      new Date().toISOString(),
         }).eq("id", p.id);
-        setVideoState("ok");
+        setHasVideo(true);
+        setSyncState("ok");
       } else {
-        setVideoState("unavailable");
+        setSyncState("unavailable");
       }
-    } catch { setVideoState("error"); }
+    } catch { setSyncState("error"); }
+    finally { setSyncing(false); }
   };
-
-  const videoIcon = {
-    ok:          { icon: "fa-film",        color: "text-[#007600]",  title: "Vidéo présente"   },
-    missing:     { icon: "fa-film",        color: "text-[#D5D9D9]",  title: "Sync vidéo"        },
-    syncing:     { icon: "fa-spinner",     color: "text-[#FF9900]",  title: "Sync en cours…"   },
-    error:       { icon: "fa-circle-xmark",color: "text-[#B12704]",  title: "Erreur sync"       },
-    unavailable: { icon: "fa-ban",         color: "text-[#565959]",  title: "Pas de vidéo CJ"  },
-    none:        { icon: "fa-film",        color: "text-[#D5D9D9]",  title: "Non CJ"            },
-  }[videoState];
 
   return (
     <div className="bg-white border border-[#D5D9D9] rounded-xl overflow-hidden group hover:border-[#FF9900]/50 transition-all">
@@ -429,25 +423,48 @@ const ProductAdminCard = ({ p, onDelete }) => {
         <div className="absolute top-1.5 left-1.5 flex gap-1">
           <span className="bg-[#232F3E] text-[#FF9900] text-[7px] font-black px-1.5 py-0.5 rounded uppercase tracking-wide">{p.type}</span>
         </div>
-        {!p.vendor_id && (
+        {isCj && (
           <div className="absolute top-1.5 right-1.5 bg-[#007185]/90 text-white text-[7px] font-black px-1.5 py-0.5 rounded uppercase">CJ</div>
+        )}
+        {/* VIDEO BADGE */}
+        {isCj && (
+          <div className="absolute bottom-1.5 left-1.5">
+            {hasVideo ? (
+              <span className="bg-[#007600]/90 text-white text-[7px] font-black px-1.5 py-0.5 rounded flex items-center gap-1">
+                <i className="fa-solid fa-film text-[6px]"></i> Vidéo
+              </span>
+            ) : (
+              <span className="bg-[#565959]/80 text-white text-[7px] font-black px-1.5 py-0.5 rounded flex items-center gap-1">
+                <i className="fa-solid fa-film text-[6px]"></i> Pas de vidéo
+              </span>
+            )}
+          </div>
         )}
       </div>
       <div className="p-2.5">
         <p className="text-[11px] font-bold text-[#0F1111] leading-tight line-clamp-2 mb-1">{p.name}</p>
+        {p.sku && <p className="text-[9px] text-[#007185] mb-1 font-mono truncate">{p.sku}</p>}
         <div className="flex items-center justify-between gap-1">
           <p className="text-sm font-black text-[#B12704]">{Number(p.price).toLocaleString()} F</p>
           <div className="flex items-center gap-1">
-            {p.cj_product_id && videoState !== "ok" && videoState !== "none" && (
-              <button onClick={syncVideo} disabled={videoState === "syncing"} title={videoIcon.title}
-                className="w-6 h-6 rounded border border-[#D5D9D9] bg-white flex items-center justify-center hover:border-[#007185] transition-all">
-                <i className={`fa-solid ${videoIcon.icon} ${videoIcon.color} text-[8px] ${videoState === "syncing" ? "animate-spin" : ""}`}></i>
+            {/* SYNC VIDEO — shown for all CJ products without video */}
+            {isCj && !hasVideo && (
+              <button onClick={syncVideo} disabled={syncing || !p.cj_product_id} title={
+                !p.cj_product_id ? "ID CJ manquant — réimporter ce produit"
+                : syncing        ? "Sync en cours…"
+                : syncState === "error"       ? "Erreur — réessayer"
+                : syncState === "unavailable" ? "CJ n'a pas de vidéo pour ce produit"
+                : "Synchroniser la vidéo depuis CJ"
+              }
+                className={`flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold border transition-all ${
+                  !p.cj_product_id   ? "border-[#D5D9D9] text-[#adb5bd] cursor-not-allowed"
+                  : syncState === "error" ? "border-[#B12704]/40 text-[#B12704] hover:bg-[#FEE7E5]"
+                  : syncState === "unavailable" ? "border-[#565959]/30 text-[#565959]"
+                  : "border-[#007185]/40 text-[#007185] hover:bg-[#E6F3F5]"
+                }`}>
+                <i className={`fa-solid ${syncing ? "fa-spinner animate-spin" : syncState === "error" ? "fa-rotate-right" : "fa-film"} text-[8px]`}></i>
+                <span>{syncing ? "…" : syncState === "error" ? "Retry" : "Vidéo"}</span>
               </button>
-            )}
-            {videoState === "ok" && (
-              <span title="Vidéo présente" className="w-6 h-6 flex items-center justify-center">
-                <i className="fa-solid fa-film text-[#007600] text-[8px]"></i>
-              </span>
             )}
             <button onClick={() => onDelete(p.id)} className="w-6 h-6 rounded border border-[#B12704]/30 bg-[#FEE7E5] text-[#B12704] flex items-center justify-center hover:bg-[#B12704] hover:text-white transition-all">
               <i className="fa-solid fa-trash text-[8px]"></i>
@@ -455,10 +472,7 @@ const ProductAdminCard = ({ p, onDelete }) => {
           </div>
         </div>
         {p.vendor?.shop_name && (
-          <p className="text-[9px] text-[#565959] mt-1 truncate">{p.vendor.shop_name}</p>
-        )}
-        {p.sku && (
-          <p className="text-[9px] text-[#007185] mt-0.5 truncate font-mono">{p.sku}</p>
+          <p className="text-[9px] text-[#565959] mt-0.5 truncate">{p.vendor.shop_name}</p>
         )}
       </div>
     </div>
