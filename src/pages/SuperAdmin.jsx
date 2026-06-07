@@ -572,11 +572,62 @@ const AllProductsTab = ({ loading }) => {
   const handleSearch = (e) => { e.preventDefault(); fetch(search, typeFilter === "Tous" ? "" : typeFilter); };
   const handleType   = (t) => { setTypeFilter(t); fetch(search, t === "Tous" ? "" : t); };
 
+  const [videoSync, setVideoSync] = useState({ running: false, done: 0, total: 0, updated: 0, stopped: false });
+  const videoSyncStop = useRef(false);
+
   const handleDelete = async (id) => {
     if (!window.confirm("Supprimer ce produit ?")) return;
     await supabase.from("products").delete().eq("id", id);
     setProducts(p => p.filter(x => x.id !== id));
     setTotal(t => t - 1);
+  };
+
+  const runBulkVideoSync = async () => {
+    videoSyncStop.current = false;
+    // Fetch all CJ products missing a video
+    const { data: toSync } = await supabase
+      .from("products")
+      .select("id, name, cj_product_id, sku")
+      .is("vendor_id", null)
+      .is("product_video", null)
+      .not("cj_product_id", "is", null);
+
+    if (!toSync?.length) {
+      setVideoSync({ running: false, done: 0, total: 0, updated: 0, stopped: false });
+      return;
+    }
+
+    setVideoSync({ running: true, done: 0, total: toSync.length, updated: 0, stopped: false });
+    const { cjGetProductVideos } = await import("../lib/cjApi");
+    let updated = 0;
+
+    for (let i = 0; i < toSync.length; i++) {
+      if (videoSyncStop.current) {
+        setVideoSync(s => ({ ...s, running: false, stopped: true }));
+        return;
+      }
+      const p = toSync[i];
+      try {
+        const videos = await cjGetProductVideos(p.cj_product_id);
+        const vid = Array.isArray(videos)
+          ? videos.find(v => v.videoState === "ON_STATE" && (v.isFree === "1" || v.isBuy))
+          : null;
+        if (vid?.videoUrl) {
+          await supabase.from("products").update({
+            product_video:   vid.videoUrl,
+            video_thumbnail: vid.coverURL || null,
+            updated_at:      new Date().toISOString(),
+          }).eq("id", p.id);
+          updated++;
+          // Update the displayed card if it's in the current grid
+          setProducts(prev => prev.map(x => x.id === p.id ? { ...x, product_video: vid.videoUrl } : x));
+        }
+      } catch {}
+      setVideoSync(s => ({ ...s, done: i + 1, updated }));
+      // Pause 800ms between requests to avoid rate limiting
+      if (i < toSync.length - 1) await new Promise(r => setTimeout(r, 800));
+    }
+    setVideoSync(s => ({ ...s, running: false }));
   };
 
   return (
@@ -592,9 +643,30 @@ const AllProductsTab = ({ loading }) => {
             <i className="fa-solid fa-magnifying-glass"></i>
           </button>
         </form>
-        <p className="text-sm text-[#565959] flex items-center gap-1 flex-shrink-0">
-          <span className="font-bold text-[#0F1111]">{total}</span> produits
-        </p>
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <p className="text-sm text-[#565959]">
+            <span className="font-bold text-[#0F1111]">{total}</span> produits
+          </p>
+          {videoSync.running ? (
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5 bg-[#FFF8D3] border border-[#FCD200]/40 rounded-xl px-3 py-1.5 text-xs font-bold text-[#0F1111]">
+                <i className="fa-solid fa-spinner animate-spin text-[#FF9900] text-[10px]"></i>
+                <span>{videoSync.done}/{videoSync.total}</span>
+                <span className="text-[#007600]">+{videoSync.updated} vidéos</span>
+              </div>
+              <button onClick={() => { videoSyncStop.current = true; }}
+                className="px-2.5 py-1.5 rounded-xl text-xs font-bold border border-[#B12704]/30 text-[#B12704] hover:bg-[#FEE7E5] transition-all">
+                Stop
+              </button>
+            </div>
+          ) : (
+            <button onClick={runBulkVideoSync}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-[#232F3E] hover:bg-[#131921] text-[#FF9900] rounded-xl text-xs font-bold border border-[#FF9900]/20 transition-all">
+              <i className="fa-solid fa-film text-[10px]"></i>
+              Sync vidéos
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="flex gap-2 overflow-x-auto hide-scrollbar pb-0.5">
