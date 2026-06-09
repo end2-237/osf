@@ -983,6 +983,13 @@ const ProductDetail = ({ addToCart, openModal }) => {
   const minQty = Math.max(1, product?.min_buy_qty || 1);
   const maxQty = product?.max_buy_qty || (product?.stock_qty > 0 && product.stock_qty < 9999 ? product.stock_qty : null);
 
+  // Next cheaper tier — used to actively nudge the customer toward bulk savings
+  const nextTier = activeTierIdx >= 0 && activeTierIdx < quantityTiers.length - 1
+    ? quantityTiers[activeTierIdx + 1]
+    : null;
+  const nextTierSavePct  = nextTier ? Math.round((1 - nextTier.price_fcfa / activeTierPrice) * 100) : 0;
+  const unitsToNextTier  = nextTier ? Math.max(0, nextTier.min - qty) : 0;
+
   const getColorHex = (name) => {
     if (!name) return "#888";
     const EXACT = {
@@ -1461,25 +1468,34 @@ const ProductDetail = ({ addToCart, openModal }) => {
                     <div className="mb-3">
                       <p className="text-[9px] font-black uppercase tracking-widest text-[#565959] mb-1.5">
                         <i className="fa-solid fa-tags text-[8px] mr-1" />
-                        Tarifs dégressifs
+                        Tarifs dégressifs — <span className="text-[#007600]">plus vous achetez, moins c'est cher</span>
                       </p>
                       <div className="flex gap-1.5 flex-wrap">
-                        {quantityTiers.map((tier, i) => (
-                          <button key={i} onClick={() => setQty(tier.min)}
-                            className={`flex flex-col items-center px-3 py-2 rounded border text-center transition-all cursor-pointer ${
-                              activeTierIdx === i
-                                ? "bg-[#131921] border-[#131921] text-white shadow-sm"
-                                : "bg-[#F3F4F4] border-[#D5D9D9] text-[#0F1111] hover:border-[#FF9900]"
-                            }`}>
-                            <span className={`text-[8px] font-black uppercase tracking-wide leading-none mb-0.5 ${activeTierIdx === i ? "text-[#FF9900]" : "text-[#767676]"}`}>
-                              {tier.max ? `${tier.min}–${tier.max} pcs` : `${tier.min}+ pcs`}
-                            </span>
-                            <span className="text-[13px] font-bold leading-none">{tier.price_fcfa.toLocaleString()} F</span>
-                            <span className={`text-[8px] leading-none mt-0.5 ${activeTierIdx === i ? "text-[#767676]" : "text-[#aaa]"}`}>
-                              /unité
-                            </span>
-                          </button>
-                        ))}
+                        {quantityTiers.map((tier, i) => {
+                          const basePrice = quantityTiers[0].price_fcfa;
+                          const savePct = i > 0 ? Math.round((1 - tier.price_fcfa / basePrice) * 100) : 0;
+                          return (
+                            <button key={i} onClick={() => setQty(tier.min)}
+                              className={`relative flex flex-col items-center px-3 py-2 rounded border text-center transition-all cursor-pointer ${
+                                activeTierIdx === i
+                                  ? "bg-[#131921] border-[#131921] text-white shadow-sm"
+                                  : "bg-[#F3F4F4] border-[#D5D9D9] text-[#0F1111] hover:border-[#FF9900]"
+                              }`}>
+                              {savePct > 0 && (
+                                <span className="absolute -top-2 -right-1.5 bg-[#007600] text-white text-[7px] font-black px-1 py-0.5 rounded-full leading-none">
+                                  −{savePct}%
+                                </span>
+                              )}
+                              <span className={`text-[8px] font-black uppercase tracking-wide leading-none mb-0.5 ${activeTierIdx === i ? "text-[#FF9900]" : "text-[#767676]"}`}>
+                                {tier.max ? `${tier.min}–${tier.max} pcs` : `${tier.min}+ pcs`}
+                              </span>
+                              <span className="text-[13px] font-bold leading-none">{tier.price_fcfa.toLocaleString()} F</span>
+                              <span className={`text-[8px] leading-none mt-0.5 ${activeTierIdx === i ? "text-[#767676]" : "text-[#aaa]"}`}>
+                                /unité
+                              </span>
+                            </button>
+                          );
+                        })}
                       </div>
                       <p className="text-[9px] text-[#565959] mt-1.5">
                         <i className="fa-solid fa-circle-info text-[8px] mr-1" />
@@ -1750,6 +1766,18 @@ const ProductDetail = ({ addToCart, openModal }) => {
 
                 {/* ── QUANTITY ── */}
                 <div className="mb-4">
+                  {/* Minimum order requirement — prominent when MOQ > 1 */}
+                  {minQty > 1 && (
+                    <div className="flex items-start gap-2 mb-2 bg-[#FFF8D3] border border-[#FCD200] rounded-lg px-3 py-2">
+                      <i className="fa-solid fa-circle-exclamation text-[#C45500] text-sm mt-0.5" />
+                      <p className="text-[11px] font-bold text-[#0F1111] leading-tight">
+                        Commande minimum : <b className="text-[#C45500]">{minQty} {product?.product_unit === "pair" ? "paires" : product?.product_unit === "set" ? "lots" : "pièces"}</b>
+                        <span className="block text-[10px] font-normal text-[#565959] mt-0.5">
+                          Ce produit se vend par lot — la quantité est déjà ajustée au minimum.
+                        </span>
+                      </p>
+                    </div>
+                  )}
                   <div className="flex items-center gap-3 mb-1">
                     <span className="text-sm font-bold">Quantité :</span>
                     <div className="flex items-center border border-[#D5D9D9] rounded overflow-hidden bg-white">
@@ -1790,6 +1818,21 @@ const ProductDetail = ({ addToCart, openModal }) => {
                       </div>
                     );
                   })()}
+                  {/* Active bulk-savings nudge — pushes the customer to the next cheaper tier */}
+                  {nextTier && unitsToNextTier > 0 && nextTierSavePct > 0 && (
+                    <button onClick={() => setQty(nextTier.min)}
+                      className="w-full flex items-center justify-between gap-2 mb-1.5 bg-[#007600]/8 hover:bg-[#007600]/15 border border-[#007600]/30 rounded-lg px-3 py-2 transition-all text-left group">
+                      <span className="flex items-center gap-2">
+                        <i className="fa-solid fa-arrow-trend-down text-[#007600] text-xs" />
+                        <span className="text-[11px] font-bold text-[#0F1111] leading-tight">
+                          Ajoutez <b className="text-[#007600]">{unitsToNextTier} {unit}</b> → prix unitaire
+                          <b className="text-[#007600]"> {nextTier.price_fcfa.toLocaleString()} F</b>
+                          <span className="text-[#565959] font-normal"> (économisez {nextTierSavePct}%)</span>
+                        </span>
+                      </span>
+                      <i className="fa-solid fa-chevron-right text-[#007600] text-[10px] group-hover:translate-x-0.5 transition-transform" />
+                    </button>
+                  )}
                   <p className="text-[10px] text-[#565959] flex items-center gap-1.5">
                     <i className="fa-solid fa-calendar-check text-[#007600] text-[9px]" />
                     Livraison estimée : <b className="text-[#0F1111]">{formatEstimatedDate(selectedCity.delay)}</b>
