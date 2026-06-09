@@ -399,6 +399,7 @@ const ProductAdminCard = ({ p, onDelete }) => {
 
       let videoUrl = null;
       let thumbUrl = null;
+      let freshDetail = null;
       const cjId = p.cj_product_id;
 
       // Step 1: queryVideosByProductId — ask proxy to follow redirect with CJ auth,
@@ -425,6 +426,7 @@ const ProductAdminCard = ({ p, onDelete }) => {
       const detail = await cjGetProductDetail(cjId).catch(() => null);
       if (detail) {
         const fresh = mapCjToProduct(detail);
+        freshDetail = fresh;
         if (fresh.product_video && !fresh.product_video.includes("download-only-api")) {
           videoUrl = fresh.product_video;
           thumbUrl = fresh.video_thumbnail || thumbUrl;
@@ -476,13 +478,24 @@ const ProductAdminCard = ({ p, onDelete }) => {
         }
       }
 
+      // Build update — video fields (when found) + pricing tiers (when detail fetched)
+      const upd = { updated_at: new Date().toISOString() };
       if (videoUrl) {
-        await supabase.from("products").update({
-          product_video:   videoUrl,
-          video_thumbnail: thumbUrl || null,
-          updated_at:      new Date().toISOString(),
-        }).eq("id", p.id);
-        setHasVideo(true);
+        upd.product_video   = videoUrl;
+        upd.video_thumbnail = thumbUrl || null;
+      }
+      if (freshDetail) {
+        if (freshDetail.quantity_prices?.length > 0)  upd.quantity_prices    = freshDetail.quantity_prices;
+        if (freshDetail.min_buy_qty > 0)              upd.min_buy_qty        = freshDetail.min_buy_qty;
+        if (freshDetail.max_buy_qty)                  upd.max_buy_qty        = freshDetail.max_buy_qty;
+        if (freshDetail.suggest_price_fcfa)           upd.suggest_price_fcfa = freshDetail.suggest_price_fcfa;
+        if (freshDetail.pack_num > 1)                 upd.pack_num           = freshDetail.pack_num;
+      }
+
+      const syncedPricing = upd.quantity_prices || upd.min_buy_qty || upd.suggest_price_fcfa;
+      if (videoUrl || syncedPricing) {
+        await supabase.from("products").update(upd).eq("id", p.id);
+        if (videoUrl) setHasVideo(true);
         setSyncState("ok");
       } else {
         setSyncState("unavailable");
@@ -531,19 +544,20 @@ const ProductAdminCard = ({ p, onDelete }) => {
                 !p.cj_product_id      ? "ID CJ manquant — réimporter ce produit"
                 : syncing             ? "Sync en cours…"
                 : syncState === "error"       ? "Erreur — réessayer"
-                : syncState === "unavailable" ? "CJ n'a pas de vidéo pour ce produit"
-                : hasVideo            ? "Re-sync vidéo depuis CJ"
-                : "Synchroniser la vidéo depuis CJ"
+                : syncState === "unavailable" ? "CJ n'a ni vidéo ni tarifs pour ce produit"
+                : syncState === "ok"          ? "Synchronisé (vidéo + tarifs dégressifs)"
+                : "Synchroniser vidéo + tarifs dégressifs depuis CJ"
               }
                 className={`flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold border transition-all ${
                   !p.cj_product_id          ? "border-[#D5D9D9] text-[#adb5bd] cursor-not-allowed"
                   : syncState === "error"       ? "border-[#B12704]/40 text-[#B12704] hover:bg-[#FEE7E5]"
                   : syncState === "unavailable" ? "border-[#565959]/30 text-[#565959]"
+                  : syncState === "ok"          ? "border-[#007600]/40 text-[#007600] hover:bg-[#E8F5E8]"
                   : hasVideo                ? "border-[#FF9900]/40 text-[#FF9900] hover:bg-[#FFF8D3]"
                   : "border-[#007185]/40 text-[#007185] hover:bg-[#E6F3F5]"
                 }`}>
-                <i className={`fa-solid ${syncing ? "fa-spinner animate-spin" : syncState === "error" || hasVideo ? "fa-rotate-right" : "fa-film"} text-[8px]`}></i>
-                <span>{syncing ? "…" : syncState === "error" ? "Retry" : hasVideo ? "Re-sync" : "Vidéo"}</span>
+                <i className={`fa-solid ${syncing ? "fa-spinner animate-spin" : syncState === "ok" ? "fa-check" : syncState === "error" ? "fa-rotate-right" : hasVideo ? "fa-rotate-right" : "fa-rotate"} text-[8px]`}></i>
+                <span>{syncing ? "…" : syncState === "ok" ? "OK" : syncState === "error" ? "Retry" : hasVideo ? "Re-sync" : "Sync"}</span>
               </button>
             )}
             <button onClick={() => onDelete(p.id)} className="w-6 h-6 rounded border border-[#B12704]/30 bg-[#FEE7E5] text-[#B12704] flex items-center justify-center hover:bg-[#B12704] hover:text-white transition-all">
@@ -950,6 +964,12 @@ const RepairImagesPanel = () => {
           if (fresh.pack_l_cm)                                             upd.pack_l_cm       = fresh.pack_l_cm;
           if (fresh.pack_w_cm)                                             upd.pack_w_cm       = fresh.pack_w_cm;
           if (fresh.pack_h_cm)                                             upd.pack_h_cm       = fresh.pack_h_cm;
+          // Pricing tiers & order constraints — drive the quantity-tier UI on the product page
+          if (fresh.quantity_prices?.length > 0)                           upd.quantity_prices = fresh.quantity_prices;
+          if (fresh.min_buy_qty > 0)                                       upd.min_buy_qty     = fresh.min_buy_qty;
+          if (fresh.max_buy_qty)                                           upd.max_buy_qty     = fresh.max_buy_qty;
+          if (fresh.suggest_price_fcfa)                                    upd.suggest_price_fcfa = fresh.suggest_price_fcfa;
+          if (fresh.pack_num > 1)                                          upd.pack_num        = fresh.pack_num;
 
           await supabase.from("products").update(upd).eq("id", p.id);
           updated++;
