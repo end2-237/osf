@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../context/AuthContext";
-import { cjListProducts, cjGetProductDetail, cjSearchBySku, cjGetCategories, mapCjToProduct, mapCjProductType, usdToFcfa } from "../lib/cjApi";
+import { cjListProducts, cjGetProductDetail, cjSearchBySku, cjGetCategories, mapCjToProduct, mapCjProductType, usdToFcfa, PRICE_MARGIN } from "../lib/cjApi";
 
 const PAGE_SIZE = 100;
 
@@ -29,8 +29,20 @@ const Toast = ({ msg, type = "ok" }) => (
   </div>
 );
 
+// Parse CJ price range "19.90 -- 22.39" → returns [min, max]
+const parsePriceRange = (raw) => {
+  const s = String(raw || "").trim();
+  const parts = s.split(/\s*-{1,2}\s*/).map(p => parseFloat(p)).filter(n => !isNaN(n) && n > 0);
+  if (parts.length === 0) return [0, 0];
+  return [Math.min(...parts), Math.max(...parts)];
+};
+
 const CJCard = ({ product, selected, onToggle, onImport, importing, alreadyImported }) => {
-  const price = usdToFcfa(product.sellPrice || product.nowPrice || product.productPrice || 0);
+  const rawPrice = product.sellPrice || product.nowPrice || product.productPrice || 0;
+  const [minUsd, maxUsd] = parsePriceRange(rawPrice);
+  const isRange   = maxUsd > minUsd;
+  const minFcfa   = Math.round(usdToFcfa(minUsd) * PRICE_MARGIN);
+  const maxFcfa   = Math.round(usdToFcfa(maxUsd) * PRICE_MARGIN);
   const type  = mapCjProductType(product.categoryName || "", product.productNameEn || product.productName || "");
   return (
     <div onClick={() => !alreadyImported && onToggle(product.pid)}
@@ -65,7 +77,10 @@ const CJCard = ({ product, selected, onToggle, onImport, importing, alreadyImpor
         <div className="flex items-center justify-between">
           <div>
             <p className="text-[10px] text-[#565959]">${product.sellPrice || "—"} USD</p>
-            <p className={`text-sm font-bold ${alreadyImported ? "text-[#007600]" : "text-[#B12704]"}`}>{price.toLocaleString()} F</p>
+            {isRange
+              ? <p className={`text-[11px] font-bold ${alreadyImported ? "text-[#007600]" : "text-[#B12704]"}`}>{minFcfa.toLocaleString()} – {maxFcfa.toLocaleString()} F</p>
+              : <p className={`text-sm font-bold ${alreadyImported ? "text-[#007600]" : "text-[#B12704]"}`}>{minFcfa.toLocaleString()} F</p>
+            }
           </div>
           {alreadyImported ? (
             <div className="w-8 h-8 bg-[#E8F5E8] border border-[#007600]/30 rounded-lg flex items-center justify-center">
