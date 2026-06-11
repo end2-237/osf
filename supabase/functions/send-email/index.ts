@@ -95,10 +95,10 @@ const recap = (order: any) => `
 
 // ─── STATUS LINE ──────────────────────────────────────────────────────────────
 const statusLine = (order: any, paid: boolean) => {
-  if (paid) return "✅ Paiement Mobile Money confirmé — commande en préparation";
+  if (paid) return "Paiement Mobile Money confirmé — commande en préparation";
   if (order.payment_method === "orange_money" || order.payment_method === "mtn_momo")
-    return "⏳ En attente de confirmation du paiement Mobile Money";
-  return "🛍️ Commande enregistrée — paiement à la livraison";
+    return "En attente de confirmation du paiement Mobile Money";
+  return "Commande enregistrée — paiement à la livraison";
 };
 
 // ─── EMAIL PRINCIPAL ─────────────────────────────────────────────────────────
@@ -116,7 +116,7 @@ const buildEmail = (order: any, items: any[], name: string, paid = false) => {
 <body style="margin:0;padding:0;background:#ffffff;font-family:'Helvetica Neue',Arial,sans-serif;">
 <table width="100%" cellpadding="0" cellspacing="0" style="background:#ffffff;">
 <tr><td align="center" style="padding:40px 20px;">
-<table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;">
+<table width="680" cellpadding="0" cellspacing="0" style="max-width:680px;width:100%;background:#ffffff;">
 
   <!-- EN-TÊTE : Logo + Titre gauche / Adresse droite -->
   <tr>
@@ -258,7 +258,7 @@ const buildShippedEmail = (order: any, items: any[], name: string) => {
 <body style="margin:0;padding:0;background:#ffffff;font-family:'Helvetica Neue',Arial,sans-serif;">
 <table width="100%" cellpadding="0" cellspacing="0" style="background:#ffffff;">
 <tr><td align="center" style="padding:40px 20px;">
-<table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;">
+<table width="680" cellpadding="0" cellspacing="0" style="max-width:680px;width:100%;background:#ffffff;">
 
   <!-- EN-TÊTE -->
   <tr>
@@ -293,7 +293,7 @@ const buildShippedEmail = (order: any, items: any[], name: string) => {
   <!-- STATUT -->
   <tr>
     <td style="padding:20px 0;">
-      <div style="font-size:14px;font-weight:600;color:#202124;">🚚 Votre commande est en route !</div>
+      <div style="font-size:14px;font-weight:600;color:#202124;">Votre commande est en route !</div>
       <div style="font-size:12px;color:#5f6368;margin-top:4px;">
         Livraison à : ${order.client_address || "—"}
       </div>
