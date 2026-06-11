@@ -52,7 +52,7 @@ serve(async (req: Request) => {
 
     // Verify HMAC-SHA1 signature
     const expected = await hmacSha1Hex(MONETBIL_SECRET, payment_ref + status.toLowerCase());
-    if (sign && sign !== expected) {
+    if (!sign || sign !== expected) {
       console.warn("[MONETBIL] signature mismatch — ignored");
       return ok();
     }
