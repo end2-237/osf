@@ -27,42 +27,55 @@ export default function CartPage() {
   const [promoLoading, setPromoLoading] = useState(false);
   const [promoError,   setPromoError]   = useState('');
   const [suggestions,  setSuggestions]  = useState([]);
+  const [carousel,     setCarousel]     = useState([]);
   const [addedId,      setAddedId]      = useState(null);
+  const [shareCopied,  setShareCopied]  = useState(false);
 
   useEffect(() => {
     try { localStorage.setItem('ofs_cart', JSON.stringify(cart)); } catch {}
     window.dispatchEvent(new CustomEvent('ofs:cartUpdated'));
   }, [cart]);
 
-  // ─── SUGGESTIONS ────────────────────────────────────────────────────────────
+  // ─── SUGGESTIONS — max products, all categories mixed ───────────────────────
   useEffect(() => {
     const load = async () => {
-      const cartIds   = cart.map(i => i.id).filter(Boolean);
-      const cartTypes = [...new Set(cart.map(i => i.type).filter(Boolean))];
+      const cartIds    = cart.map(i => i.id).filter(Boolean);
+      const cartTypes  = [...new Set(cart.map(i => i.type).filter(Boolean))];
+      const notInCart  = q => cartIds.length > 0
+        ? q.not('id', 'in', `(${cartIds.map(i => `"${i}"`).join(',')})`)
+        : q;
 
-      let q = supabase
-        .from('products')
-        .select('*, vendor:vendors!vendor_id(member_discount_enabled)')
-        .order('created_at', { ascending: false })
-        .limit(10);
+      // Same-category products (priority) + a large batch of everything else
+      const [sameCat, latest] = await Promise.all([
+        cartTypes.length > 0
+          ? notInCart(
+              supabase.from('products')
+                .select('*, vendor:vendors!vendor_id(member_discount_enabled)')
+                .in('type', cartTypes)
+                .order('created_at', { ascending: false })
+                .limit(15)
+            ).then(r => r.data || [])
+          : Promise.resolve([]),
+        notInCart(
+          supabase.from('products')
+            .select('*, vendor:vendors!vendor_id(member_discount_enabled)')
+            .order('created_at', { ascending: false })
+            .limit(60)
+        ).then(r => r.data || []),
+      ]);
 
-      if (cartTypes.length > 0) q = q.in('type', cartTypes);
-      if (cartIds.length > 0)   q = q.not('id', 'in', `(${cartIds.map(i => `"${i}"`).join(',')})`);
+      // Merge: same category first, then everything else (dedup)
+      const seen = new Set();
+      const all  = [];
+      [...sameCat, ...latest].forEach(p => {
+        if (!seen.has(p.id)) { seen.add(p.id); all.push(p); }
+      });
 
-      let { data } = await q;
-
-      // Fallback: not enough same-category products → latest products
-      if (!data || data.length < 5) {
-        let q2 = supabase
-          .from('products')
-          .select('*, vendor:vendors!vendor_id(member_discount_enabled)')
-          .order('created_at', { ascending: false })
-          .limit(10);
-        if (cartIds.length > 0) q2 = q2.not('id', 'in', `(${cartIds.map(i => `"${i}"`).join(',')})`);
-        const { data: d2 } = await q2;
-        data = d2 || [];
-      }
-      setSuggestions((data || []).slice(0, 10));
+      // Grid: first 20 · Carousel: the next batch (shuffled for variety)
+      setSuggestions(all.slice(0, 20));
+      const rest = all.slice(20);
+      const pool = rest.length >= 8 ? rest : all;
+      setCarousel([...pool].sort(() => Math.random() - 0.5).slice(0, 18));
     };
     load();
     // Reload only when the set of product ids changes (not on qty change)
@@ -146,6 +159,20 @@ export default function CartPage() {
 
   const removePromo = () => { setPromoApplied(null); setPromoError(''); setPromoInput(''); };
 
+  // ─── SHARE CART ─────────────────────────────────────────────────────────────
+  const shareCart = () => {
+    const FIELDS = ['id','name','price','img','quantity','selectedSize','selectedColor',
+      'vendor_id','vendor_member_discount_enabled','cj_product_id','weight_g','ship_weight_g'];
+    const minimal = cart.map(item =>
+      Object.fromEntries(FIELDS.filter(k => item[k] != null).map(k => [k, item[k]]))
+    );
+    const url = `${window.location.origin}/store?cart=${btoa(JSON.stringify(minimal))}`;
+    navigator.clipboard.writeText(url).then(() => {
+      setShareCopied(true);
+      setTimeout(() => setShareCopied(false), 2500);
+    });
+  };
+
   // ─── CHECKOUT ───────────────────────────────────────────────────────────────
   const handleCheckout = () => {
     if (promoApplied) {
@@ -197,6 +224,12 @@ export default function CartPage() {
             <button onClick={handleCheckout}
               className="mt-3 w-full bg-white hover:bg-[#F7FAFA] border border-[#D5D9D9] rounded-full text-[#0F1111] text-[13px] py-1.5 transition shadow-[0_2px_5px_rgba(213,217,217,.5)]">
               Passer à la livraison
+            </button>
+            <button onClick={shareCart}
+              className="mt-2 w-full bg-white hover:bg-[#F7FAFA] border border-[#D5D9D9] rounded-full text-[13px] py-1.5 transition shadow-[0_2px_5px_rgba(213,217,217,.5)] flex items-center justify-center gap-1.5
+                text-[#007185] hover:text-[#C7511F]">
+              <i className={`fa-solid ${shareCopied ? 'fa-circle-check text-[#007600]' : 'fa-share-nodes'} text-[11px]`}></i>
+              {shareCopied ? 'Lien copié !' : 'Partager mon panier'}
             </button>
           </div>
 
@@ -421,6 +454,52 @@ export default function CartPage() {
             </div>
           </div>
 
+          {/* ── CARROUSEL ANIMÉ — défilement infini sur X ── */}
+          {carousel.length > 0 && (
+            <div className="bg-white py-5 overflow-hidden cart-carousel-wrap">
+              <h2 className="text-[20px] font-bold text-[#0F1111] mb-4 px-4 md:px-6">
+                <i className="fa-solid fa-fire text-[#FF9900] mr-2 text-[16px]"></i>
+                Les clients ajoutent aussi
+              </h2>
+              <div className="cart-carousel-track inline-flex items-stretch gap-3 whitespace-nowrap pl-4">
+                {[...carousel, ...carousel].map((p, i) => (
+                  <div key={`${p.id}-${i}`}
+                    className="w-[170px] flex-shrink-0 flex flex-col bg-white border border-[#E7E7E7] rounded-lg p-3 whitespace-normal hover:shadow-md transition-shadow">
+                    <Link to={`/product/${p.id}`}
+                      className="w-full h-[130px] flex items-center justify-center bg-[#F7F7F7] rounded-md overflow-hidden mb-2">
+                      <img src={p.img || 'https://via.placeholder.com/150'} alt={p.name} loading="lazy"
+                        className="max-w-full max-h-full object-contain mix-blend-multiply" />
+                    </Link>
+                    <Link to={`/product/${p.id}`}
+                      className="text-[12px] text-[#0F1111] hover:text-[#C7511F] leading-snug line-clamp-2 min-h-[30px] transition-colors">
+                      {p.name}
+                    </Link>
+                    <p className="text-[14px] font-bold text-[#B12704] mt-1">
+                      {Number(p.price || 0).toLocaleString()}<span className="text-[9px] align-top ml-0.5">F</span>
+                    </p>
+                    <button onClick={() => addSuggestion(p)}
+                      className={`mt-auto pt-1.5 w-full rounded-full text-[11px] font-medium py-1 border transition ${
+                        addedId === p.id
+                          ? 'bg-[#E8F5E8] border-[#007600]/30 text-[#007600]'
+                          : 'bg-[#FFD814] hover:bg-[#F7CA00] border-[#FCD200] text-[#0F1111]'
+                      }`}>
+                      {addedId === p.id ? <><i className="fa-solid fa-check mr-1 text-[10px]"></i>Ajouté</> : 'Ajouter'}
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <style>{`
+                @keyframes cart-scroll-x { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+                .cart-carousel-track { animation: cart-scroll-x ${Math.max(30, carousel.length * 4)}s linear infinite; will-change: transform; }
+                .cart-carousel-wrap:hover .cart-carousel-track { animation-play-state: paused; }
+                .cart-carousel-wrap {
+                  -webkit-mask-image: linear-gradient(90deg, transparent 0%, black 3%, black 97%, transparent 100%);
+                  mask-image: linear-gradient(90deg, transparent 0%, black 3%, black 97%, transparent 100%);
+                }
+              `}</style>
+            </div>
+          )}
+
           {/* ── SUGGESTIONS — large cards, max 5 per row ── */}
           {suggestions.length > 0 && (
             <div className="bg-white px-4 md:px-6 py-5">
@@ -433,7 +512,7 @@ export default function CartPage() {
                     <Link to={`/product/${p.id}`}
                       className="aspect-square w-full bg-[#F7F7F7] rounded-lg flex items-center justify-center overflow-hidden mb-2">
                       <img src={p.img || 'https://via.placeholder.com/300'}
-                        alt={p.name}
+                        alt={p.name} loading="lazy"
                         className="max-w-full max-h-full object-contain mix-blend-multiply group-hover:scale-105 transition-transform duration-300" />
                     </Link>
                     <Link to={`/product/${p.id}`}
