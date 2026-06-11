@@ -3,9 +3,9 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 // @ts-ignore
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 
-const RESEND_API_KEY  = Deno.env.get("RESEND_API_KEY")            || "";
-const SUPABASE_URL    = Deno.env.get("SUPABASE_URL")              || "";
-const SUPABASE_SRVKEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
+const RESEND_API_KEY  = Deno.env.get("RESEND_API_KEY")              || "";
+const SUPABASE_URL    = Deno.env.get("SUPABASE_URL")                || "";
+const SUPABASE_SRVKEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")   || "";
 const FROM_EMAIL      = "OFS Cameroun <noreply@onefreestyle.store>";
 const SITE_URL        = "https://www.onefreestyle.store";
 const SUPPORT_PHONE   = "237696995879";
@@ -16,12 +16,6 @@ const ALLOWED_ORIGINS = new Set([
   "http://localhost:5173",
   "http://localhost:4173",
 ]);
-
-const corsHeaders = (origin: string) => ({
-  "Access-Control-Allow-Origin":  ALLOWED_ORIGINS.has(origin) ? origin : "https://www.onefreestyle.store",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  "Vary": "Origin",
-});
 
 const fmt     = (n: number) => Math.round(n).toLocaleString("fr-FR") + " FCFA";
 const fmtDate = (d: string | null) => d ? new Date(d).toLocaleDateString("fr-FR", { day: "2-digit", month: "long", year: "numeric" }) : new Date().toLocaleDateString("fr-FR", { day: "2-digit", month: "long", year: "numeric" });
@@ -601,9 +595,12 @@ const sendResend = async (to: string, subject: string, html: string) => {
 // ─── HANDLER ─────────────────────────────────────────────────────────────────
 serve(async (req: Request) => {
   const origin = req.headers.get("origin") || "";
-  const ch = corsHeaders(origin);
+  const corsHeaders = {
+    "Access-Control-Allow-Origin":  ALLOWED_ORIGINS.has(origin) ? origin : "https://www.onefreestyle.store",
+    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  };
 
-  if (req.method === "OPTIONS") return new Response("ok", { headers: ch });
+  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   try {
     if (!RESEND_API_KEY) throw new Error("RESEND_API_KEY not set");
@@ -647,14 +644,14 @@ serve(async (req: Request) => {
     console.log(`[send-email] ${type} → ${email}`);
 
     return new Response(JSON.stringify({ ok: true, to: email }), {
-      headers: { ...ch, "Content-Type": "application/json" },
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
 
   } catch (err) {
     console.error("[send-email]", err.message);
     return new Response(JSON.stringify({ error: err.message }), {
       status: 400,
-      headers: { ...ch, "Content-Type": "application/json" },
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 });
