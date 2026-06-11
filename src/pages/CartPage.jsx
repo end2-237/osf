@@ -102,16 +102,16 @@ export default function CartPage() {
   // ─── EMPTY STATE ────────────────────────────────────────────────────────────
   if (cart.length === 0) {
     return (
-      <div className="min-h-screen bg-[#EAEDED] py-6 px-4">
-        <div className="max-w-[1200px] mx-auto bg-white rounded-lg p-8 flex flex-col sm:flex-row items-center gap-8">
-          <img src="https://m.media-amazon.com/images/G/01/cart/empty/kettle-desaturated._CB445243794_.svg"
-            onError={e => { e.currentTarget.style.display = 'none'; }}
-            alt="" className="w-44 h-44" />
+      <div className="min-h-screen bg-[#E3E6E6] p-3">
+        <div className="max-w-[1500px] mx-auto bg-white p-10 flex flex-col sm:flex-row items-center gap-10">
+          <div className="w-40 h-40 bg-[#F0F2F2] rounded-full flex items-center justify-center flex-shrink-0">
+            <i className="fa-solid fa-bag-shopping text-[#D5D9D9] text-6xl"></i>
+          </div>
           <div>
             <h1 className="text-[28px] font-bold text-[#0F1111] leading-tight">Votre panier OFS est vide</h1>
             <p className="text-sm text-[#0F1111] mt-2">Découvrez nos meilleures offres au Cameroun 🇨🇲 · Livraison express Douala.</p>
             <Link to="/store"
-              className="inline-block mt-4 bg-[#FFD814] hover:bg-[#F7CA00] border border-[#FCD200] rounded-lg text-[#0F1111] font-medium text-sm px-6 py-2 transition">
+              className="inline-block mt-4 bg-[#FFD814] hover:bg-[#F7CA00] border border-[#FCD200] rounded-full text-[#0F1111] font-medium text-sm px-8 py-2 transition shadow-[0_2px_5px_rgba(213,217,217,.5)]">
               Explorer le store
             </Link>
           </div>
@@ -121,244 +121,234 @@ export default function CartPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#EAEDED] py-5">
-      <div className="max-w-[1200px] mx-auto px-3 md:px-5">
-        <div className="flex flex-col lg:flex-row gap-4 items-start">
+    <div className="min-h-screen bg-[#E3E6E6] p-3 md:p-4">
+      <div className="max-w-[1500px] mx-auto flex flex-col lg:flex-row gap-3 md:gap-4 items-start">
 
-          {/* ═══ LEFT: ITEMS PANEL (Amazon style) ══════════════════════════════ */}
-          <div className="flex-1 min-w-0 bg-white rounded-lg px-5 pt-4 pb-2">
+        {/* ═══ LEFT: ITEMS PANEL ═══════════════════════════════════════════════ */}
+        <div className="flex-1 min-w-0 bg-white px-4 md:px-6 pt-5 pb-3 w-full">
 
-            {/* Heading */}
-            <div className="flex items-end justify-between border-b border-[#DDD] pb-1">
-              <h1 className="text-[28px] font-normal text-[#0F1111] leading-none">Panier</h1>
-              <span className="text-[13px] text-[#565959] hidden sm:block">Prix</span>
-            </div>
-
-            {/* Member / bundle highlight (Amazon-ish info strip) */}
-            {(hasBundle || (isMember && memberSavings > 0)) && (
-              <div className="mt-3 flex items-start gap-2 text-[13px] text-[#0F1111]">
-                <i className="fa-solid fa-circle-check text-[#007600] mt-0.5"></i>
-                <span>
-                  {isMember && memberSavings > 0 && <>Remise membre Elite <b>−20 %</b> appliquée. </>}
-                  {hasBundle && <>Bundle Deal <b>−{isMember ? 5 : 2} %</b> sur votre panier multi-articles. </>}
-                  Vous économisez <b className="text-[#B12704]">{(memberSavings + bundleAmount).toLocaleString()} FCFA</b>.
-                </span>
-              </div>
-            )}
-
-            {/* Items */}
-            <div>
-              {cart.map((item, idx) => {
-                const base    = Number(item.price) || 0;
-                const unitEff = getUnitPrice(item, isMember);
-                const isDisc  = unitEff < base;
-                const lineTot = unitEff * (item.quantity || 1);
-                const qty     = item.quantity || 1;
-
-                return (
-                  <div key={idx} className="flex gap-3 sm:gap-5 py-5 border-b border-[#E7E7E7]">
-                    {/* Image */}
-                    <Link to={`/product/${item.id}`}
-                      className="w-[100px] h-[100px] sm:w-[180px] sm:h-[180px] flex-shrink-0 flex items-center justify-center">
-                      <img src={item.img || 'https://via.placeholder.com/180'}
-                        alt={item.name} className="max-w-full max-h-full object-contain" />
-                    </Link>
-
-                    {/* Middle */}
-                    <div className="flex-1 min-w-0 flex flex-col">
-                      <div className="flex items-start justify-between gap-3">
-                        <Link to={`/product/${item.id}`}
-                          className="text-[15px] sm:text-[18px] text-[#0F1111] hover:text-[#C7511F] leading-snug line-clamp-2 transition-colors">
-                          {item.name}
-                        </Link>
-                        {/* Price (right) */}
-                        <div className="text-right flex-shrink-0">
-                          <p className={`text-[15px] sm:text-[18px] font-bold ${isDisc ? 'text-[#B12704]' : 'text-[#0F1111]'}`}>
-                            {lineTot.toLocaleString()}<span className="text-[11px] align-top ml-0.5">FCFA</span>
-                          </p>
-                          {isDisc && (
-                            <p className="text-[12px] text-[#565959] line-through">
-                              {(base * qty).toLocaleString()} F
-                            </p>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Variant */}
-                      {(item.selectedSize || item.selectedColor) && (
-                        <p className="text-[12px] text-[#565959] mt-1">
-                          {item.selectedSize && <>Taille : {item.selectedSize}</>}
-                          {item.selectedSize && item.selectedColor && '  '}
-                          {item.selectedColor && <>Couleur : {item.selectedColor}</>}
-                        </p>
-                      )}
-
-                      {/* In stock */}
-                      <p className="text-[12px] text-[#007600] mt-1">En stock</p>
-                      <p className="text-[12px] text-[#565959] mt-0.5">
-                        <i className="fa-solid fa-bolt text-[#FF9900] mr-1 text-[9px]"></i>
-                        Livraison 2h · Douala 🇨🇲
-                      </p>
-
-                      {/* Controls row */}
-                      <div className="flex items-center gap-3 mt-3 flex-wrap">
-                        {/* Qty pill (Amazon) */}
-                        <div className="inline-flex items-center bg-white border border-[#D5D9D9] rounded-full h-[34px] shadow-[0_2px_5px_rgba(15,17,17,.10)] overflow-hidden">
-                          <button onClick={() => updateQty(idx, -1)}
-                            className="w-[38px] h-full flex items-center justify-center text-[#007185] hover:bg-[#F7FAFA] transition"
-                            title={qty === 1 ? 'Supprimer' : 'Diminuer'}>
-                            {qty === 1
-                              ? <i className="fa-solid fa-trash-can text-[13px]"></i>
-                              : <span className="text-lg leading-none">−</span>}
-                          </button>
-                          <span className="min-w-[34px] text-center text-[15px] font-bold text-[#0F1111] border-x border-[#E7E7E7]">
-                            {qty}
-                          </span>
-                          <button onClick={() => updateQty(idx, 1)}
-                            className="w-[38px] h-full flex items-center justify-center text-[#007185] hover:bg-[#F7FAFA] transition"
-                            title="Augmenter">
-                            <span className="text-lg leading-none">+</span>
-                          </button>
-                        </div>
-
-                        <span className="text-[#D5D9D9]">|</span>
-                        <button onClick={() => removeItem(idx)}
-                          className="text-[13px] text-[#007185] hover:text-[#C7511F] hover:underline transition">
-                          Supprimer
-                        </button>
-                        <span className="text-[#D5D9D9]">|</span>
-                        <Link to="/studio" state={{ productId: item.id }}
-                          className="text-[13px] text-[#007185] hover:text-[#C7511F] hover:underline transition">
-                          Personnaliser
-                        </Link>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-
-            {/* Subtotal line (right aligned, Amazon) */}
-            <div className="text-right py-4 text-[18px] text-[#0F1111]">
-              Sous-total ({totalQty} article{totalQty > 1 ? 's' : ''}) :{' '}
-              <span className="font-bold">{Math.round(finalTotal).toLocaleString()} FCFA</span>
-            </div>
+          {/* Heading */}
+          <div className="flex items-end justify-between border-b border-[#DDD] pb-2">
+            <h1 className="text-[26px] md:text-[28px] font-medium text-[#0F1111] leading-none">Panier</h1>
+            <span className="text-[13px] text-[#565959] hidden sm:block pr-1">Prix</span>
           </div>
 
-          {/* ═══ RIGHT: CHECKOUT BOX (Amazon style) ════════════════════════════ */}
-          <div className="w-full lg:w-[300px] flex-shrink-0 space-y-3">
+          {/* Savings strip */}
+          {(hasBundle || (isMember && memberSavings > 0)) && (
+            <div className="flex items-start gap-2 text-[13px] text-[#0F1111] py-2.5 border-b border-[#E7E7E7]">
+              <i className="fa-solid fa-circle-check text-[#007600] mt-0.5"></i>
+              <span>
+                {isMember && memberSavings > 0 && <>Remise membre Elite <b>−20 %</b> appliquée. </>}
+                {hasBundle && <>Bundle Deal <b>−{isMember ? 5 : 2} %</b> sur votre panier multi-articles. </>}
+                Vous économisez <b className="text-[#B12704]">{(memberSavings + bundleAmount).toLocaleString()} FCFA</b>.
+              </span>
+            </div>
+          )}
 
-            {/* Subtotal box */}
-            <div className="bg-white rounded-lg p-5">
+          {/* Items — tight rows, divider only */}
+          {cart.map((item, idx) => {
+            const base    = Number(item.price) || 0;
+            const unitEff = getUnitPrice(item, isMember);
+            const isDisc  = unitEff < base;
+            const lineTot = unitEff * (item.quantity || 1);
+            const qty     = item.quantity || 1;
+
+            return (
+              <div key={idx} className="flex gap-3 sm:gap-4 py-4 border-b border-[#E7E7E7]">
+                {/* Image */}
+                <Link to={`/product/${item.id}`}
+                  className="w-[96px] h-[96px] sm:w-[160px] sm:h-[160px] flex-shrink-0 flex items-center justify-center bg-white">
+                  <img src={item.img || 'https://via.placeholder.com/160'}
+                    alt={item.name} className="max-w-full max-h-full object-contain mix-blend-multiply" />
+                </Link>
+
+                {/* Middle */}
+                <div className="flex-1 min-w-0 flex flex-col">
+                  <div className="flex items-start justify-between gap-3">
+                    <Link to={`/product/${item.id}`}
+                      className="text-[14px] sm:text-[16px] text-[#0F1111] hover:text-[#C7511F] hover:underline leading-snug line-clamp-2 transition-colors">
+                      {item.name}
+                    </Link>
+                    <div className="text-right flex-shrink-0">
+                      <p className={`text-[15px] sm:text-[17px] font-bold leading-none ${isDisc ? 'text-[#B12704]' : 'text-[#0F1111]'}`}>
+                        {lineTot.toLocaleString()}<span className="text-[10px] align-top ml-0.5">FCFA</span>
+                      </p>
+                      {isDisc && (
+                        <p className="text-[11px] text-[#565959] line-through mt-0.5">
+                          {(base * qty).toLocaleString()} F
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  {(item.selectedSize || item.selectedColor) && (
+                    <p className="text-[12px] text-[#565959] mt-0.5">
+                      {item.selectedSize && <>Taille : {item.selectedSize}</>}
+                      {item.selectedSize && item.selectedColor && ' · '}
+                      {item.selectedColor && <>Couleur : {item.selectedColor}</>}
+                    </p>
+                  )}
+
+                  <p className="text-[12px] mt-0.5">
+                    <span className="text-[#007600]">En stock</span>
+                    <span className="text-[#565959]"> · <i className="fa-solid fa-bolt text-[#FF9900] text-[9px]"></i> Livraison 2h Douala 🇨🇲</span>
+                  </p>
+
+                  {/* Controls */}
+                  <div className="flex items-center gap-2.5 mt-2.5 flex-wrap">
+                    <div className="inline-flex items-center bg-white border border-[#D5D9D9] rounded-full h-[30px] shadow-[0_2px_5px_rgba(15,17,17,.08)] overflow-hidden">
+                      <button onClick={() => updateQty(idx, -1)}
+                        className="w-[34px] h-full flex items-center justify-center text-[#007185] hover:bg-[#F7FAFA] transition"
+                        title={qty === 1 ? 'Supprimer' : 'Diminuer'}>
+                        {qty === 1
+                          ? <i className="fa-solid fa-trash-can text-[12px]"></i>
+                          : <span className="text-base leading-none">−</span>}
+                      </button>
+                      <span className="min-w-[30px] text-center text-[14px] font-bold text-[#0F1111] border-x border-[#E7E7E7]">
+                        {qty}
+                      </span>
+                      <button onClick={() => updateQty(idx, 1)}
+                        className="w-[34px] h-full flex items-center justify-center text-[#007185] hover:bg-[#F7FAFA] transition"
+                        title="Augmenter">
+                        <span className="text-base leading-none">+</span>
+                      </button>
+                    </div>
+
+                    <span className="text-[#D5D9D9] text-xs">|</span>
+                    <button onClick={() => removeItem(idx)}
+                      className="text-[12px] text-[#007185] hover:text-[#C7511F] hover:underline transition">
+                      Supprimer
+                    </button>
+                    <span className="text-[#D5D9D9] text-xs">|</span>
+                    <Link to="/studio" state={{ productId: item.id }}
+                      className="text-[12px] text-[#007185] hover:text-[#C7511F] hover:underline transition">
+                      Personnaliser
+                    </Link>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+
+          {/* Subtotal line */}
+          <div className="text-right py-3 text-[17px] text-[#0F1111]">
+            Sous-total ({totalQty} article{totalQty > 1 ? 's' : ''}) :{' '}
+            <span className="font-bold">{Math.round(finalTotal).toLocaleString()} FCFA</span>
+          </div>
+        </div>
+
+        {/* ═══ RIGHT: SINGLE CHECKOUT CARD ═════════════════════════════════════ */}
+        <div className="w-full lg:w-[300px] flex-shrink-0 lg:sticky lg:top-4">
+          <div className="bg-white divide-y divide-[#E7E7E7]">
+
+            {/* Subtotal + CTA */}
+            <div className="p-4">
               {totalSaved > 0 && (
                 <p className="text-[13px] text-[#007600] mb-2 leading-snug">
                   <i className="fa-solid fa-circle-check mr-1"></i>
-                  Vous économisez <b>{totalSaved.toLocaleString()} FCFA</b> sur cette commande
+                  Vous économisez <b>{totalSaved.toLocaleString()} FCFA</b>
                 </p>
               )}
-
-              <p className="text-[18px] text-[#0F1111] leading-tight mb-3">
+              <p className="text-[17px] text-[#0F1111] leading-tight mb-3">
                 Sous-total ({totalQty} article{totalQty > 1 ? 's' : ''}) :{' '}
                 <span className="font-bold">{Math.round(finalTotal).toLocaleString()} FCFA</span>
               </p>
-
               <button onClick={handleCheckout}
-                className="w-full bg-[#FFD814] hover:bg-[#F7CA00] border border-[#FCD200] rounded-full text-[#0F1111] text-[13px] font-medium py-2 transition shadow-[0_2px_5px_rgba(213,217,217,.5)]">
+                className="w-full bg-[#FFD814] hover:bg-[#F7CA00] border border-[#FCD200] rounded-full text-[#0F1111] text-[13px] font-medium py-2 transition shadow-[0_2px_5px_rgba(213,217,217,.5)] active:scale-[0.99]">
                 Passer à la livraison
               </button>
             </div>
 
-            {/* Promo code box */}
-            <div className="bg-white rounded-lg p-5">
-              <p className="text-[15px] font-bold text-[#0F1111] mb-2">Code promo</p>
+            {/* Promo */}
+            <div className="p-4">
+              <p className="text-[14px] font-bold text-[#0F1111] mb-2">Code promo</p>
               {promoApplied ? (
-                <div className="flex items-center justify-between bg-[#E8F5E8] border border-[#007600]/20 rounded-md px-3 py-2.5">
+                <div className="flex items-center justify-between bg-[#E8F5E8] border border-[#007600]/20 rounded-md px-3 py-2">
                   <div>
-                    <span className="text-[14px] font-bold text-[#007600]">{promoApplied.code}</span>
-                    <span className="text-[12px] text-[#565959] ml-2">−{promoDiscount.toLocaleString()} FCFA</span>
+                    <span className="text-[13px] font-bold text-[#007600]">{promoApplied.code}</span>
+                    <span className="text-[12px] text-[#565959] ml-2">−{promoDiscount.toLocaleString()} F</span>
                   </div>
                   <button onClick={removePromo} className="text-[12px] text-[#007185] hover:text-[#C7511F] hover:underline">
                     Retirer
                   </button>
                 </div>
               ) : (
-                <div className="space-y-2">
-                  <input
-                    type="text"
-                    value={promoInput}
-                    onChange={e => setPromoInput(e.target.value.toUpperCase())}
-                    onKeyDown={e => e.key === 'Enter' && applyPromo()}
-                    placeholder="Entrer le code"
-                    className="w-full border border-[#888C8C] focus:border-[#E77600] focus:outline-none focus:shadow-[0_0_0_3px_rgba(228,121,17,.25)] rounded-md px-3 py-2 text-[14px] font-mono uppercase bg-white placeholder-[#767676] transition"
-                  />
+                <>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={promoInput}
+                      onChange={e => setPromoInput(e.target.value.toUpperCase())}
+                      onKeyDown={e => e.key === 'Enter' && applyPromo()}
+                      placeholder="Entrer le code"
+                      className="flex-1 min-w-0 border border-[#888C8C] focus:border-[#E77600] focus:outline-none focus:shadow-[0_0_0_3px_rgba(228,121,17,.25)] rounded-md px-3 py-1.5 text-[13px] font-mono uppercase bg-white placeholder-[#767676] transition"
+                    />
+                    <button onClick={applyPromo} disabled={promoLoading || !promoInput.trim()}
+                      className="border border-[#D5D9D9] bg-[#F0F2F2] hover:bg-[#E3E6E6] rounded-full text-[#0F1111] text-[12px] px-4 transition disabled:opacity-50 flex-shrink-0">
+                      {promoLoading ? <i className="fa-solid fa-spinner fa-spin text-[10px]"></i> : 'OK'}
+                    </button>
+                  </div>
                   {promoError && (
-                    <p className="text-[12px] text-[#B12704]">
+                    <p className="text-[12px] text-[#B12704] mt-1.5">
                       <i className="fa-solid fa-circle-exclamation mr-1 text-[10px]"></i>{promoError}
                     </p>
                   )}
-                  <button onClick={applyPromo} disabled={promoLoading || !promoInput.trim()}
-                    className="w-full border border-[#D5D9D9] bg-[#F0F2F2] hover:bg-[#E3E6E6] rounded-full text-[#0F1111] text-[13px] py-1.5 transition disabled:opacity-50">
-                    {promoLoading ? <i className="fa-solid fa-spinner fa-spin text-xs"></i> : 'Appliquer'}
-                  </button>
-                </div>
+                </>
               )}
             </div>
 
-            {/* Price details box */}
-            <div className="bg-white rounded-lg p-5 text-[13px]">
-              <div className="space-y-1.5">
+            {/* Price details */}
+            <div className="p-4 text-[13px] space-y-1.5">
+              <div className="flex justify-between">
+                <span className="text-[#565959]">Sous-total</span>
+                <span className="text-[#0F1111]">{rawTotal.toLocaleString()} FCFA</span>
+              </div>
+              {memberSavings > 0 && (
+                <div className="flex justify-between text-[#007600]">
+                  <span>Remise membre −20 %</span>
+                  <span>−{memberSavings.toLocaleString()} F</span>
+                </div>
+              )}
+              {hasBundle && (
+                <div className="flex justify-between text-[#007600]">
+                  <span>Bundle Deal −{isMember ? 5 : 2} %</span>
+                  <span>−{bundleAmount.toLocaleString()} F</span>
+                </div>
+              )}
+              {promoDiscount > 0 && (
+                <div className="flex justify-between text-[#007600]">
+                  <span>Code {promoApplied?.code}</span>
+                  <span>−{promoDiscount.toLocaleString()} F</span>
+                </div>
+              )}
+              {cjShipping > 0 ? (
                 <div className="flex justify-between">
-                  <span className="text-[#565959]">Sous-total</span>
-                  <span className="text-[#0F1111]">{rawTotal.toLocaleString()} FCFA</span>
+                  <span className="text-[#565959]">Expédition internationale</span>
+                  <span className="text-[#007185]">~{cjShipping.toLocaleString()} F</span>
                 </div>
-                {memberSavings > 0 && (
-                  <div className="flex justify-between text-[#007600]">
-                    <span>Remise membre −20 %</span>
-                    <span>−{memberSavings.toLocaleString()} F</span>
-                  </div>
-                )}
-                {hasBundle && (
-                  <div className="flex justify-between text-[#007600]">
-                    <span>Bundle Deal −{isMember ? 5 : 2} %</span>
-                    <span>−{bundleAmount.toLocaleString()} F</span>
-                  </div>
-                )}
-                {promoDiscount > 0 && (
-                  <div className="flex justify-between text-[#007600]">
-                    <span>Code {promoApplied?.code}</span>
-                    <span>−{promoDiscount.toLocaleString()} F</span>
-                  </div>
-                )}
-                {cjShipping > 0 ? (
-                  <div className="flex justify-between">
-                    <span className="text-[#565959]">Expédition internationale</span>
-                    <span className="text-[#007185]">~{cjShipping.toLocaleString()} F</span>
-                  </div>
-                ) : (
-                  <div className="flex justify-between">
-                    <span className="text-[#565959]">Livraison · Douala</span>
-                    <span className="text-[#007600]">Gratuite</span>
-                  </div>
-                )}
-                <div className="flex justify-between border-t border-[#E7E7E7] pt-2 mt-1 text-[16px]">
-                  <span className="font-bold text-[#B12704]">Total</span>
-                  <span className="font-bold text-[#B12704]">{Math.round(finalTotal).toLocaleString()} FCFA</span>
+              ) : (
+                <div className="flex justify-between">
+                  <span className="text-[#565959]">Livraison · Douala</span>
+                  <span className="text-[#007600]">Gratuite</span>
                 </div>
+              )}
+              <div className="flex justify-between border-t border-[#E7E7E7] pt-2 text-[15px]">
+                <span className="font-bold text-[#B12704]">Total</span>
+                <span className="font-bold text-[#B12704]">{Math.round(finalTotal).toLocaleString()} FCFA</span>
               </div>
             </div>
 
-            {/* Payment methods */}
-            <div className="bg-white rounded-lg px-5 py-3">
-              <div className="flex items-center justify-center gap-4 flex-wrap text-[11px] text-[#565959]">
+            {/* Payment + back link */}
+            <div className="p-4">
+              <div className="flex items-center justify-center gap-3 flex-wrap text-[11px] text-[#565959] mb-3">
                 <span className="flex items-center gap-1"><i className="fa-solid fa-mobile-screen-button text-orange-500"></i> Orange Money</span>
                 <span className="flex items-center gap-1"><i className="fa-solid fa-mobile-screen-button text-yellow-500"></i> MTN MoMo</span>
                 <span className="flex items-center gap-1"><i className="fa-solid fa-money-bill-wave text-[#007600]"></i> Cash</span>
               </div>
+              <Link to="/store" className="block text-center text-[12px] text-[#007185] hover:text-[#C7511F] hover:underline">
+                ← Continuer mes achats
+              </Link>
             </div>
-
-            <Link to="/store" className="block text-center text-[13px] text-[#007185] hover:text-[#C7511F] hover:underline">
-              ← Continuer mes achats
-            </Link>
           </div>
         </div>
       </div>
