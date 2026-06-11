@@ -28,6 +28,7 @@ import OFSRewardsPage from './pages/OFSRewardsPage.jsx';
 import SearchPage from './pages/SearchPage.jsx';
 import TrackingPage from './pages/TrackingPage.jsx';
 import SuperAdmin from './pages/SuperAdmin.jsx';
+import AffiliateRedirect from './pages/AffiliateRedirect.jsx';
 
 function AppContent() {
   const { vendor } = useAuth();
@@ -165,6 +166,7 @@ function AppContent() {
           <Route path="/profile" element={<ProfilePage />} />
           <Route path="/rewards" element={<OFSRewardsPage />} />
           <Route path="/track" element={<TrackingPage />} />
+          <Route path="/ref/:code" element={<AffiliateRedirect />} />
 
           <Route
             path="/product/:productId"

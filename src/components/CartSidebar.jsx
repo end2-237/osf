@@ -71,6 +71,11 @@ const CartSidebar = ({ isOpen, cart, removeFromCart, updateQuantity, toggleCart,
   const [paymentUrl,      setPaymentUrl]      = useState('');
   const pollTimerRef = useRef(null);
 
+  const [promoInput,   setPromoInput]   = useState('');
+  const [promoApplied, setPromoApplied] = useState(null);
+  const [promoLoading, setPromoLoading] = useState(false);
+  const [promoError,   setPromoError]   = useState('');
+
   useEffect(() => {
     if (!user || !isOpen) return;
     const load = async () => {
@@ -197,12 +202,18 @@ const CartSidebar = ({ isOpen, cart, removeFromCart, updateQuantity, toggleCart,
   const bundleRate          = isMember ? BUNDLE_DISCOUNT_MEMBER : BUNDLE_DISCOUNT_NON_MEMBER;
   const bundleAmount        = hasBundle ? Math.round(subtotalAfterMember * bundleRate) : 0;
 
+  const promoDiscount = promoApplied
+    ? (promoApplied.discount_type === 'percent'
+        ? Math.round((subtotalAfterMember - bundleAmount) * promoApplied.discount_value / 100)
+        : Math.min(Number(promoApplied.discount_value), subtotalAfterMember - bundleAmount))
+    : 0;
+
   // CJ international shipping estimate (transitaire)
   const cjItems      = cart.filter(i => !i.vendor_id);
   const cjShipWeightG = cjItems.reduce((s, i) => s + ((i.ship_weight_g || i.weight_g || 200) * (i.quantity || 1)), 0);
   const cjShipping   = cjItems.length > 0 ? Math.round(1015 + (cjShipWeightG / 1000) * 10000) : 0;
 
-  const finalTotal   = subtotalAfterMember - bundleAmount + cjShipping;
+  const finalTotal   = subtotalAfterMember - bundleAmount - promoDiscount + cjShipping;
 
   const potentialMemberSavings = cart.reduce((s, i) => {
     const has = i.vendor?.member_discount_enabled ?? i.vendor_member_discount_enabled ?? false;
@@ -221,6 +232,31 @@ const CartSidebar = ({ isOpen, cart, removeFromCart, updateQuantity, toggleCart,
     if (/^6\d{8}$/.test(p)) p = '237' + p;
     return p;
   };
+
+  // ─── PROMO CODE ───────────────────────────────────────────────────────────────
+  const applyPromo = async () => {
+    const code = promoInput.trim().toUpperCase();
+    if (!code) return;
+    setPromoLoading(true); setPromoError('');
+    const { data } = await supabase
+      .from('promo_codes')
+      .select('id, code, discount_type, discount_value, min_order_amount, max_uses, current_uses, expires_at, is_active')
+      .eq('code', code)
+      .maybeSingle();
+    if (!data || !data.is_active) { setPromoError('Code promo invalide ou inactif.'); setPromoLoading(false); return; }
+    if (data.expires_at && new Date(data.expires_at) < new Date()) { setPromoError('Ce code promo a expiré.'); setPromoLoading(false); return; }
+    if (data.max_uses != null && data.current_uses >= data.max_uses) { setPromoError("Limite d'utilisation atteinte."); setPromoLoading(false); return; }
+    const subForMin = subtotalAfterMember - bundleAmount;
+    if (data.min_order_amount && subForMin < Number(data.min_order_amount)) {
+      setPromoError(`Minimum requis : ${Number(data.min_order_amount).toLocaleString()} FCFA`);
+      setPromoLoading(false); return;
+    }
+    setPromoApplied(data);
+    setPromoInput('');
+    setPromoLoading(false);
+  };
+
+  const removePromo = () => { setPromoApplied(null); setPromoError(''); setPromoInput(''); };
 
   // ─── ORDER HELPERS ────────────────────────────────────────────────────────────
   const buildOrderItems = (vendorItems, orderId) =>
@@ -251,9 +287,15 @@ const CartSidebar = ({ isOpen, cart, removeFromCart, updateQuantity, toggleCart,
   const createOrder = async () => {
     setLoading(true); setError('');
     try {
+      const baseForPromo  = Math.max(1, subtotalAfterMember - bundleAmount);
+      const promoFactor   = promoDiscount > 0 ? (1 - promoDiscount / baseForPromo) : 1;
+      const referralCode  = (() => { try { return localStorage.getItem('ofs_ref_code') || null; } catch { return null; } })();
+
       for (const [vId, vendorItems] of Object.entries(groupByVendor())) {
         const vendorSub   = vendorItems.reduce((s, i) => s + getUnitPrice(i, isMember) * (Number(i.quantity)||1), 0);
         const vendorFinal = hasBundle ? Math.round(vendorSub * (1 - bundleRate)) : vendorSub;
+        const vendorAfterPromo = Math.round(vendorFinal * promoFactor);
+        const vendorPromoDisc  = vendorFinal - vendorAfterPromo;
 
         const { data: orderData, error: orderError } = await supabase
           .from('orders')
@@ -261,13 +303,16 @@ const CartSidebar = ({ isOpen, cart, removeFromCart, updateQuantity, toggleCart,
             client_name:             info.name,
             client_phone:            info.phone,
             client_address:          fullAddress(),
-            total_amount:            vendorFinal,
+            total_amount:            vendorAfterPromo,
             payment_method:          paymentMethod,
             payment_reference:       null,
             status:                  'pending',
             vendor_id:               vId === 'no_vendor' ? null : vId,
             member_discount_applied: isMember && hasMemberSavings,
             user_id:                 user?.id || null,
+            promo_code:              promoApplied?.code || null,
+            promo_discount:          vendorPromoDisc || null,
+            referral_code:           referralCode,
           })
           .select()
           .single();
@@ -286,6 +331,13 @@ const CartSidebar = ({ isOpen, cart, removeFromCart, updateQuantity, toggleCart,
             body: JSON.stringify({ type: 'order_confirmation', order_id: orderData.id }),
           }).catch(() => {});
         }
+      }
+
+      if (promoApplied) {
+        supabase.from('promo_codes')
+          .update({ current_uses: promoApplied.current_uses + 1 })
+          .eq('id', promoApplied.id)
+          .then(() => {});
       }
 
       setShowToast(true);
@@ -308,11 +360,16 @@ const CartSidebar = ({ isOpen, cart, removeFromCart, updateQuantity, toggleCart,
   const createOrdersForMonetbil = async () => {
     setLoading(true); setError('');
     try {
-      const orderIds = [];
+      const orderIds     = [];
+      const baseForPromo = Math.max(1, subtotalAfterMember - bundleAmount);
+      const promoFactor  = promoDiscount > 0 ? (1 - promoDiscount / baseForPromo) : 1;
+      const referralCode = (() => { try { return localStorage.getItem('ofs_ref_code') || null; } catch { return null; } })();
 
       for (const [vId, vendorItems] of Object.entries(groupByVendor())) {
-        const vendorSub   = vendorItems.reduce((s, i) => s + getUnitPrice(i, isMember) * (Number(i.quantity)||1), 0);
-        const vendorFinal = hasBundle ? Math.round(vendorSub * (1 - bundleRate)) : vendorSub;
+        const vendorSub        = vendorItems.reduce((s, i) => s + getUnitPrice(i, isMember) * (Number(i.quantity)||1), 0);
+        const vendorFinal      = hasBundle ? Math.round(vendorSub * (1 - bundleRate)) : vendorSub;
+        const vendorAfterPromo = Math.round(vendorFinal * promoFactor);
+        const vendorPromoDisc  = vendorFinal - vendorAfterPromo;
 
         const { data: orderData, error: orderError } = await supabase
           .from('orders')
@@ -320,13 +377,16 @@ const CartSidebar = ({ isOpen, cart, removeFromCart, updateQuantity, toggleCart,
             client_name:             info.name,
             client_phone:            info.phone,
             client_address:          fullAddress(),
-            total_amount:            vendorFinal,
+            total_amount:            vendorAfterPromo,
             payment_method:          paymentMethod,
             payment_reference:       null,
             status:                  'pending_payment',
             vendor_id:               vId === 'no_vendor' ? null : vId,
             member_discount_applied: isMember && hasMemberSavings,
             user_id:                 user?.id || null,
+            promo_code:              promoApplied?.code || null,
+            promo_discount:          vendorPromoDisc || null,
+            referral_code:           referralCode,
           })
           .select()
           .single();
@@ -334,6 +394,13 @@ const CartSidebar = ({ isOpen, cart, removeFromCart, updateQuantity, toggleCart,
         if (orderError) throw orderError;
         orderIds.push(orderData.id);
         await supabase.from('order_items').insert(buildOrderItems(vendorItems, orderData.id));
+      }
+
+      if (promoApplied) {
+        supabase.from('promo_codes')
+          .update({ current_uses: promoApplied.current_uses + 1 })
+          .eq('id', promoApplied.id)
+          .then(() => {});
       }
 
       const supabaseUrl  = import.meta.env.VITE_SUPABASE_URL;
@@ -950,6 +1017,49 @@ const CartSidebar = ({ isOpen, cart, removeFromCart, updateQuantity, toggleCart,
         <div className="bg-white border-t border-[#D5D9D9] p-4 flex-shrink-0">
           {cart.length > 0 && (
             <div className="space-y-3">
+              {/* PROMO CODE INPUT */}
+              {step === 'cart' && (
+                <div>
+                  {promoApplied ? (
+                    <div className="flex items-center justify-between gap-2 bg-[#E8F5E8] border border-[#007600]/20 rounded-lg px-3 py-2">
+                      <div className="flex items-center gap-2">
+                        <i className="fa-solid fa-tag text-[#007600] text-xs"></i>
+                        <span className="text-xs font-bold text-[#007600]">{promoApplied.code}</span>
+                        <span className="text-xs text-[#565959]">−{promoDiscount.toLocaleString()} FCFA</span>
+                      </div>
+                      <button onClick={removePromo} className="text-[10px] text-[#B12704] hover:underline font-bold">
+                        Retirer
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="space-y-1">
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          value={promoInput}
+                          onChange={e => setPromoInput(e.target.value.toUpperCase())}
+                          onKeyDown={e => e.key === 'Enter' && applyPromo()}
+                          placeholder="Code promo"
+                          className="flex-1 bg-white border border-[#D5D9D9] focus:border-[#FF9900] focus:outline-none rounded px-3 py-2 text-sm text-[#0F1111] placeholder-[#adb5bd] transition-colors font-mono uppercase"
+                        />
+                        <button
+                          onClick={applyPromo}
+                          disabled={promoLoading || !promoInput.trim()}
+                          className="bg-[#232F3E] hover:bg-[#37475A] text-white px-4 py-2 rounded text-sm font-bold transition disabled:opacity-50 flex-shrink-0"
+                        >
+                          {promoLoading ? <i className="fa-solid fa-spinner fa-spin text-xs"></i> : 'OK'}
+                        </button>
+                      </div>
+                      {promoError && (
+                        <p className="text-[11px] text-[#B12704]">
+                          <i className="fa-solid fa-circle-exclamation mr-1 text-[10px]"></i>{promoError}
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* PRICE BREAKDOWN */}
               {step === 'cart' && (
                 <div className="space-y-1.5">
@@ -967,6 +1077,14 @@ const CartSidebar = ({ isOpen, cart, removeFromCart, updateQuantity, toggleCart,
                     <div className="flex justify-between text-sm">
                       <span className="text-[#007600]">Bundle Deal −{isMember ? 5 : 2}%</span>
                       <span className="font-bold text-[#007600]">−{bundleAmount.toLocaleString()} F</span>
+                    </div>
+                  )}
+                  {promoDiscount > 0 && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-[#007600] flex items-center gap-1">
+                        <i className="fa-solid fa-tag text-[9px]" /> Code {promoApplied?.code}
+                      </span>
+                      <span className="font-bold text-[#007600]">−{promoDiscount.toLocaleString()} F</span>
                     </div>
                   )}
                   {cjShipping > 0 ? (
@@ -996,9 +1114,9 @@ const CartSidebar = ({ isOpen, cart, removeFromCart, updateQuantity, toggleCart,
                       dont ~{cjShipping.toLocaleString()} F d'expédition internationale inclus
                     </p>
                   )}
-                  {(hasMemberSavings || hasBundle) && (
+                  {(hasMemberSavings || hasBundle || promoDiscount > 0) && (
                     <p className="text-xs text-[#007600] font-bold text-right">
-                      Vous économisez {(memberSavingsAmount + bundleAmount).toLocaleString()} FCFA 🎉
+                      Vous économisez {(memberSavingsAmount + bundleAmount + promoDiscount).toLocaleString()} FCFA 🎉
                     </p>
                   )}
                 </div>

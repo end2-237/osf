@@ -112,7 +112,23 @@ const AllOrdersTab = ({ orders, loading, onStatusChange }) => {
   const handleStatusChange = async (orderId, newStatus) => {
     setUpdating(orderId);
     const { error } = await supabase.from("orders").update({ status: newStatus }).eq("id", orderId);
-    if (!error) onStatusChange(orderId, newStatus);
+    if (!error) {
+      onStatusChange(orderId, newStatus);
+      if (newStatus === 'shipped') {
+        const order = orders.find(o => o.id === orderId);
+        if (order?.user_id) {
+          fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-email`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+              'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
+            },
+            body: JSON.stringify({ type: 'shipped', order_id: orderId }),
+          }).catch(() => {});
+        }
+      }
+    }
     setUpdating(null);
   };
 
@@ -205,6 +221,20 @@ const AllOrdersTab = ({ orders, loading, onStatusChange }) => {
                       <option key={k} value={k}>{v.label}</option>
                     ))}
                   </select>
+
+                  {/* Quick "Expédié" button */}
+                  {['paid', 'confirmed', 'in_transit'].includes(o.status) && (
+                    <button
+                      onClick={() => handleStatusChange(o.id, 'shipped')}
+                      disabled={updating === o.id}
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-[#FF9900] hover:bg-[#FFB800] active:scale-95 text-[#0F1111] text-[10px] font-black uppercase tracking-wide rounded-lg transition-all disabled:opacity-50 flex-shrink-0 shadow-sm"
+                    >
+                      {updating === o.id
+                        ? <i className="fa-solid fa-spinner fa-spin text-[9px]"></i>
+                        : <i className="fa-solid fa-truck-fast text-[9px]"></i>}
+                      Expédié
+                    </button>
+                  )}
                 </div>
 
                 {/* Address */}
@@ -1814,6 +1844,113 @@ const ReviewsModerationTab = () => {
   );
 };
 
+// ─── AFFILIATION TAB ──────────────────────────────────────────────────────────
+const AffiliationTab = ({ orders }) => {
+  const [newCode, setNewCode] = useState('');
+  const [copied, setCopied]   = useState('');
+
+  const refOrders = orders.filter(o => o.referral_code);
+  const byCode    = refOrders.reduce((acc, o) => {
+    const code = o.referral_code;
+    if (!acc[code]) acc[code] = { orders: 0, revenue: 0 };
+    acc[code].orders += 1;
+    if (['paid', 'delivered'].includes(o.status)) acc[code].revenue += Number(o.total_amount || 0);
+    return acc;
+  }, {});
+  const affiliates = Object.entries(byCode)
+    .map(([code, s]) => ({ code, ...s }))
+    .sort((a, b) => b.revenue - a.revenue);
+
+  const copyLink = (code) => {
+    navigator.clipboard.writeText(`https://www.onefreestyle.store/ref/${code}`);
+    setCopied(code);
+    setTimeout(() => setCopied(''), 2000);
+  };
+
+  const refRevenue = refOrders
+    .filter(o => ['paid', 'delivered'].includes(o.status))
+    .reduce((s, o) => s + Number(o.total_amount || 0), 0);
+
+  return (
+    <div className="space-y-6">
+      {/* Create link */}
+      <div className="bg-white border border-[#D5D9D9] rounded-xl p-5">
+        <h3 className="font-black text-[#0F1111] text-sm mb-1">
+          <i className="fa-solid fa-link text-[#FF9900] mr-2"></i>Créer un lien d'affiliation
+        </h3>
+        <p className="text-[10px] text-[#565959] mb-3">Partagez /ref/CODE avec vos ambassadeurs. Chaque commande passée via ce lien sera trackée.</p>
+        <div className="flex gap-2">
+          <input
+            value={newCode}
+            onChange={e => setNewCode(e.target.value.toUpperCase().replace(/[^A-Z0-9_-]/g, ''))}
+            onKeyDown={e => e.key === 'Enter' && newCode && copyLink(newCode)}
+            placeholder="INFLUENCEUR_NOM"
+            className="flex-1 border border-[#D5D9D9] focus:border-[#FF9900] focus:outline-none rounded-lg px-3 py-2.5 text-sm font-mono uppercase"
+          />
+          <button
+            onClick={() => { if (newCode) copyLink(newCode); }}
+            disabled={!newCode}
+            className="bg-[#FF9900] hover:bg-[#FFB800] text-[#0F1111] px-4 py-2.5 rounded-lg text-sm font-black transition disabled:opacity-50 flex items-center gap-2"
+          >
+            <i className={`fa-solid ${copied === newCode ? 'fa-circle-check' : 'fa-copy'} text-xs`}></i>
+            {copied === newCode ? 'Copié !' : 'Copier'}
+          </button>
+        </div>
+        {newCode && (
+          <p className="text-[11px] text-[#007185] mt-2 font-mono bg-[#F3F4F4] px-3 py-1.5 rounded">
+            https://www.onefreestyle.store/ref/{newCode}
+          </p>
+        )}
+      </div>
+
+      {/* KPIs */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <KpiCard icon="fa-users" label="Affiliés actifs" value={affiliates.length} color="#007185" />
+        <KpiCard icon="fa-bag-shopping" label="Commandes via ref" value={refOrders.length} color="#FF9900" />
+        <KpiCard icon="fa-coins" label="CA affilié" value={`${refRevenue.toLocaleString()} F`} color="#007600" />
+      </div>
+
+      {/* Leaderboard */}
+      {affiliates.length === 0 ? (
+        <div className="text-center py-16 text-[#565959]">
+          <i className="fa-solid fa-link text-4xl text-[#D5D9D9] mb-3 block"></i>
+          <p className="font-bold">Aucune commande affiliée pour l'instant</p>
+          <p className="text-sm mt-1 text-[#ADBAC7]">Créez des liens /ref/CODE et partagez-les avec vos ambassadeurs.</p>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          <p className="text-[10px] font-black uppercase tracking-widest text-[#565959] mb-3">
+            <i className="fa-solid fa-trophy text-[#FF9900] mr-1.5"></i>Classement affiliés
+          </p>
+          {affiliates.map((a, i) => (
+            <div key={a.code} className="bg-white border border-[#D5D9D9] rounded-xl px-4 py-3 flex items-center gap-4 hover:border-[#FF9900]/30 transition-all">
+              <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-black text-sm flex-shrink-0 ${
+                i === 0 ? 'bg-[#FFD814] text-[#0F1111]'
+                : i === 1 ? 'bg-[#EAEDED] text-[#565959]'
+                : i === 2 ? 'bg-[#FF9900]/20 text-[#FF9900]'
+                : 'bg-[#F3F4F4] text-[#ADBAC7]'
+              }`}>{i + 1}</div>
+              <div className="flex-1 min-w-0">
+                <p className="font-black text-[#0F1111] text-sm font-mono">{a.code}</p>
+                <p className="text-[10px] text-[#565959]">
+                  {a.orders} commande{a.orders > 1 ? 's' : ''} · {a.revenue.toLocaleString()} FCFA CA
+                </p>
+              </div>
+              <button
+                onClick={() => copyLink(a.code)}
+                className="text-xs text-[#007185] hover:text-[#C45500] border border-[#D5D9D9] rounded-lg px-3 py-1.5 hover:border-[#C45500] transition flex items-center gap-1.5 flex-shrink-0"
+              >
+                <i className={`fa-solid ${copied === a.code ? 'fa-circle-check text-[#007600]' : 'fa-copy'} text-[10px]`}></i>
+                {copied === a.code ? 'Copié !' : 'Lien'}
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
 // ─── SUPER ADMIN PAGE ─────────────────────────────────────────────────────────
 const SuperAdmin = () => {
   const { user } = useAuth();
@@ -1915,6 +2052,7 @@ const SuperAdmin = () => {
     { key: "products",     icon: "fa-boxes-stacked",  label: "Produits"        },
     { key: "cj",           icon: "fa-circle-nodes",   label: "CJ Import"       },
     { key: "reviews",      icon: "fa-star",            label: "Avis",           badge: globalStats.pendingReviews || 0 },
+    { key: "affiliation",  icon: "fa-link",            label: "Affiliation"     },
     { key: "settings",     icon: "fa-gear",            label: "Paramètres"      },
   ];
 
@@ -2017,6 +2155,10 @@ const SuperAdmin = () => {
 
         {activeTab === "reviews" && (
           <ReviewsModerationTab />
+        )}
+
+        {activeTab === "affiliation" && (
+          <AffiliationTab orders={allOrders} />
         )}
 
         {activeTab === "settings" && (
