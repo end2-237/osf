@@ -63,6 +63,13 @@ serve(async (req: Request) => {
     const newStatus  = isSuccess ? "paid" : isCancelled ? "cancelled" : "payment_failed";
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SRVKEY);
+
+    // Fetch order IDs before update (needed for email trigger)
+    const { data: matchingOrders } = await supabase
+      .from("orders")
+      .select("id, user_id")
+      .eq("payment_reference", payment_ref);
+
     await supabase
       .from("orders")
       .update({
@@ -71,6 +78,23 @@ serve(async (req: Request) => {
         paid_at:        isSuccess ? new Date().toISOString() : null,
       })
       .eq("payment_reference", payment_ref);
+
+    // Send confirmation email for paid orders (non-blocking)
+    if (isSuccess && matchingOrders) {
+      for (const o of matchingOrders) {
+        if (o.user_id) {
+          fetch(`${SUPABASE_URL}/functions/v1/send-email`, {
+            method: "POST",
+            headers: {
+              "Content-Type":  "application/json",
+              "Authorization": `Bearer ${SUPABASE_SRVKEY}`,
+              "apikey":        SUPABASE_SRVKEY,
+            },
+            body: JSON.stringify({ type: "payment_confirmed", order_id: o.id }),
+          }).catch(() => {});
+        }
+      }
+    }
 
     console.log("[MONETBIL WEBHOOK]", payment_ref, "→", newStatus);
 

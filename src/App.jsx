@@ -50,9 +50,13 @@ function AppContent() {
     || location.pathname.startsWith('/super-admin')
     || location.pathname === '/track';
 
-  // Persist cart to localStorage on every change
+  // Persist cart to localStorage + track last-modified time for abandoned-cart detection
   useEffect(() => {
-    try { localStorage.setItem('ofs_cart', JSON.stringify(cart)); } catch {}
+    try {
+      localStorage.setItem('ofs_cart', JSON.stringify(cart));
+      if (cart.length > 0) localStorage.setItem('ofs_cart_ts', Date.now().toString());
+      else localStorage.removeItem('ofs_cart_ts');
+    } catch {}
   }, [cart]);
 
   // Load shared cart from URL ?cart=BASE64 (once per session)

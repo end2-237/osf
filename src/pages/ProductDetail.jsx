@@ -10,6 +10,7 @@ import { cjGetProductDetail, mapCjToProduct, isVideoUrl, PRICE_MARGIN } from "..
 import { useTranslate } from "../hooks/useTranslate";
 import { useLang } from "../context/LangContext";
 import { translateText, stripHtml } from "../lib/translate";
+import { useSEO } from "../hooks/useSEO";
 
 const MEMBER_DISCOUNT = 0.2;
 
@@ -767,19 +768,31 @@ const ProductDetail = ({ addToCart, openModal }) => {
       });
   }, [productId]);
 
+  // SEO meta tags per product
+  const seoDesc = product ? [
+    stripHtml(product.description || '').slice(0, 100).trim(),
+    product.price ? `Prix : ${product.price.toLocaleString('fr-FR')} FCFA` : '',
+    'Livraison rapide Cameroun',
+  ].filter(Boolean).join(' · ') : undefined;
+
+  useSEO({
+    title:       product?.name,
+    description: seoDesc,
+    image:       product?.img || product?.images?.[0],
+    url:         product ? `https://ofs-cm.com/product/${product.id}` : undefined,
+    type:        'product',
+  });
+
+  // Keep window.__ofs_product for WhatsApp button context
   useEffect(() => {
     if (product?.name) {
-      document.title = product.name;
       window.__ofs_product = {
         name: product.name,
         img:  product.img || product.images?.[0] || '',
         url:  window.location.href,
       };
     }
-    return () => {
-      document.title = "OFS";
-      delete window.__ofs_product;
-    };
+    return () => { delete window.__ofs_product; };
   }, [product?.name, product?.img]);
 
   useEffect(() => {
