@@ -509,7 +509,7 @@ const CJImportTab = () => {
         <div className="bg-[#232F3E] px-6 py-4 flex items-center justify-between gap-4 flex-wrap">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-[#FF9900]/15 rounded-xl flex items-center justify-center border border-[#FF9900]/30">
-              <i className="fa-solid fa-circle-nodes text-[#FF9900] text-base"></i>
+              <i className="fa-solid fa-diagram-project text-[#FF9900] text-base"></i>
             </div>
             <div>
               <p className="text-[8px] font-black uppercase tracking-[0.3em] text-[#FF9900]">CJ Dropshipping · Connecté</p>

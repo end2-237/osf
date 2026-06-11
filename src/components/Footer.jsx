@@ -128,7 +128,7 @@ const Footer = () => {
               { icon: "fa-mobile-screen-button", label: "Mobile Money"  },
               { icon: "fa-money-bill-wave",       label: "Cash"         },
               { icon: "fa-truck-fast",            label: "Livraison"    },
-              { icon: "fa-shield-check",          label: "Sécurisé"     },
+              { icon: "fa-shield-halved",          label: "Sécurisé"     },
             ].map(({ icon, label }) => (
               <div key={label}
                 className="flex items-center gap-1.5 bg-white/5 border border-white/10 rounded px-3 py-1.5 text-xs text-gray-400"

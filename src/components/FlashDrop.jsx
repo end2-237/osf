@@ -202,7 +202,7 @@ const FlashDrop = () => {
           <div className="max-w-[1600px] mx-auto px-6 py-3 flex items-center gap-6 overflow-x-auto">
             {[
               { icon: "fa-truck-fast",   text: "Livraison 2h · Douala" },
-              { icon: "fa-shield-check", text: "Paiement sécurisé" },
+              { icon: "fa-shield-halved", text: "Paiement sécurisé" },
               { icon: "fa-rotate-left",  text: "Retour 7 jours" },
               { icon: "fa-headset",      text: "Support 7j/7" },
             ].map(item => (

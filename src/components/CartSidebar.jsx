@@ -1179,7 +1179,7 @@ const CartSidebar = ({ isOpen, cart, removeFromCart, updateQuantity, toggleCart,
               {/* TRUST BADGES */}
               <div className="flex items-center justify-center gap-4 pt-1">
                 <span className="flex items-center gap-1 text-[10px] text-[#565959]">
-                  <i className="fa-solid fa-shield-check text-[#007600] text-xs"></i> Sécurisé
+                  <i className="fa-solid fa-shield-halved text-[#007600] text-xs"></i> Sécurisé
                 </span>
                 <span className="flex items-center gap-1 text-[10px] text-[#565959]">
                   <i className="fa-solid fa-rotate-left text-[#007185] text-xs"></i> Retour 7j

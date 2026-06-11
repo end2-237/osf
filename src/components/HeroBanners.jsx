@@ -139,7 +139,7 @@ const HeroBanners = () => {
           <div className="grid grid-cols-2 md:grid-cols-4 divide-x divide-[#D5D9D9]">
             {[
               { icon: "fa-truck-fast",     label: "Livraison Express",  sub: "Douala en 2h",            color: "text-[#FF9900]"  },
-              { icon: "fa-shield-check",   label: "Paiement Sécurisé",  sub: "Orange Money / Cash",     color: "text-green-600"  },
+              { icon: "fa-shield-halved",   label: "Paiement Sécurisé",  sub: "Orange Money / Cash",     color: "text-green-600"  },
               { icon: "fa-rotate-left",    label: "Retour Facile",      sub: "7 jours sans questions",  color: "text-blue-600"   },
               { icon: "fa-headset",        label: "Support 7j/7",       sub: "Réponse en 1h",           color: "text-purple-600" },
             ].map((item) => (

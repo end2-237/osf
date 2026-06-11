@@ -22,7 +22,7 @@ const SUBCATEGORIES = {
 };
 
 const CATEGORIES = [
-  { key: "All",            label: "Tout voir",   icon: "fa-grid-2",             color: "#00ff88" },
+  { key: "All",            label: "Tout voir",   icon: "fa-table-cells",             color: "#00ff88" },
   { key: "Audio Lab",      label: "Audio Lab",   icon: "fa-headphones",         color: "#00ff88" },
   { key: "Tech Lab",       label: "Tech Lab",    icon: "fa-microchip",          color: "#3b82f6" },
   { key: "Femme",          label: "Pour Elle",   icon: "fa-person-dress",       color: "#ec4899" },
@@ -261,7 +261,7 @@ const TrustStrip = () => (
       {[
         { icon: "fa-store",            text: "5+ boutiques",     sub: "certifiées OFS",   color: "#FF9900" },
         { icon: "fa-truck-fast",       text: "Livraison 2h",     sub: "Douala express",   color: "#60a5fa" },
-        { icon: "fa-shield-check",     text: "Paiement sécurisé",sub: "Orange · MTN · Cash", color: "#4ade80" },
+        { icon: "fa-shield-halved",     text: "Paiement sécurisé",sub: "Orange · MTN · Cash", color: "#4ade80" },
         { icon: "fa-rotate-left",      text: "Retour 7 jours",   sub: "sans question",    color: "#c084fc" },
         { icon: "fa-crown",            text: "Membre Elite",     sub: "−20% immédiat",    color: "#fbbf24" },
       ].map((b, i) => (
@@ -1046,7 +1046,7 @@ const Store = ({ openModal, addToCart }) => {
                     <button key={m} onClick={() => setViewMode(m)}
                       className={`px-3 py-2 transition-all ${viewMode === m ? "bg-[#232F3E] text-[#FF9900]" : "text-[#565959] hover:text-[#0F1111] hover:bg-[#F3F4F4]"}`}
                     >
-                      <i className={`fa-solid ${m === "grid" ? "fa-grid-2" : "fa-list"} text-xs`}></i>
+                      <i className={`fa-solid ${m === "grid" ? "fa-table-cells" : "fa-list"} text-xs`}></i>
                     </button>
                   ))}
                 </div>

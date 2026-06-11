@@ -7,7 +7,7 @@ import { translateText } from "../lib/translate";
 
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
 const CATEGORIES = [
-  { key: "All",         label: "Tout voir",   icon: "fa-grid-2",              color: "#FF9900",  img: "https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?q=80&w=400" },
+  { key: "All",         label: "Tout voir",   icon: "fa-table-cells",              color: "#FF9900",  img: "https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?q=80&w=400" },
   { key: "Audio Lab",   label: "Audio Lab",   icon: "fa-headphones",          color: "#FF9900",  img: "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?q=80&w=400" },
   { key: "Clothing",    label: "Streetwear",  icon: "fa-shirt",               color: "#a855f7",  img: "https://images.unsplash.com/photo-1551488831-00ddcb6c6bd3?q=80&w=400" },
   { key: "Shoes",       label: "Sneakers",    icon: "fa-shoe-prints",         color: "#f97316",  img: "https://images.unsplash.com/photo-1549298916-f52d724204b4?q=80&w=400" },
@@ -341,7 +341,7 @@ const FilterSidebar = ({ activeCategory, setActiveCategory, activePriceRange, se
     {/* OFS TRUST */}
     <div className="bg-[#131921] border border-[#232F3E] rounded p-4">
       <p className="text-[9px] font-black uppercase tracking-widest text-[#FF9900] mb-3">
-        <i className="fa-solid fa-shield-check mr-1.5"></i>Achat sécurisé
+        <i className="fa-solid fa-shield-halved mr-1.5"></i>Achat sécurisé
       </p>
       {[
         { icon: "fa-truck-fast",      text: "Livraison 2h à Douala" },

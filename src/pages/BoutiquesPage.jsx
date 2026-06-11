@@ -503,7 +503,7 @@ const BoutiquesPage = () => {
                 <button key={v} onClick={() => setViewMode(v)}
                   className={"w-8 h-8 flex items-center justify-center transition-colors " + (viewMode === v ? "bg-primary text-black" : "text-zinc-500 hover:text-white")}
                 >
-                  <i className={"fa-solid text-xs " + (v === "grid" ? "fa-grid-2" : "fa-list")} />
+                  <i className={"fa-solid text-xs " + (v === "grid" ? "fa-table-cells" : "fa-list")} />
                 </button>
               ))}
             </div>

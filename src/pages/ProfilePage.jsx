@@ -840,7 +840,7 @@ const Security = ({ user, onToast }) => {
           )}
 
           <PrimaryBtn onClick={handlePw} disabled={loading} className="w-full py-3 mt-2">
-            {loading ? <i className="fa-solid fa-spinner fa-spin text-xs"></i> : <i className="fa-solid fa-shield-check text-xs"></i>}
+            {loading ? <i className="fa-solid fa-spinner fa-spin text-xs"></i> : <i className="fa-solid fa-shield-halved text-xs"></i>}
             Mettre à jour le mot de passe
           </PrimaryBtn>
         </div>
@@ -1249,7 +1249,7 @@ const ProfilePage = ({ addToCart }) => {
             {/* Trust block */}
             <div className="bg-[#131921] border border-[#232F3E] rounded p-4 mt-3">
               <p className="text-[9px] font-black uppercase tracking-widest text-[#FF9900] mb-3">
-                <i className="fa-solid fa-shield-check mr-1.5"></i>Achat sécurisé
+                <i className="fa-solid fa-shield-halved mr-1.5"></i>Achat sécurisé
               </p>
               {[
                 { icon: "fa-truck-fast",    text: "Livraison 2h · Douala"    },

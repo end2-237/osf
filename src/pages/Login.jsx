@@ -131,7 +131,7 @@ const Login = () => {
 
           {forgotSent ? (
             <div className="bg-green-50 border border-green-200 rounded p-4 text-center">
-              <i className="fa-solid fa-envelope-circle-check text-[#007600] text-2xl mb-2 block"></i>
+              <i className="fa-solid fa-envelope-open-text text-[#007600] text-2xl mb-2 block"></i>
               <p className="font-bold text-[#007600] text-sm mb-1">Email envoyé !</p>
               <p className="text-xs text-[#565959]">Vérifiez votre boîte mail pour réinitialiser votre mot de passe.</p>
               <button onClick={() => setForgotSent(false)} className="mt-3 text-xs text-[#007185] hover:underline">

@@ -391,7 +391,7 @@ const OverviewTab = ({ stats, topVendors, recentOrders, loading }) => (
     {/* Platform product split */}
     <div className="bg-white border border-[#D5D9D9] rounded-xl overflow-hidden">
       <div className="bg-[#232F3E] px-5 py-3 flex items-center gap-2">
-        <i className="fa-solid fa-circle-nodes text-[#FF9900] text-sm"></i>
+        <i className="fa-solid fa-diagram-project text-[#FF9900] text-sm"></i>
         <span className="font-black text-white text-sm">Produits · Répartition</span>
       </div>
       <div className="grid grid-cols-2 divide-x divide-[#F3F4F4] p-0">
@@ -2204,7 +2204,7 @@ const SuperAdmin = () => {
     { key: "orders",       icon: "fa-bag-shopping",   label: "Commandes",      badge: globalStats.pending    || 0 },
     { key: "fulfillment",  icon: "fa-truck-fast",     label: "Fulfillment CJ", badge: globalStats.cjPending  || 0 },
     { key: "products",     icon: "fa-boxes-stacked",  label: "Produits"        },
-    { key: "cj",           icon: "fa-circle-nodes",   label: "CJ Import"       },
+    { key: "cj",           icon: "fa-diagram-project",   label: "CJ Import"       },
     { key: "reviews",      icon: "fa-star",            label: "Avis",           badge: globalStats.pendingReviews || 0 },
     { key: "promo",        icon: "fa-tag",             label: "Promos"          },
     { key: "affiliation",  icon: "fa-link",            label: "Affiliation"     },

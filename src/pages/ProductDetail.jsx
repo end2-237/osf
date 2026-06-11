@@ -1528,7 +1528,7 @@ const ProductDetail = ({ addToCart, openModal }) => {
                   {/* Trust row */}
                   <div className="flex items-center gap-3 flex-wrap mb-2">
                     <span className="flex items-center gap-1 text-[10px] text-[#565959]">
-                      <i className="fa-solid fa-shield-check text-[#007600] text-[9px]" />
+                      <i className="fa-solid fa-shield-halved text-[#007600] text-[9px]" />
                       Prix transparent
                     </span>
                     <span className="flex items-center gap-1 text-[10px] text-[#565959]">
@@ -1943,7 +1943,7 @@ const ProductDetail = ({ addToCart, openModal }) => {
                     <span>Vendu par <b className="text-[#0F1111]">{vendor?.shop_name || "OFS Cameroun"}</b></span>
                   </div>
                   <div className="flex items-center gap-2 text-[#565959]">
-                    <i className="fa-solid fa-shield-check w-4 text-xs text-[#007185]" />
+                    <i className="fa-solid fa-shield-halved w-4 text-xs text-[#007185]" />
                     <span>Paiement sécurisé · <b className="text-[#0F1111]">Orange Money · MTN MoMo · Cash</b></span>
                   </div>
                   <div className="flex items-center gap-2 text-[#565959]">

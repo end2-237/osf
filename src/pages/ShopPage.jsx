@@ -138,7 +138,7 @@ const CategoryTabs = ({ categories, active, onChange }) => (
           : 'bg-zinc-950 border-white/10 text-zinc-400 hover:border-white/20 hover:text-white'
       }`}
     >
-      <i className="fa-solid fa-grid-2 text-xs"></i>
+      <i className="fa-solid fa-table-cells text-xs"></i>
       <span>Tous ({categories.total})</span>
     </button>
     {categories.items.map(cat => (
@@ -359,7 +359,7 @@ const ShopPage = ({ openModal, addToCart }) => {
                 onClick={() => setViewMode('grid')}
                 className={`px-3 py-3 transition-all ${viewMode === 'grid' ? 'bg-primary text-black' : 'text-zinc-400 hover:text-white'}`}
               >
-                <i className="fa-solid fa-grid-2 text-xs"></i>
+                <i className="fa-solid fa-table-cells text-xs"></i>
               </button>
               <button
                 onClick={() => setViewMode('list')}

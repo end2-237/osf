@@ -417,7 +417,7 @@ function HowItWorks() {
     <div className="grid grid-cols-3 gap-2">
       {[
         { icon: "fa-dna", label: "Embedding CLIP", sub: "512 dimensions" },
-        { icon: "fa-circle-nodes", label: "pgvector HNSW", sub: "Index cosinus" },
+        { icon: "fa-diagram-project", label: "pgvector HNSW", sub: "Index cosinus" },
         { icon: "fa-ranking-star", label: "Similarité", sub: ">45% seuil" },
       ].map((s) => (
         <div key={s.label} className="bg-white/3 border border-white/5 rounded-xl p-3 text-center">

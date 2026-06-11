@@ -727,7 +727,7 @@ export default function Register() {
 
                 {livenessPhase === 'error' && (
                   <div className="bg-red-50 border border-red-200 rounded p-5 text-center">
-                    <i className="fa-solid fa-camera-slash text-red-400 text-2xl mb-2 block"></i>
+                    <i className="fa-solid fa-camera text-red-400 text-2xl mb-2 block"></i>
                     <p className="font-bold text-red-600 text-sm mb-1">Accès caméra requis</p>
                     <p className="text-xs text-[#565959] mb-4">{camError}</p>
                     <button onClick={startCamera}

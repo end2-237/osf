@@ -8,7 +8,7 @@ import { useAuth } from "../context/AuthContext";
 const STATUSES = {
   pending:      { step: 0, label: "Commande reçue",       color: "#C45500", bg: "#FFF3E0", icon: "fa-clock"              },
   confirmed:    { step: 1, label: "En préparation",        color: "#007185", bg: "#E0F7FA", icon: "fa-box"                },
-  sent_to_cj:   { step: 1, label: "Transmise fournisseur", color: "#007185", bg: "#E0F7FA", icon: "fa-circle-nodes"       },
+  sent_to_cj:   { step: 1, label: "Transmise fournisseur", color: "#007185", bg: "#E0F7FA", icon: "fa-diagram-project"       },
   at_warehouse: { step: 2, label: "En entrepôt",           color: "#C45500", bg: "#FFF3E0", icon: "fa-warehouse"          },
   in_transit:   { step: 2, label: "En transit",            color: "#007185", bg: "#E0F7FA", icon: "fa-plane"              },
   shipped:      { step: 2, label: "En livraison",          color: "#FF9900", bg: "#FFF8ED", icon: "fa-truck-fast"         },
@@ -25,7 +25,7 @@ const STEPS = [
 
 // newest → oldest
 const TIMELINE_EVENTS = [
-  { minStep: 3, label: "Livré au destinataire",   icon: "fa-house-circle-check", addMin: 48*60 },
+  { minStep: 3, label: "Livré au destinataire",   icon: "fa-house", addMin: 48*60 },
   { minStep: 2, label: "Livreur en route",         icon: "fa-truck-fast",         addMin: 20*60 },
   { minStep: 1, label: "Arrivé entrepôt OFS",      icon: "fa-warehouse",          addMin: 12*60 },
   { minStep: 1, label: "Commande prise en charge", icon: "fa-box-open",            addMin: 5*60  },
@@ -441,7 +441,7 @@ const TrackingView = ({ order, items, itemsLoading, onBack }) => {
           {/* Trust */}
           <div className="bg-white border border-gray-100 rounded-xl p-4 space-y-2.5">
             {[
-              { icon: "fa-shield-check", label: "Paiement sécurisé",  color: "#007600" },
+              { icon: "fa-shield-halved", label: "Paiement sécurisé",  color: "#007600" },
               { icon: "fa-rotate-left",  label: "Retour sous 7 jours", color: "#007185" },
               { icon: "fa-bolt",         label: "Livraison express",   color: "#FF9900" },
             ].map(t => (
@@ -699,7 +699,7 @@ const TrackingPage = () => {
             {/* Footer trust */}
             <div className="flex items-center justify-center gap-6 py-4">
               {[
-                { icon: "fa-shield-check", label: "Sécurisé",     color: "#007600" },
+                { icon: "fa-shield-halved", label: "Sécurisé",     color: "#007600" },
                 { icon: "fa-rotate-left",  label: "Retour 7j",    color: "#007185" },
                 { icon: "fa-bolt",         label: "Express",       color: "#FF9900" },
               ].map(t => (
