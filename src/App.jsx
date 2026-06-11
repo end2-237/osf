@@ -29,6 +29,7 @@ import SearchPage from './pages/SearchPage.jsx';
 import TrackingPage from './pages/TrackingPage.jsx';
 import SuperAdmin from './pages/SuperAdmin.jsx';
 import AffiliateRedirect from './pages/AffiliateRedirect.jsx';
+import CartPage from './pages/CartPage.jsx';
 
 function AppContent() {
   const { vendor } = useAuth();
@@ -50,6 +51,27 @@ function AppContent() {
     || location.pathname === '/admin'
     || location.pathname.startsWith('/super-admin')
     || location.pathname === '/track';
+
+  // Listen for CartPage "checkout" event and open cart sidebar
+  useEffect(() => {
+    const handler = () => setIsCartOpen(true);
+    window.addEventListener('ofs:openCart', handler);
+    return () => window.removeEventListener('ofs:openCart', handler);
+  }, []);
+
+  // Sync App cart state when CartPage modifies localStorage
+  useEffect(() => {
+    const handler = () => {
+      try { setCart(JSON.parse(localStorage.getItem('ofs_cart') || '[]')); } catch {}
+    };
+    window.addEventListener('ofs:cartUpdated', handler);
+    return () => window.removeEventListener('ofs:cartUpdated', handler);
+  }, []);
+
+  // Close cart drawer when navigating to /cart full page
+  useEffect(() => {
+    if (location.pathname === '/cart') setIsCartOpen(false);
+  }, [location.pathname]);
 
   // Persist cart to localStorage + track last-modified time for abandoned-cart detection
   useEffect(() => {
@@ -167,6 +189,7 @@ function AppContent() {
           <Route path="/rewards" element={<OFSRewardsPage />} />
           <Route path="/track" element={<TrackingPage />} />
           <Route path="/ref/:code" element={<AffiliateRedirect />} />
+          <Route path="/cart" element={<CartPage />} />
 
           <Route
             path="/product/:productId"

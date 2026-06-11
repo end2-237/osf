@@ -136,6 +136,18 @@ const CartSidebar = ({ isOpen, cart, removeFromCart, updateQuantity, toggleCart,
       });
   }, [step]);
 
+  // Read pending promo from sessionStorage when cart opens (set by CartPage)
+  useEffect(() => {
+    if (!isOpen) return;
+    try {
+      const raw = sessionStorage.getItem('ofs_pending_promo');
+      if (raw) {
+        setPromoApplied(JSON.parse(raw));
+        sessionStorage.removeItem('ofs_pending_promo');
+      }
+    } catch {}
+  }, [isOpen]);
+
   // Pre-fill Monetbil phone from checkout info
   useEffect(() => {
     if (step === 'payment' && !monetbilPhone && info.phone) {
@@ -1017,47 +1029,29 @@ const CartSidebar = ({ isOpen, cart, removeFromCart, updateQuantity, toggleCart,
         <div className="bg-white border-t border-[#D5D9D9] p-4 flex-shrink-0">
           {cart.length > 0 && (
             <div className="space-y-3">
-              {/* PROMO CODE INPUT */}
+              {/* PROMO CODE */}
               {step === 'cart' && (
-                <div>
-                  {promoApplied ? (
-                    <div className="flex items-center justify-between gap-2 bg-[#E8F5E8] border border-[#007600]/20 rounded-lg px-3 py-2">
-                      <div className="flex items-center gap-2">
-                        <i className="fa-solid fa-tag text-[#007600] text-xs"></i>
-                        <span className="text-xs font-bold text-[#007600]">{promoApplied.code}</span>
-                        <span className="text-xs text-[#565959]">−{promoDiscount.toLocaleString()} FCFA</span>
-                      </div>
-                      <button onClick={removePromo} className="text-[10px] text-[#B12704] hover:underline font-bold">
-                        Retirer
-                      </button>
+                promoApplied ? (
+                  <div className="flex items-center justify-between gap-2 bg-[#E8F5E8] border border-[#007600]/20 rounded-lg px-3 py-2">
+                    <div className="flex items-center gap-2">
+                      <i className="fa-solid fa-tag text-[#007600] text-xs"></i>
+                      <span className="text-xs font-bold text-[#007600]">{promoApplied.code}</span>
+                      <span className="text-xs text-[#565959]">−{promoDiscount.toLocaleString()} FCFA</span>
                     </div>
-                  ) : (
-                    <div className="space-y-1">
-                      <div className="flex gap-2">
-                        <input
-                          type="text"
-                          value={promoInput}
-                          onChange={e => setPromoInput(e.target.value.toUpperCase())}
-                          onKeyDown={e => e.key === 'Enter' && applyPromo()}
-                          placeholder="Code promo"
-                          className="flex-1 bg-white border border-[#D5D9D9] focus:border-[#FF9900] focus:outline-none rounded px-3 py-2 text-sm text-[#0F1111] placeholder-[#adb5bd] transition-colors font-mono uppercase"
-                        />
-                        <button
-                          onClick={applyPromo}
-                          disabled={promoLoading || !promoInput.trim()}
-                          className="bg-[#232F3E] hover:bg-[#37475A] text-white px-4 py-2 rounded text-sm font-bold transition disabled:opacity-50 flex-shrink-0"
-                        >
-                          {promoLoading ? <i className="fa-solid fa-spinner fa-spin text-xs"></i> : 'OK'}
-                        </button>
-                      </div>
-                      {promoError && (
-                        <p className="text-[11px] text-[#B12704]">
-                          <i className="fa-solid fa-circle-exclamation mr-1 text-[10px]"></i>{promoError}
-                        </p>
-                      )}
-                    </div>
-                  )}
-                </div>
+                    <button onClick={removePromo} className="text-[10px] text-[#B12704] hover:underline font-bold">
+                      Retirer
+                    </button>
+                  </div>
+                ) : (
+                  <Link to="/cart" onClick={close}
+                    className="flex items-center justify-between w-full border border-dashed border-[#D5D9D9] hover:border-[#FF9900] rounded-lg px-3 py-2.5 text-sm text-[#565959] hover:text-[#FF9900] transition group">
+                    <span className="flex items-center gap-2">
+                      <i className="fa-solid fa-tag text-[#adb5bd] group-hover:text-[#FF9900] text-xs transition"></i>
+                      Appliquer un code promo
+                    </span>
+                    <i className="fa-solid fa-chevron-right text-[9px] text-[#adb5bd] group-hover:text-[#FF9900] transition"></i>
+                  </Link>
+                )
               )}
 
               {/* PRICE BREAKDOWN */}
