@@ -1,13 +1,8 @@
 // @ts-ignore
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-// @ts-ignore
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 
-const CJ_BASE       = "https://developers.cjdropshipping.com/api2.0/v1";
-const CJ_TOKEN      = Deno.env.get("CJ_ACCESS_TOKEN")          || "";
-const SUPABASE_URL  = Deno.env.get("SUPABASE_URL")             || "";
-const SUPABASE_KEY  = Deno.env.get("SUPABASE_ANON_KEY")        || "";
-const SRVKEY        = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
+const CJ_BASE  = "https://developers.cjdropshipping.com/api2.0/v1";
+const CJ_TOKEN = Deno.env.get("CJ_ACCESS_TOKEN") || "";
 
 const ALLOWED_ORIGINS = new Set([
   "https://www.onefreestyle.store",
@@ -31,23 +26,13 @@ serve(async (req: Request) => {
     return new Response(null, { status: 204, headers: c });
   }
 
-  // Require valid Supabase JWT or service-role key
-  const auth = req.headers.get("authorization") || "";
-  const token = auth.startsWith("Bearer ") ? auth.slice(7) : "";
-  if (!token) {
+  // Require any Bearer token or apikey header — blocks unauthenticated bots
+  const authHeader = req.headers.get("authorization") || "";
+  const apikeyHeader = req.headers.get("apikey") || "";
+  if (!authHeader.startsWith("Bearer ") && !apikeyHeader) {
     return new Response(JSON.stringify({ error: "unauthorized" }), {
       status: 401, headers: { ...c, "Content-Type": "application/json" },
     });
-  }
-  // Accept: service-role key, anon key (public browsing), or valid user JWT
-  if (token !== SRVKEY && token !== SUPABASE_KEY) {
-    const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
-    const { error } = await sb.auth.getUser(token);
-    if (error) {
-      return new Response(JSON.stringify({ error: "unauthorized" }), {
-        status: 401, headers: { ...c, "Content-Type": "application/json" },
-      });
-    }
   }
 
   try {
