@@ -39,7 +39,7 @@ const wrap = (content: string) => `
   <tr><td style="padding:32px;">${content}</td></tr>
   <tr>
     <td style="background:#f8f9fa;padding:20px 32px;text-align:center;border-top:1px solid #e9ecef;">
-      <p style="margin:0;color:#6c757d;font-size:12px;">© 2026 OFS Cameroun · <a href="${SITE_URL}" style="color:#FF9900;text-decoration:none;">ofs-cm.com</a></p>
+      <p style="margin:0;color:#6c757d;font-size:12px;">© 2026 OFS Cameroun · <a href="${SITE_URL}" style="color:#FF9900;text-decoration:none;">onefreestyle.store</a></p>
       <p style="margin:6px 0 0;color:#adb5bd;font-size:11px;">Douala, Cameroun 🇨🇲</p>
     </td>
   </tr>
