@@ -871,14 +871,19 @@ const Store = ({ openModal, addToCart }) => {
   // ── Metadata init: lightweight queries, no product rows ──────────────────
   useEffect(() => {
     const init = async () => {
-      const [{ data: typeData }, { data: maxPData }, { data: vData }] = await Promise.all([
-        supabase.from("products").select("type"),
+      // Use count-only queries per type to avoid the 1000-row Supabase default limit
+      const TYPES = ["Audio Lab","Tech Lab","Femme","Clothing","Shoes","Beauté","Accessories","Maison","Sport","Bébé & Enfants","Auto"];
+      const [countResults, { data: maxPData }, { data: vData }] = await Promise.all([
+        Promise.all(TYPES.map(t =>
+          supabase.from("products").select("*", { count: "exact", head: true }).eq("type", t)
+            .then(({ count }) => ({ type: t, count: count || 0 }))
+        )),
         supabase.from("products").select("price").order("price", { ascending: false }).limit(1).maybeSingle(),
         supabase.from("vendors").select("*").eq("is_active", true),
       ]);
 
       const counts = {};
-      typeData?.forEach(({ type }) => { counts[type] = (counts[type] || 0) + 1; });
+      countResults.forEach(({ type, count }) => { if (count > 0) counts[type] = count; });
       setCategoryCounts(counts);
       if (maxPData?.price) setPriceMax(maxPData.price);
 
