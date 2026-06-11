@@ -3,10 +3,9 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 // @ts-ignore
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 
-const RESEND_API_KEY  = Deno.env.get("RESEND_API_KEY")              || "";
-const SUPABASE_URL    = Deno.env.get("SUPABASE_URL")                || "";
-const SUPABASE_SRVKEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")   || "";
-const SUPABASE_KEY    = Deno.env.get("SUPABASE_ANON_KEY")           || "";
+const RESEND_API_KEY  = Deno.env.get("RESEND_API_KEY")            || "";
+const SUPABASE_URL    = Deno.env.get("SUPABASE_URL")              || "";
+const SUPABASE_SRVKEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
 const FROM_EMAIL      = "OFS Cameroun <noreply@onefreestyle.store>";
 const SITE_URL        = "https://www.onefreestyle.store";
 const SUPPORT_PHONE   = "237696995879";
@@ -606,22 +605,13 @@ serve(async (req: Request) => {
 
   if (req.method === "OPTIONS") return new Response("ok", { headers: ch });
 
-  // Require service-role key (internal calls) or valid user JWT (admin frontend)
-  const auth = req.headers.get("authorization") || "";
-  const token = auth.startsWith("Bearer ") ? auth.slice(7) : "";
-  if (!token) {
+  // Require any Bearer token or apikey header — blocks unauthenticated bots
+  const authH   = req.headers.get("authorization") || "";
+  const apikeyH = req.headers.get("apikey") || "";
+  if (!authH.startsWith("Bearer ") && !apikeyH) {
     return new Response(JSON.stringify({ error: "unauthorized" }), {
       status: 401, headers: { ...ch, "Content-Type": "application/json" },
     });
-  }
-  if (token !== SUPABASE_SRVKEY) {
-    const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
-    const { error } = await sb.auth.getUser(token);
-    if (error) {
-      return new Response(JSON.stringify({ error: "unauthorized" }), {
-        status: 401, headers: { ...ch, "Content-Type": "application/json" },
-      });
-    }
   }
 
   try {
