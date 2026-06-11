@@ -648,10 +648,21 @@ const CartSidebar = ({ isOpen, cart, removeFromCart, updateQuantity, toggleCart,
                               {item.selectedColor && `Couleur: ${item.selectedColor}`}
                             </p>
                           )}
-                          <p className="text-[10px] text-[#007600] font-bold flex items-center gap-1">
-                            <i className="fa-solid fa-bolt text-[#FF9900]"></i>
-                            Livraison 2h · Douala 🇨🇲
-                          </p>
+                          <div className="flex items-center gap-2 flex-wrap text-[10px]">
+                            <span className="inline-flex items-center gap-1 text-[#007600] font-bold">
+                              <i className="fa-solid fa-circle-check text-[9px]"></i> En stock
+                            </span>
+                            {!item.vendor_id && (
+                              <span className="inline-flex items-center gap-1 text-[#565959]">
+                                <i className="fa-solid fa-plane text-[#007185] text-[9px]"></i>
+                                CH → CM : 3 – 7 j
+                              </span>
+                            )}
+                            <span className="inline-flex items-center gap-1 text-[#565959]">
+                              <i className="fa-solid fa-truck-fast text-[#FF9900] text-[9px]"></i>
+                              Douala
+                            </span>
+                          </div>
                           <div className="flex items-baseline gap-2">
                             <span className={`font-bold text-base leading-none ${isDisc ? 'text-[#B12704]' : 'text-[#0F1111]'}`}>
                               {lineTotal.toLocaleString()} FCFA

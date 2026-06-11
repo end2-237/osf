@@ -410,10 +410,25 @@ export default function CartPage() {
                       </p>
                     )}
 
-                    <p className="text-[12px] mt-0.5">
-                      <span className="text-[#007600]">En stock</span>
-                      <span className="text-[#565959]"> · <i className="fa-solid fa-bolt text-[#FF9900] text-[9px]"></i> Livraison 2h Douala 🇨🇲</span>
-                    </p>
+                    <div className="flex items-center gap-2.5 flex-wrap mt-1 text-[12px]">
+                      <span className="inline-flex items-center gap-1 text-[#007600]">
+                        <i className="fa-solid fa-circle-check text-[10px]"></i> En stock
+                      </span>
+                      {!item.vendor_id && (
+                        <>
+                          <span className="text-[#D5D9D9]">|</span>
+                          <span className="inline-flex items-center gap-1 text-[#565959]">
+                            <i className="fa-solid fa-plane text-[#007185] text-[10px]"></i>
+                            Transit CH → CM : <b className="text-[#0F1111]">3 – 7 jours</b>
+                          </span>
+                        </>
+                      )}
+                      <span className="text-[#D5D9D9]">|</span>
+                      <span className="inline-flex items-center gap-1 text-[#565959]">
+                        <i className="fa-solid fa-truck-fast text-[#FF9900] text-[10px]"></i>
+                        Livraison à Douala
+                      </span>
+                    </div>
 
                     <div className="flex items-center gap-2.5 mt-2.5 flex-wrap">
                       <div className="inline-flex items-center bg-white border border-[#D5D9D9] rounded-full h-[30px] shadow-[0_2px_5px_rgba(15,17,17,.08)] overflow-hidden">
