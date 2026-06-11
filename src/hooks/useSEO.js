@@ -3,7 +3,7 @@ import { useEffect } from 'react';
 const DEFAULT_TITLE = 'OFS Cameroun — Boutique en ligne';
 const DEFAULT_DESC  = 'Shopping en ligne au Cameroun : mode, tech, beauté, maison. Livraison express Douala, Yaoundé et toutes les régions.';
 const DEFAULT_IMAGE = 'https://alrbokstfwwlvbvghrqr.supabase.co/storage/v1/object/public/product-images/ofs-og.jpg';
-const SITE_URL      = 'https://ofs-cm.com';
+const SITE_URL      = 'https://www.onefreestyle.store';
 const SITE_NAME     = 'OFS Cameroun';
 
 const setMeta = (selector, content) => {

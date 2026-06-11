@@ -779,7 +779,7 @@ const ProductDetail = ({ addToCart, openModal }) => {
     title:       product?.name,
     description: seoDesc,
     image:       product?.img || product?.images?.[0],
-    url:         product ? `https://ofs-cm.com/product/${product.id}` : undefined,
+    url:         product ? `https://www.onefreestyle.store/product/${product.id}` : undefined,
     type:        'product',
   });
 
