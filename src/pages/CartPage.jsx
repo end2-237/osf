@@ -26,11 +26,47 @@ export default function CartPage() {
   const [promoApplied, setPromoApplied] = useState(null);
   const [promoLoading, setPromoLoading] = useState(false);
   const [promoError,   setPromoError]   = useState('');
+  const [suggestions,  setSuggestions]  = useState([]);
+  const [addedId,      setAddedId]      = useState(null);
 
   useEffect(() => {
     try { localStorage.setItem('ofs_cart', JSON.stringify(cart)); } catch {}
     window.dispatchEvent(new CustomEvent('ofs:cartUpdated'));
   }, [cart]);
+
+  // ─── SUGGESTIONS ────────────────────────────────────────────────────────────
+  useEffect(() => {
+    const load = async () => {
+      const cartIds   = cart.map(i => i.id).filter(Boolean);
+      const cartTypes = [...new Set(cart.map(i => i.type).filter(Boolean))];
+
+      let q = supabase
+        .from('products')
+        .select('*, vendor:vendors!vendor_id(member_discount_enabled)')
+        .order('created_at', { ascending: false })
+        .limit(10);
+
+      if (cartTypes.length > 0) q = q.in('type', cartTypes);
+      if (cartIds.length > 0)   q = q.not('id', 'in', `(${cartIds.map(i => `"${i}"`).join(',')})`);
+
+      let { data } = await q;
+
+      // Fallback: not enough same-category products → latest products
+      if (!data || data.length < 5) {
+        let q2 = supabase
+          .from('products')
+          .select('*, vendor:vendors!vendor_id(member_discount_enabled)')
+          .order('created_at', { ascending: false })
+          .limit(10);
+        if (cartIds.length > 0) q2 = q2.not('id', 'in', `(${cartIds.map(i => `"${i}"`).join(',')})`);
+        const { data: d2 } = await q2;
+        data = d2 || [];
+      }
+      setSuggestions((data || []).slice(0, 10));
+    };
+    load();
+    // Reload only when the set of product ids changes (not on qty change)
+  }, [cart.map(i => i.id).join(',')]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const updateQty = (idx, delta) => {
     setCart(prev => {
@@ -43,6 +79,26 @@ export default function CartPage() {
   };
 
   const removeItem = (idx) => setCart(prev => prev.filter((_, i) => i !== idx));
+
+  const addSuggestion = (p) => {
+    setCart(prev => {
+      const existing = prev.findIndex(i => i.id === p.id && !i.selectedSize && !i.selectedColor);
+      if (existing > -1) {
+        const c = [...prev];
+        c[existing] = { ...c[existing], quantity: (c[existing].quantity || 1) + 1 };
+        return c;
+      }
+      return [...prev, {
+        id: p.id, name: p.name, price: p.price, img: p.img, quantity: 1,
+        vendor_id: p.vendor_id || null,
+        vendor_member_discount_enabled: p.vendor?.member_discount_enabled || false,
+        cj_product_id: p.cj_product_id || null,
+        weight_g: p.weight_g || null, ship_weight_g: p.ship_weight_g || null,
+      }];
+    });
+    setAddedId(p.id);
+    setTimeout(() => setAddedId(null), 1500);
+  };
 
   // ─── CALCULATIONS ───────────────────────────────────────────────────────────
   const rawTotal            = cart.reduce((s, i) => s + (Number(i.price)||0) * (i.quantity||1), 0);
@@ -121,235 +177,287 @@ export default function CartPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#E3E6E6] p-3 md:p-4">
-      <div className="max-w-[1500px] mx-auto flex flex-col lg:flex-row gap-3 md:gap-4 items-start">
+    <div className="min-h-screen bg-[#E3E6E6] p-2 md:p-3">
+      <div className="max-w-[1500px] mx-auto flex flex-col lg:flex-row gap-2 md:gap-3 items-start">
 
-        {/* ═══ LEFT: ITEMS PANEL ═══════════════════════════════════════════════ */}
-        <div className="flex-1 min-w-0 bg-white px-4 md:px-6 pt-5 pb-3 w-full">
+        {/* ═══ LEFT RAIL — Amazon flyout style ═════════════════════════════════ */}
+        <aside className="w-full lg:w-[240px] flex-shrink-0 lg:sticky lg:top-3 bg-white">
 
-          {/* Heading */}
-          <div className="flex items-end justify-between border-b border-[#DDD] pb-2">
-            <h1 className="text-[26px] md:text-[28px] font-medium text-[#0F1111] leading-none">Panier</h1>
-            <span className="text-[13px] text-[#565959] hidden sm:block pr-1">Prix</span>
+          {/* Subtotal header */}
+          <div className="px-4 pt-4 pb-3 text-center border-b border-[#E7E7E7]">
+            <p className="text-[15px] text-[#0F1111]">Sous-total</p>
+            <p className="text-[20px] font-bold text-[#B12704] leading-tight">
+              {Math.round(finalTotal).toLocaleString()} FCFA
+            </p>
+            {totalSaved > 0 && (
+              <p className="text-[11px] text-[#007600] mt-0.5">
+                Vous économisez {totalSaved.toLocaleString()} F
+              </p>
+            )}
+            <button onClick={handleCheckout}
+              className="mt-3 w-full bg-white hover:bg-[#F7FAFA] border border-[#D5D9D9] rounded-full text-[#0F1111] text-[13px] py-1.5 transition shadow-[0_2px_5px_rgba(213,217,217,.5)]">
+              Passer à la livraison
+            </button>
           </div>
 
-          {/* Savings strip */}
-          {(hasBundle || (isMember && memberSavings > 0)) && (
-            <div className="flex items-start gap-2 text-[13px] text-[#0F1111] py-2.5 border-b border-[#E7E7E7]">
-              <i className="fa-solid fa-circle-check text-[#007600] mt-0.5"></i>
-              <span>
-                {isMember && memberSavings > 0 && <>Remise membre Elite <b>−20 %</b> appliquée. </>}
-                {hasBundle && <>Bundle Deal <b>−{isMember ? 5 : 2} %</b> sur votre panier multi-articles. </>}
-                Vous économisez <b className="text-[#B12704]">{(memberSavings + bundleAmount).toLocaleString()} FCFA</b>.
-              </span>
-            </div>
-          )}
-
-          {/* Items — tight rows, divider only */}
-          {cart.map((item, idx) => {
-            const base    = Number(item.price) || 0;
-            const unitEff = getUnitPrice(item, isMember);
-            const isDisc  = unitEff < base;
-            const lineTot = unitEff * (item.quantity || 1);
-            const qty     = item.quantity || 1;
-
-            return (
-              <div key={idx} className="flex gap-3 sm:gap-4 py-4 border-b border-[#E7E7E7]">
-                {/* Image */}
-                <Link to={`/product/${item.id}`}
-                  className="w-[96px] h-[96px] sm:w-[160px] sm:h-[160px] flex-shrink-0 flex items-center justify-center bg-white">
-                  <img src={item.img || 'https://via.placeholder.com/160'}
-                    alt={item.name} className="max-w-full max-h-full object-contain mix-blend-multiply" />
-                </Link>
-
-                {/* Middle */}
-                <div className="flex-1 min-w-0 flex flex-col">
-                  <div className="flex items-start justify-between gap-3">
-                    <Link to={`/product/${item.id}`}
-                      className="text-[14px] sm:text-[16px] text-[#0F1111] hover:text-[#C7511F] hover:underline leading-snug line-clamp-2 transition-colors">
-                      {item.name}
-                    </Link>
-                    <div className="text-right flex-shrink-0">
-                      <p className={`text-[15px] sm:text-[17px] font-bold leading-none ${isDisc ? 'text-[#B12704]' : 'text-[#0F1111]'}`}>
-                        {lineTot.toLocaleString()}<span className="text-[10px] align-top ml-0.5">FCFA</span>
-                      </p>
-                      {isDisc && (
-                        <p className="text-[11px] text-[#565959] line-through mt-0.5">
-                          {(base * qty).toLocaleString()} F
-                        </p>
-                      )}
-                    </div>
-                  </div>
-
-                  {(item.selectedSize || item.selectedColor) && (
-                    <p className="text-[12px] text-[#565959] mt-0.5">
-                      {item.selectedSize && <>Taille : {item.selectedSize}</>}
-                      {item.selectedSize && item.selectedColor && ' · '}
-                      {item.selectedColor && <>Couleur : {item.selectedColor}</>}
-                    </p>
-                  )}
-
-                  <p className="text-[12px] mt-0.5">
-                    <span className="text-[#007600]">En stock</span>
-                    <span className="text-[#565959]"> · <i className="fa-solid fa-bolt text-[#FF9900] text-[9px]"></i> Livraison 2h Douala 🇨🇲</span>
+          {/* Items stack */}
+          <div className="divide-y divide-[#E7E7E7]">
+            {cart.map((item, idx) => {
+              const unitEff = getUnitPrice(item, isMember);
+              const lineTot = unitEff * (item.quantity || 1);
+              const qty     = item.quantity || 1;
+              return (
+                <div key={idx} className="px-4 py-4 flex flex-col items-center">
+                  <Link to={`/product/${item.id}`} className="w-[120px] h-[120px] flex items-center justify-center">
+                    <img src={item.img || 'https://via.placeholder.com/120'}
+                      alt={item.name} className="max-w-full max-h-full object-contain mix-blend-multiply" />
+                  </Link>
+                  <p className="text-[15px] font-bold text-[#0F1111] mt-2">
+                    {lineTot.toLocaleString()} <span className="text-[10px] align-top">FCFA</span>
                   </p>
-
-                  {/* Controls */}
-                  <div className="flex items-center gap-2.5 mt-2.5 flex-wrap">
-                    <div className="inline-flex items-center bg-white border border-[#D5D9D9] rounded-full h-[30px] shadow-[0_2px_5px_rgba(15,17,17,.08)] overflow-hidden">
-                      <button onClick={() => updateQty(idx, -1)}
-                        className="w-[34px] h-full flex items-center justify-center text-[#007185] hover:bg-[#F7FAFA] transition"
-                        title={qty === 1 ? 'Supprimer' : 'Diminuer'}>
-                        {qty === 1
-                          ? <i className="fa-solid fa-trash-can text-[12px]"></i>
-                          : <span className="text-base leading-none">−</span>}
-                      </button>
-                      <span className="min-w-[30px] text-center text-[14px] font-bold text-[#0F1111] border-x border-[#E7E7E7]">
-                        {qty}
-                      </span>
-                      <button onClick={() => updateQty(idx, 1)}
-                        className="w-[34px] h-full flex items-center justify-center text-[#007185] hover:bg-[#F7FAFA] transition"
-                        title="Augmenter">
-                        <span className="text-base leading-none">+</span>
-                      </button>
-                    </div>
-
-                    <span className="text-[#D5D9D9] text-xs">|</span>
-                    <button onClick={() => removeItem(idx)}
-                      className="text-[12px] text-[#007185] hover:text-[#C7511F] hover:underline transition">
-                      Supprimer
+                  {/* Qty pill with yellow ring */}
+                  <div className="mt-2 inline-flex items-center bg-white border-[3px] border-[#FFD814] rounded-full h-[36px] overflow-hidden">
+                    <button onClick={() => updateQty(idx, -1)}
+                      className="w-[36px] h-full flex items-center justify-center text-[#0F1111] hover:bg-[#F7FAFA] transition"
+                      title={qty === 1 ? 'Supprimer' : 'Diminuer'}>
+                      {qty === 1
+                        ? <i className="fa-solid fa-trash-can text-[13px]"></i>
+                        : <span className="text-lg leading-none">−</span>}
                     </button>
-                    <span className="text-[#D5D9D9] text-xs">|</span>
-                    <Link to="/studio" state={{ productId: item.id }}
-                      className="text-[12px] text-[#007185] hover:text-[#C7511F] hover:underline transition">
-                      Personnaliser
-                    </Link>
+                    <span className="min-w-[32px] text-center text-[15px] font-bold text-[#0F1111]">
+                      {qty}
+                    </span>
+                    <button onClick={() => updateQty(idx, 1)}
+                      className="w-[36px] h-full flex items-center justify-center text-[#0F1111] hover:bg-[#F7FAFA] transition"
+                      title="Augmenter">
+                      <span className="text-lg leading-none">+</span>
+                    </button>
                   </div>
                 </div>
-              </div>
-            );
-          })}
-
-          {/* Subtotal line */}
-          <div className="text-right py-3 text-[17px] text-[#0F1111]">
-            Sous-total ({totalQty} article{totalQty > 1 ? 's' : ''}) :{' '}
-            <span className="font-bold">{Math.round(finalTotal).toLocaleString()} FCFA</span>
+              );
+            })}
           </div>
-        </div>
 
-        {/* ═══ RIGHT: SINGLE CHECKOUT CARD ═════════════════════════════════════ */}
-        <div className="w-full lg:w-[300px] flex-shrink-0 lg:sticky lg:top-4">
-          <div className="bg-white divide-y divide-[#E7E7E7]">
-
-            {/* Subtotal + CTA */}
-            <div className="p-4">
-              {totalSaved > 0 && (
-                <p className="text-[13px] text-[#007600] mb-2 leading-snug">
-                  <i className="fa-solid fa-circle-check mr-1"></i>
-                  Vous économisez <b>{totalSaved.toLocaleString()} FCFA</b>
-                </p>
-              )}
-              <p className="text-[17px] text-[#0F1111] leading-tight mb-3">
-                Sous-total ({totalQty} article{totalQty > 1 ? 's' : ''}) :{' '}
-                <span className="font-bold">{Math.round(finalTotal).toLocaleString()} FCFA</span>
-              </p>
-              <button onClick={handleCheckout}
-                className="w-full bg-[#FFD814] hover:bg-[#F7CA00] border border-[#FCD200] rounded-full text-[#0F1111] text-[13px] font-medium py-2 transition shadow-[0_2px_5px_rgba(213,217,217,.5)] active:scale-[0.99]">
-                Passer à la livraison
-              </button>
-            </div>
-
-            {/* Promo */}
-            <div className="p-4">
-              <p className="text-[14px] font-bold text-[#0F1111] mb-2">Code promo</p>
-              {promoApplied ? (
-                <div className="flex items-center justify-between bg-[#E8F5E8] border border-[#007600]/20 rounded-md px-3 py-2">
-                  <div>
-                    <span className="text-[13px] font-bold text-[#007600]">{promoApplied.code}</span>
-                    <span className="text-[12px] text-[#565959] ml-2">−{promoDiscount.toLocaleString()} F</span>
-                  </div>
-                  <button onClick={removePromo} className="text-[12px] text-[#007185] hover:text-[#C7511F] hover:underline">
-                    Retirer
+          {/* Promo */}
+          <div className="px-4 py-3 border-t border-[#E7E7E7]">
+            <p className="text-[13px] font-bold text-[#0F1111] mb-2">Code promo</p>
+            {promoApplied ? (
+              <div className="flex items-center justify-between bg-[#E8F5E8] border border-[#007600]/20 rounded-md px-2.5 py-2">
+                <div className="min-w-0">
+                  <span className="text-[12px] font-bold text-[#007600]">{promoApplied.code}</span>
+                  <span className="text-[11px] text-[#565959] ml-1.5">−{promoDiscount.toLocaleString()} F</span>
+                </div>
+                <button onClick={removePromo} className="text-[11px] text-[#007185] hover:text-[#C7511F] hover:underline flex-shrink-0">
+                  Retirer
+                </button>
+              </div>
+            ) : (
+              <>
+                <div className="flex gap-1.5">
+                  <input
+                    type="text"
+                    value={promoInput}
+                    onChange={e => setPromoInput(e.target.value.toUpperCase())}
+                    onKeyDown={e => e.key === 'Enter' && applyPromo()}
+                    placeholder="Code"
+                    className="flex-1 min-w-0 border border-[#888C8C] focus:border-[#E77600] focus:outline-none focus:shadow-[0_0_0_3px_rgba(228,121,17,.25)] rounded-md px-2.5 py-1.5 text-[12px] font-mono uppercase bg-white placeholder-[#767676] transition"
+                  />
+                  <button onClick={applyPromo} disabled={promoLoading || !promoInput.trim()}
+                    className="border border-[#D5D9D9] bg-[#F0F2F2] hover:bg-[#E3E6E6] rounded-full text-[#0F1111] text-[11px] px-3 transition disabled:opacity-50 flex-shrink-0">
+                    {promoLoading ? <i className="fa-solid fa-spinner fa-spin text-[10px]"></i> : 'OK'}
                   </button>
                 </div>
-              ) : (
-                <>
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      value={promoInput}
-                      onChange={e => setPromoInput(e.target.value.toUpperCase())}
-                      onKeyDown={e => e.key === 'Enter' && applyPromo()}
-                      placeholder="Entrer le code"
-                      className="flex-1 min-w-0 border border-[#888C8C] focus:border-[#E77600] focus:outline-none focus:shadow-[0_0_0_3px_rgba(228,121,17,.25)] rounded-md px-3 py-1.5 text-[13px] font-mono uppercase bg-white placeholder-[#767676] transition"
-                    />
-                    <button onClick={applyPromo} disabled={promoLoading || !promoInput.trim()}
-                      className="border border-[#D5D9D9] bg-[#F0F2F2] hover:bg-[#E3E6E6] rounded-full text-[#0F1111] text-[12px] px-4 transition disabled:opacity-50 flex-shrink-0">
-                      {promoLoading ? <i className="fa-solid fa-spinner fa-spin text-[10px]"></i> : 'OK'}
-                    </button>
-                  </div>
-                  {promoError && (
-                    <p className="text-[12px] text-[#B12704] mt-1.5">
-                      <i className="fa-solid fa-circle-exclamation mr-1 text-[10px]"></i>{promoError}
-                    </p>
-                  )}
-                </>
-              )}
-            </div>
+                {promoError && (
+                  <p className="text-[11px] text-[#B12704] mt-1.5">
+                    <i className="fa-solid fa-circle-exclamation mr-1 text-[9px]"></i>{promoError}
+                  </p>
+                )}
+              </>
+            )}
+          </div>
 
-            {/* Price details */}
-            <div className="p-4 text-[13px] space-y-1.5">
+          {/* Price details */}
+          <div className="px-4 py-3 border-t border-[#E7E7E7] text-[12px] space-y-1">
+            <div className="flex justify-between">
+              <span className="text-[#565959]">Sous-total</span>
+              <span className="text-[#0F1111]">{rawTotal.toLocaleString()} F</span>
+            </div>
+            {memberSavings > 0 && (
+              <div className="flex justify-between text-[#007600]">
+                <span>Membre −20 %</span><span>−{memberSavings.toLocaleString()} F</span>
+              </div>
+            )}
+            {hasBundle && (
+              <div className="flex justify-between text-[#007600]">
+                <span>Bundle −{isMember ? 5 : 2} %</span><span>−{bundleAmount.toLocaleString()} F</span>
+              </div>
+            )}
+            {promoDiscount > 0 && (
+              <div className="flex justify-between text-[#007600]">
+                <span>Code {promoApplied?.code}</span><span>−{promoDiscount.toLocaleString()} F</span>
+              </div>
+            )}
+            {cjShipping > 0 ? (
               <div className="flex justify-between">
-                <span className="text-[#565959]">Sous-total</span>
-                <span className="text-[#0F1111]">{rawTotal.toLocaleString()} FCFA</span>
+                <span className="text-[#565959]">Expédition int.</span>
+                <span className="text-[#007185]">~{cjShipping.toLocaleString()} F</span>
               </div>
-              {memberSavings > 0 && (
-                <div className="flex justify-between text-[#007600]">
-                  <span>Remise membre −20 %</span>
-                  <span>−{memberSavings.toLocaleString()} F</span>
-                </div>
-              )}
-              {hasBundle && (
-                <div className="flex justify-between text-[#007600]">
-                  <span>Bundle Deal −{isMember ? 5 : 2} %</span>
-                  <span>−{bundleAmount.toLocaleString()} F</span>
-                </div>
-              )}
-              {promoDiscount > 0 && (
-                <div className="flex justify-between text-[#007600]">
-                  <span>Code {promoApplied?.code}</span>
-                  <span>−{promoDiscount.toLocaleString()} F</span>
-                </div>
-              )}
-              {cjShipping > 0 ? (
-                <div className="flex justify-between">
-                  <span className="text-[#565959]">Expédition internationale</span>
-                  <span className="text-[#007185]">~{cjShipping.toLocaleString()} F</span>
-                </div>
-              ) : (
-                <div className="flex justify-between">
-                  <span className="text-[#565959]">Livraison · Douala</span>
-                  <span className="text-[#007600]">Gratuite</span>
-                </div>
-              )}
-              <div className="flex justify-between border-t border-[#E7E7E7] pt-2 text-[15px]">
-                <span className="font-bold text-[#B12704]">Total</span>
-                <span className="font-bold text-[#B12704]">{Math.round(finalTotal).toLocaleString()} FCFA</span>
+            ) : (
+              <div className="flex justify-between">
+                <span className="text-[#565959]">Livraison</span>
+                <span className="text-[#007600]">Gratuite</span>
               </div>
-            </div>
-
-            {/* Payment + back link */}
-            <div className="p-4">
-              <div className="flex items-center justify-center gap-3 flex-wrap text-[11px] text-[#565959] mb-3">
-                <span className="flex items-center gap-1"><i className="fa-solid fa-mobile-screen-button text-orange-500"></i> Orange Money</span>
-                <span className="flex items-center gap-1"><i className="fa-solid fa-mobile-screen-button text-yellow-500"></i> MTN MoMo</span>
-                <span className="flex items-center gap-1"><i className="fa-solid fa-money-bill-wave text-[#007600]"></i> Cash</span>
-              </div>
-              <Link to="/store" className="block text-center text-[12px] text-[#007185] hover:text-[#C7511F] hover:underline">
-                ← Continuer mes achats
-              </Link>
+            )}
+            <div className="flex justify-between border-t border-[#E7E7E7] pt-1.5 text-[13px]">
+              <span className="font-bold text-[#B12704]">Total</span>
+              <span className="font-bold text-[#B12704]">{Math.round(finalTotal).toLocaleString()} F</span>
             </div>
           </div>
+        </aside>
+
+        {/* ═══ MAIN — items + suggestions ══════════════════════════════════════ */}
+        <div className="flex-1 min-w-0 w-full space-y-2 md:space-y-3">
+
+          {/* Items panel */}
+          <div className="bg-white px-4 md:px-6 pt-5 pb-3">
+            <div className="flex items-end justify-between border-b border-[#DDD] pb-2">
+              <h1 className="text-[26px] md:text-[28px] font-medium text-[#0F1111] leading-none">Panier</h1>
+              <span className="text-[13px] text-[#565959] hidden sm:block pr-1">Prix</span>
+            </div>
+
+            {(hasBundle || (isMember && memberSavings > 0)) && (
+              <div className="flex items-start gap-2 text-[13px] text-[#0F1111] py-2.5 border-b border-[#E7E7E7]">
+                <i className="fa-solid fa-circle-check text-[#007600] mt-0.5"></i>
+                <span>
+                  {isMember && memberSavings > 0 && <>Remise membre Elite <b>−20 %</b> appliquée. </>}
+                  {hasBundle && <>Bundle Deal <b>−{isMember ? 5 : 2} %</b> sur votre panier multi-articles. </>}
+                  Vous économisez <b className="text-[#B12704]">{(memberSavings + bundleAmount).toLocaleString()} FCFA</b>.
+                </span>
+              </div>
+            )}
+
+            {cart.map((item, idx) => {
+              const base    = Number(item.price) || 0;
+              const unitEff = getUnitPrice(item, isMember);
+              const isDisc  = unitEff < base;
+              const lineTot = unitEff * (item.quantity || 1);
+              const qty     = item.quantity || 1;
+
+              return (
+                <div key={idx} className="flex gap-3 sm:gap-4 py-4 border-b border-[#E7E7E7]">
+                  <Link to={`/product/${item.id}`}
+                    className="w-[96px] h-[96px] sm:w-[150px] sm:h-[150px] flex-shrink-0 flex items-center justify-center bg-white">
+                    <img src={item.img || 'https://via.placeholder.com/150'}
+                      alt={item.name} className="max-w-full max-h-full object-contain mix-blend-multiply" />
+                  </Link>
+
+                  <div className="flex-1 min-w-0 flex flex-col">
+                    <div className="flex items-start justify-between gap-3">
+                      <Link to={`/product/${item.id}`}
+                        className="text-[14px] sm:text-[16px] text-[#0F1111] hover:text-[#C7511F] hover:underline leading-snug line-clamp-2 transition-colors">
+                        {item.name}
+                      </Link>
+                      <div className="text-right flex-shrink-0">
+                        <p className={`text-[15px] sm:text-[17px] font-bold leading-none ${isDisc ? 'text-[#B12704]' : 'text-[#0F1111]'}`}>
+                          {lineTot.toLocaleString()}<span className="text-[10px] align-top ml-0.5">FCFA</span>
+                        </p>
+                        {isDisc && (
+                          <p className="text-[11px] text-[#565959] line-through mt-0.5">
+                            {(base * qty).toLocaleString()} F
+                          </p>
+                        )}
+                      </div>
+                    </div>
+
+                    {(item.selectedSize || item.selectedColor) && (
+                      <p className="text-[12px] text-[#565959] mt-0.5">
+                        {item.selectedSize && <>Taille : {item.selectedSize}</>}
+                        {item.selectedSize && item.selectedColor && ' · '}
+                        {item.selectedColor && <>Couleur : {item.selectedColor}</>}
+                      </p>
+                    )}
+
+                    <p className="text-[12px] mt-0.5">
+                      <span className="text-[#007600]">En stock</span>
+                      <span className="text-[#565959]"> · <i className="fa-solid fa-bolt text-[#FF9900] text-[9px]"></i> Livraison 2h Douala 🇨🇲</span>
+                    </p>
+
+                    <div className="flex items-center gap-2.5 mt-2.5 flex-wrap">
+                      <div className="inline-flex items-center bg-white border border-[#D5D9D9] rounded-full h-[30px] shadow-[0_2px_5px_rgba(15,17,17,.08)] overflow-hidden">
+                        <button onClick={() => updateQty(idx, -1)}
+                          className="w-[34px] h-full flex items-center justify-center text-[#007185] hover:bg-[#F7FAFA] transition">
+                          {qty === 1
+                            ? <i className="fa-solid fa-trash-can text-[12px]"></i>
+                            : <span className="text-base leading-none">−</span>}
+                        </button>
+                        <span className="min-w-[30px] text-center text-[14px] font-bold text-[#0F1111] border-x border-[#E7E7E7]">
+                          {qty}
+                        </span>
+                        <button onClick={() => updateQty(idx, 1)}
+                          className="w-[34px] h-full flex items-center justify-center text-[#007185] hover:bg-[#F7FAFA] transition">
+                          <span className="text-base leading-none">+</span>
+                        </button>
+                      </div>
+
+                      <span className="text-[#D5D9D9] text-xs">|</span>
+                      <button onClick={() => removeItem(idx)}
+                        className="text-[12px] text-[#007185] hover:text-[#C7511F] hover:underline transition">
+                        Supprimer
+                      </button>
+                      <span className="text-[#D5D9D9] text-xs">|</span>
+                      <Link to="/studio" state={{ productId: item.id }}
+                        className="text-[12px] text-[#007185] hover:text-[#C7511F] hover:underline transition">
+                        Personnaliser
+                      </Link>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+
+            <div className="text-right py-3 text-[17px] text-[#0F1111]">
+              Sous-total ({totalQty} article{totalQty > 1 ? 's' : ''}) :{' '}
+              <span className="font-bold">{Math.round(finalTotal).toLocaleString()} FCFA</span>
+            </div>
+          </div>
+
+          {/* ── SUGGESTIONS — large cards, max 5 per row ── */}
+          {suggestions.length > 0 && (
+            <div className="bg-white px-4 md:px-6 py-5">
+              <h2 className="text-[20px] font-bold text-[#0F1111] mb-4">
+                Suggestions pour vous
+              </h2>
+              <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 gap-4">
+                {suggestions.map(p => (
+                  <div key={p.id} className="flex flex-col group">
+                    <Link to={`/product/${p.id}`}
+                      className="aspect-square w-full bg-[#F7F7F7] rounded-lg flex items-center justify-center overflow-hidden mb-2">
+                      <img src={p.img || 'https://via.placeholder.com/300'}
+                        alt={p.name}
+                        className="max-w-full max-h-full object-contain mix-blend-multiply group-hover:scale-105 transition-transform duration-300" />
+                    </Link>
+                    <Link to={`/product/${p.id}`}
+                      className="text-[13px] text-[#0F1111] hover:text-[#C7511F] leading-snug line-clamp-2 min-h-[34px] transition-colors">
+                      {p.name}
+                    </Link>
+                    <p className="text-[16px] font-bold text-[#B12704] mt-1">
+                      {Number(p.price || 0).toLocaleString()}<span className="text-[10px] align-top ml-0.5">FCFA</span>
+                    </p>
+                    <button onClick={() => addSuggestion(p)}
+                      className={`mt-2 w-full rounded-full text-[12px] font-medium py-1.5 border transition shadow-[0_2px_5px_rgba(213,217,217,.5)] ${
+                        addedId === p.id
+                          ? 'bg-[#E8F5E8] border-[#007600]/30 text-[#007600]'
+                          : 'bg-[#FFD814] hover:bg-[#F7CA00] border-[#FCD200] text-[#0F1111]'
+                      }`}>
+                      {addedId === p.id
+                        ? <><i className="fa-solid fa-circle-check mr-1.5 text-[11px]"></i>Ajouté !</>
+                        : 'Ajouter au panier'}
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
