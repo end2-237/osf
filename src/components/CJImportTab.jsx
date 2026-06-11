@@ -161,16 +161,32 @@ const CJImportTab = () => {
   const markImported = (pids) =>
     setImportedIds(prev => { const n = new Set(prev); pids.filter(Boolean).forEach(id => n.add(id)); return n; });
 
-  // Load all already-imported CJ IDs once at mount
+  // Load all already-imported CJ IDs once at mount (paginated to bypass 1000-row default limit)
   useEffect(() => {
-    supabase.from("products")
-      .select("cj_product_id", { count: "exact" })
-      .is("vendor_id", null)
-      .not("cj_product_id", "is", null)
-      .then(({ data, count }) => {
-        setAlreadyCount(count || 0);
-        setImportedIds(new Set((data || []).map(p => p.cj_product_id).filter(Boolean)));
-      });
+    const loadImported = async () => {
+      const { count } = await supabase
+        .from("products")
+        .select("cj_product_id", { count: "exact", head: true })
+        .not("cj_product_id", "is", null);
+      setAlreadyCount(count || 0);
+
+      let all = [];
+      let from = 0;
+      const CHUNK = 1000;
+      while (true) {
+        const { data, error } = await supabase
+          .from("products")
+          .select("cj_product_id")
+          .not("cj_product_id", "is", null)
+          .range(from, from + CHUNK - 1);
+        if (error || !data?.length) break;
+        all = [...all, ...data.map(p => p.cj_product_id).filter(Boolean)];
+        if (data.length < CHUNK) break;
+        from += CHUNK;
+      }
+      setImportedIds(new Set(all));
+    };
+    loadImported();
   }, []);
 
   const loadCategories = useCallback(async () => {
