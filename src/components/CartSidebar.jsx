@@ -673,6 +673,16 @@ const CartSidebar = ({ isOpen, cart, removeFromCart, updateQuantity, toggleCart,
                               </span>
                             )}
                           </div>
+                          {!item.vendor_id && (() => {
+                            const wg = (item.ship_weight_g || item.weight_g || 200) * (Number(item.quantity) || 1);
+                            return (
+                              <p className="text-[10px] text-[#007185]"
+                                title={`Estimation basée sur ${wg} g · 10 000 F/kg (+ frais fixes 1 015 F par expédition)`}>
+                                <i className="fa-solid fa-plane text-[8px] mr-0.5"></i>
+                                + ~{Math.round((wg / 1000) * 10000).toLocaleString()} F exp. int. ({wg >= 1000 ? `${(wg/1000).toLocaleString('fr-FR', { maximumFractionDigits: 1 })} kg` : `${wg} g`})
+                              </p>
+                            );
+                          })()}
                           <div className="flex items-center gap-2 mt-0.5">
                             <div className="flex items-center border border-[#D5D9D9] rounded overflow-hidden">
                               <button onClick={() => updateQuantity(idx, -1)}

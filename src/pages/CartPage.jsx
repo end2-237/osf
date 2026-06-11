@@ -370,11 +370,13 @@ export default function CartPage() {
             )}
 
             {cart.map((item, idx) => {
-              const base    = Number(item.price) || 0;
-              const unitEff = getUnitPrice(item, isMember);
-              const isDisc  = unitEff < base;
-              const lineTot = unitEff * (item.quantity || 1);
-              const qty     = item.quantity || 1;
+              const base     = Number(item.price) || 0;
+              const unitEff  = getUnitPrice(item, isMember);
+              const isDisc   = unitEff < base;
+              const lineTot  = unitEff * (item.quantity || 1);
+              const qty      = item.quantity || 1;
+              const itemWg   = (item.ship_weight_g || item.weight_g || 200) * qty;
+              const itemShip = !item.vendor_id ? Math.round((itemWg / 1000) * 10000) : 0;
 
               return (
                 <div key={idx} className="flex gap-3 sm:gap-4 py-4 border-b border-[#E7E7E7]">
@@ -397,6 +399,13 @@ export default function CartPage() {
                         {isDisc && (
                           <p className="text-[11px] text-[#565959] line-through mt-0.5">
                             {(base * qty).toLocaleString()} F
+                          </p>
+                        )}
+                        {itemShip > 0 && (
+                          <p className="text-[10px] text-[#007185] mt-0.5 whitespace-nowrap"
+                            title={`Estimation basée sur ${itemWg} g · 10 000 F/kg (+ frais fixes 1 015 F par expédition)`}>
+                            <i className="fa-solid fa-plane text-[8px] mr-0.5"></i>
+                            + ~{itemShip.toLocaleString()} F exp. int. ({itemWg >= 1000 ? `${(itemWg/1000).toLocaleString('fr-FR', { maximumFractionDigits: 1 })} kg` : `${itemWg} g`})
                           </p>
                         )}
                       </div>
