@@ -605,15 +605,6 @@ serve(async (req: Request) => {
 
   if (req.method === "OPTIONS") return new Response("ok", { headers: ch });
 
-  // Require any Bearer token or apikey header — blocks unauthenticated bots
-  const authH   = req.headers.get("authorization") || "";
-  const apikeyH = req.headers.get("apikey") || "";
-  if (!authH.startsWith("Bearer ") && !apikeyH) {
-    return new Response(JSON.stringify({ error: "unauthorized" }), {
-      status: 401, headers: { ...ch, "Content-Type": "application/json" },
-    });
-  }
-
   try {
     if (!RESEND_API_KEY) throw new Error("RESEND_API_KEY not set");
 
