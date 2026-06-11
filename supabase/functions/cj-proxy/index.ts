@@ -1,18 +1,53 @@
 // @ts-ignore
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+// @ts-ignore
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 
-const CJ_BASE = "https://developers.cjdropshipping.com/api2.0/v1";
-const CJ_TOKEN = Deno.env.get("CJ_ACCESS_TOKEN") || "";
+const CJ_BASE       = "https://developers.cjdropshipping.com/api2.0/v1";
+const CJ_TOKEN      = Deno.env.get("CJ_ACCESS_TOKEN")          || "";
+const SUPABASE_URL  = Deno.env.get("SUPABASE_URL")             || "";
+const SUPABASE_KEY  = Deno.env.get("SUPABASE_ANON_KEY")        || "";
+const SRVKEY        = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
 
-const cors = {
-  "Access-Control-Allow-Origin":  "*",
+const ALLOWED_ORIGINS = new Set([
+  "https://www.onefreestyle.store",
+  "https://onefreestyle.store",
+  "http://localhost:5173",
+  "http://localhost:4173",
+]);
+
+const cors = (origin: string) => ({
+  "Access-Control-Allow-Origin":  ALLOWED_ORIGINS.has(origin) ? origin : "https://www.onefreestyle.store",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-};
+  "Vary": "Origin",
+});
 
 serve(async (req: Request) => {
+  const origin = req.headers.get("origin") || "";
+  const c = cors(origin);
+
   if (req.method === "OPTIONS") {
-    return new Response(null, { status: 204, headers: cors });
+    return new Response(null, { status: 204, headers: c });
+  }
+
+  // Require valid Supabase JWT or service-role key
+  const auth = req.headers.get("authorization") || "";
+  const token = auth.startsWith("Bearer ") ? auth.slice(7) : "";
+  if (!token) {
+    return new Response(JSON.stringify({ error: "unauthorized" }), {
+      status: 401, headers: { ...c, "Content-Type": "application/json" },
+    });
+  }
+  // Accept service-role key (internal calls) or verify as user JWT
+  if (token !== SRVKEY) {
+    const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
+    const { error } = await sb.auth.getUser(token);
+    if (error) {
+      return new Response(JSON.stringify({ error: "unauthorized" }), {
+        status: 401, headers: { ...c, "Content-Type": "application/json" },
+      });
+    }
   }
 
   try {
@@ -24,7 +59,7 @@ serve(async (req: Request) => {
     if (!path) {
       return new Response(JSON.stringify({ error: "missing path" }), {
         status: 400,
-        headers: { ...cors, "Content-Type": "application/json" },
+        headers: { ...c, "Content-Type": "application/json" },
       });
     }
 
@@ -34,7 +69,7 @@ serve(async (req: Request) => {
       const videoUrl: string = params.url || "";
       if (!videoUrl) {
         return new Response(JSON.stringify({ error: "missing url" }), {
-          status: 400, headers: { ...cors, "Content-Type": "application/json" },
+          status: 400, headers: { ...c, "Content-Type": "application/json" },
         });
       }
       const results: Record<string, unknown>[] = [];
@@ -57,7 +92,7 @@ serve(async (req: Request) => {
         } catch (e) { results.push({ auth: label, error: String(e) }); }
       }
       return new Response(JSON.stringify(results, null, 2), {
-        status: 200, headers: { ...cors, "Content-Type": "application/json" },
+        status: 200, headers: { ...c, "Content-Type": "application/json" },
       });
     }
 
@@ -68,7 +103,7 @@ serve(async (req: Request) => {
       const params = query ? JSON.parse(query) : {};
       const videoUrl: string = params.url || "";
       if (!videoUrl || !videoUrl.includes("cjdropshipping.com")) {
-        return new Response("invalid url", { status: 400, headers: cors });
+        return new Response("invalid url", { status: 400, headers: c });
       }
       const fetchHeaders: Record<string, string> = { "CJ-Access-Token": CJ_TOKEN };
       // Forward Range header so video seeking works in the browser
@@ -77,7 +112,7 @@ serve(async (req: Request) => {
 
       const r = await fetch(videoUrl, { headers: fetchHeaders });
 
-      const resHeaders = new Headers(cors);
+      const resHeaders = new Headers(c);
       resHeaders.set("Content-Type", r.headers.get("Content-Type") || "video/mp4");
       const cl = r.headers.get("Content-Length");
       if (cl) resHeaders.set("Content-Length", cl);
@@ -103,14 +138,14 @@ serve(async (req: Request) => {
           if (r.ok) {
             return new Response(JSON.stringify({ url: testUrl }), {
               status: 200,
-              headers: { ...cors, "Content-Type": "application/json" },
+              headers: { ...c, "Content-Type": "application/json" },
             });
           }
         } catch { /* try next */ }
       }
       return new Response(JSON.stringify({ url: null }), {
         status: 200,
-        headers: { ...cors, "Content-Type": "application/json" },
+        headers: { ...c, "Content-Type": "application/json" },
       });
     }
 
@@ -123,7 +158,7 @@ serve(async (req: Request) => {
       if (!videoUrl) {
         return new Response(JSON.stringify({ url: null }), {
           status: 200,
-          headers: { ...cors, "Content-Type": "application/json" },
+          headers: { ...c, "Content-Type": "application/json" },
         });
       }
       try {
@@ -135,12 +170,12 @@ serve(async (req: Request) => {
         });
         return new Response(
           JSON.stringify({ url: r.url, ok: r.ok, status: r.status }),
-          { status: 200, headers: { ...cors, "Content-Type": "application/json" } }
+          { status: 200, headers: { ...c, "Content-Type": "application/json" } }
         );
       } catch {
         return new Response(JSON.stringify({ url: null }), {
           status: 200,
-          headers: { ...cors, "Content-Type": "application/json" },
+          headers: { ...c, "Content-Type": "application/json" },
         });
       }
     }
@@ -182,13 +217,13 @@ serve(async (req: Request) => {
 
     return new Response(JSON.stringify(data), {
       status: cjRes.status,
-      headers: { ...cors, "Content-Type": "application/json" },
+      headers: { ...c, "Content-Type": "application/json" },
     });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
     return new Response(JSON.stringify({ error: message }), {
       status: 500,
-      headers: { ...cors, "Content-Type": "application/json" },
+      headers: { ...c, "Content-Type": "application/json" },
     });
   }
 });

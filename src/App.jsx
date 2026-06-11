@@ -1,35 +1,45 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, lazy, Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { LangProvider } from './context/LangContext';
 import { useAuth } from './context/AuthContext';
 
-// Components
+// Components always needed — not lazy
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
 import CartSidebar from './components/CartSidebar';
-import VisualSearchModal from './components/VisualSearchModal';
 import WhatsAppButton from './components/WhatsAppButton';
+import PrivateRoute from './routes/PrivateRoute';
 
-// Pages
+// Heavy modal — lazy
+const VisualSearchModal = lazy(() => import('./components/VisualSearchModal'));
+
+// Critical path pages — eager
 import Home from './pages/Home';
-import Store from './pages/Store';
-import Studio from './pages/Studio';
-import Dashboard from './pages/Dashboard';
 import Login from './pages/Login.jsx';
 import Register from './pages/Register';
-import ShopPage from './pages/ShopPage.jsx';
-import ProductDetail from './pages/ProductDetail.jsx';
-import PrivateRoute from './routes/PrivateRoute';
-import WishlistPage from './pages/WishlistPage.jsx';
-import BoutiquesPage from './pages/BoutiquesPage.jsx';
-import ProfilePage from './pages/ProfilePage.jsx';
-import OFSRewardsPage from './pages/OFSRewardsPage.jsx';
-import SearchPage from './pages/SearchPage.jsx';
-import TrackingPage from './pages/TrackingPage.jsx';
-import SuperAdmin from './pages/SuperAdmin.jsx';
-import AffiliateRedirect from './pages/AffiliateRedirect.jsx';
-import CartPage from './pages/CartPage.jsx';
+
+// All other pages — lazy (separate JS chunk per page)
+const Store          = lazy(() => import('./pages/Store'));
+const Studio         = lazy(() => import('./pages/Studio'));
+const Dashboard      = lazy(() => import('./pages/Dashboard'));
+const ShopPage       = lazy(() => import('./pages/ShopPage.jsx'));
+const ProductDetail  = lazy(() => import('./pages/ProductDetail.jsx'));
+const WishlistPage   = lazy(() => import('./pages/WishlistPage.jsx'));
+const BoutiquesPage  = lazy(() => import('./pages/BoutiquesPage.jsx'));
+const ProfilePage    = lazy(() => import('./pages/ProfilePage.jsx'));
+const OFSRewardsPage = lazy(() => import('./pages/OFSRewardsPage.jsx'));
+const SearchPage     = lazy(() => import('./pages/SearchPage.jsx'));
+const TrackingPage   = lazy(() => import('./pages/TrackingPage.jsx'));
+const SuperAdmin     = lazy(() => import('./pages/SuperAdmin.jsx'));
+const AffiliateRedirect = lazy(() => import('./pages/AffiliateRedirect.jsx'));
+const CartPage       = lazy(() => import('./pages/CartPage.jsx'));
+
+const PageLoader = () => (
+  <div className="flex items-center justify-center min-h-[60vh]">
+    <div className="w-8 h-8 border-4 border-[#FF9900] border-t-transparent rounded-full animate-spin" />
+  </div>
+);
 
 function AppContent() {
   const { vendor } = useAuth();
@@ -175,31 +185,33 @@ function AppContent() {
 
       {/* ZONE DE CONTENU PRINCIPALE */}
       <main className="flex-grow">
-        <Routes>
-          <Route path="/" element={<Home openModal={openModal} addToCart={addToCart} />} />
-          <Route path="/store" element={<Store openModal={openModal} addToCart={addToCart} />} />
-          <Route path="/studio" element={<Studio />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
-          <Route path="/shop/:shopName" element={<ShopPage openModal={openModal} addToCart={addToCart} />} />
-          <Route path="/wishlist" element={<WishlistPage openModal={openModal} addToCart={addToCart} />} />
-          <Route path="/search" element={<SearchPage openModal={openModal} addToCart={addToCart} />} />
-          <Route path="/boutiques" element={<BoutiquesPage />} />
-          <Route path="/profile" element={<ProfilePage />} />
-          <Route path="/rewards" element={<OFSRewardsPage />} />
-          <Route path="/track" element={<TrackingPage />} />
-          <Route path="/ref/:code" element={<AffiliateRedirect />} />
-          <Route path="/cart" element={<CartPage />} />
+        <Suspense fallback={<PageLoader />}>
+          <Routes>
+            <Route path="/" element={<Home openModal={openModal} addToCart={addToCart} />} />
+            <Route path="/store" element={<Store openModal={openModal} addToCart={addToCart} />} />
+            <Route path="/studio" element={<Studio />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/register" element={<Register />} />
+            <Route path="/shop/:shopName" element={<ShopPage openModal={openModal} addToCart={addToCart} />} />
+            <Route path="/wishlist" element={<WishlistPage openModal={openModal} addToCart={addToCart} />} />
+            <Route path="/search" element={<SearchPage openModal={openModal} addToCart={addToCart} />} />
+            <Route path="/boutiques" element={<BoutiquesPage />} />
+            <Route path="/profile" element={<ProfilePage />} />
+            <Route path="/rewards" element={<OFSRewardsPage />} />
+            <Route path="/track" element={<TrackingPage />} />
+            <Route path="/ref/:code" element={<AffiliateRedirect />} />
+            <Route path="/cart" element={<CartPage />} />
 
-          <Route
-            path="/product/:productId"
-            element={<ProductDetail addToCart={addToCart} openModal={openModal} />}
-          />
-          <Route element={<PrivateRoute />}>
-            <Route path="/admin" element={<Dashboard />} />
-            <Route path="/super-admin" element={<SuperAdmin />} />
-          </Route>
-        </Routes>
+            <Route
+              path="/product/:productId"
+              element={<ProductDetail addToCart={addToCart} openModal={openModal} />}
+            />
+            <Route element={<PrivateRoute />}>
+              <Route path="/admin" element={<Dashboard />} />
+              <Route path="/super-admin" element={<SuperAdmin />} />
+            </Route>
+          </Routes>
+        </Suspense>
       </main>
 
       {/* FOOTER : Masqué sur Login/Register */}
@@ -218,11 +230,13 @@ function AppContent() {
             shareCart={shareCart}
             vendor={vendor}
           />
-          <VisualSearchModal
-            isOpen={isVisualSearchOpen}
-            onClose={() => setIsVisualSearchOpen(false)}
-            addToCart={addToCart}
-          />
+          <Suspense fallback={null}>
+            <VisualSearchModal
+              isOpen={isVisualSearchOpen}
+              onClose={() => setIsVisualSearchOpen(false)}
+              addToCart={addToCart}
+            />
+          </Suspense>
           <WhatsAppButton />
         </>
       )}

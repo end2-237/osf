@@ -32,15 +32,38 @@ export const wakeUpSupabase = async () => {
 // Déclencher le ping immédiatement au chargement du module
 wakeUpSupabase();
 
+// Compress image to JPEG ≤ 1200px wide at 82% quality before upload
+const compressImage = (file) =>
+  new Promise((resolve) => {
+    const MAX_PX = 1200;
+    const QUALITY = 0.82;
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const scale = Math.min(1, MAX_PX / Math.max(img.width, img.height));
+      const w = Math.round(img.width * scale);
+      const h = Math.round(img.height * scale);
+      const canvas = document.createElement('canvas');
+      canvas.width = w;
+      canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      canvas.toBlob(resolve, 'image/jpeg', QUALITY);
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); resolve(file); };
+    img.src = url;
+  });
+
 // Storage helpers
 export const uploadProductImage = async (file, vendorId) => {
-  const fileExt = file.name.split('.').pop();
-  const fileName = `${vendorId}/${Date.now()}.${fileExt}`;
-  
+  const compressed = await compressImage(file);
+  const fileName = `${vendorId}/${Date.now()}.jpg`;
+
   const { data, error } = await supabase.storage
     .from('product-images')
-    .upload(fileName, file, {
+    .upload(fileName, compressed, {
       cacheControl: '3600',
+      contentType: 'image/jpeg',
       upsert: false
     });
 

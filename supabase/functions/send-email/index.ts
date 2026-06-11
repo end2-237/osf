@@ -10,10 +10,18 @@ const FROM_EMAIL      = "OFS Cameroun <noreply@onefreestyle.store>";
 const SITE_URL        = "https://www.onefreestyle.store";
 const SUPPORT_PHONE   = "237696995879";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin":  "*",
+const ALLOWED_ORIGINS = new Set([
+  "https://www.onefreestyle.store",
+  "https://onefreestyle.store",
+  "http://localhost:5173",
+  "http://localhost:4173",
+]);
+
+const corsHeaders = (origin: string) => ({
+  "Access-Control-Allow-Origin":  ALLOWED_ORIGINS.has(origin) ? origin : "https://www.onefreestyle.store",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+  "Vary": "Origin",
+});
 
 const fmt     = (n: number) => Math.round(n).toLocaleString("fr-FR") + " FCFA";
 const fmtDate = (d: string | null) => d ? new Date(d).toLocaleDateString("fr-FR", { day: "2-digit", month: "long", year: "numeric" }) : new Date().toLocaleDateString("fr-FR", { day: "2-digit", month: "long", year: "numeric" });
@@ -592,7 +600,19 @@ const sendResend = async (to: string, subject: string, html: string) => {
 
 // ─── HANDLER ─────────────────────────────────────────────────────────────────
 serve(async (req: Request) => {
-  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+  const origin = req.headers.get("origin") || "";
+  const ch = corsHeaders(origin);
+
+  if (req.method === "OPTIONS") return new Response("ok", { headers: ch });
+
+  // Only callable by internal functions (service-role key required)
+  const auth = req.headers.get("authorization") || "";
+  const token = auth.startsWith("Bearer ") ? auth.slice(7) : "";
+  if (!token || token !== SUPABASE_SRVKEY) {
+    return new Response(JSON.stringify({ error: "unauthorized" }), {
+      status: 401, headers: { ...ch, "Content-Type": "application/json" },
+    });
+  }
 
   try {
     if (!RESEND_API_KEY) throw new Error("RESEND_API_KEY not set");
@@ -636,14 +656,14 @@ serve(async (req: Request) => {
     console.log(`[send-email] ${type} → ${email}`);
 
     return new Response(JSON.stringify({ ok: true, to: email }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      headers: { ...ch, "Content-Type": "application/json" },
     });
 
   } catch (err) {
     console.error("[send-email]", err.message);
     return new Response(JSON.stringify({ error: err.message }), {
       status: 400,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      headers: { ...ch, "Content-Type": "application/json" },
     });
   }
 });
