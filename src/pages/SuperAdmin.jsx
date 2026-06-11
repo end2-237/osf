@@ -5,10 +5,6 @@ import { useAuth } from "../context/AuthContext";
 import CJImportTab from "../components/CJImportTab";
 import { fetchSiteSettings, saveSiteSettings } from "../components/WhatsAppButton";
 
-// ─── SUPER ADMIN EMAILS ───────────────────────────────────────────────────────
-const SUPER_ADMIN_EMAILS = ["emansoga@gmail.com", "nsogadavid01@gmail.com"];
-const isSuperAdmin = (email) => SUPER_ADMIN_EMAILS.includes(email);
-
 // ─── STATUS CONFIG ────────────────────────────────────────────────────────────
 const STATUS = {
   pending:         { label: "En attente",     color: "text-[#FF9900]",  bg: "bg-[#FFF8D3]",  border: "border-[#FCD200]/40" },
@@ -2111,7 +2107,7 @@ const AffiliationTab = ({ orders }) => {
 
 // ─── SUPER ADMIN PAGE ─────────────────────────────────────────────────────────
 const SuperAdmin = () => {
-  const { user } = useAuth();
+  const { user, isSuperAdmin } = useAuth();
   const navigate  = useNavigate();
 
   const [activeTab,    setActiveTab]    = useState("overview");
@@ -2124,12 +2120,12 @@ const SuperAdmin = () => {
   // ── Auth guard ──────────────────────────────────────────────────────────────
   useEffect(() => {
     if (!user) { navigate("/login"); return; }
-    if (!isSuperAdmin(user.email)) { navigate("/"); }
+    if (!isSuperAdmin) { navigate("/"); }
   }, [user]);
 
   // ── Load all data ───────────────────────────────────────────────────────────
   useEffect(() => {
-    if (!user || !isSuperAdmin(user.email)) return;
+    if (!user || !isSuperAdmin) return;
     const load = async () => {
       setLoading(true);
       try {
@@ -2200,7 +2196,7 @@ const SuperAdmin = () => {
     setAllOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: newStatus } : o));
   };
 
-  if (!user || !isSuperAdmin(user.email)) return null;
+  if (!user || !isSuperAdmin) return null;
 
   const TABS = [
     { key: "overview",     icon: "fa-gauge-high",    label: "Vue globale"     },

@@ -77,8 +77,7 @@ const ProfileDropdown = ({ user, profile, signOut, isDark }) => {
               { to: "/profile?tab=orders",   icon: "fa-box",            label: "Mes commandes"      },
               { to: "/profile?tab=wishlist", icon: "fa-heart",          label: "Mes favoris"        },
               { to: "/profile?tab=referral", icon: "fa-user-plus",      label: "Parrainage"         },
-              ...(["emansoga@gmail.com","nsogadavid01@gmail.com"].includes(user?.email)
-                ? [{ to: "/super-admin", icon: "fa-shield-halved", label: "Super Admin" }] : []),
+              ...(isSuperAdmin ? [{ to: "/super-admin", icon: "fa-shield-halved", label: "Super Admin" }] : []),
             ].map(l => (
               <Link key={l.to} to={l.to} onClick={() => setOpen(false)} className={linkCls}>
                 <i className={`fa-solid ${l.icon} text-[#FF9900] w-4 text-sm`}></i>
@@ -104,7 +103,7 @@ const ProfileDropdown = ({ user, profile, signOut, isDark }) => {
 };
 
 const Navbar = ({ isDark, toggleTheme, cartCount, toggleCart, toggleVisualSearch }) => {
-  const { user, isMember, signOut } = useAuth();
+  const { user, isMember, isSuperAdmin, signOut } = useAuth();
   const { lang, toggleLang } = useLang();
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -574,8 +573,7 @@ const Navbar = ({ isDark, toggleTheme, cartCount, toggleCart, toggleVisualSearch
                 { to: "/track",              icon: "fa-location-dot", label: "Suivi commande"  },
                 { to: "/profile?tab=orders", icon: "fa-box",          label: "Commandes"       },
                 { to: "/wishlist",           icon: "fa-heart",        label: "Wishlist"        },
-                ...(["emansoga@gmail.com","nsogadavid01@gmail.com"].includes(user?.email)
-                  ? [{ to: "/super-admin", icon: "fa-shield-halved", label: "Super Admin" }] : []),
+                ...(isSuperAdmin ? [{ to: "/super-admin", icon: "fa-shield-halved", label: "Super Admin" }] : []),
               ] : []),
             ].map(link => (
               <Link key={link.to} to={link.to} onClick={() => setMobileMenuOpen(false)}

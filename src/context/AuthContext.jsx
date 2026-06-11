@@ -5,22 +5,23 @@ const AuthContext = createContext({});
 export const useAuth = () => useContext(AuthContext);
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser]       = useState(null);
-  const [vendor, setVendor]   = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [user, setUser]             = useState(null);
+  const [vendor, setVendor]         = useState(null);
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+  const [loading, setLoading]       = useState(true);
   const initDoneRef     = useRef(false);
   const vendorLoadedRef = useRef(false);
 
   const loadVendor = async (userId) => {
     try {
-      const { data, error } = await supabase
-        .from('vendors')
-        .select('*')
-        .eq('user_id', userId)
-        .maybeSingle();
-      if (error) throw error;
-      setVendor(data);
-      vendorLoadedRef.current = !!data;
+      const [vendorRes, profileRes] = await Promise.all([
+        supabase.from('vendors').select('*').eq('user_id', userId).maybeSingle(),
+        supabase.from('profiles').select('is_super_admin').eq('id', userId).maybeSingle(),
+      ]);
+      if (vendorRes.error) throw vendorRes.error;
+      setVendor(vendorRes.data);
+      vendorLoadedRef.current = !!vendorRes.data;
+      setIsSuperAdmin(!!profileRes.data?.is_super_admin);
     } catch (e) {
       if (e?.name === 'AbortError' || e?.message?.includes('aborted')) {
         console.warn('⚠️ [LOAD_VENDOR] AbortError ignoré — vendor conservé');
@@ -97,6 +98,7 @@ export const AuthProvider = ({ children }) => {
         } else {
           setUser(null);
           setVendor(null);
+          setIsSuperAdmin(false);
           vendorLoadedRef.current = false;
           setLoading(false);
         }
@@ -160,6 +162,7 @@ export const AuthProvider = ({ children }) => {
     await supabase.auth.signOut();
     setVendor(null);
     setUser(null);
+    setIsSuperAdmin(false);
     localStorage.removeItem('sb-alrbokstfwwlvbvghrqr-auth-token');
   };
 
@@ -187,6 +190,7 @@ export const AuthProvider = ({ children }) => {
       loading,
       isVendor,
       isMember,
+      isSuperAdmin,
       signIn,
       signUp,
       signUpMember,
