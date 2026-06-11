@@ -39,8 +39,8 @@ serve(async (req: Request) => {
       status: 401, headers: { ...c, "Content-Type": "application/json" },
     });
   }
-  // Accept service-role key (internal calls) or verify as user JWT
-  if (token !== SRVKEY) {
+  // Accept: service-role key, anon key (public browsing), or valid user JWT
+  if (token !== SRVKEY && token !== SUPABASE_KEY) {
     const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
     const { error } = await sb.auth.getUser(token);
     if (error) {
