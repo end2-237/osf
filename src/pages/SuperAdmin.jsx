@@ -1844,6 +1844,164 @@ const ReviewsModerationTab = () => {
   );
 };
 
+// ─── PROMO CODES TAB ──────────────────────────────────────────────────────────
+const PromoCodesTab = () => {
+  const [codes,   setCodes]   = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [saving,  setSaving]  = useState(false);
+  const [form,    setForm]    = useState({
+    code: '', discount_type: 'percent', discount_value: '', min_order_amount: '', max_uses: '', expires_at: '',
+  });
+  const [formErr, setFormErr] = useState('');
+
+  const load = async () => {
+    setLoading(true);
+    const { data } = await supabase
+      .from('promo_codes')
+      .select('*')
+      .order('created_at', { ascending: false });
+    setCodes(data || []);
+    setLoading(false);
+  };
+
+  useEffect(() => { load(); }, []);
+
+  const handleCreate = async () => {
+    const code = form.code.trim().toUpperCase();
+    if (!code)                          { setFormErr('Code requis.'); return; }
+    if (!form.discount_value || Number(form.discount_value) <= 0) { setFormErr('Valeur de remise invalide.'); return; }
+    if (form.discount_type === 'percent' && Number(form.discount_value) > 100) { setFormErr('Max 100 % de remise.'); return; }
+    setSaving(true); setFormErr('');
+    const { error } = await supabase.from('promo_codes').insert({
+      code,
+      discount_type:    form.discount_type,
+      discount_value:   Number(form.discount_value),
+      min_order_amount: form.min_order_amount ? Number(form.min_order_amount) : 0,
+      max_uses:         form.max_uses ? Number(form.max_uses) : null,
+      expires_at:       form.expires_at || null,
+      is_active:        true,
+    });
+    setSaving(false);
+    if (error) { setFormErr(error.message); return; }
+    setForm({ code: '', discount_type: 'percent', discount_value: '', min_order_amount: '', max_uses: '', expires_at: '' });
+    load();
+  };
+
+  const toggleActive = async (id, current) => {
+    await supabase.from('promo_codes').update({ is_active: !current }).eq('id', id);
+    setCodes(prev => prev.map(c => c.id === id ? { ...c, is_active: !current } : c));
+  };
+
+  const deleteCode = async (id) => {
+    if (!window.confirm('Supprimer ce code promo ?')) return;
+    await supabase.from('promo_codes').delete().eq('id', id);
+    setCodes(prev => prev.filter(c => c.id !== id));
+  };
+
+  const inputCls = 'w-full border border-[#D5D9D9] focus:border-[#FF9900] focus:outline-none rounded-lg px-3 py-2 text-sm bg-white';
+
+  return (
+    <div className="space-y-6">
+      {/* Create form */}
+      <div className="bg-white border border-[#D5D9D9] rounded-xl p-5">
+        <h3 className="font-black text-[#0F1111] text-sm mb-4">
+          <i className="fa-solid fa-tag text-[#FF9900] mr-2"></i>Créer un code promo
+        </h3>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label className="block text-[10px] font-black uppercase tracking-widest text-[#565959] mb-1">Code *</label>
+            <input value={form.code} onChange={e => setForm(p => ({ ...p, code: e.target.value.toUpperCase() }))}
+              placeholder="PROMO20" className={`${inputCls} font-mono uppercase`} />
+          </div>
+          <div>
+            <label className="block text-[10px] font-black uppercase tracking-widest text-[#565959] mb-1">Type *</label>
+            <select value={form.discount_type} onChange={e => setForm(p => ({ ...p, discount_type: e.target.value }))} className={inputCls}>
+              <option value="percent">Pourcentage (%)</option>
+              <option value="fixed">Montant fixe (FCFA)</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-[10px] font-black uppercase tracking-widest text-[#565959] mb-1">
+              Valeur * {form.discount_type === 'percent' ? '(%)' : '(FCFA)'}
+            </label>
+            <input type="number" value={form.discount_value} onChange={e => setForm(p => ({ ...p, discount_value: e.target.value }))}
+              placeholder={form.discount_type === 'percent' ? '20' : '2000'} className={inputCls} min="1" />
+          </div>
+          <div>
+            <label className="block text-[10px] font-black uppercase tracking-widest text-[#565959] mb-1">Commande minimum (FCFA)</label>
+            <input type="number" value={form.min_order_amount} onChange={e => setForm(p => ({ ...p, min_order_amount: e.target.value }))}
+              placeholder="5000" className={inputCls} min="0" />
+          </div>
+          <div>
+            <label className="block text-[10px] font-black uppercase tracking-widest text-[#565959] mb-1">Limite d'utilisations</label>
+            <input type="number" value={form.max_uses} onChange={e => setForm(p => ({ ...p, max_uses: e.target.value }))}
+              placeholder="Illimité" className={inputCls} min="1" />
+          </div>
+          <div>
+            <label className="block text-[10px] font-black uppercase tracking-widest text-[#565959] mb-1">Expiration</label>
+            <input type="datetime-local" value={form.expires_at} onChange={e => setForm(p => ({ ...p, expires_at: e.target.value }))} className={inputCls} />
+          </div>
+        </div>
+        {formErr && (
+          <p className="text-[11px] text-[#B12704] mt-2">
+            <i className="fa-solid fa-circle-exclamation mr-1"></i>{formErr}
+          </p>
+        )}
+        <button onClick={handleCreate} disabled={saving}
+          className="mt-4 bg-[#FF9900] hover:bg-[#FFB800] text-[#0F1111] font-black px-6 py-2.5 rounded-lg text-sm transition disabled:opacity-50 flex items-center gap-2">
+          {saving ? <i className="fa-solid fa-spinner fa-spin text-xs"></i> : <i className="fa-solid fa-plus text-xs"></i>}
+          Créer le code
+        </button>
+      </div>
+
+      {/* List */}
+      {loading ? (
+        <div className="space-y-2">{[...Array(3)].map((_,i) => <div key={i} className="animate-pulse h-14 bg-white border border-[#D5D9D9] rounded-xl" />)}</div>
+      ) : codes.length === 0 ? (
+        <div className="text-center py-12 text-[#565959]">
+          <i className="fa-solid fa-tag text-4xl text-[#D5D9D9] mb-3 block"></i>
+          <p className="font-bold">Aucun code promo</p>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {codes.map(c => {
+            const expired = c.expires_at && new Date(c.expires_at) < new Date();
+            const maxed   = c.max_uses != null && c.current_uses >= c.max_uses;
+            return (
+              <div key={c.id} className={`bg-white border rounded-xl px-4 py-3 flex items-center gap-4 flex-wrap transition-all ${c.is_active && !expired && !maxed ? 'border-[#007600]/20' : 'border-[#D5D9D9] opacity-60'}`}>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-black text-[#0F1111] font-mono text-sm">{c.code}</span>
+                    <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full border ${c.is_active && !expired && !maxed ? 'bg-[#E8F5E8] text-[#007600] border-[#007600]/20' : 'bg-[#EAEDED] text-[#565959] border-[#D5D9D9]'}`}>
+                      {expired ? 'Expiré' : maxed ? 'Épuisé' : c.is_active ? 'Actif' : 'Inactif'}
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-[#565959] mt-0.5">
+                    {c.discount_type === 'percent' ? `−${c.discount_value}%` : `−${Number(c.discount_value).toLocaleString()} FCFA`}
+                    {c.min_order_amount > 0 && ` · min ${Number(c.min_order_amount).toLocaleString()} FCFA`}
+                    {c.max_uses != null && ` · ${c.current_uses}/${c.max_uses} utilisations`}
+                    {c.expires_at && ` · exp. ${new Date(c.expires_at).toLocaleDateString('fr-FR')}`}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <button onClick={() => toggleActive(c.id, c.is_active)}
+                    className={`text-[10px] font-black px-3 py-1.5 rounded-lg border transition ${c.is_active ? 'bg-[#EAEDED] text-[#565959] border-[#D5D9D9] hover:border-[#FF9900]/40' : 'bg-[#E8F5E8] text-[#007600] border-[#007600]/20'}`}>
+                    {c.is_active ? 'Désactiver' : 'Activer'}
+                  </button>
+                  <button onClick={() => deleteCode(c.id)}
+                    className="text-[10px] font-black px-2 py-1.5 rounded-lg border border-[#D5D9D9] text-[#B12704] hover:bg-[#FEE7E5] hover:border-[#B12704]/20 transition">
+                    <i className="fa-solid fa-trash text-[9px]"></i>
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+};
+
 // ─── AFFILIATION TAB ──────────────────────────────────────────────────────────
 const AffiliationTab = ({ orders }) => {
   const [newCode, setNewCode] = useState('');
@@ -2052,6 +2210,7 @@ const SuperAdmin = () => {
     { key: "products",     icon: "fa-boxes-stacked",  label: "Produits"        },
     { key: "cj",           icon: "fa-circle-nodes",   label: "CJ Import"       },
     { key: "reviews",      icon: "fa-star",            label: "Avis",           badge: globalStats.pendingReviews || 0 },
+    { key: "promo",        icon: "fa-tag",             label: "Promos"          },
     { key: "affiliation",  icon: "fa-link",            label: "Affiliation"     },
     { key: "settings",     icon: "fa-gear",            label: "Paramètres"      },
   ];
@@ -2155,6 +2314,10 @@ const SuperAdmin = () => {
 
         {activeTab === "reviews" && (
           <ReviewsModerationTab />
+        )}
+
+        {activeTab === "promo" && (
+          <PromoCodesTab />
         )}
 
         {activeTab === "affiliation" && (
