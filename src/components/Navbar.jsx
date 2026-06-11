@@ -23,7 +23,7 @@ const CATEGORIES = [
   { name: "Flash Deals", catKey: null,              icon: "fa-bolt",               isNew: false },
 ];
 
-const ProfileDropdown = ({ user, profile, signOut, isDark }) => {
+const ProfileDropdown = ({ user, profile, signOut, isDark, isSuperAdmin }) => {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
   const navigate = useNavigate();
@@ -350,7 +350,7 @@ const Navbar = ({ isDark, toggleTheme, cartCount, toggleCart, toggleVisualSearch
             {/* ACCOUNT */}
             <div className="hidden sm:block">
               {user
-                ? <ProfileDropdown user={user} profile={profile} signOut={handleSignOut} isDark={isDark} />
+                ? <ProfileDropdown user={user} profile={profile} signOut={handleSignOut} isDark={isDark} isSuperAdmin={isSuperAdmin} />
                 : (
                   <Link to="/login"
                     className={`flex flex-col items-start ${textPri} border border-transparent ${hoverEl} rounded px-2 py-1 transition-all`}
