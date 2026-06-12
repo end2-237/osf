@@ -12,6 +12,7 @@ export const awardOrderPoints = async (userId, orderId, orderAmount) => {
     description:  `Achat #${orderId.slice(-8).toUpperCase()} — ${Number(orderAmount).toLocaleString()} FCFA`,
   });
   if (error?.code === '23505') return; // already recorded (unique index)
-  if (error) return;
-  await supabase.rpc('award_loyalty_points', { p_user_id: userId, p_delta: pts });
+  if (error) { console.error('[loyalty] insert error:', error); return; }
+  const { error: rpcErr } = await supabase.rpc('award_loyalty_points', { p_user_id: userId, p_delta: pts });
+  if (rpcErr) console.error('[loyalty] rpc error:', rpcErr);
 };
