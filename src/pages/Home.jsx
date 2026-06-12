@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { useJsonLd } from "../hooks/useJsonLd";
 import HeroBanners from "../components/HeroBanners";
 import CategoryGrid from "../components/CategoryGrid";
 import ProductsByCategory from "../components/ProductsByCategory";
@@ -558,10 +559,52 @@ const VendorsSection = () => (
 );
 
 // ─── HOME ─────────────────────────────────────────────────────────────────────
+const HOME_JSONLD = [
+  {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    "name": "OFS Cameroun",
+    "alternateName": "OneFreestyle Store",
+    "url": "https://www.onefreestyle.store",
+    "logo": "https://www.onefreestyle.store/logoofs.png",
+    "description": "Boutique en ligne au Cameroun — mode, tech, beauté, maison. Livraison express Douala, Yaoundé et toutes les régions.",
+    "address": {
+      "@type": "PostalAddress",
+      "streetAddress": "Bonamoussadi",
+      "addressLocality": "Douala",
+      "addressRegion": "Littoral",
+      "addressCountry": "CM",
+    },
+    "contactPoint": {
+      "@type": "ContactPoint",
+      "telephone": "+237696995879",
+      "contactType": "customer service",
+      "availableLanguage": ["French"],
+    },
+    "legalName": "Buyticle ETS",
+  },
+  {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    "name": "OFS Cameroun",
+    "url": "https://www.onefreestyle.store",
+    "potentialAction": {
+      "@type": "SearchAction",
+      "target": {
+        "@type": "EntryPoint",
+        "urlTemplate": "https://www.onefreestyle.store/search?q={search_term_string}",
+      },
+      "query-input": "required name=search_term_string",
+    },
+  },
+];
+
 const Home = ({ openModal, addToCart }) => {
   const [productsList, setProductsList] = useState([]);
   const [loading,      setLoading]      = useState(true);
   const { currentAd, adIndex, close, next, isLast } = useAdManager();
+
+  useJsonLd(HOME_JSONLD);
 
   useEffect(() => {
     const getItems = async () => {

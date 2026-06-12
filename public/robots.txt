@@ -1,0 +1,17 @@
+User-agent: *
+Allow: /
+Allow: /product/
+Allow: /store
+Allow: /search
+Allow: /boutiques
+Allow: /rewards
+Allow: /studio
+Allow: /track
+
+# Block admin & auth pages from indexing
+Disallow: /admin
+Disallow: /super-admin
+Disallow: /dashboard
+
+# Sitemap
+Sitemap: https://www.onefreestyle.store/sitemap.xml
