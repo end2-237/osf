@@ -784,58 +784,6 @@ const ProductDetail = ({ addToCart, openModal }) => {
     type:        'product',
   });
 
-  const jsonLdSchemas = useMemo(() => {
-    if (!product) return null;
-    const productUrl = `https://www.onefreestyle.store/product/${product.id}`;
-    const images = product.images?.length > 0
-      ? product.images
-      : product.img ? [product.img] : [];
-
-    const productSchema = {
-      "@context": "https://schema.org/",
-      "@type": "Product",
-      "name": product.name,
-      "description": stripHtml(product.description || product.name).slice(0, 500),
-      ...(images.length > 0 && { "image": images }),
-      ...(product.brand && { "brand": { "@type": "Brand", "name": product.brand } }),
-      ...(product.sku   && { "sku": product.sku }),
-      "offers": {
-        "@type": "Offer",
-        "url": productUrl,
-        "priceCurrency": "XAF",
-        "price": String(price || 0),
-        "availability": product.stock_qty === 0
-          ? "https://schema.org/OutOfStock"
-          : "https://schema.org/InStock",
-        "seller": { "@type": "Organization", "name": "OFS Cameroun" },
-      },
-      ...(product.rating_avg > 0 && product.review_count > 0 && {
-        "aggregateRating": {
-          "@type": "AggregateRating",
-          "ratingValue": String(product.rating_avg),
-          "reviewCount": String(product.review_count),
-        },
-      }),
-    };
-
-    const breadcrumbItems = [
-      { "@type": "ListItem", "position": 1, "name": "Accueil", "item": "https://www.onefreestyle.store/" },
-      { "@type": "ListItem", "position": 2, "name": "Store",   "item": "https://www.onefreestyle.store/store" },
-      ...(product.type ? [{ "@type": "ListItem", "position": 3, "name": product.type, "item": `https://www.onefreestyle.store/store?type=${encodeURIComponent(product.type)}` }] : []),
-      { "@type": "ListItem", "position": product.type ? 4 : 3, "name": product.name, "item": productUrl },
-    ];
-
-    const breadcrumbSchema = {
-      "@context": "https://schema.org",
-      "@type": "BreadcrumbList",
-      "itemListElement": breadcrumbItems,
-    };
-
-    return [productSchema, breadcrumbSchema];
-  }, [product, price]);
-
-  useJsonLd(jsonLdSchemas);
-
   // Keep window.__ofs_product for WhatsApp button context
   useEffect(() => {
     if (product?.name) {
@@ -983,6 +931,57 @@ const ProductDetail = ({ addToCart, openModal }) => {
   const price       = Number(product?.price) || 0;
   const memberPrice = Math.round(price * (1 - MEMBER_DISCOUNT));
   const ofsPoints   = Math.max(1, Math.floor(price / 500));
+
+  // JSON-LD — placed after `price` to avoid temporal dead zone
+  const jsonLdSchemas = useMemo(() => {
+    if (!product) return null;
+    const productUrl = `https://www.onefreestyle.store/product/${product.id}`;
+    const images = product.images?.length > 0
+      ? product.images
+      : product.img ? [product.img] : [];
+
+    const productSchema = {
+      "@context": "https://schema.org/",
+      "@type": "Product",
+      "name": product.name,
+      "description": stripHtml(product.description || product.name).slice(0, 500),
+      ...(images.length > 0 && { "image": images }),
+      ...(product.brand && { "brand": { "@type": "Brand", "name": product.brand } }),
+      ...(product.sku   && { "sku": product.sku }),
+      "offers": {
+        "@type": "Offer",
+        "url": productUrl,
+        "priceCurrency": "XAF",
+        "price": String(price || 0),
+        "availability": product.stock_qty === 0
+          ? "https://schema.org/OutOfStock"
+          : "https://schema.org/InStock",
+        "seller": { "@type": "Organization", "name": "OFS Cameroun" },
+      },
+      ...(product.rating_avg > 0 && product.review_count > 0 && {
+        "aggregateRating": {
+          "@type": "AggregateRating",
+          "ratingValue": String(product.rating_avg),
+          "reviewCount": String(product.review_count),
+        },
+      }),
+    };
+
+    const breadcrumbItems = [
+      { "@type": "ListItem", "position": 1, "name": "Accueil", "item": "https://www.onefreestyle.store/" },
+      { "@type": "ListItem", "position": 2, "name": "Store",   "item": "https://www.onefreestyle.store/store" },
+      ...(product.type ? [{ "@type": "ListItem", "position": 3, "name": product.type, "item": `https://www.onefreestyle.store/store?type=${encodeURIComponent(product.type)}` }] : []),
+      { "@type": "ListItem", "position": product.type ? 4 : 3, "name": product.name, "item": productUrl },
+    ];
+
+    return [productSchema, {
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      "itemListElement": breadcrumbItems,
+    }];
+  }, [product, price]);
+
+  useJsonLd(jsonLdSchemas);
 
   const isCjProduct      = !product?.vendor_id;
   const shippingEstimate = isCjProduct
