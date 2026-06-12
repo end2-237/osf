@@ -573,17 +573,27 @@ const ReviewsTab = ({ reviews }) => (
 
 // ─── REFERRAL ─────────────────────────────────────────────────────────────────
 const Referral = ({ profile, userId, onToast }) => {
-  const [copied,    setCopied]    = useState(false);
-  const [referrals, setReferrals] = useState([]);
-  const [loading,   setLoading]   = useState(true);
+  const [copied,      setCopied]      = useState(false);
+  const [referrals,   setReferrals]   = useState([]);
+  const [commissions, setCommissions] = useState([]);
+  const [loading,     setLoading]     = useState(true);
   const code   = profile?.referral_code || "—";
-  const refUrl = `${window.location.origin}/register?ref=${code}`;
+  const refUrl = `${window.location.origin}/ref/${code}`;
 
   useEffect(() => {
     if (!userId) return;
-    supabase.from("referrals").select("id, created_at, referred:profiles!referred_id(full_name, avatar_url)")
-      .eq("referrer_id", userId).order("created_at", { ascending: false })
-      .then(({ data }) => { setReferrals(data || []); setLoading(false); });
+    Promise.all([
+      supabase.from("referrals")
+        .select("id, created_at, referred:profiles!referred_id(full_name, avatar_url)")
+        .eq("referrer_id", userId).order("created_at", { ascending: false }),
+      supabase.from("affiliate_commissions")
+        .select("id, created_at, order_amount, commission_amount, status")
+        .eq("referrer_user_id", userId).order("created_at", { ascending: false }),
+    ]).then(([{ data: refs }, { data: comms }]) => {
+      setReferrals(refs || []);
+      setCommissions(comms || []);
+      setLoading(false);
+    });
   }, [userId]);
 
   const handleCopy = (val, label = "Copié !") => {
@@ -650,6 +660,56 @@ const Referral = ({ profile, userId, onToast }) => {
           </div>
         </div>
       </AmzCard>
+
+      {/* Commissions */}
+      {(() => {
+        const pending   = commissions.filter(c => c.status === 'pending');
+        const confirmed = commissions.filter(c => c.status === 'confirmed' || c.status === 'paid');
+        const totalPending   = pending.reduce((s, c) => s + (c.commission_amount || 0), 0);
+        const totalConfirmed = confirmed.reduce((s, c) => s + (c.commission_amount || 0), 0);
+        return commissions.length > 0 ? (
+          <AmzCard>
+            <AmzCardHeader title="Mes commissions d'affiliation" icon="fa-money-bill-trend-up" />
+            <div className="p-4">
+              <div className="grid grid-cols-2 gap-3 mb-4">
+                <div className="bg-[#FFF8D3] border border-[#FCD200]/50 rounded p-3 text-center">
+                  <p className="text-[8px] font-black uppercase tracking-widest text-[#565959] mb-1">En attente</p>
+                  <p className="font-black text-lg text-[#FF9900]">{totalPending.toLocaleString()}</p>
+                  <p className="text-[8px] text-[#565959]">FCFA · {pending.length} commande{pending.length !== 1 ? 's' : ''}</p>
+                </div>
+                <div className="bg-[#E8F5E8] border border-[#007600]/20 rounded p-3 text-center">
+                  <p className="text-[8px] font-black uppercase tracking-widest text-[#565959] mb-1">Confirmée{confirmed.length !== 1 ? 's' : ''}</p>
+                  <p className="font-black text-lg text-[#007600]">{totalConfirmed.toLocaleString()}</p>
+                  <p className="text-[8px] text-[#565959]">FCFA · {confirmed.length} commande{confirmed.length !== 1 ? 's' : ''}</p>
+                </div>
+              </div>
+              <div className="space-y-2">
+                {commissions.slice(0, 8).map(c => {
+                  const isPending = c.status === 'pending';
+                  return (
+                    <div key={c.id} className="flex items-center justify-between py-2 border-b border-[#F0F2F2] last:border-0">
+                      <div>
+                        <p className="text-[10px] font-black text-[#0F1111]">
+                          Commande · {Number(c.order_amount).toLocaleString()} FCFA
+                        </p>
+                        <p className="text-[9px] text-[#565959]">{new Date(c.created_at).toLocaleDateString("fr-FR")}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className={`font-black text-[11px] ${isPending ? 'text-[#FF9900]' : 'text-[#007600]'}`}>
+                          +{Number(c.commission_amount).toLocaleString()} F
+                        </p>
+                        <span className={`text-[8px] font-black uppercase ${isPending ? 'text-[#FF9900]' : 'text-[#007600]'}`}>
+                          {isPending ? 'En attente' : c.status === 'paid' ? 'Payée' : 'Confirmée'}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </AmzCard>
+        ) : null;
+      })()}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {/* Paliers */}

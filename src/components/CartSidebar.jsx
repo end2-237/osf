@@ -2,6 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
+import { awardOrderPoints } from '../lib/loyalty';
+import { recordAffiliateCommission } from '../lib/affiliate';
 
 const MEMBER_DISCOUNT            = 0.20;
 const BUNDLE_DISCOUNT_NON_MEMBER = 0.02;
@@ -331,6 +333,8 @@ const CartSidebar = ({ isOpen, cart, removeFromCart, updateQuantity, toggleCart,
 
         if (orderError) throw orderError;
         await supabase.from('order_items').insert(buildOrderItems(vendorItems, orderData.id));
+        if (user?.id) awardOrderPoints(user.id, orderData.id, vendorAfterPromo).catch(() => {});
+        if (referralCode) recordAffiliateCommission(referralCode, orderData.id, vendorAfterPromo, user?.id || null).catch(() => {});
         // Non-blocking email confirmation (only for logged-in users)
         if (user?.id) {
           fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-email`, {
@@ -406,6 +410,8 @@ const CartSidebar = ({ isOpen, cart, removeFromCart, updateQuantity, toggleCart,
         if (orderError) throw orderError;
         orderIds.push(orderData.id);
         await supabase.from('order_items').insert(buildOrderItems(vendorItems, orderData.id));
+        if (user?.id) awardOrderPoints(user.id, orderData.id, vendorAfterPromo).catch(() => {});
+        if (referralCode) recordAffiliateCommission(referralCode, orderData.id, vendorAfterPromo, user?.id || null).catch(() => {});
       }
 
       if (promoApplied) {
