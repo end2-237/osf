@@ -1294,7 +1294,7 @@ const ProductDetail = ({ addToCart, openModal }) => {
 
   // ── RENDER ────────────────────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-[#EAEDED] text-[#0F1111]">
+    <div className="min-h-screen bg-white text-[#0F1111]">
 
       {shareToast && (
         <div className="fixed top-6 left-1/2 -translate-x-1/2 z-[400] bg-[#131921] text-[#FF9900] px-6 py-3 rounded font-black text-[10px] uppercase tracking-widest shadow-2xl border border-[#232F3E] flex items-center gap-2">
@@ -1322,27 +1322,25 @@ const ProductDetail = ({ addToCart, openModal }) => {
           </button>
         </div>
       ) : (
-        <div className="max-w-[1500px] mx-auto px-4 md:px-6 py-4 pb-20">
+        <div className="max-w-[1500px] mx-auto pb-20">
 
           {/* ══ MAIN PRODUCT SECTION ══ */}
-          <div className="grid grid-cols-1 lg:grid-cols-[55%_1fr] gap-4 mb-4 items-start">
+          <div className="grid grid-cols-1 lg:grid-cols-[52%_1fr] items-start">
 
             {/* ── GALLERY (sticky) ── */}
-            <div className="lg:sticky lg:top-4">
-              <div className="bg-white border border-[#D5D9D9] rounded p-3 sm:p-4 lg:p-6">
-                <ImageGallery
-                  images={galleryImages}
-                  activeImg={galleryIndex}
-                  setActiveImg={setGalleryIndex}
-                  name={product.name}
-                  status={product.status}
-                  videoThumbnail={product.video_thumbnail}
-                />
-              </div>
+            <div className="lg:sticky lg:top-0 px-4 md:px-6 pt-4">
+              <ImageGallery
+                images={galleryImages}
+                activeImg={galleryIndex}
+                setActiveImg={setGalleryIndex}
+                name={product.name}
+                status={product.status}
+                videoThumbnail={product.video_thumbnail}
+              />
             </div>
 
             {/* ── INFO PANEL ── */}
-            <div className="bg-white border border-[#D5D9D9] rounded p-4 lg:p-6 flex flex-col min-w-0">
+            <div className="px-4 md:px-6 pt-4 pb-6 border-l border-[#e8eaed] flex flex-col min-w-0">
 
                 {/* Brand / vendor */}
                 <div className="mb-1 flex items-center gap-2 flex-wrap">
@@ -1361,7 +1359,7 @@ const ProductDetail = ({ addToCart, openModal }) => {
                 </div>
 
                 {/* Title */}
-                <h1 className="text-xl md:text-2xl font-medium text-[#0F1111] leading-snug mb-3">
+                <h1 className="text-lg md:text-xl font-medium text-[#0F1111] leading-snug mb-2">
                   {translatedName}
                 </h1>
 
@@ -1960,15 +1958,15 @@ const ProductDetail = ({ addToCart, openModal }) => {
           </div>{/* end grid */}
 
           {/* ══ BELOW FOLD ══ */}
-          <div className="space-y-4">
+          <div className="space-y-0 border-t border-[#e8eaed] mt-4">
 
             {/* About this item */}
             {product.features?.length > 0 && (
-              <div className="bg-white border border-[#D5D9D9] rounded">
-                <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-[#D5D9D9]">
-                  <h2 className="text-base sm:text-lg font-bold text-[#0F1111]">À propos de ce produit</h2>
+              <div className="bg-white border-b border-[#e8eaed]">
+                <div className="max-w-[1500px] mx-auto px-4 md:px-6 py-4 sm:py-6">
+                  <h2 className="text-base sm:text-lg font-bold text-[#0F1111] mb-3">À propos de ce produit</h2>
                 </div>
-                <div className="px-4 sm:px-6 py-4 sm:py-5">
+                <div className="max-w-[1500px] mx-auto px-4 md:px-6 pb-5">
                   <ul className="space-y-2.5">
                     {product.features.map((feat, i) => (
                       <li key={i} className="flex items-start gap-3 text-sm text-[#0F1111]">
@@ -1983,8 +1981,8 @@ const ProductDetail = ({ addToCart, openModal }) => {
 
             {/* Product description */}
             {product.description && (
-              <div className="bg-white border border-[#D5D9D9] rounded">
-                <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-[#D5D9D9] flex items-center justify-between gap-2 flex-wrap">
+              <div className="bg-white border-b border-[#e8eaed]">
+                <div className="max-w-[1500px] mx-auto px-4 md:px-6 py-4 sm:py-6 flex items-center justify-between gap-2 flex-wrap">
                   <h2 className="text-base sm:text-lg font-bold text-[#0F1111]">Description du produit</h2>
                   {lang === "fr" && (
                     <span className="inline-flex items-center gap-1.5 text-[10px] font-bold bg-[#FF9900]/10 text-[#C45500] border border-[#FF9900]/30 rounded-full px-2.5 py-1">
@@ -1992,7 +1990,7 @@ const ProductDetail = ({ addToCart, openModal }) => {
                     </span>
                   )}
                 </div>
-                <div className="px-4 sm:px-6 py-4 sm:py-5">
+                <div className="max-w-[1500px] mx-auto px-4 md:px-6 pb-5">
                   {lang === "fr" ? (
                     descLoading ? (
                       <div className="flex items-center gap-2 text-sm text-[#565959]">
@@ -2018,11 +2016,11 @@ const ProductDetail = ({ addToCart, openModal }) => {
             )}
 
             {/* Technical details */}
-            <div className="bg-white border border-[#D5D9D9] rounded">
-              <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-[#D5D9D9]">
-                <h2 className="text-base sm:text-lg font-bold text-[#0F1111]">Informations techniques</h2>
+            <div className="bg-white border-b border-[#e8eaed]">
+              <div className="max-w-[1500px] mx-auto px-4 md:px-6 py-4 sm:py-6">
+                <h2 className="text-base sm:text-lg font-bold text-[#0F1111] mb-3">Informations techniques</h2>
               </div>
-              <div className="px-4 sm:px-6 py-4 sm:py-5 overflow-x-auto">
+              <div className="max-w-[1500px] mx-auto px-4 md:px-6 pb-5 overflow-x-auto">
                 <table className="w-full text-sm border-collapse">
                   <tbody>
                     {[
@@ -2078,15 +2076,15 @@ const ProductDetail = ({ addToCart, openModal }) => {
             </div>
 
             {/* Delivery panel */}
-            <div className="bg-white border border-[#D5D9D9] rounded">
-              <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-[#D5D9D9] flex items-center gap-3">
+            <div className="bg-white border-b border-[#e8eaed]">
+              <div className="max-w-[1500px] mx-auto px-4 md:px-6 py-4 sm:py-6 flex items-center gap-3">
                 <i className="fa-solid fa-truck-fast text-[#FF9900]" />
                 <h2 className="text-base sm:text-lg font-bold text-[#0F1111]">Livraison & Expédition</h2>
                 <span className="ml-auto text-[10px] font-bold text-[#FF9900] bg-[#FF9900]/10 px-2 py-0.5 rounded border border-[#FF9900]/20 uppercase tracking-wide whitespace-nowrap">
-                  🇨🇲 Cameroun
+                  Cameroun
                 </span>
               </div>
-              <div className="px-4 sm:px-6 py-4 sm:py-5">
+              <div className="max-w-[1500px] mx-auto px-4 md:px-6 pb-5">
                 <DeliveryPanel
                   price={activeTierPrice}
                   qty={qty}
@@ -2100,12 +2098,12 @@ const ProductDetail = ({ addToCart, openModal }) => {
 
             {/* Vendor card */}
             {vendor && (
-              <div className="bg-white border border-[#D5D9D9] rounded">
-                <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-[#D5D9D9] flex items-center gap-2">
+              <div className="bg-white border-b border-[#e8eaed]">
+                <div className="max-w-[1500px] mx-auto px-4 md:px-6 py-4 sm:py-6 flex items-center gap-2">
                   <i className="fa-solid fa-store text-[#FF9900]" />
                   <h2 className="text-base sm:text-lg font-bold text-[#0F1111]">La Boutique</h2>
                 </div>
-                <div className="px-4 sm:px-6 py-4 sm:py-5">
+                <div className="max-w-[1500px] mx-auto px-4 md:px-6 pb-5">
                   <div className="flex flex-col md:flex-row items-start md:items-center gap-5">
                     <div className="w-14 h-14 bg-[#131921] rounded flex items-center justify-center border-2 border-[#FF9900]/30 flex-shrink-0 relative">
                       <i className="fa-solid fa-store text-[#FF9900] text-xl" />
@@ -2139,24 +2137,26 @@ const ProductDetail = ({ addToCart, openModal }) => {
             <VideoAdPanel />
 
             {/* Reviews */}
-            <div className="bg-white border border-[#D5D9D9] rounded">
-              <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-[#D5D9D9] flex items-center gap-2">
+            <div className="bg-white border-b border-[#e8eaed]">
+              <div className="max-w-[1500px] mx-auto px-4 md:px-6 py-4 sm:py-6 flex items-center gap-2">
                 <i className="fa-solid fa-star text-[#FF9900]" />
                 <h2 className="text-base sm:text-lg font-bold text-[#0F1111]">Avis clients</h2>
                 <span className="text-sm text-[#565959]">({reviewCount})</span>
               </div>
-              <div className="px-4 sm:px-6 py-4 sm:py-5">
+              <div className="max-w-[1500px] mx-auto px-4 md:px-6 pb-5">
                 <ReviewsSection productId={product.id} cjProductId={product.cj_product_id} />
               </div>
             </div>
 
             {/* Promo ads */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="max-w-[1500px] mx-auto px-4 md:px-6 py-6 grid grid-cols-1 sm:grid-cols-3 gap-4">
               {PROMO_ADS.map(ad => <PromoAdCard key={ad.tag} ad={ad} />)}
             </div>
 
             {/* Suggestions */}
-            <SuggestionsSection currentProduct={product} openModal={openModal} addToCart={addToCart} />
+            <div className="max-w-[1500px] mx-auto px-4 md:px-6 py-6">
+              <SuggestionsSection currentProduct={product} openModal={openModal} addToCart={addToCart} />
+            </div>
           </div>
         </div>
       )}
