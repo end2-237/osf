@@ -34,6 +34,7 @@ const TrackingPage   = lazy(() => import('./pages/TrackingPage.jsx'));
 const SuperAdmin     = lazy(() => import('./pages/SuperAdmin.jsx'));
 const AffiliateRedirect = lazy(() => import('./pages/AffiliateRedirect.jsx'));
 const CartPage       = lazy(() => import('./pages/CartPage.jsx'));
+const NotFound       = lazy(() => import('./pages/NotFound.jsx'));
 
 const PageLoader = () => (
   <div className="flex items-center justify-center min-h-[60vh]">
@@ -210,6 +211,7 @@ function AppContent() {
               <Route path="/admin" element={<Dashboard />} />
               <Route path="/super-admin" element={<SuperAdmin />} />
             </Route>
+            <Route path="*" element={<NotFound />} />
           </Routes>
         </Suspense>
       </main>

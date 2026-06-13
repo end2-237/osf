@@ -3,9 +3,13 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 // @ts-ignore
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 
-const MONETBIL_SECRET = Deno.env.get("MONETBIL_SERVICE_SECRET")   || "";
-const SUPABASE_URL    = Deno.env.get("SUPABASE_URL")               || "";
-const SUPABASE_SRVKEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")  || "";
+const MONETBIL_SECRET = Deno.env.get("MONETBIL_SERVICE_SECRET") ?? "";
+const SUPABASE_URL    = Deno.env.get("SUPABASE_URL")              ?? "";
+const SUPABASE_SRVKEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+
+if (!MONETBIL_SECRET) {
+  console.error("[MONETBIL WEBHOOK] MONETBIL_SERVICE_SECRET is not set — all requests will be rejected");
+}
 
 const SUCCESS_STATUSES  = new Set(["success", "successfull", "successful", "1"]);
 const CANCELLED_STATUSES = new Set(["cancelled", "cancel", "canceled", "failed", "expired", "0", "2"]);
@@ -50,10 +54,16 @@ serve(async (req: Request) => {
 
     if (!payment_ref || !status) return ok();
 
+    // Reject all requests if secret is not configured
+    if (!MONETBIL_SECRET) {
+      console.error("[MONETBIL] MONETBIL_SERVICE_SECRET not set — rejecting request");
+      return ok();
+    }
+
     // Verify HMAC-SHA1 signature
     const expected = await hmacSha1Hex(MONETBIL_SECRET, payment_ref + status.toLowerCase());
     if (!sign || sign !== expected) {
-      console.warn("[MONETBIL] signature mismatch — ignored");
+      console.warn("[MONETBIL] signature mismatch — ignored", { payment_ref, status });
       return ok();
     }
 

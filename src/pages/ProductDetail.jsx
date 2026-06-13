@@ -3,6 +3,7 @@ import { useParams, useNavigate, Link, useLocation } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import ProductCard from "../components/ProductCard";
 import ReviewsSection from "../components/ReviewsSection";
+import DOMPurify from "dompurify";
 import SponsoredBanner from "../components/SponsoredBanner";
 import { useWishlist } from "../hooks/useWishlist";
 import { useAuth } from "../context/AuthContext";
@@ -2054,13 +2055,13 @@ const ProductDetail = ({ addToCart, openModal }) => {
                     ) : (
                       <div
                         className="cj-description text-sm text-[#565959] leading-relaxed"
-                        dangerouslySetInnerHTML={{ __html: product.description }}
+                        dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(product.description || "") }}
                       />
                     )
                   ) : (
                     <div
                       className="cj-description text-sm text-[#565959] leading-relaxed"
-                      dangerouslySetInnerHTML={{ __html: product.description }}
+                      dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(product.description || "") }}
                     />
                   )}
                 </div>
