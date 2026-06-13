@@ -3,6 +3,9 @@ import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import { awardOrderPoints } from '../lib/loyalty';
+import DOMPurify from 'dompurify';
+
+const safeText = (str) => DOMPurify.sanitize(str || '', { ALLOWED_TAGS: [] });
 import { recordAffiliateCommission } from '../lib/affiliate';
 
 const MEMBER_DISCOUNT            = 0.20;
@@ -677,11 +680,11 @@ const CartSidebar = ({ isOpen, cart, removeFromCart, updateQuantity, toggleCart,
                           <img
                             src={item.img || 'https://via.placeholder.com/100'}
                             className="w-full h-full object-contain p-1.5"
-                            alt={item.name}
+                            alt={safeText(item.name)}
                           />
                         </div>
                         <div className="flex-grow min-w-0 flex flex-col gap-1">
-                          <p className="text-sm text-[#0F1111] leading-snug line-clamp-2">{item.name || 'Produit'}</p>
+                          <p className="text-sm text-[#0F1111] leading-snug line-clamp-2">{safeText(item.name) || 'Produit'}</p>
                           {(item.selectedSize || item.selectedColor) && (
                             <p className="text-xs text-[#565959]">
                               {item.selectedSize && `Taille: ${item.selectedSize}`}
