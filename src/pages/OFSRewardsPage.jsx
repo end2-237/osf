@@ -568,20 +568,34 @@ const PointsHistory = ({ userId, loading: parentLoading, currentPts }) => {
 
 // ─── PARRAINAGE ───────────────────────────────────────────────────────────────
 const ReferralSection = ({ profile, userId }) => {
-  const [copied,    setCopied]    = useState(false);
-  const [referrals, setReferrals] = useState([]);
+  const [copied,       setCopied]       = useState(false);
+  const [commissions,  setCommissions]  = useState([]);
+  const [buyerProfiles,setBuyerProfiles]= useState({});
   const code   = profile?.referral_code || "—";
   const refUrl = `${window.location.origin}/ref/${code}`;
 
   useEffect(() => {
     if (!userId) return;
     supabase
-      .from("referrals")
-      .select("id, created_at, referred:profiles!referred_id(full_name, avatar_url)")
-      .eq("referrer_id", userId)
+      .from("affiliate_commissions")
+      .select("id, created_at, buyer_user_id")
+      .eq("referrer_user_id", userId)
       .order("created_at", { ascending: false })
-      .then(({ data }) => setReferrals(data || []));
+      .then(async ({ data: comms }) => {
+        setCommissions(comms || []);
+        const buyerIds = [...new Set((comms || []).map(c => c.buyer_user_id).filter(Boolean))];
+        if (buyerIds.length) {
+          const { data: profs } = await supabase
+            .from("profiles").select("id, full_name, avatar_url").in("id", buyerIds);
+          const map = {};
+          (profs || []).forEach(p => { map[p.id] = p; });
+          setBuyerProfiles(map);
+        }
+      });
   }, [userId]);
+
+  const uniqueBuyers = [...new Set(commissions.map(c => c.buyer_user_id).filter(Boolean))];
+  const filleulCount = uniqueBuyers.length;
 
   const handleCopy = (val) => {
     navigator.clipboard.writeText(val).then(() => {
@@ -662,7 +676,7 @@ const ReferralSection = ({ profile, userId }) => {
             <p className="text-[9px] font-black uppercase tracking-[0.3em] text-zinc-400 mb-4">Paliers de parrainage</p>
             <div className="space-y-3">
               {PALIERS.map((p) => {
-                const done = referrals.length >= p.n;
+                const done = filleulCount >= p.n;
                 return (
                   <div
                     key={p.n}
@@ -679,7 +693,7 @@ const ReferralSection = ({ profile, userId }) => {
                     </div>
                     {done
                       ? <i className="fa-solid fa-circle-check text-emerald-500 text-sm flex-shrink-0"></i>
-                      : <span className="text-[8px] font-black text-zinc-400">{p.n - referrals.length} restants</span>
+                      : <span className="text-[8px] font-black text-zinc-400">{p.n - filleulCount} restants</span>
                     }
                   </div>
                 );
@@ -690,26 +704,29 @@ const ReferralSection = ({ profile, userId }) => {
           <div className="bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-white/5 rounded-2xl p-5">
             <div className="flex items-center justify-between mb-3">
               <p className="text-[9px] font-black uppercase tracking-[0.3em] text-zinc-400">Mes filleuls</p>
-              <span className="text-[10px] font-black text-zinc-500">{referrals.length} inscrits</span>
+              <span className="text-[10px] font-black text-zinc-500">{filleulCount} inscrits</span>
             </div>
-            {referrals.length === 0 ? (
+            {filleulCount === 0 ? (
               <p className="text-[10px] font-medium text-zinc-400 text-center py-4">
                 Aucun filleul pour l'instant — partagez votre lien !
               </p>
             ) : (
               <div className="space-y-2">
-                {referrals.slice(0, 5).map((r) => (
-                  <div key={r.id} className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center overflow-hidden flex-shrink-0">
-                      {r.referred?.avatar_url
-                        ? <img src={r.referred.avatar_url} alt="" className="w-full h-full object-cover" />
-                        : <span className="text-xs font-black text-zinc-500">{(r.referred?.full_name || "?")[0].toUpperCase()}</span>
-                      }
+                {uniqueBuyers.slice(0, 5).map((buyerId) => {
+                  const prof = buyerProfiles[buyerId];
+                  return (
+                    <div key={buyerId} className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center overflow-hidden flex-shrink-0">
+                        {prof?.avatar_url
+                          ? <img src={prof.avatar_url} alt="" className="w-full h-full object-cover" />
+                          : <span className="text-xs font-black text-zinc-500">{(prof?.full_name || "?")[0].toUpperCase()}</span>
+                        }
+                      </div>
+                      <p className="text-xs font-bold text-zinc-600 dark:text-zinc-300 flex-grow">{prof?.full_name || "Membre OFS"}</p>
+                      <span className="text-[9px] font-black text-emerald-600 dark:text-emerald-400">+200 pts</span>
                     </div>
-                    <p className="text-xs font-bold text-zinc-600 dark:text-zinc-300 flex-grow">{r.referred?.full_name || "Membre OFS"}</p>
-                    <span className="text-[9px] font-black text-emerald-600 dark:text-emerald-400">+200 pts</span>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>

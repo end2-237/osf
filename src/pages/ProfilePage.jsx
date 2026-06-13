@@ -573,28 +573,35 @@ const ReviewsTab = ({ reviews }) => (
 
 // ─── REFERRAL ─────────────────────────────────────────────────────────────────
 const Referral = ({ profile, userId, onToast }) => {
-  const [copied,      setCopied]      = useState(false);
-  const [referrals,   setReferrals]   = useState([]);
-  const [commissions, setCommissions] = useState([]);
-  const [loading,     setLoading]     = useState(true);
+  const [copied,       setCopied]       = useState(false);
+  const [commissions,  setCommissions]  = useState([]);
+  const [buyerProfiles,setBuyerProfiles]= useState({});
+  const [loading,      setLoading]      = useState(true);
   const code   = profile?.referral_code || "—";
   const refUrl = `${window.location.origin}/ref/${code}`;
 
   useEffect(() => {
     if (!userId) return;
-    Promise.all([
-      supabase.from("referrals")
-        .select("id, created_at, referred:profiles!referred_id(full_name, avatar_url)")
-        .eq("referrer_id", userId).order("created_at", { ascending: false }),
-      supabase.from("affiliate_commissions")
-        .select("id, created_at, order_amount, commission_amount, status")
-        .eq("referrer_user_id", userId).order("created_at", { ascending: false }),
-    ]).then(([{ data: refs }, { data: comms }]) => {
-      setReferrals(refs || []);
-      setCommissions(comms || []);
-      setLoading(false);
-    });
+    supabase.from("affiliate_commissions")
+      .select("id, created_at, order_amount, commission_amount, status, buyer_user_id")
+      .eq("referrer_user_id", userId).order("created_at", { ascending: false })
+      .then(async ({ data: comms }) => {
+        setCommissions(comms || []);
+        const buyerIds = [...new Set((comms || []).map(c => c.buyer_user_id).filter(Boolean))];
+        if (buyerIds.length) {
+          const { data: profs } = await supabase
+            .from("profiles").select("id, full_name, avatar_url").in("id", buyerIds);
+          const map = {};
+          (profs || []).forEach(p => { map[p.id] = p; });
+          setBuyerProfiles(map);
+        }
+        setLoading(false);
+      });
   }, [userId]);
+
+  // Filleuls uniques = acheteurs distincts ayant passé au moins une commande via ce parrain
+  const uniqueBuyers = [...new Set(commissions.map(c => c.buyer_user_id).filter(Boolean))];
+  const filleulCount = uniqueBuyers.length;
 
   const handleCopy = (val, label = "Copié !") => {
     navigator.clipboard.writeText(val).then(() => {
@@ -717,7 +724,7 @@ const Referral = ({ profile, userId, onToast }) => {
           <AmzCardHeader title="Paliers de parrainage" icon="fa-trophy" />
           <div className="divide-y divide-[#F0F2F2]">
             {PALIERS.map(p => {
-              const done = referrals.length >= p.n;
+              const done = filleulCount >= p.n;
               return (
                 <div key={p.n} className={`flex items-center gap-4 px-4 py-3 ${done ? "bg-[#E8F5E8]" : ""}`}>
                   <div className={`w-8 h-8 rounded flex items-center justify-center flex-shrink-0 border ${done ? "bg-[#007600]/10 border-[#007600]/30" : "bg-[#EAEDED] border-[#D5D9D9]"}`}>
@@ -729,7 +736,7 @@ const Referral = ({ profile, userId, onToast }) => {
                   </div>
                   {done
                     ? <i className="fa-solid fa-circle-check text-[#007600] text-sm flex-shrink-0"></i>
-                    : <span className="text-[9px] font-black text-[#565959]">{p.n - referrals.length} restant{p.n - referrals.length > 1 ? "s" : ""}</span>
+                    : <span className="text-[9px] font-black text-[#565959]">{p.n - filleulCount} restant{p.n - filleulCount > 1 ? "s" : ""}</span>
                   }
                 </div>
               );
@@ -739,29 +746,32 @@ const Referral = ({ profile, userId, onToast }) => {
 
         {/* Filleuls */}
         <AmzCard>
-          <AmzCardHeader title={`Mes filleuls (${referrals.length})`} icon="fa-users" />
+          <AmzCardHeader title={`Mes filleuls (${filleulCount})`} icon="fa-users" />
           <div className="p-4">
             {loading ? (
               <div className="space-y-2">{[...Array(3)].map((_, i) => <div key={i} className="h-10 bg-[#EAEDED] rounded animate-pulse" />)}</div>
-            ) : referrals.length === 0 ? (
+            ) : filleulCount === 0 ? (
               <div className="text-center py-6">
                 <i className="fa-solid fa-user-group text-[#D5D9D9] text-2xl mb-2 block"></i>
                 <p className="text-[10px] font-bold text-[#565959]">Partagez votre lien pour commencer !</p>
               </div>
             ) : (
               <div className="space-y-2">
-                {referrals.slice(0, 6).map(r => (
-                  <div key={r.id} className="flex items-center gap-3 py-1">
-                    <div className="w-8 h-8 rounded bg-[#EAEDED] border border-[#D5D9D9] flex items-center justify-center overflow-hidden flex-shrink-0">
-                      {r.referred?.avatar_url
-                        ? <img src={r.referred.avatar_url} alt="" className="w-full h-full object-cover" />
-                        : <span className="text-xs font-black text-[#565959]">{(r.referred?.full_name || "?")[0].toUpperCase()}</span>
-                      }
+                {uniqueBuyers.slice(0, 6).map(buyerId => {
+                  const prof = buyerProfiles[buyerId];
+                  return (
+                    <div key={buyerId} className="flex items-center gap-3 py-1">
+                      <div className="w-8 h-8 rounded bg-[#EAEDED] border border-[#D5D9D9] flex items-center justify-center overflow-hidden flex-shrink-0">
+                        {prof?.avatar_url
+                          ? <img src={prof.avatar_url} alt="" className="w-full h-full object-cover" />
+                          : <span className="text-xs font-black text-[#565959]">{(prof?.full_name || "?")[0].toUpperCase()}</span>
+                        }
+                      </div>
+                      <p className="text-xs font-bold text-[#0F1111] flex-grow">{prof?.full_name || "Membre OFS"}</p>
+                      <span className="text-[9px] font-black text-[#007600]">+200 pts</span>
                     </div>
-                    <p className="text-xs font-bold text-[#0F1111] flex-grow">{r.referred?.full_name || "Membre OFS"}</p>
-                    <span className="text-[9px] font-black text-[#007600]">+200 pts</span>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
