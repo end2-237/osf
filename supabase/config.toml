@@ -1,0 +1,17 @@
+[functions.monetbil-webhook]
+verify_jwt = false
+
+[functions.monetbil-init]
+verify_jwt = true
+
+[functions.send-email]
+verify_jwt = true
+
+[functions.send-notification]
+verify_jwt = true
+
+[functions.cj-proxy]
+verify_jwt = true
+
+[functions.cj-order]
+verify_jwt = true
