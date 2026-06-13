@@ -571,7 +571,7 @@ const ReferralSection = ({ profile, userId }) => {
   const [copied,    setCopied]    = useState(false);
   const [referrals, setReferrals] = useState([]);
   const code   = profile?.referral_code || "—";
-  const refUrl = `${window.location.origin}/register?ref=${code}`;
+  const refUrl = `${window.location.origin}/ref/${code}`;
 
   useEffect(() => {
     if (!userId) return;

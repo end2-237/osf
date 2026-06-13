@@ -78,14 +78,17 @@ const CartSidebar = ({ isOpen, cart, removeFromCart, updateQuantity, toggleCart,
   const [promoLoading, setPromoLoading] = useState(false);
   const [promoError,   setPromoError]   = useState('');
 
+  const [userPoints,    setUserPoints]    = useState(0);
+  const [usePoints,     setUsePoints]     = useState(false);
+
   useEffect(() => {
     if (!user || !isOpen) return;
     const load = async () => {
       const [{ data: prof }, { data: addrs }] = await Promise.all([
-        supabase.from('profiles').select('full_name,phone').eq('id', user.id).maybeSingle(),
+        supabase.from('profiles').select('full_name,phone,loyalty_points').eq('id', user.id).maybeSingle(),
         supabase.from('user_addresses').select('*').eq('user_id', user.id).order('is_default', { ascending: false }),
       ]);
-      if (prof) setUserProfile(prof);
+      if (prof) { setUserProfile(prof); setUserPoints(prof.loyalty_points || 0); }
       if (addrs?.length) {
         setUserAddresses(addrs);
         const def = addrs.find(a => a.is_default) || addrs[0];
@@ -227,7 +230,13 @@ const CartSidebar = ({ isOpen, cart, removeFromCart, updateQuantity, toggleCart,
   const cjShipWeightG = cjItems.reduce((s, i) => s + ((i.ship_weight_g || i.weight_g || 200) * (i.quantity || 1)), 0);
   const cjShipping   = cjItems.length > 0 ? Math.round(1015 + (cjShipWeightG / 1000) * 10000) : 0;
 
-  const finalTotal   = subtotalAfterMember - bundleAmount - promoDiscount + cjShipping;
+  // Points redemption: 1 pt = 1 FCFA, max 20% of subtotal
+  const maxPointsDiscount = Math.floor((subtotalAfterMember - bundleAmount - promoDiscount) * 0.20);
+  const pointsDiscount    = usePoints && userPoints > 0
+    ? Math.min(userPoints, maxPointsDiscount)
+    : 0;
+
+  const finalTotal   = subtotalAfterMember - bundleAmount - promoDiscount - pointsDiscount + cjShipping;
 
   const potentialMemberSavings = cart.reduce((s, i) => {
     const has = i.vendor?.member_discount_enabled ?? i.vendor_member_discount_enabled ?? false;
@@ -336,6 +345,7 @@ const CartSidebar = ({ isOpen, cart, removeFromCart, updateQuantity, toggleCart,
         if (user?.id) awardOrderPoints(user.id, orderData.id, vendorAfterPromo).catch(() => {});
         if (referralCode) recordAffiliateCommission(referralCode, orderData.id, vendorAfterPromo, user?.id || null).catch(() => {});
         // Non-blocking email confirmation (only for logged-in users)
+
         if (user?.id) {
           fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-email`, {
             method: 'POST',
@@ -354,6 +364,15 @@ const CartSidebar = ({ isOpen, cart, removeFromCart, updateQuantity, toggleCart,
           .update({ current_uses: promoApplied.current_uses + 1 })
           .eq('id', promoApplied.id)
           .then(() => {});
+      }
+
+      if (usePoints && pointsDiscount > 0 && user?.id) {
+        supabase.from('loyalty_transactions').insert({
+          user_id: user.id, type: 'redemption', points: -pointsDiscount,
+        }).then(() => {});
+        supabase.rpc('award_loyalty_points', { p_user_id: user.id, p_delta: -pointsDiscount }).then(() => {});
+        setUserPoints(p => Math.max(0, p - pointsDiscount));
+        setUsePoints(false);
       }
 
       setShowToast(true);
@@ -419,6 +438,15 @@ const CartSidebar = ({ isOpen, cart, removeFromCart, updateQuantity, toggleCart,
           .update({ current_uses: promoApplied.current_uses + 1 })
           .eq('id', promoApplied.id)
           .then(() => {});
+      }
+
+      if (usePoints && pointsDiscount > 0 && user?.id) {
+        supabase.from('loyalty_transactions').insert({
+          user_id: user.id, type: 'redemption', points: -pointsDiscount,
+        }).then(() => {});
+        supabase.rpc('award_loyalty_points', { p_user_id: user.id, p_delta: -pointsDiscount }).then(() => {});
+        setUserPoints(p => Math.max(0, p - pointsDiscount));
+        setUsePoints(false);
       }
 
       const supabaseUrl  = import.meta.env.VITE_SUPABASE_URL;
@@ -1081,6 +1109,27 @@ const CartSidebar = ({ isOpen, cart, removeFromCart, updateQuantity, toggleCart,
                 )
               )}
 
+              {/* POINTS REDEMPTION */}
+              {step === 'cart' && user && userPoints >= 100 && (
+                <button
+                  onClick={() => setUsePoints(p => !p)}
+                  className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg border-2 transition-all text-left ${
+                    usePoints ? 'border-[#FF9900] bg-[#FFF8D3]' : 'border-[#D5D9D9] hover:border-[#FF9900]/50'
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <i className={`fa-solid fa-coins text-xs ${usePoints ? 'text-[#FF9900]' : 'text-[#adb5bd]'}`}></i>
+                    <div>
+                      <p className="text-xs font-bold text-[#0F1111]">Utiliser mes points OFS</p>
+                      <p className="text-[10px] text-[#565959]">{userPoints.toLocaleString()} pts disponibles · −{Math.min(userPoints, maxPointsDiscount).toLocaleString()} FCFA</p>
+                    </div>
+                  </div>
+                  <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${usePoints ? 'border-[#FF9900] bg-[#FF9900]' : 'border-[#D5D9D9]'}`}>
+                    {usePoints && <i className="fa-solid fa-check text-white text-[8px]"></i>}
+                  </div>
+                </button>
+              )}
+
               {/* PRICE BREAKDOWN */}
               {step === 'cart' && (
                 <div className="space-y-1.5">
@@ -1106,6 +1155,14 @@ const CartSidebar = ({ isOpen, cart, removeFromCart, updateQuantity, toggleCart,
                         <i className="fa-solid fa-tag text-[9px]" /> Code {promoApplied?.code}
                       </span>
                       <span className="font-bold text-[#007600]">−{promoDiscount.toLocaleString()} F</span>
+                    </div>
+                  )}
+                  {pointsDiscount > 0 && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-[#FF9900] flex items-center gap-1">
+                        <i className="fa-solid fa-coins text-[9px]" /> Points OFS
+                      </span>
+                      <span className="font-bold text-[#FF9900]">−{pointsDiscount.toLocaleString()} F</span>
                     </div>
                   )}
                   {cjShipping > 0 ? (
@@ -1135,9 +1192,9 @@ const CartSidebar = ({ isOpen, cart, removeFromCart, updateQuantity, toggleCart,
                       dont ~{cjShipping.toLocaleString()} F d'expédition internationale inclus
                     </p>
                   )}
-                  {(hasMemberSavings || hasBundle || promoDiscount > 0) && (
+                  {(hasMemberSavings || hasBundle || promoDiscount > 0 || pointsDiscount > 0) && (
                     <p className="text-xs text-[#007600] font-bold text-right">
-                      Vous économisez {(memberSavingsAmount + bundleAmount + promoDiscount).toLocaleString()} FCFA 🎉
+                      Vous économisez {(memberSavingsAmount + bundleAmount + promoDiscount + pointsDiscount).toLocaleString()} FCFA 🎉
                     </p>
                   )}
                 </div>
