@@ -2000,30 +2000,76 @@ const PromoCodesTab = () => {
 
 // ─── AFFILIATION TAB ──────────────────────────────────────────────────────────
 const AffiliationTab = ({ orders }) => {
-  const [newCode, setNewCode] = useState('');
-  const [copied, setCopied]   = useState('');
+  const [newCode,      setNewCode]      = useState('');
+  const [copied,       setCopied]       = useState('');
+  const [commissions,  setCommissions]  = useState([]);
+  const [profiles,     setProfiles]     = useState({});
+  const [loadingComm,  setLoadingComm]  = useState(true);
+  const [paying,       setPaying]       = useState(null);
 
-  const refOrders = orders.filter(o => o.referral_code);
-  const byCode    = refOrders.reduce((acc, o) => {
+  useEffect(() => {
+    const load = async () => {
+      const { data: comms } = await supabase
+        .from('affiliate_commissions')
+        .select('*')
+        .order('created_at', { ascending: false });
+      if (!comms?.length) { setLoadingComm(false); return; }
+      setCommissions(comms);
+      const ids = [...new Set(comms.map(c => c.referrer_user_id))];
+      const { data: profs } = await supabase
+        .from('profiles')
+        .select('id, full_name, referral_code')
+        .in('id', ids);
+      const map = {};
+      (profs || []).forEach(p => { map[p.id] = p; });
+      setProfiles(map);
+      setLoadingComm(false);
+    };
+    load();
+  }, []);
+
+  const markPaid = async (referrerId) => {
+    setPaying(referrerId);
+    await supabase
+      .from('affiliate_commissions')
+      .update({ status: 'paid', paid_at: new Date().toISOString() })
+      .eq('referrer_user_id', referrerId)
+      .in('status', ['pending', 'confirmed']);
+    setCommissions(prev => prev.map(c =>
+      c.referrer_user_id === referrerId && ['pending', 'confirmed'].includes(c.status)
+        ? { ...c, status: 'paid' } : c
+    ));
+    setPaying(null);
+  };
+
+  // Grouper par référent
+  const byReferrer = commissions.reduce((acc, c) => {
+    const rid = c.referrer_user_id;
+    if (!acc[rid]) acc[rid] = { pending: 0, paid: 0, count: 0 };
+    acc[rid].count += 1;
+    if (c.status === 'paid') acc[rid].paid += c.commission_amount;
+    else acc[rid].pending += c.commission_amount;
+    return acc;
+  }, {});
+
+  const refOrders  = orders.filter(o => o.referral_code);
+  const byCode     = refOrders.reduce((acc, o) => {
     const code = o.referral_code;
     if (!acc[code]) acc[code] = { orders: 0, revenue: 0 };
     acc[code].orders += 1;
     if (['paid', 'delivered'].includes(o.status)) acc[code].revenue += Number(o.total_amount || 0);
     return acc;
   }, {});
-  const affiliates = Object.entries(byCode)
-    .map(([code, s]) => ({ code, ...s }))
-    .sort((a, b) => b.revenue - a.revenue);
+  const affiliates = Object.entries(byCode).map(([code, s]) => ({ code, ...s })).sort((a, b) => b.revenue - a.revenue);
 
   const copyLink = (code) => {
     navigator.clipboard.writeText(`https://www.onefreestyle.store/ref/${code}`);
-    setCopied(code);
-    setTimeout(() => setCopied(''), 2000);
+    setCopied(code); setTimeout(() => setCopied(''), 2000);
   };
 
-  const refRevenue = refOrders
-    .filter(o => ['paid', 'delivered'].includes(o.status))
-    .reduce((s, o) => s + Number(o.total_amount || 0), 0);
+  const refRevenue    = refOrders.filter(o => ['paid','delivered'].includes(o.status)).reduce((s,o) => s + Number(o.total_amount||0), 0);
+  const totalPending  = commissions.filter(c => c.status !== 'paid').reduce((s,c) => s + c.commission_amount, 0);
+  const totalPaid     = commissions.filter(c => c.status === 'paid').reduce((s,c) => s + c.commission_amount, 0);
 
   return (
     <div className="space-y-6">
@@ -2032,7 +2078,7 @@ const AffiliationTab = ({ orders }) => {
         <h3 className="font-black text-[#0F1111] text-sm mb-1">
           <i className="fa-solid fa-link text-[#FF9900] mr-2"></i>Créer un lien d'affiliation
         </h3>
-        <p className="text-[10px] text-[#565959] mb-3">Partagez /ref/CODE avec vos ambassadeurs. Chaque commande passée via ce lien sera trackée.</p>
+        <p className="text-[10px] text-[#565959] mb-3">Partagez /ref/CODE avec vos ambassadeurs.</p>
         <div className="flex gap-2">
           <input
             value={newCode}
@@ -2041,11 +2087,8 @@ const AffiliationTab = ({ orders }) => {
             placeholder="INFLUENCEUR_NOM"
             className="flex-1 border border-[#D5D9D9] focus:border-[#FF9900] focus:outline-none rounded-lg px-3 py-2.5 text-sm font-mono uppercase"
           />
-          <button
-            onClick={() => { if (newCode) copyLink(newCode); }}
-            disabled={!newCode}
-            className="bg-[#FF9900] hover:bg-[#FFB800] text-[#0F1111] px-4 py-2.5 rounded-lg text-sm font-black transition disabled:opacity-50 flex items-center gap-2"
-          >
+          <button onClick={() => { if (newCode) copyLink(newCode); }} disabled={!newCode}
+            className="bg-[#FF9900] hover:bg-[#FFB800] text-[#0F1111] px-4 py-2.5 rounded-lg text-sm font-black transition disabled:opacity-50 flex items-center gap-2">
             <i className={`fa-solid ${copied === newCode ? 'fa-circle-check' : 'fa-copy'} text-xs`}></i>
             {copied === newCode ? 'Copié !' : 'Copier'}
           </button>
@@ -2058,42 +2101,90 @@ const AffiliationTab = ({ orders }) => {
       </div>
 
       {/* KPIs */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <KpiCard icon="fa-users" label="Affiliés actifs" value={affiliates.length} color="#007185" />
-        <KpiCard icon="fa-bag-shopping" label="Commandes via ref" value={refOrders.length} color="#FF9900" />
-        <KpiCard icon="fa-coins" label="CA affilié" value={`${refRevenue.toLocaleString()} F`} color="#007600" />
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <KpiCard icon="fa-users"       label="Affiliés actifs"   value={affiliates.length}                   color="#007185" />
+        <KpiCard icon="fa-bag-shopping" label="Commandes via ref" value={refOrders.length}                    color="#FF9900" />
+        <KpiCard icon="fa-clock"       label="Commissions dues"  value={`${totalPending.toLocaleString()} F`} color="#B12704" />
+        <KpiCard icon="fa-circle-check" label="Total payé"       value={`${totalPaid.toLocaleString()} F`}    color="#007600" />
       </div>
 
-      {/* Leaderboard */}
-      {affiliates.length === 0 ? (
-        <div className="text-center py-16 text-[#565959]">
-          <i className="fa-solid fa-link text-4xl text-[#D5D9D9] mb-3 block"></i>
-          <p className="font-bold">Aucune commande affiliée pour l'instant</p>
-          <p className="text-sm mt-1 text-[#ADBAC7]">Créez des liens /ref/CODE et partagez-les avec vos ambassadeurs.</p>
+      {/* Commissions à payer */}
+      <div className="bg-white border border-[#D5D9D9] rounded-xl overflow-hidden">
+        <div className="bg-[#232F3E] px-5 py-3 flex items-center justify-between">
+          <p className="text-[10px] font-black uppercase tracking-widest text-[#FF9900]">
+            <i className="fa-solid fa-money-bill-trend-up mr-2 text-[9px]"></i>Commissions par parrain
+          </p>
+          <span className="text-[9px] font-black text-[#ADBAC7]">{commissions.length} entrées</span>
         </div>
-      ) : (
+        {loadingComm ? (
+          <div className="p-6 space-y-2">{[...Array(3)].map((_,i) => <div key={i} className="h-14 bg-[#EAEDED] rounded animate-pulse" />)}</div>
+        ) : Object.keys(byReferrer).length === 0 ? (
+          <div className="text-center py-12 text-[#565959]">
+            <i className="fa-solid fa-coins text-3xl text-[#D5D9D9] mb-2 block"></i>
+            <p className="text-sm font-bold">Aucune commission enregistrée</p>
+          </div>
+        ) : (
+          <div className="divide-y divide-[#F0F2F2]">
+            {Object.entries(byReferrer).map(([rid, stats]) => {
+              const prof = profiles[rid];
+              const hasPending = stats.pending > 0;
+              return (
+                <div key={rid} className="flex items-center gap-4 px-5 py-4 hover:bg-[#F7F8F8] transition-colors">
+                  <div className="w-10 h-10 rounded-xl bg-[#232F3E] flex items-center justify-center flex-shrink-0">
+                    <span className="font-black text-[#FF9900] text-sm">
+                      {(prof?.full_name || '?')[0].toUpperCase()}
+                    </span>
+                  </div>
+                  <div className="flex-grow min-w-0">
+                    <p className="font-black text-[#0F1111] text-sm truncate">{prof?.full_name || 'Parrain inconnu'}</p>
+                    <p className="text-[10px] text-[#565959] font-mono">{prof?.referral_code || rid.slice(0,8)}</p>
+                    <div className="flex items-center gap-3 mt-0.5">
+                      <span className="text-[9px] text-[#565959]">{stats.count} commande{stats.count > 1 ? 's' : ''}</span>
+                      {stats.paid > 0 && <span className="text-[9px] font-black text-[#007600]">Payé : {stats.paid.toLocaleString()} F</span>}
+                    </div>
+                  </div>
+                  <div className="text-right flex-shrink-0">
+                    <p className={`font-black text-base ${hasPending ? 'text-[#B12704]' : 'text-[#007600]'}`}>
+                      {hasPending ? `${stats.pending.toLocaleString()} F` : 'Soldé'}
+                    </p>
+                    <p className="text-[9px] text-[#565959]">{hasPending ? 'à payer' : 'tout payé'}</p>
+                  </div>
+                  {hasPending && (
+                    <button
+                      onClick={() => markPaid(rid)}
+                      disabled={paying === rid}
+                      className="flex-shrink-0 flex items-center gap-1.5 bg-[#007600] hover:bg-[#005800] text-white px-3 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest transition disabled:opacity-50"
+                    >
+                      {paying === rid
+                        ? <i className="fa-solid fa-spinner fa-spin text-[9px]"></i>
+                        : <i className="fa-solid fa-circle-check text-[9px]"></i>}
+                      Marquer payé
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* Leaderboard CA */}
+      {affiliates.length > 0 && (
         <div className="space-y-2">
           <p className="text-[10px] font-black uppercase tracking-widest text-[#565959] mb-3">
-            <i className="fa-solid fa-trophy text-[#FF9900] mr-1.5"></i>Classement affiliés
+            <i className="fa-solid fa-trophy text-[#FF9900] mr-1.5"></i>Classement CA affilié
           </p>
           {affiliates.map((a, i) => (
             <div key={a.code} className="bg-white border border-[#D5D9D9] rounded-xl px-4 py-3 flex items-center gap-4 hover:border-[#FF9900]/30 transition-all">
               <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-black text-sm flex-shrink-0 ${
-                i === 0 ? 'bg-[#FFD814] text-[#0F1111]'
-                : i === 1 ? 'bg-[#EAEDED] text-[#565959]'
-                : i === 2 ? 'bg-[#FF9900]/20 text-[#FF9900]'
-                : 'bg-[#F3F4F4] text-[#ADBAC7]'
+                i === 0 ? 'bg-[#FFD814] text-[#0F1111]' : i === 1 ? 'bg-[#EAEDED] text-[#565959]' : i === 2 ? 'bg-[#FF9900]/20 text-[#FF9900]' : 'bg-[#F3F4F4] text-[#ADBAC7]'
               }`}>{i + 1}</div>
               <div className="flex-1 min-w-0">
                 <p className="font-black text-[#0F1111] text-sm font-mono">{a.code}</p>
-                <p className="text-[10px] text-[#565959]">
-                  {a.orders} commande{a.orders > 1 ? 's' : ''} · {a.revenue.toLocaleString()} FCFA CA
-                </p>
+                <p className="text-[10px] text-[#565959]">{a.orders} commande{a.orders > 1 ? 's' : ''} · {a.revenue.toLocaleString()} FCFA CA</p>
               </div>
-              <button
-                onClick={() => copyLink(a.code)}
-                className="text-xs text-[#007185] hover:text-[#C45500] border border-[#D5D9D9] rounded-lg px-3 py-1.5 hover:border-[#C45500] transition flex items-center gap-1.5 flex-shrink-0"
-              >
+              <button onClick={() => copyLink(a.code)}
+                className="text-xs text-[#007185] hover:text-[#C45500] border border-[#D5D9D9] rounded-lg px-3 py-1.5 hover:border-[#C45500] transition flex items-center gap-1.5 flex-shrink-0">
                 <i className={`fa-solid ${copied === a.code ? 'fa-circle-check text-[#007600]' : 'fa-copy'} text-[10px]`}></i>
                 {copied === a.code ? 'Copié !' : 'Lien'}
               </button>
