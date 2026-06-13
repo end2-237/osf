@@ -86,10 +86,12 @@ const VendorCard = ({ vendor, stats }) => {
 };
 
 // ─── ORDERS TABLE ─────────────────────────────────────────────────────────────
+const PAGE_SIZE = 30;
 const AllOrdersTab = ({ orders, loading, onStatusChange }) => {
   const [filter,  setFilter]  = useState("all");
   const [search,  setSearch]  = useState("");
   const [updating, setUpdating] = useState(null);
+  const [page,    setPage]    = useState(1);
 
   const filtered = orders.filter(o => {
     if (filter !== "all" && o.status !== filter) return false;
@@ -104,6 +106,11 @@ const AllOrdersTab = ({ orders, loading, onStatusChange }) => {
     }
     return true;
   });
+
+  // Reset pagination when filter/search changes
+  useEffect(() => { setPage(1); }, [filter, search]);
+
+  const paginated = filtered.slice(0, page * PAGE_SIZE);
 
   const handleStatusChange = async (orderId, newStatus) => {
     setUpdating(orderId);
@@ -171,7 +178,7 @@ const AllOrdersTab = ({ orders, loading, onStatusChange }) => {
         </div>
       ) : (
         <div className="space-y-2">
-          {filtered.map(o => {
+          {paginated.map(o => {
             const st = STATUS[o.status] || STATUS.pending;
             return (
               <div key={o.id} className="bg-white border border-[#D5D9D9] rounded-xl overflow-hidden hover:border-[#FF9900]/30 transition-all">
@@ -246,6 +253,15 @@ const AllOrdersTab = ({ orders, loading, onStatusChange }) => {
               </div>
             );
           })}
+          {paginated.length < filtered.length && (
+            <button
+              onClick={() => setPage(p => p + 1)}
+              className="w-full py-3 bg-white border border-[#D5D9D9] hover:border-[#FF9900]/50 rounded-xl text-sm font-bold text-[#565959] hover:text-[#FF9900] transition-all"
+            >
+              <i className="fa-solid fa-chevron-down mr-2"></i>
+              Charger plus ({filtered.length - paginated.length} restantes)
+            </button>
+          )}
         </div>
       )}
     </div>
@@ -299,9 +315,58 @@ const BoutiquesTab = ({ vendors, vendorStats, loading }) => {
   );
 };
 
+// ─── SYSTEM HEALTH CARD ───────────────────────────────────────────────────────
+const SystemHealthCard = () => {
+  const [health, setHealth] = useState(null);
+
+  useEffect(() => {
+    const check = async () => {
+      const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+      const oneDayAgo  = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+      const [stuckR, errR] = await Promise.all([
+        supabase.from("orders").select("id", { count: "exact", head: true })
+          .eq("status", "pending_payment").lt("created_at", oneHourAgo),
+        supabase.from("error_logs").select("id", { count: "exact", head: true })
+          .gt("created_at", oneDayAgo),
+      ]);
+      setHealth({ stuck: stuckR.count || 0, errors: errR.count || 0 });
+    };
+    check();
+  }, []);
+
+  if (!health) return null;
+
+  const ok = health.stuck === 0 && health.errors === 0;
+  return (
+    <div className={`rounded-xl border px-5 py-4 flex items-center gap-4 flex-wrap ${
+      ok ? "bg-[#EAF5EA] border-[#007600]/20" : "bg-[#FFF3CD] border-[#FF9900]/40"
+    }`}>
+      <div className={`w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 ${
+        ok ? "bg-[#007600]/10" : "bg-[#FF9900]/20"
+      }`}>
+        <i className={`fa-solid ${ok ? "fa-heart-pulse text-[#007600]" : "fa-triangle-exclamation text-[#FF9900]"} text-sm`}></i>
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className={`font-black text-sm ${ok ? "text-[#007600]" : "text-[#B85C00]"}`}>
+          {ok ? "Système opérationnel" : "Attention requise"}
+        </p>
+        <p className="text-[10px] text-[#565959]">
+          {health.stuck > 0 && <span className="text-[#B12704] font-bold mr-3"><i className="fa-solid fa-clock mr-1"></i>{health.stuck} paiement(s) bloqué(s) &gt; 1h</span>}
+          {health.errors > 0 && <span className="text-[#B85C00] font-bold mr-3"><i className="fa-solid fa-bug mr-1"></i>{health.errors} erreur(s) sur 24h</span>}
+          {ok && <span>Aucun paiement bloqué · Aucune erreur récente</span>}
+        </p>
+      </div>
+      <p className="text-[9px] text-[#ADBAC7] flex-shrink-0">Mis à jour à l'ouverture</p>
+    </div>
+  );
+};
+
 // ─── OVERVIEW TAB ─────────────────────────────────────────────────────────────
 const OverviewTab = ({ stats, topVendors, recentOrders, loading }) => (
   <div className="space-y-6">
+    {/* System health */}
+    <SystemHealthCard />
+
     {/* KPIs */}
     <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
       <KpiCard icon="fa-coins"         label="Revenu total"    value={`${(stats.revenue||0).toLocaleString()} F`} color="#007600" />
@@ -2222,7 +2287,7 @@ const SuperAdmin = () => {
       try {
         const [vendorsR, ordersR, productsR] = await Promise.all([
           supabase.from("vendors").select("*").order("created_at", { ascending: false }),
-          supabase.from("orders").select("*, vendor:vendors!vendor_id(shop_name)").order("created_at", { ascending: false }).limit(500),
+          supabase.from("orders").select("*, vendor:vendors!vendor_id(shop_name)").order("created_at", { ascending: false }).limit(200),
           supabase.from("products").select("id, vendor_id, price, type"),
         ]);
 
