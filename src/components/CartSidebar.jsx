@@ -165,7 +165,7 @@ const CartSidebar = ({ isOpen, cart, removeFromCart, updateQuantity, toggleCart,
     if (paymentPhase !== 'awaiting' || pendingOrderIds.length === 0) return;
 
     const started   = Date.now();
-    const TIMEOUT   = 3 * 60 * 1000;
+    const TIMEOUT   = 8 * 60 * 1000;
 
     const check = async () => {
       if (Date.now() - started > TIMEOUT) {
@@ -476,8 +476,15 @@ const CartSidebar = ({ isOpen, cart, removeFromCart, updateQuantity, toggleCart,
       setPaymentUrl(result.payment_url || '');
       setPendingOrderIds(orderIds);
       setPaymentPhase('awaiting');
-      // Open payment URL automatically in new tab
-      if (result.payment_url) window.open(result.payment_url, '_blank');
+      // Open payment URL — validate domain before opening
+      if (result.payment_url) {
+        try {
+          const url = new URL(result.payment_url);
+          if (url.hostname.endsWith('monetbil.com') || url.hostname.endsWith('monetbil.net')) {
+            window.open(result.payment_url, '_blank');
+          }
+        } catch { /* invalid URL — ignore */ }
+      }
     } catch (err) {
       setError(err.message || 'Une erreur est survenue. Réessayez.');
     } finally {

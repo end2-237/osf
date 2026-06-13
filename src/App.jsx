@@ -10,6 +10,7 @@ import Footer from './components/Footer';
 import CartSidebar from './components/CartSidebar';
 import WhatsAppButton from './components/WhatsAppButton';
 import PrivateRoute from './routes/PrivateRoute';
+import SuperAdminRoute from './routes/SuperAdminRoute';
 
 // Heavy modal — lazy
 const VisualSearchModal = lazy(() => import('./components/VisualSearchModal'));
@@ -35,6 +36,7 @@ const SuperAdmin     = lazy(() => import('./pages/SuperAdmin.jsx'));
 const AffiliateRedirect = lazy(() => import('./pages/AffiliateRedirect.jsx'));
 const CartPage       = lazy(() => import('./pages/CartPage.jsx'));
 const NotFound       = lazy(() => import('./pages/NotFound.jsx'));
+const CGVPage        = lazy(() => import('./pages/CGVPage.jsx'));
 
 const PageLoader = () => (
   <div className="flex items-center justify-center min-h-[60vh]">
@@ -202,6 +204,8 @@ function AppContent() {
             <Route path="/track" element={<TrackingPage />} />
             <Route path="/ref/:code" element={<AffiliateRedirect />} />
             <Route path="/cart" element={<CartPage />} />
+            <Route path="/cgv" element={<CGVPage />} />
+            <Route path="/terms" element={<CGVPage />} />
 
             <Route
               path="/product/:productId"
@@ -209,6 +213,8 @@ function AppContent() {
             />
             <Route element={<PrivateRoute />}>
               <Route path="/admin" element={<Dashboard />} />
+            </Route>
+            <Route element={<SuperAdminRoute />}>
               <Route path="/super-admin" element={<SuperAdmin />} />
             </Route>
             <Route path="*" element={<NotFound />} />
