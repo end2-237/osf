@@ -317,24 +317,22 @@ const BoutiquesTab = ({ vendors, vendorStats, loading }) => {
 
 // ─── SYSTEM HEALTH CARD ───────────────────────────────────────────────────────
 const SystemHealthCard = () => {
-  const [health, setHealth] = useState(null);
+  const [health, setHealth] = useState({ stuck: 0, errors: 0 });
 
   useEffect(() => {
     const check = async () => {
-      const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
-      const oneDayAgo  = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-      const [stuckR, errR] = await Promise.all([
-        supabase.from("orders").select("id", { count: "exact", head: true })
-          .eq("status", "pending_payment").lt("created_at", oneHourAgo),
-        supabase.from("error_logs").select("id", { count: "exact", head: true })
-          .gt("created_at", oneDayAgo),
-      ]);
-      setHealth({ stuck: stuckR.count || 0, errors: errR.count || 0 });
+      try {
+        const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+        const oneDayAgo  = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+        const stuckR = await supabase.from("orders").select("id", { count: "exact", head: true })
+          .eq("status", "pending_payment").lt("created_at", oneHourAgo);
+        const errR = await supabase.from("error_logs").select("id", { count: "exact", head: true })
+          .gt("created_at", oneDayAgo);
+        setHealth({ stuck: stuckR.count || 0, errors: errR.error ? 0 : (errR.count || 0) });
+      } catch { /* silently ignore if tables not ready */ }
     };
     check();
   }, []);
-
-  if (!health) return null;
 
   const ok = health.stuck === 0 && health.errors === 0;
   return (
