@@ -91,8 +91,8 @@ const OFSAssistant = ({ addToCart }) => {
           .select('id, name, price, img, type, description, vendor_id, cj_product_id, created_at')
           .order('created_at', { ascending: false }),
         supabase.from('vendors')
-          .select('id, shop_name, full_name, city, phone, logo_url, category, member_discount_enabled, is_active')
-          .eq('is_active', true).order('shop_name'),
+          .select('id, shop_name, full_name, city, phone, logo_url, category, member_discount_enabled')
+          .order('shop_name'),
       ]);
       const prods = prodR.data || [];
       const vends = vendR.data || [];
