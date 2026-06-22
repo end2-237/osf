@@ -80,6 +80,7 @@ const OFSAssistant = ({ addToCart }) => {
   const [aiResult, setAiResult] = useState(null);
   const [results, setResults] = useState([]);
   const [showBoutiques, setShowBoutiques] = useState(false);
+  const [mapVendor, setMapVendor] = useState(null);
   const inputRef = useRef(null);
   const resultsRef = useRef(null);
 
@@ -183,7 +184,7 @@ const OFSAssistant = ({ addToCart }) => {
     setAddedId(p.id);
     setTimeout(() => setAddedId(null), 1000);
   };
-  const reset = () => { setQuery(''); setResults([]); setAiResult(null); setShowBoutiques(false); };
+  const reset = () => { setQuery(''); setResults([]); setAiResult(null); setShowBoutiques(false); setMapVendor(null); };
 
   return (
     <>
@@ -225,6 +226,74 @@ const OFSAssistant = ({ addToCart }) => {
             {!dataLoaded ? (
               <div className="flex items-center justify-center py-20">
                 <div className="w-7 h-7 border-[3px] border-[#FF9900] border-t-transparent rounded-full animate-spin"></div>
+              </div>
+            ) : mapVendor ? (
+              /* ─── MAP VIEW ─── */
+              <div className="flex flex-col h-full">
+                <div className="flex items-center gap-2 px-4 py-2.5 bg-[#FAFAFA] border-b border-[#E7E7E7] flex-shrink-0">
+                  <button onClick={() => setMapVendor(null)} className="text-[11px] font-bold text-[#007185] hover:text-[#FF9900]">
+                    <i className="fa-solid fa-arrow-left mr-1"></i>Retour
+                  </button>
+                  <span className="text-[11px] font-bold text-[#0F1111] truncate">{mapVendor.shop_name}</span>
+                </div>
+
+                {/* Map */}
+                <div className="flex-1 relative bg-[#F7F8F8] min-h-[300px]">
+                  <iframe
+                    title="Carte"
+                    width="100%"
+                    height="100%"
+                    style={{ border: 0, position: 'absolute', inset: 0 }}
+                    loading="lazy"
+                    referrerPolicy="no-referrer-when-downgrade"
+                    src={`https://www.openstreetmap.org/export/embed.html?bbox=${
+                      (mapVendor.city || '').toLowerCase().includes('yaoundé') || (mapVendor.city || '').toLowerCase().includes('yaounde')
+                        ? '11.45,3.82,11.58,3.92' : '9.65,4.0,9.85,4.1'
+                    }&layer=mapnik&marker=${
+                      (mapVendor.city || '').toLowerCase().includes('yaoundé') || (mapVendor.city || '').toLowerCase().includes('yaounde')
+                        ? '3.87,11.52' : '4.05,9.77'
+                    }`}
+                  />
+                </div>
+
+                {/* Vendor card overlay */}
+                <div className="flex-shrink-0 border-t border-[#E7E7E7] bg-white">
+                  <div className="px-4 py-3">
+                    <div className="flex items-center gap-3 mb-2">
+                      <div className="w-10 h-10 bg-[#232F3E] overflow-hidden flex items-center justify-center flex-shrink-0">
+                        {mapVendor.logo_url
+                          ? <img src={mapVendor.logo_url} alt="" className="w-full h-full object-cover" />
+                          : <span className="text-[#FF9900] font-black text-sm">{(mapVendor.shop_name || '?')[0].toUpperCase()}</span>
+                        }
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[14px] font-bold text-[#0F1111] truncate">{mapVendor.shop_name}</p>
+                        <p className="text-[11px] text-[#565959]">
+                          <i className="fa-solid fa-location-dot text-[#FF9900] mr-1"></i>
+                          {mapVendor.city || 'Douala'}, Cameroun
+                          {mapVendor.category && <span> · {mapVendor.category}</span>}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <button onClick={() => { setOpen(false); navigate(`/shop/${encodeURIComponent(mapVendor.shop_name)}`); }}
+                        className="flex-1 py-2 bg-[#FFD814] hover:bg-[#F7CA00] border border-[#FCD200] text-[11px] font-bold text-[#0F1111] text-center transition-colors">
+                        <i className="fa-solid fa-bag-shopping mr-1"></i>Voir la boutique
+                      </button>
+                      {mapVendor.phone && (
+                        <a href={`tel:${mapVendor.phone}`}
+                          className="py-2 px-4 border border-[#D5D9D9] hover:border-[#007600] text-[11px] font-bold text-[#007600] text-center transition-colors flex items-center gap-1">
+                          <i className="fa-solid fa-phone text-[9px]"></i>Appeler
+                        </a>
+                      )}
+                      <a href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent((mapVendor.shop_name || '') + ', ' + (mapVendor.city || 'Douala') + ', Cameroun')}`}
+                        target="_blank" rel="noopener noreferrer"
+                        className="py-2 px-3 border border-[#D5D9D9] hover:border-[#FF9900] text-[11px] font-bold text-[#0F1111] text-center transition-colors flex items-center gap-1">
+                        <i className="fa-solid fa-diamond-turn-right text-[#FF9900] text-[9px]"></i>GPS
+                      </a>
+                    </div>
+                  </div>
+                </div>
               </div>
             ) : showBoutiques ? (
               /* ─── BOUTIQUES ─── */
@@ -300,11 +369,10 @@ const OFSAssistant = ({ addToCart }) => {
                               className="flex-1 py-2 bg-[#FFD814] hover:bg-[#F7CA00] text-[10px] font-bold text-[#0F1111] text-center border-r border-[#FCD200] transition-colors">
                               <i className="fa-solid fa-bag-shopping mr-1"></i>Boutique
                             </button>
-                            <a href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent((v.shop_name || '') + ', ' + (v.city || 'Douala') + ', Cameroun')}`}
-                              target="_blank" rel="noopener noreferrer"
+                            <button onClick={() => setMapVendor(v)}
                               className="flex-1 py-2 text-[10px] font-bold text-[#0F1111] text-center hover:bg-[#F7F8F8] transition-colors border-r border-[#F3F4F4]">
-                              <i className="fa-solid fa-route mr-1 text-[#FF9900]"></i>Itinéraire
-                            </a>
+                              <i className="fa-solid fa-map-location-dot mr-1 text-[#FF9900]"></i>Carte
+                            </button>
                             {v.phone ? (
                               <a href={`tel:${v.phone}`}
                                 className="px-4 py-2 text-[10px] font-bold text-[#007600] text-center hover:bg-[#F7F8F8] transition-colors flex items-center justify-center">
