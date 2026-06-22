@@ -72,6 +72,7 @@ const OFSAssistant = ({ addToCart }) => {
   const [query, setQuery] = useState('');
   const [allProducts, setAllProducts] = useState([]);
   const [vendors, setVendors] = useState([]);
+  const [vendorMap, setVendorMap] = useState({});
   const [vendorProducts, setVendorProducts] = useState({});
   const [dataLoaded, setDataLoaded] = useState(false);
   const [addedId, setAddedId] = useState(null);
@@ -87,7 +88,7 @@ const OFSAssistant = ({ addToCart }) => {
     const load = async () => {
       const [prodR, vendR] = await Promise.all([
         supabase.from('products')
-          .select('id, name, price, img, type, description, vendor_id, cj_product_id, created_at, vendor:vendors!vendor_id(id, shop_name)')
+          .select('id, name, price, img, type, description, vendor_id, cj_product_id, created_at')
           .order('created_at', { ascending: false }),
         supabase.from('vendors')
           .select('id, shop_name, full_name, city, phone, logo_url, category, member_discount_enabled, is_active')
@@ -95,8 +96,11 @@ const OFSAssistant = ({ addToCart }) => {
       ]);
       const prods = prodR.data || [];
       const vends = vendR.data || [];
+      const vm = {};
+      vends.forEach(v => { vm[v.id] = v; });
       setAllProducts(prods);
       setVendors(vends);
+      setVendorMap(vm);
       const vp = {};
       prods.forEach(p => { if (p.vendor_id) { if (!vp[p.vendor_id]) vp[p.vendor_id] = []; vp[p.vendor_id].push(p); } });
       setVendorProducts(vp);
@@ -124,7 +128,7 @@ const OFSAssistant = ({ addToCart }) => {
       const name = (p.name || '').toLowerCase();
       const type = (p.type || '').toLowerCase();
       const desc = (p.description || '').toLowerCase();
-      const shop = (p.vendor?.shop_name || '').toLowerCase();
+      const shop = (vendorMap[p.vendor_id]?.shop_name || '').toLowerCase();
       const hay = `${name} ${type} ${desc} ${shop}`;
 
       let score = 0;
@@ -159,7 +163,7 @@ const OFSAssistant = ({ addToCart }) => {
       // Fallback: simple text search if Groq fails
       const words = q.toLowerCase().split(/\s+/).filter(Boolean);
       const fallback = allProducts.filter(p => {
-        const hay = `${p.name || ''} ${p.type || ''} ${p.description || ''}`.toLowerCase();
+        const hay = `${p.name || ''} ${p.type || ''} ${p.description || ''} ${vendorMap[p.vendor_id]?.shop_name || ''}`.toLowerCase();
         return words.some(w => hay.includes(w));
       }).slice(0, 40);
       setResults(fallback);
@@ -395,7 +399,7 @@ const OFSAssistant = ({ addToCart }) => {
                               <div className="px-2 py-2">
                                 <p className="text-[11px] text-[#0F1111] leading-snug line-clamp-2">{p.name}</p>
                                 <p className="text-[13px] font-bold text-[#0F1111] mt-0.5">{Number(p.price).toLocaleString()} <span className="text-[10px] font-normal">FCFA</span></p>
-                                {p.vendor?.shop_name && <p className="text-[9px] text-[#007185] mt-0.5">{p.vendor.shop_name}</p>}
+                                {vendorMap[p.vendor_id]?.shop_name && <p className="text-[9px] text-[#007185] mt-0.5">{vendorMap[p.vendor_id].shop_name}</p>}
                               </div>
                             </div>
                           ))}
@@ -435,7 +439,7 @@ const OFSAssistant = ({ addToCart }) => {
                           <div className="px-2 py-2">
                             <p className="text-[11px] text-[#0F1111] leading-snug line-clamp-2">{p.name}</p>
                             <p className="text-[13px] font-bold text-[#0F1111] mt-0.5">{Number(p.price).toLocaleString()} <span className="text-[10px] font-normal">FCFA</span></p>
-                            {p.vendor?.shop_name && <p className="text-[9px] text-[#007185] mt-0.5">{p.vendor.shop_name}</p>}
+                            {vendorMap[p.vendor_id]?.shop_name && <p className="text-[9px] text-[#007185] mt-0.5">{vendorMap[p.vendor_id].shop_name}</p>}
                           </div>
                         </div>
                       ))}
