@@ -656,8 +656,6 @@ const Navbar = ({ isDark, toggleTheme, cartCount, toggleCart, toggleVisualSearch
       <style>{`
         #amz-catbar { top: 126px; }
         @media (min-width: 768px) { #amz-catbar { top: 88px; } }
-        .hide-scrollbar::-webkit-scrollbar { display: none; }
-        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
         .logo-font { font-family: 'Syncopate', sans-serif; }
       `}</style>
     </>

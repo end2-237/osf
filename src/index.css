@@ -25,29 +25,60 @@ body {
   outline-offset: 2px;
 }
 
-/* Cart scrollbar */
-#cart-items::-webkit-scrollbar {
-  width: 4px;
+/* ─── Modern scrollbars (global) ─── */
+*::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
 }
-#cart-items::-webkit-scrollbar-thumb {
-  background: #FF9900;
-  border-radius: 10px;
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+*::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.12);
+  border-radius: 100px;
+  transition: background 0.2s;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.25);
+}
+*::-webkit-scrollbar-thumb:active {
+  background: rgba(0, 0, 0, 0.4);
+}
+*::-webkit-scrollbar-corner {
+  background: transparent;
+}
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0,0,0,0.12) transparent;
 }
 
+.dark *::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12);
+}
+.dark *::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
+.dark * {
+  scrollbar-color: rgba(255,255,255,0.12) transparent;
+}
+
+/* Accent scrollbar for cart + featured areas */
+.custom-scrollbar::-webkit-scrollbar-thumb,
+#cart-items::-webkit-scrollbar-thumb {
+  background: #FF9900;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover,
+#cart-items::-webkit-scrollbar-thumb:hover {
+  background: #e68a00;
+}
+
+/* Hidden scrollbar utility */
 .hide-scrollbar::-webkit-scrollbar {
   display: none;
 }
 .hide-scrollbar {
   -ms-overflow-style: none;
   scrollbar-width: none;
-}
-
-.custom-scrollbar::-webkit-scrollbar {
-  width: 5px;
-}
-.custom-scrollbar::-webkit-scrollbar-thumb {
-  background: #FF9900;
-  border-radius: 10px;
 }
 
 /* Amazon shimmer skeleton */

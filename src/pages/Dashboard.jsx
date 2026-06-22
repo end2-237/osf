@@ -2103,9 +2103,6 @@ const Dashboard = () => {
       <style>{`
         @keyframes slideInRight { from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: translateX(0); } }
         .animate-slideInRight { animation: slideInRight 0.4s cubic-bezier(0.2, 0, 0, 1) forwards; }
-        .hide-scrollbar::-webkit-scrollbar { display: none; }
-        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: #00ff88; border-radius: 4px; }
       `}</style>
     </div>
   );

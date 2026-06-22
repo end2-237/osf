@@ -595,8 +595,6 @@ const BoutiquesPage = () => {
       )}
 
       <style>{`
-        .hide-scrollbar::-webkit-scrollbar { display:none; }
-        .hide-scrollbar { -ms-overflow-style:none; scrollbar-width:none; }
         @keyframes modalUp { from { opacity:0; transform:translateY(20px); } to { opacity:1; transform:translateY(0); } }
         .animate-modalUp { animation: modalUp 0.35s cubic-bezier(0.2,0,0,1) both; }
       `}</style>
