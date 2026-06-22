@@ -91,11 +91,21 @@ const OFSAssistant = ({ addToCart }) => {
           .select('id, name, price, img, type, description, vendor_id, cj_product_id, created_at')
           .order('created_at', { ascending: false }),
         supabase.from('vendors')
-          .select('id, shop_name, full_name, city, phone, logo_url, category, member_discount_enabled')
+          .select('*')
           .order('shop_name'),
       ]);
       const prods = prodR.data || [];
-      const vends = vendR.data || [];
+      let vends = vendR.data || [];
+      console.log('[OFS Assistant] vendors:', vends.length, 'products:', prods.length, 'vendErr:', vendR.error);
+      // Fallback: if RLS blocks vendors table, build from product join
+      if (vends.length === 0 && prods.length > 0) {
+        const vendorIds = [...new Set(prods.map(p => p.vendor_id).filter(Boolean))];
+        if (vendorIds.length > 0) {
+          const { data: fallbackV } = await supabase.from('vendors').select('*').in('id', vendorIds);
+          vends = fallbackV || [];
+          console.log('[OFS Assistant] fallback vendors:', vends.length);
+        }
+      }
       const vm = {};
       vends.forEach(v => { vm[v.id] = v; });
       setAllProducts(prods);
