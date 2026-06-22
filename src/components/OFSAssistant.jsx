@@ -88,7 +88,7 @@ const OFSAssistant = ({ addToCart }) => {
     const load = async () => {
       const [prodR, vendR] = await Promise.all([
         supabase.from('products')
-          .select('id, name, price, img, type, description, vendor_id, cj_product_id, created_at')
+          .select('*')
           .order('created_at', { ascending: false }),
         supabase.from('vendors')
           .select('*')
@@ -96,16 +96,7 @@ const OFSAssistant = ({ addToCart }) => {
       ]);
       const prods = prodR.data || [];
       let vends = vendR.data || [];
-      console.log('[OFS Assistant] vendors:', vends.length, 'products:', prods.length, 'vendErr:', vendR.error);
-      // Fallback: if RLS blocks vendors table, build from product join
-      if (vends.length === 0 && prods.length > 0) {
-        const vendorIds = [...new Set(prods.map(p => p.vendor_id).filter(Boolean))];
-        if (vendorIds.length > 0) {
-          const { data: fallbackV } = await supabase.from('vendors').select('*').in('id', vendorIds);
-          vends = fallbackV || [];
-          console.log('[OFS Assistant] fallback vendors:', vends.length);
-        }
-      }
+      console.log('[OFS Assistant]', { vendors: vends.length, products: prods.length, prodErr: prodR.error, vendErr: vendR.error });
       const vm = {};
       vends.forEach(v => { vm[v.id] = v; });
       setAllProducts(prods);
@@ -238,59 +229,96 @@ const OFSAssistant = ({ addToCart }) => {
             ) : showBoutiques ? (
               /* ─── BOUTIQUES ─── */
               <div>
-                <div className="flex items-center gap-2 px-4 py-2 bg-[#FAFAFA] border-b border-[#E7E7E7]">
-                  <button onClick={() => setShowBoutiques(false)} className="text-[10px] font-bold text-[#007185] hover:text-[#FF9900]">
+                <div className="flex items-center gap-2 px-4 py-2.5 bg-[#FAFAFA] border-b border-[#E7E7E7]">
+                  <button onClick={() => setShowBoutiques(false)} className="text-[11px] font-bold text-[#007185] hover:text-[#FF9900]">
                     <i className="fa-solid fa-arrow-left mr-1"></i>Retour
                   </button>
-                  <span className="text-[10px] text-[#565959]">{vendors.length} boutiques</span>
+                  <span className="text-[11px] text-[#565959] ml-auto">{vendors.length} boutique{vendors.length !== 1 ? 's' : ''}</span>
                 </div>
-                <div className="divide-y divide-[#E7E7E7]">
-                  {vendors.map(v => {
-                    const vProds = (vendorProducts[v.id] || []).slice(0, 5);
-                    return (
-                      <div key={v.id} className="px-4 py-3">
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 bg-[#F7F8F8] border border-[#E7E7E7] overflow-hidden flex items-center justify-center flex-shrink-0">
-                            {v.logo_url ? <img src={v.logo_url} alt="" className="w-full h-full object-cover" />
-                              : <i className="fa-solid fa-store text-[#ADBAC7] text-sm"></i>}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-[13px] font-bold text-[#0F1111] truncate">{v.shop_name}</p>
-                            <div className="flex items-center gap-2 text-[10px] text-[#565959]">
-                              <span>{v.city || 'Douala'}</span>
-                              {v.category && <span>· {v.category}</span>}
-                              <span>· {(vendorProducts[v.id] || []).length} articles</span>
-                              {v.member_discount_enabled && <span className="text-[#007600] font-bold">-20%</span>}
+
+                {vendors.length === 0 ? (
+                  <div className="text-center py-16 px-4">
+                    <i className="fa-solid fa-store text-4xl text-[#E7E7E7] mb-3 block"></i>
+                    <p className="text-[13px] font-bold text-[#565959]">Aucune boutique enregistrée</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-4">
+                    {vendors.map(v => {
+                      const vProds = (vendorProducts[v.id] || []).slice(0, 4);
+                      const prodCount = (vendorProducts[v.id] || []).length;
+                      return (
+                        <div key={v.id} className="border border-[#E7E7E7] hover:border-[#FF9900]/40 transition-all overflow-hidden bg-white">
+                          {/* Header boutique */}
+                          <div className="bg-[#FAFAFA] px-3 py-3 flex items-center gap-3 border-b border-[#F3F4F4]">
+                            <div className="w-11 h-11 bg-[#232F3E] overflow-hidden flex items-center justify-center flex-shrink-0">
+                              {v.logo_url
+                                ? <img src={v.logo_url} alt="" className="w-full h-full object-cover" />
+                                : <span className="text-[#FF9900] font-black text-sm">{(v.shop_name || '?')[0].toUpperCase()}</span>
+                              }
                             </div>
-                          </div>
-                        </div>
-                        {vProds.length > 0 && (
-                          <div className="flex gap-1.5 mt-2 overflow-x-auto hide-scrollbar">
-                            {vProds.map(p => (
-                              <div key={p.id} onClick={() => handleProductClick(p)}
-                                className="w-14 h-14 flex-shrink-0 bg-[#F7F8F8] border border-[#E7E7E7] overflow-hidden cursor-pointer hover:border-[#FF9900] transition-all">
-                                {p.img ? <img src={p.img} alt="" className="w-full h-full object-cover" loading="lazy" />
-                                  : <div className="w-full h-full flex items-center justify-center text-[#E7E7E7]"><i className="fa-solid fa-image text-[10px]"></i></div>}
+                            <div className="flex-1 min-w-0">
+                              <p className="text-[13px] font-bold text-[#0F1111] truncate">{v.shop_name || 'Boutique'}</p>
+                              <div className="flex items-center gap-1.5 text-[10px] text-[#565959] mt-0.5 flex-wrap">
+                                <span><i className="fa-solid fa-location-dot text-[#FF9900] mr-0.5"></i>{v.city || 'Douala'}</span>
+                                {v.category && <span>· {v.category}</span>}
+                                {v.full_name && <span>· {v.full_name}</span>}
                               </div>
-                            ))}
+                            </div>
+                            {v.member_discount_enabled && (
+                              <span className="text-[8px] font-black bg-[#007600] text-white px-1.5 py-0.5 flex-shrink-0">-20%</span>
+                            )}
                           </div>
-                        )}
-                        <div className="flex gap-2 mt-2">
-                          <button onClick={() => { setOpen(false); navigate(`/shop/${encodeURIComponent(v.shop_name)}`); }}
-                            className="flex-1 py-1.5 bg-[#FFD814] hover:bg-[#F7CA00] border border-[#FCD200] text-[10px] font-bold text-[#0F1111] text-center">Visiter</button>
-                          <a href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(v.shop_name + ', ' + (v.city || 'Douala') + ', Cameroun')}`}
-                            target="_blank" rel="noopener noreferrer"
-                            className="py-1.5 px-3 border border-[#D5D9D9] hover:border-[#FF9900] text-[10px] font-bold text-[#0F1111] bg-white text-center">
-                            <i className="fa-solid fa-route mr-1"></i>Y aller</a>
-                          {v.phone && (
-                            <a href={`tel:${v.phone}`} className="py-1.5 px-2 border border-[#D5D9D9] hover:border-[#007600] text-[10px] text-[#007600] bg-white flex items-center">
-                              <i className="fa-solid fa-phone text-[9px]"></i></a>
+
+                          {/* Produits miniatures */}
+                          {vProds.length > 0 ? (
+                            <div className="flex">
+                              {vProds.map(p => (
+                                <div key={p.id} onClick={() => handleProductClick(p)}
+                                  className="flex-1 aspect-square bg-[#F7F8F8] overflow-hidden cursor-pointer hover:opacity-80 transition-opacity border-r border-[#F3F4F4] last:border-r-0">
+                                  {p.img
+                                    ? <img src={p.img} alt="" className="w-full h-full object-cover" loading="lazy" />
+                                    : <div className="w-full h-full flex items-center justify-center text-[#E7E7E7]"><i className="fa-solid fa-image text-xs"></i></div>
+                                  }
+                                </div>
+                              ))}
+                              {prodCount > 4 && (
+                                <div onClick={() => { setOpen(false); navigate(`/shop/${encodeURIComponent(v.shop_name)}`); }}
+                                  className="flex-1 aspect-square bg-[#F7F8F8] flex items-center justify-center cursor-pointer hover:bg-[#EAEDED]">
+                                  <span className="text-[11px] font-bold text-[#007185]">+{prodCount - 4}</span>
+                                </div>
+                              )}
+                            </div>
+                          ) : (
+                            <div className="px-3 py-4 text-center">
+                              <p className="text-[10px] text-[#ADBAC7]">Pas encore de produits</p>
+                            </div>
                           )}
+
+                          {/* Actions */}
+                          <div className="flex border-t border-[#F3F4F4]">
+                            <button onClick={() => { setOpen(false); navigate(`/shop/${encodeURIComponent(v.shop_name)}`); }}
+                              className="flex-1 py-2 bg-[#FFD814] hover:bg-[#F7CA00] text-[10px] font-bold text-[#0F1111] text-center border-r border-[#FCD200] transition-colors">
+                              <i className="fa-solid fa-bag-shopping mr-1"></i>Boutique
+                            </button>
+                            <a href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent((v.shop_name || '') + ', ' + (v.city || 'Douala') + ', Cameroun')}`}
+                              target="_blank" rel="noopener noreferrer"
+                              className="flex-1 py-2 text-[10px] font-bold text-[#0F1111] text-center hover:bg-[#F7F8F8] transition-colors border-r border-[#F3F4F4]">
+                              <i className="fa-solid fa-route mr-1 text-[#FF9900]"></i>Itinéraire
+                            </a>
+                            {v.phone ? (
+                              <a href={`tel:${v.phone}`}
+                                className="px-4 py-2 text-[10px] font-bold text-[#007600] text-center hover:bg-[#F7F8F8] transition-colors flex items-center justify-center">
+                                <i className="fa-solid fa-phone mr-1"></i>Appeler
+                              </a>
+                            ) : (
+                              <span className="px-4 py-2 text-[10px] text-[#ADBAC7]">—</span>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    );
-                  })}
-                </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             ) : (
               <div>
