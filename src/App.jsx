@@ -38,6 +38,7 @@ const AffiliateRedirect = lazy(() => import('./pages/AffiliateRedirect.jsx'));
 const CartPage       = lazy(() => import('./pages/CartPage.jsx'));
 const NotFound       = lazy(() => import('./pages/NotFound.jsx'));
 const CGVPage        = lazy(() => import('./pages/CGVPage.jsx'));
+const AboutPage      = lazy(() => import('./pages/AboutPage.jsx'));
 
 const PageLoader = () => (
   <div className="flex items-center justify-center min-h-[60vh]">
@@ -207,6 +208,8 @@ function AppContent() {
             <Route path="/cart" element={<CartPage />} />
             <Route path="/cgv" element={<CGVPage />} />
             <Route path="/terms" element={<CGVPage />} />
+            <Route path="/about" element={<AboutPage />} />
+            <Route path="/a-propos" element={<AboutPage />} />
 
             <Route
               path="/product/:productId"

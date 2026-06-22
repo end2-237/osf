@@ -34,13 +34,13 @@ const COLUMNS = [
     ],
   },
   {
-    title: "OneFreestyle",
+    title: "Buyticle",
     links: [
-      { label: "À propos de nous",     path: "/" },
-      { label: "Opportunités",         path: "/" },
-      { label: "Presse",               path: "/" },
-      { label: "Confidentialité",      path: "/" },
-      { label: "Conditions d'utilisation", path: "/" },
+      { label: "À propos de nous",     path: "/about" },
+      { label: "Mentions légales",     path: "/about" },
+      { label: "Conditions de vente",  path: "/cgv" },
+      { label: "Confidentialité",      path: "/cgv" },
+      { label: "Nous contacter",       path: "/about" },
     ],
   },
 ];
@@ -141,19 +141,17 @@ const Footer = () => {
 
           {/* COPYRIGHT & LINKS */}
           <div className="flex flex-wrap items-center justify-center gap-3 text-xs text-[#888]">
-            <span>© {new Date().getFullYear()} OneFreestyle Elite</span>
+            <span>© {new Date().getFullYear()} BUYTICLE ETS</span>
             <span className="hidden md:inline">·</span>
-            <a href="#" className="hover:text-white transition-colors">Conditions</a>
+            <Link to="/cgv" className="hover:text-white transition-colors">Conditions de vente</Link>
             <span>·</span>
-            <a href="#" className="hover:text-white transition-colors">Confidentialité</a>
+            <Link to="/about" className="hover:text-white transition-colors">Mentions légales</Link>
             <span>·</span>
-            <a href="#" className="hover:text-white transition-colors">Cookies</a>
-            <span>·</span>
-            <a href="#" className="hover:text-white transition-colors">Accessibilité</a>
+            <Link to="/about" className="hover:text-white transition-colors">À propos</Link>
           </div>
 
           <p className="text-center text-xs text-[#555] mt-2">
-            Bonamoussadi, Akwa — Douala, Cameroun
+            BUYTICLE ETS · RCCM CM-DLA-01-2025-A10-01482 · Bonamoussadi, Douala — Cameroun
           </p>
         </div>
       </div>
