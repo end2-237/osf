@@ -2,14 +2,29 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 
-const CATS = [
-  { label: "Tout",       q: "", icon: "fa-fire" },
-  { label: "Sneakers",   q: "sneakers", icon: "fa-shoe-prints" },
-  { label: "Parfums",    q: "parfum", icon: "fa-spray-can-sparkles" },
-  { label: "Tech",       q: "ecouteur", icon: "fa-headphones" },
-  { label: "Sacs",       q: "sac", icon: "fa-bag-shopping" },
-  { label: "Montres",    q: "montre", icon: "fa-clock" },
-  { label: "Mode",       q: "shirt", icon: "fa-shirt" },
+const CATEGORIES = [
+  { key: "Audio Lab",      label: "Audio Lab",   icon: "fa-headphones",         color: "#FF9900",
+    subs: ["Casques", "Enceintes", "Écouteurs", "Microphones"] },
+  { key: "Tech Lab",       label: "Tech Lab",    icon: "fa-microchip",          color: "#3b82f6",
+    subs: ["Smartphones", "TV & Vidéo", "Tablettes", "Informatique", "Gaming", "Photo & Vidéo", "Câbles & Chargeurs", "Électroménager", "Objets Connectés", "Maison Connectée"] },
+  { key: "Clothing",       label: "Pour Lui",    icon: "fa-shirt",              color: "#a855f7",
+    subs: ["Hoodies & Sweats", "T-Shirts & Polos", "Chemises", "Pantalons & Jeans", "Vestes & Manteaux", "Shorts", "Costumes & Survêtements", "Sous-vêtements"] },
+  { key: "Shoes",          label: "Sneakers",    icon: "fa-shoe-prints",        color: "#f97316",
+    subs: ["Sneakers", "Bottes", "Sandales", "Mocassins", "Talons"] },
+  { key: "Femme",          label: "Pour Elle",   icon: "fa-person-dress",       color: "#ec4899",
+    subs: ["Robes & Jupes", "Tops & Blouses", "Lingerie", "Manteaux", "Combinaisons"] },
+  { key: "Beauté",         label: "Beauté",      icon: "fa-spray-can-sparkles", color: "#f472b6",
+    subs: ["Parfums", "Soins Visage", "Soins Cheveux", "Maquillage", "Corps & Bain"] },
+  { key: "Accessories",    label: "Accessoires", icon: "fa-gem",                color: "#eab308",
+    subs: ["Montres", "Bijoux", "Sacs à main", "Lunettes", "Portefeuilles", "Ceintures", "Chapeaux"] },
+  { key: "Maison",         label: "Maison",      icon: "fa-house",              color: "#14b8a6",
+    subs: ["Cuisine", "Décoration", "Literie", "Éclairage", "Rangement"] },
+  { key: "Sport",          label: "Sport",       icon: "fa-dumbbell",           color: "#f97316",
+    subs: ["Fitness", "Vêtements Sport", "Cyclisme", "Natation", "Camping"] },
+  { key: "Bébé & Enfants", label: "Enfants",     icon: "fa-baby",               color: "#fb923c",
+    subs: ["Jouets", "Vêtements Enfant", "Nurserie", "Scolaire"] },
+  { key: "Auto",           label: "Auto",        icon: "fa-car",                color: "#64748b",
+    subs: ["Intérieur Auto", "Extérieur Auto", "Moto & Scooter", "Entretien"] },
 ];
 
 const OFSAssistant = ({ addToCart }) => {
@@ -20,9 +35,10 @@ const OFSAssistant = ({ addToCart }) => {
   const [vendors, setVendors] = useState([]);
   const [vendorProducts, setVendorProducts] = useState({});
   const [dataLoaded, setDataLoaded] = useState(false);
-  const [activeCat, setActiveCat] = useState('');
   const [addedId, setAddedId] = useState(null);
   const [section, setSection] = useState('products');
+  const [expandedCat, setExpandedCat] = useState(null);
+  const [activeSub, setActiveSub] = useState(null);
   const inputRef = useRef(null);
 
   useEffect(() => {
@@ -59,16 +75,35 @@ const OFSAssistant = ({ addToCart }) => {
   }, [open]);
 
   const getFiltered = () => {
-    const q = (query || activeCat).trim().toLowerCase();
-    if (!q) return allProducts.slice(0, 30);
-    const words = q.split(/\s+/).filter(Boolean);
-    return allProducts.filter(p => {
-      const hay = `${p.name || ''} ${p.type || ''} ${p.description || ''} ${p.vendor?.shop_name || ''}`.toLowerCase();
-      return words.some(w => hay.includes(w));
-    }).slice(0, 30);
+    let q = query.trim().toLowerCase();
+    let list = allProducts;
+
+    // Category/subcategory filter
+    if (expandedCat && !activeSub && !q) {
+      list = list.filter(p => (p.type || '').toLowerCase() === expandedCat.toLowerCase());
+    }
+    if (activeSub) {
+      const sub = activeSub.toLowerCase();
+      list = list.filter(p => {
+        const hay = `${p.name || ''} ${p.type || ''} ${p.description || ''}`.toLowerCase();
+        return hay.includes(sub);
+      });
+    }
+
+    // Text search
+    if (q) {
+      const words = q.split(/\s+/).filter(Boolean);
+      list = list.filter(p => {
+        const hay = `${p.name || ''} ${p.type || ''} ${p.description || ''} ${p.vendor?.shop_name || ''}`.toLowerCase();
+        return words.some(w => hay.includes(w));
+      });
+    }
+
+    return list.slice(0, 40);
   };
 
   const filtered = getFiltered();
+  const isFiltering = !!(query.trim() || expandedCat || activeSub);
 
   const handleProductClick = (p) => { setOpen(false); navigate(`/product/${p.id}`); };
   const handleAddToCart = (p, e) => {
@@ -78,31 +113,54 @@ const OFSAssistant = ({ addToCart }) => {
     setTimeout(() => setAddedId(null), 1000);
   };
 
+  const handleCatClick = (cat) => {
+    if (expandedCat === cat.key) {
+      setExpandedCat(null);
+      setActiveSub(null);
+    } else {
+      setExpandedCat(cat.key);
+      setActiveSub(null);
+      setQuery('');
+    }
+  };
+
+  const handleSubClick = (sub) => {
+    setActiveSub(activeSub === sub ? null : sub);
+    setQuery('');
+  };
+
+  const clearFilters = () => { setQuery(''); setExpandedCat(null); setActiveSub(null); };
+
+  const catCounts = {};
+  if (dataLoaded) {
+    CATEGORIES.forEach(c => {
+      catCounts[c.key] = allProducts.filter(p => (p.type || '').toLowerCase() === c.key.toLowerCase()).length;
+    });
+  }
+
   return (
     <>
-      {/* Trigger button — small, subtle */}
       <button onClick={() => setOpen(true)}
         className="fixed bottom-5 left-5 z-50 w-10 h-10 bg-[#232F3E] hover:bg-[#37475A] text-white rounded-full shadow-lg flex items-center justify-center transition-all hover:scale-105 active:scale-95">
         <i className="fa-solid fa-magnifying-glass text-[13px]"></i>
       </button>
 
-      {/* Full overlay */}
       {open && (
         <div className="fixed inset-0 z-[200] flex flex-col bg-white">
 
           {/* Top bar */}
-          <div className="flex items-center gap-2 px-4 py-2 border-b border-[#E7E7E7] flex-shrink-0 bg-white">
-            <button onClick={() => setOpen(false)} className="w-8 h-8 flex items-center justify-center text-[#565959] hover:text-[#0F1111] transition">
+          <div className="flex items-center gap-2 px-4 py-2 border-b border-[#E7E7E7] flex-shrink-0">
+            <button onClick={() => setOpen(false)} className="w-8 h-8 flex items-center justify-center text-[#565959] hover:text-[#0F1111]">
               <i className="fa-solid fa-arrow-left text-sm"></i>
             </button>
             <div className="flex-1 relative">
               <i className="fa-solid fa-magnifying-glass absolute left-2.5 top-1/2 -translate-y-1/2 text-[#FF9900] text-xs"></i>
               <input ref={inputRef} value={query}
-                onChange={e => { setQuery(e.target.value); setActiveCat(''); setSection('products'); }}
-                placeholder="Rechercher sur OFS"
-                className="w-full pl-8 pr-8 py-2 border border-[#D5D9D9] focus:border-[#FF9900] rounded text-[13px] outline-none bg-[#F7F8F8] focus:bg-white transition" />
-              {query && (
-                <button onClick={() => { setQuery(''); setActiveCat(''); }} className="absolute right-2 top-1/2 -translate-y-1/2 text-[#ADBAC7] hover:text-[#0F1111]">
+                onChange={e => { setQuery(e.target.value); if (e.target.value) { setExpandedCat(null); setActiveSub(null); } }}
+                placeholder="Rechercher produits, marques, boutiques…"
+                className="w-full pl-8 pr-8 py-2 border border-[#D5D9D9] focus:border-[#FF9900] text-[13px] outline-none bg-[#F7F8F8] focus:bg-white transition" />
+              {(query || expandedCat) && (
+                <button onClick={clearFilters} className="absolute right-2 top-1/2 -translate-y-1/2 text-[#ADBAC7] hover:text-[#0F1111]">
                   <i className="fa-solid fa-xmark text-xs"></i>
                 </button>
               )}
@@ -110,50 +168,120 @@ const OFSAssistant = ({ addToCart }) => {
           </div>
 
           {/* Section toggle */}
-          <div className="flex border-b border-[#E7E7E7] flex-shrink-0 bg-white">
+          <div className="flex border-b border-[#E7E7E7] flex-shrink-0">
             {[
-              { key: 'products', label: 'Produits', count: filtered.length },
-              { key: 'boutiques', label: 'Boutiques', count: vendors.length },
+              { key: 'products', label: 'Produits', icon: 'fa-box' },
+              { key: 'categories', label: 'Catégories', icon: 'fa-layer-group' },
+              { key: 'boutiques', label: 'Boutiques', icon: 'fa-store' },
             ].map(s => (
               <button key={s.key} onClick={() => setSection(s.key)}
-                className={`flex-1 py-2 text-[11px] font-bold border-b-2 transition-all ${
-                  section === s.key
-                    ? 'text-[#0F1111] border-[#FF9900]'
-                    : 'text-[#565959] border-transparent hover:text-[#0F1111]'
+                className={`flex-1 py-2.5 text-[11px] font-bold border-b-2 transition-all flex items-center justify-center gap-1.5 ${
+                  section === s.key ? 'text-[#0F1111] border-[#FF9900]' : 'text-[#565959] border-transparent hover:text-[#0F1111]'
                 }`}>
-                {s.label} <span className="text-[#ADBAC7] ml-0.5">({s.count})</span>
+                <i className={`fa-solid ${s.icon} text-[9px]`}></i>
+                {s.label}
               </button>
             ))}
           </div>
 
-          {/* Categories row (products only) */}
-          {section === 'products' && (
-            <div className="flex gap-1.5 px-4 py-2 overflow-x-auto hide-scrollbar border-b border-[#F3F4F4] flex-shrink-0 bg-[#FAFAFA]">
-              {CATS.map(c => (
-                <button key={c.q} onClick={() => { setActiveCat(c.q); setQuery(''); }}
-                  className={`flex items-center gap-1 px-2.5 py-1 text-[10px] font-bold whitespace-nowrap border transition-all flex-shrink-0 ${
-                    activeCat === c.q
-                      ? 'bg-[#131921] text-white border-[#131921]'
-                      : 'bg-white text-[#565959] border-[#D5D9D9] hover:border-[#131921]'
-                  }`}>
-                  <i className={`fa-solid ${c.icon} text-[8px]`}></i>{c.label}
-                </button>
-              ))}
+          {/* Active filter badge */}
+          {isFiltering && section !== 'categories' && (
+            <div className="flex items-center gap-2 px-4 py-1.5 bg-[#FFF8F0] border-b border-[#FFE0B2] flex-shrink-0">
+              <p className="text-[10px] text-[#B85C00] flex-1">
+                {activeSub && <><i className="fa-solid fa-tag mr-1"></i>{activeSub}</>}
+                {expandedCat && !activeSub && <><i className="fa-solid fa-folder mr-1"></i>{CATEGORIES.find(c => c.key === expandedCat)?.label}</>}
+                {query && <><i className="fa-solid fa-magnifying-glass mr-1"></i>"{query}"</>}
+                <span className="ml-1 text-[#ADBAC7]">— {filtered.length} résultat{filtered.length !== 1 ? 's' : ''}</span>
+              </p>
+              <button onClick={clearFilters} className="text-[10px] font-bold text-[#007185] hover:text-[#FF9900]">Effacer</button>
             </div>
           )}
 
-          {/* Scrollable content */}
-          <div className="flex-1 overflow-y-auto bg-white">
+          {/* Content */}
+          <div className="flex-1 overflow-y-auto">
             {!dataLoaded ? (
               <div className="flex items-center justify-center py-20">
                 <div className="w-7 h-7 border-[3px] border-[#FF9900] border-t-transparent rounded-full animate-spin"></div>
               </div>
+            ) : section === 'categories' ? (
+              /* ─── CATEGORIES ─── */
+              <div className="divide-y divide-[#F3F4F4]">
+                {CATEGORIES.map(cat => {
+                  const isExpanded = expandedCat === cat.key;
+                  const count = catCounts[cat.key] || 0;
+                  return (
+                    <div key={cat.key}>
+                      <button onClick={() => handleCatClick(cat)}
+                        className={`w-full flex items-center gap-3 px-4 py-3 text-left transition-colors ${
+                          isExpanded ? 'bg-[#FAFAFA]' : 'hover:bg-[#FAFAFA]'
+                        }`}>
+                        <div className="w-9 h-9 flex items-center justify-center flex-shrink-0 border border-[#E7E7E7]"
+                          style={{ backgroundColor: cat.color + '10' }}>
+                          <i className={`fa-solid ${cat.icon} text-sm`} style={{ color: cat.color }}></i>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[13px] font-bold text-[#0F1111]">{cat.label}</p>
+                          <p className="text-[10px] text-[#565959]">{cat.subs.length} sous-catégories · {count} article{count !== 1 ? 's' : ''}</p>
+                        </div>
+                        <i className={`fa-solid fa-chevron-right text-[10px] text-[#ADBAC7] transition-transform ${isExpanded ? 'rotate-90' : ''}`}></i>
+                      </button>
+
+                      {isExpanded && (
+                        <div className="bg-[#FAFAFA] border-t border-[#F3F4F4]">
+                          {/* View all in category */}
+                          <button onClick={() => { setActiveSub(null); setSection('products'); }}
+                            className="w-full flex items-center gap-3 px-4 py-2 pl-16 text-left hover:bg-[#F0F0F0] transition-colors border-b border-[#F3F4F4]">
+                            <i className="fa-solid fa-border-all text-[9px] text-[#FF9900]"></i>
+                            <span className="text-[12px] font-bold text-[#FF9900]">Tout {cat.label}</span>
+                            <span className="text-[10px] text-[#ADBAC7] ml-auto">{count}</span>
+                          </button>
+                          {cat.subs.map(sub => (
+                            <button key={sub} onClick={() => { handleSubClick(sub); setSection('products'); }}
+                              className={`w-full flex items-center gap-3 px-4 py-2 pl-16 text-left transition-colors ${
+                                activeSub === sub ? 'bg-[#FFF8F0]' : 'hover:bg-[#F0F0F0]'
+                              }`}>
+                              <i className={`fa-solid fa-chevron-right text-[7px] ${activeSub === sub ? 'text-[#FF9900]' : 'text-[#D5D9D9]'}`}></i>
+                              <span className={`text-[12px] ${activeSub === sub ? 'font-bold text-[#B85C00]' : 'text-[#0F1111]'}`}>{sub}</span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+
+                {/* Total summary */}
+                <div className="px-4 py-3 bg-[#F7F8F8]">
+                  <p className="text-[10px] text-[#565959]">
+                    <span className="font-bold text-[#0F1111]">{CATEGORIES.length}</span> catégories ·{' '}
+                    <span className="font-bold text-[#0F1111]">{CATEGORIES.reduce((s, c) => s + c.subs.length, 0)}</span> sous-catégories ·{' '}
+                    <span className="font-bold text-[#0F1111]">{allProducts.length}</span> produits
+                  </p>
+                </div>
+              </div>
             ) : section === 'products' ? (
+              /* ─── PRODUCTS ─── */
               <>
+                {/* Quick category pills when not filtering */}
+                {!isFiltering && (
+                  <div className="flex gap-1.5 px-4 py-2 overflow-x-auto hide-scrollbar border-b border-[#F3F4F4] bg-[#FAFAFA] flex-shrink-0">
+                    {CATEGORIES.slice(0, 7).map(c => (
+                      <button key={c.key} onClick={() => { setExpandedCat(c.key); setSection('products'); }}
+                        className="flex items-center gap-1 px-2.5 py-1 text-[10px] font-bold whitespace-nowrap border bg-white text-[#565959] border-[#D5D9D9] hover:border-[#131921] transition-all flex-shrink-0">
+                        <i className={`fa-solid ${c.icon} text-[8px]`} style={{ color: c.color }}></i>{c.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+
                 {filtered.length === 0 ? (
                   <div className="text-center py-16 px-4">
-                    <p className="text-[13px] text-[#565959]">Aucun résultat pour <strong>"{query || activeCat}"</strong></p>
-                    <p className="text-[11px] text-[#ADBAC7] mt-1">Essaie d'autres mots-clés</p>
+                    <i className="fa-solid fa-box-open text-4xl text-[#E7E7E7] mb-3 block"></i>
+                    <p className="text-[13px] text-[#565959]">Aucun résultat</p>
+                    <p className="text-[11px] text-[#ADBAC7] mt-1">Essaie d'autres mots-clés ou catégories</p>
+                    <button onClick={clearFilters} className="mt-3 text-[11px] font-bold text-[#007185] hover:text-[#FF9900]">
+                      Réinitialiser les filtres
+                    </button>
                   </div>
                 ) : (
                   <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-px bg-[#E7E7E7]">
@@ -186,15 +314,15 @@ const OFSAssistant = ({ addToCart }) => {
                   </div>
                 )}
 
-                {filtered.length > 0 && (query || activeCat) && (
-                  <button onClick={() => { setOpen(false); navigate(`/search?q=${encodeURIComponent(query || activeCat)}`); }}
+                {filtered.length > 0 && isFiltering && (
+                  <button onClick={() => { setOpen(false); navigate(`/search?q=${encodeURIComponent(query || activeSub || expandedCat || '')}`); }}
                     className="w-full py-3 text-[12px] font-bold text-[#007185] hover:text-[#FF9900] border-t border-[#E7E7E7] transition-colors">
-                    Voir tous les résultats <i className="fa-solid fa-chevron-right ml-1 text-[9px]"></i>
+                    Voir tous les résultats sur OFS <i className="fa-solid fa-chevron-right ml-1 text-[9px]"></i>
                   </button>
                 )}
               </>
             ) : (
-              /* Boutiques */
+              /* ─── BOUTIQUES ─── */
               <div className="divide-y divide-[#E7E7E7]">
                 {vendors.map(v => {
                   const vProds = (vendorProducts[v.id] || []).slice(0, 5);
@@ -218,7 +346,6 @@ const OFSAssistant = ({ addToCart }) => {
                         </div>
                       </div>
 
-                      {/* Product thumbnails row */}
                       {vProds.length > 0 && (
                         <div className="flex gap-1.5 mt-2 overflow-x-auto hide-scrollbar">
                           {vProds.map(p => (
@@ -239,7 +366,6 @@ const OFSAssistant = ({ addToCart }) => {
                         </div>
                       )}
 
-                      {/* Actions */}
                       <div className="flex gap-2 mt-2">
                         <button onClick={() => { setOpen(false); navigate(`/shop/${encodeURIComponent(v.shop_name)}`); }}
                           className="flex-1 py-1.5 bg-[#FFD814] hover:bg-[#F7CA00] border border-[#FCD200] text-[10px] font-bold text-[#0F1111] transition-colors text-center">
