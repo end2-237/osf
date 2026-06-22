@@ -9,6 +9,7 @@ import Navbar from './components/Navbar';
 import Footer from './components/Footer';
 import CartSidebar from './components/CartSidebar';
 import WhatsAppButton from './components/WhatsAppButton';
+import OFSAssistant from './components/OFSAssistant';
 import PrivateRoute from './routes/PrivateRoute';
 import SuperAdminRoute from './routes/SuperAdminRoute';
 
@@ -246,6 +247,7 @@ function AppContent() {
             />
           </Suspense>
           <WhatsAppButton />
+          <OFSAssistant addToCart={addToCart} />
         </>
       )}
     </div>
