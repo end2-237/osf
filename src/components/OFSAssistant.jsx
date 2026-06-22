@@ -217,6 +217,42 @@ const OFSAssistant = ({ addToCart }) => {
                     <i className="fa-solid fa-chevron-right text-[10px] text-[#ADBAC7]"></i>
                   </button>
                 </div>
+
+                {/* Trending products */}
+                {allProducts.length > 0 && (
+                  <div className="mt-5 border-t border-[#F3F4F4] pt-4">
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-[#565959] mb-2">Nouveautés</p>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-px bg-[#E7E7E7] border border-[#E7E7E7]">
+                      {allProducts.slice(0, 8).map(p => (
+                        <div key={p.id} onClick={() => handleProductClick(p)}
+                          className="bg-white cursor-pointer hover:bg-[#FAFAFA] transition-colors group relative">
+                          <div className="aspect-square bg-[#F7F8F8] relative overflow-hidden">
+                            {p.img
+                              ? <img src={p.img} alt="" className="w-full h-full object-cover" loading="lazy" />
+                              : <div className="w-full h-full flex items-center justify-center text-[#E7E7E7]"><i className="fa-solid fa-image text-xl"></i></div>}
+                            <button onClick={(e) => handleAddToCart(p, e)}
+                              className={`absolute bottom-2 right-2 w-7 h-7 flex items-center justify-center transition-all shadow-sm ${
+                                addedId === p.id
+                                  ? 'bg-[#007600] text-white'
+                                  : 'bg-white text-[#0F1111] border border-[#D5D9D9] opacity-0 group-hover:opacity-100 hover:border-[#FF9900]'
+                              }`}>
+                              <i className={`fa-solid ${addedId === p.id ? 'fa-check' : 'fa-cart-plus'} text-[10px]`}></i>
+                            </button>
+                          </div>
+                          <div className="px-2 py-2">
+                            <p className="text-[11px] text-[#0F1111] leading-snug line-clamp-2">{p.name}</p>
+                            <p className="text-[13px] font-bold text-[#0F1111] mt-0.5">{Number(p.price).toLocaleString()} <span className="text-[10px] font-normal">FCFA</span></p>
+                            {p.vendor?.shop_name && <p className="text-[9px] text-[#007185] mt-0.5">{p.vendor.shop_name}</p>}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    <button onClick={() => { setOpen(false); navigate('/store'); }}
+                      className="w-full py-2.5 mt-1 text-[11px] font-bold text-[#007185] hover:text-[#FF9900] transition-colors">
+                      Voir tout le catalogue <i className="fa-solid fa-chevron-right ml-1 text-[8px]"></i>
+                    </button>
+                  </div>
+                )}
               </div>
             ) : showBoutiques ? (
               /* ─── BOUTIQUES ─── */
