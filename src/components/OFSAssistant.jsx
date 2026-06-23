@@ -72,9 +72,8 @@ const ADS = [
     title: "Reçois en 2 heures à Douala",
     sub: "Livraison gratuite dès 10 000 FCFA d'achat",
     cta: "Découvrir",
-    icon: "fa-truck-fast",
-    bg: "from-[#131921] via-[#232F3E] to-[#37475A]",
-    accent: "#FF9900",
+    img: "https://images.unsplash.com/photo-1601584115197-04ecc0da31d7?w=800&q=80&auto=format&fit=crop",
+    accent: "#FFB84D",
     to: "/store",
   },
   {
@@ -82,9 +81,8 @@ const ADS = [
     title: "Gagne des points à chaque achat",
     sub: "Échange tes points contre des réductions exclusives",
     cta: "J'en profite",
-    icon: "fa-gift",
-    bg: "from-[#7A3D00] via-[#B85C00] to-[#FF9900]",
-    accent: "#FFE0B2",
+    img: "https://images.unsplash.com/photo-1513885535751-8b9238bd345a?w=800&q=80&auto=format&fit=crop",
+    accent: "#FFD27A",
     to: "/rewards",
   },
   {
@@ -92,9 +90,8 @@ const ADS = [
     title: "Ouvre ta boutique gratuitement",
     sub: "Vends partout au Cameroun en quelques clics",
     cta: "Commencer",
-    icon: "fa-store",
-    bg: "from-[#00505C] via-[#007185] to-[#00A8B5]",
-    accent: "#A7F3E8",
+    img: "https://images.unsplash.com/photo-1556740738-b6a63e27c4df?w=800&q=80&auto=format&fit=crop",
+    accent: "#9EE7DC",
     to: "/register",
   },
 ];
@@ -286,7 +283,7 @@ const OFSAssistant = ({ addToCart }) => {
             <div className="flex-shrink-0 flex justify-center pt-2 pb-1 cursor-grab active:cursor-grabbing select-none"
               onMouseDown={(e) => { e.preventDefault(); onDragStart(e.clientY); }}
               onTouchStart={(e) => onDragStart(e.touches[0].clientY)}>
-              <div className="w-10 h-1 bg-[#D5D9D9] rounded-full" />
+              <div className="w-10 h-1 bg-[#D5D9D9]" />
             </div>
 
             {/* Top bar with search */}
@@ -466,43 +463,40 @@ const OFSAssistant = ({ addToCart }) => {
                 </div>
               ) : (
                 <div>
+                  {/* ── Ad carousel (Amazon-style, full-bleed, square) ── */}
+                  <div className="relative overflow-hidden border-b border-[#E7E7E7]">
+                    <div className="flex transition-transform duration-500 ease-out"
+                      style={{ transform: `translateX(-${adIndex * 100}%)` }}>
+                      {ADS.map((a, i) => (
+                        <div key={i} className="min-w-full relative h-36 bg-[#131921]">
+                          <img src={a.img} alt="" className="absolute inset-0 w-full h-full object-cover" loading="lazy" />
+                          {/* dark gradient overlay for legibility */}
+                          <div className="absolute inset-0" style={{ background: 'linear-gradient(90deg, rgba(19,25,33,0.94) 0%, rgba(19,25,33,0.78) 45%, rgba(19,25,33,0.25) 100%)' }} />
+                          <span className="absolute top-2.5 right-3 text-[8px] font-semibold text-white/55 uppercase tracking-wider">Sponsorisé</span>
+                          <div className="relative h-full flex flex-col justify-center px-5 max-w-[78%]">
+                            <p className="text-[9px] font-bold uppercase tracking-widest mb-1" style={{ color: a.accent }}>{a.badge}</p>
+                            <p className="text-[16px] font-black text-white leading-tight">{a.title}</p>
+                            <p className="text-[10px] text-white/70 mt-1 leading-snug">{a.sub}</p>
+                            <button onClick={() => { closeDrawer(); navigate(a.to); }}
+                              className="mt-2.5 inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-[#FF9900] hover:bg-[#FFB800] text-[#0F1111] text-[11px] font-bold transition-colors w-fit">
+                              {a.cta}
+                              <i className="fa-solid fa-arrow-right text-[9px]" />
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    {/* progress segments */}
+                    <div className="absolute bottom-2.5 left-5 flex items-center gap-1">
+                      {ADS.map((_, i) => (
+                        <button key={i} onClick={() => setAdIndex(i)} aria-label={`Pub ${i + 1}`}
+                          className={`h-1 transition-all ${i === adIndex ? 'w-6 bg-white' : 'w-3 bg-white/40 hover:bg-white/60'}`} />
+                      ))}
+                    </div>
+                  </div>
+
                   {/* ── LANDING ── */}
                   <div className="px-4 py-5">
-                    {/* ── Ad carousel (Amazon-style) ── */}
-                    <div className="relative overflow-hidden rounded-lg mb-5">
-                      <div className="flex transition-transform duration-500 ease-out"
-                        style={{ transform: `translateX(-${adIndex * 100}%)` }}>
-                        {ADS.map((a, i) => (
-                          <div key={i} className={`min-w-full bg-gradient-to-r ${a.bg} relative`}>
-                            {/* sponsored label */}
-                            <span className="absolute top-2 right-2 text-[8px] font-semibold text-white/45 uppercase tracking-wider">Sponsorisé</span>
-                            <div className="flex items-center gap-4 p-4 pr-3">
-                              <div className="w-14 h-14 bg-white/12 rounded-xl flex items-center justify-center flex-shrink-0 backdrop-blur-sm">
-                                <i className={`fa-solid ${a.icon} text-white text-2xl`} />
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <p className="text-[9px] font-bold uppercase tracking-widest mb-0.5" style={{ color: a.accent }}>{a.badge}</p>
-                                <p className="text-[14px] font-black text-white leading-tight">{a.title}</p>
-                                <p className="text-[10px] text-white/65 mt-0.5 leading-snug">{a.sub}</p>
-                                <button onClick={() => { closeDrawer(); navigate(a.to); }}
-                                  className="mt-2 inline-flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-[#F3F4F4] text-[#0F1111] text-[11px] font-bold rounded-md transition-colors">
-                                  {a.cta}
-                                  <i className="fa-solid fa-arrow-right text-[9px]" />
-                                </button>
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                      {/* dots */}
-                      <div className="absolute bottom-2.5 left-1/2 -translate-x-1/2 flex items-center gap-1.5">
-                        {ADS.map((_, i) => (
-                          <button key={i} onClick={() => setAdIndex(i)} aria-label={`Pub ${i + 1}`}
-                            className={`h-1.5 rounded-full transition-all ${i === adIndex ? 'w-5 bg-white' : 'w-1.5 bg-white/40 hover:bg-white/60'}`} />
-                        ))}
-                      </div>
-                    </div>
-
                     <div className="text-center mb-5">
                       <div className="w-12 h-12 bg-[#FFF8F0] border border-[#FFE0B2] flex items-center justify-center mx-auto mb-2">
                         <i className="fa-solid fa-sparkles text-[#FF9900] text-lg" />
