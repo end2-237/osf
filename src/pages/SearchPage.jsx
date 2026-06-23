@@ -194,7 +194,7 @@ const CategoryPill = ({ cat, onClick, active }) => (
 const FilterSidebar = ({ activeCategory, setActiveCategory, activePriceRange, setActivePriceRange, vendors, activeVendors, toggleVendor, memberOnly, setMemberOnly, resultCount, onReset }) => {
   const hasFilters = activeCategory !== "All" || activePriceRange !== null || activeVendors.size > 0 || memberOnly;
   return (
-    <aside className="w-60 flex-shrink-0 space-y-5">
+    <aside className="w-60 flex-shrink-0 space-y-5 bg-white lg:border lg:border-gray-100 lg:rounded-xl lg:p-5">
 
       {/* HEADER */}
       <div className="flex items-center justify-between">
@@ -367,9 +367,11 @@ const SearchPage = ({ openModal, addToCart }) => {
   const [sortBy,         setSortBy]         = useState("recent");
   const [flashDeals,     setFlashDeals]     = useState([]);
   const [showMobileFilters, setShowMobileFilters] = useState(false);
+  const [loading,        setLoading]        = useState(true);
 
   // ── FETCH PRODUCTS ────────────────────────────────────────────────────────
   useEffect(() => {
+    setLoading(true);
     supabase
       .from("products")
       .select("*, vendor:vendors!vendor_id(id, shop_name, member_discount_enabled)")
@@ -386,6 +388,7 @@ const SearchPage = ({ openModal, addToCart }) => {
           }
         });
         setVendors(uniqueVendors);
+        setLoading(false);
       });
   }, []);
 
@@ -460,9 +463,9 @@ const SearchPage = ({ openModal, addToCart }) => {
   const activeFiltersCount = (activeCategory !== "All" ? 1 : 0) + (activePriceRange !== null ? 1 : 0) + activeVendors.size + (memberOnly ? 1 : 0);
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-[#F3F4F6]">
 
-      <div className="max-w-[1500px] mx-auto px-4 md:px-8 py-6">
+      <div className="max-w-[1500px] mx-auto px-4 md:px-8 py-5">
 
         {/* ═══ NO QUERY: LANDING STATE ═══ */}
         {!isSearching && (
@@ -584,20 +587,20 @@ const SearchPage = ({ openModal, addToCart }) => {
         {isSearching && (
           <>
             {/* RESULTS HEADER */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6 pb-5 border-b border-gray-100">
+            <div className="bg-white border border-gray-100 rounded-xl px-5 py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
               <div>
-                <h1 className="text-lg font-bold text-gray-900">
+                <h1 className="text-[15px] font-bold text-gray-900 leading-tight">
                   {query.trim() ? (
                     <>Résultats pour <span className="text-[#FF9900]">"{query}"</span></>
                   ) : activeCategory !== "All" ? (
                     CATEGORIES.find(c => c.key === activeCategory)?.label || activeCategory
                   ) : "Tous les produits"}
                 </h1>
-                <p className="text-[12px] text-gray-400 mt-0.5">
-                  {results.length} produit{results.length !== 1 ? "s" : ""} trouvé{results.length !== 1 ? "s" : ""}
+                <p className="text-[11px] text-gray-400 mt-0.5">
+                  {loading ? "Chargement…" : `${results.length} produit${results.length !== 1 ? "s" : ""} trouvé${results.length !== 1 ? "s" : ""}`}
                 </p>
                 {hasFilters && (
-                  <div className="flex items-center gap-1.5 flex-wrap mt-2.5">
+                  <div className="flex items-center gap-1.5 flex-wrap mt-2">
                     {activeCategory !== "All" && (
                       <span className="inline-flex items-center gap-1.5 bg-[#FFF7EC] text-[#FF9900] text-[11px] font-semibold px-2.5 py-1 rounded-full">
                         {CATEGORIES.find(c => c.key === activeCategory)?.label || activeCategory}
@@ -672,7 +675,11 @@ const SearchPage = ({ openModal, addToCart }) => {
 
               {/* RESULTS GRID */}
               <div className="flex-1 min-w-0">
-                {results.length === 0 ? (
+                {loading ? (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+                    {Array.from({ length: 8 }).map((_, i) => <SkeletonCard key={i} />)}
+                  </div>
+                ) : results.length === 0 ? (
                   <NoResults query={query} onClear={submitSearch} />
                 ) : (
                   <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
