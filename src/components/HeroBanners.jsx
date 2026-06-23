@@ -3,40 +3,36 @@ import { Link } from "react-router-dom";
 
 const SLIDES = [
   {
-    tag:   "Nouveau Drop",
+    tag:  "Nouveau Drop",
     title: "AUDIO ELITE X1",
-    sub:   "Son immersif. Design exclusif. La sélection premium Buyticle.",
-    cta:   "Découvrir",
-    img:   "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?q=80&w=1600",
-    accent:"#FF9900",
-    href:  "/store",
+    sub:  "Son immersif. Design exclusif. OneFreestyle.",
+    cta:  "Découvrir",
+    img:  "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?q=80&w=1600",
+    href: "/store",
   },
   {
-    tag:   "Flash Deal −30%",
+    tag:  "Flash Deal −30%",
     title: "STREET WEAR",
-    sub:   "Streetwear élite. Livraison express à Douala en 2 heures.",
-    cta:   "Shop Now",
-    img:   "https://images.unsplash.com/photo-1551488831-00ddcb6c6bd3?q=80&w=1600",
-    accent:"#FFD27A",
-    href:  "/store",
+    sub:  "Streetwear élite. Livraison express Douala.",
+    cta:  "Shop Now",
+    img:  "https://images.unsplash.com/photo-1551488831-00ddcb6c6bd3?q=80&w=1600",
+    href: "/store",
   },
   {
-    tag:   "Bundle Deal",
+    tag:  "Bundle Deal",
     title: "TECH LAB 4K",
-    sub:   "Immersion VR totale. Technologie de pointe à prix juste.",
-    cta:   "Explorer",
-    img:   "https://images.unsplash.com/photo-1622979135225-d2ba269cf1ac?q=80&w=1600",
-    accent:"#9EE7DC",
-    href:  "/store",
+    sub:  "Immersion VR totale. Technologie de pointe.",
+    cta:  "Explorer",
+    img:  "https://images.unsplash.com/photo-1622979135225-d2ba269cf1ac?q=80&w=1600",
+    href: "/store",
   },
   {
-    tag:   "Collection Femme",
+    tag:  "Collection Femme",
     title: "STYLE SANS LIMITES",
-    sub:   "Streetwear, parfums & accessoires pour elle.",
-    cta:   "Découvrir",
-    img:   "https://images.unsplash.com/photo-1483985988355-763728e1935b?q=80&w=1600",
-    accent:"#FFB84D",
-    href:  "/store",
+    sub:  "Streetwear, parfums & accessoires pour elle.",
+    cta:  "Découvrir",
+    img:  "https://images.unsplash.com/photo-1483985988355-763728e1935b?q=80&w=1600",
+    href: "/store",
   },
 ];
 
@@ -64,10 +60,10 @@ const HeroBanners = () => {
   const slide = SLIDES[active];
 
   return (
-    <section className="w-full relative overflow-hidden bg-[#131921]">
+    <section className="w-full relative overflow-hidden bg-[#EAEDED]">
 
-      {/* FULL-BLEED IMMERSIVE BANNER */}
-      <div className="relative w-full" style={{ height: "clamp(400px, 68vh, 640px)" }}>
+      {/* FULL-WIDTH BANNER — Amazon style */}
+      <div className="relative w-full" style={{ maxHeight: 500 }}>
         {SLIDES.map((s, idx) => (
           <div
             key={idx}
@@ -77,74 +73,63 @@ const HeroBanners = () => {
               src={s.img}
               alt={s.title}
               className="w-full h-full object-cover"
-              style={{ objectPosition: "center 30%", animation: idx === active ? "heroKenBurns 7s ease-out both" : "none" }}
+              style={{ maxHeight: 500 }}
             />
-            {/* dark gradient overlay — left→right for desktop legibility */}
-            <div className="absolute inset-0 hidden md:block" style={{ background: "linear-gradient(90deg, rgba(19,25,33,0.92) 0%, rgba(19,25,33,0.72) 42%, rgba(19,25,33,0.15) 100%)" }} />
-            {/* bottom→top overlay for mobile */}
-            <div className="absolute inset-0 md:hidden" style={{ background: "linear-gradient(to top, rgba(19,25,33,0.94) 8%, rgba(19,25,33,0.55) 45%, rgba(19,25,33,0.2) 100%)" }} />
           </div>
         ))}
 
-        {/* SPONSORED LABEL */}
-        <span className="absolute top-4 right-5 z-30 text-[9px] font-semibold text-white/50 uppercase tracking-widest">
-          Sponsorisé
-        </span>
+        {/* Aspect spacer */}
+        <div className="relative z-0" style={{ paddingTop: "min(500px, 36vw)" }} />
 
-        {/* CONTENT */}
-        <div className="absolute inset-0 z-30 flex flex-col justify-center">
-          <div className="max-w-[1600px] w-full mx-auto px-6 md:px-16">
-            <div className={`max-w-lg transition-all duration-500 ${animating ? "opacity-0 translate-y-3" : "opacity-100 translate-y-0"}`}>
-              <p className="text-[10px] md:text-xs font-bold uppercase tracking-[0.18em] mb-2.5" style={{ color: slide.accent }}>
-                {slide.tag}
-              </p>
-              <h2 className="font-black text-white leading-[1.03] mb-3" style={{ fontSize: "clamp(2.1rem, 6vw, 4.2rem)" }}>
-                {slide.title}
-              </h2>
-              <p className="text-white/70 mb-7 max-w-md leading-relaxed" style={{ fontSize: "clamp(0.85rem, 1.8vw, 1.05rem)" }}>
-                {slide.sub}
-              </p>
-              <Link
-                to={slide.href}
-                className="inline-flex items-center gap-2.5 bg-[#FF9900] hover:bg-[#FFB800] text-[#0F1111] px-7 py-3.5 font-black uppercase tracking-wider transition-colors w-fit text-[12px] md:text-[13px]"
-              >
-                {slide.cta}
-                <i className="fa-solid fa-arrow-right text-xs"></i>
-              </Link>
-            </div>
-          </div>
+        {/* Left gradient fade — Amazon signature effect */}
+        <div className="absolute left-0 top-0 bottom-0 w-20 md:w-40 bg-gradient-to-r from-[#EAEDED] to-transparent z-20 pointer-events-none" />
+        <div className="absolute right-0 top-0 bottom-0 w-20 md:w-40 bg-gradient-to-l from-[#EAEDED] to-transparent z-20 pointer-events-none" />
+
+        {/* TEXT OVERLAY */}
+        <div
+          className={`absolute inset-0 z-30 flex flex-col justify-center pl-8 md:pl-16 transition-all duration-500 ${animating ? "opacity-0 translate-y-2" : "opacity-100 translate-y-0"}`}
+        >
+          <span className="text-[#FF9900] text-xs font-bold uppercase tracking-wider mb-1">
+            {slide.tag}
+          </span>
+          <h2 className="text-2xl md:text-5xl font-black text-white leading-tight mb-2 drop-shadow-lg max-w-xs md:max-w-lg">
+            {slide.title}
+          </h2>
+          <p className="text-gray-200 text-sm mb-4 max-w-xs drop-shadow">{slide.sub}</p>
+          <Link
+            to={slide.href}
+            className="inline-flex items-center gap-2 bg-[#FFD814] hover:bg-[#F7CA00] text-[#0F1111] px-5 py-2.5 rounded font-bold text-sm transition-colors shadow w-fit"
+          >
+            {slide.cta}
+            <i className="fa-solid fa-arrow-right text-xs"></i>
+          </Link>
         </div>
 
-        {/* ARROWS — square */}
+        {/* ARROW LEFT */}
         <button
           onClick={() => goTo((active - 1 + SLIDES.length) % SLIDES.length)}
-          aria-label="Précédent"
-          className="absolute left-0 top-1/2 -translate-y-1/2 z-40 w-10 h-20 bg-black/25 hover:bg-black/45 backdrop-blur-sm flex items-center justify-center transition-colors"
+          className="absolute left-2 top-1/2 -translate-y-1/2 z-40 w-10 h-16 bg-white/90 hover:bg-white shadow-md rounded flex items-center justify-center transition-all hover:shadow-lg"
         >
-          <i className="fa-solid fa-chevron-left text-white text-sm"></i>
-        </button>
-        <button
-          onClick={() => goTo((active + 1) % SLIDES.length)}
-          aria-label="Suivant"
-          className="absolute right-0 top-1/2 -translate-y-1/2 z-40 w-10 h-20 bg-black/25 hover:bg-black/45 backdrop-blur-sm flex items-center justify-center transition-colors"
-        >
-          <i className="fa-solid fa-chevron-right text-white text-sm"></i>
+          <i className="fa-solid fa-chevron-left text-gray-700 text-sm"></i>
         </button>
 
-        {/* PROGRESS SEGMENTS — square, aligned with content */}
-        <div className="absolute bottom-0 left-0 right-0 z-40">
-          <div className="max-w-[1600px] mx-auto px-6 md:px-16 pb-6">
-            <div className="flex items-center gap-1.5">
-              {SLIDES.map((_, i) => (
-                <button
-                  key={i}
-                  onClick={() => goTo(i)}
-                  aria-label={`Slide ${i + 1}`}
-                  className={`h-1 transition-all ${i === active ? "w-8 bg-[#FF9900]" : "w-4 bg-white/35 hover:bg-white/60"}`}
-                />
-              ))}
-            </div>
-          </div>
+        {/* ARROW RIGHT */}
+        <button
+          onClick={() => goTo((active + 1) % SLIDES.length)}
+          className="absolute right-2 top-1/2 -translate-y-1/2 z-40 w-10 h-16 bg-white/90 hover:bg-white shadow-md rounded flex items-center justify-center transition-all hover:shadow-lg"
+        >
+          <i className="fa-solid fa-chevron-right text-gray-700 text-sm"></i>
+        </button>
+
+        {/* DOTS */}
+        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-40 flex gap-2">
+          {SLIDES.map((_, i) => (
+            <button
+              key={i}
+              onClick={() => goTo(i)}
+              className={`rounded-full transition-all duration-300 ${i === active ? "w-5 h-2.5 bg-[#FF9900]" : "w-2.5 h-2.5 bg-white/60 hover:bg-white"}`}
+            />
+          ))}
         </div>
       </div>
 
@@ -170,9 +155,6 @@ const HeroBanners = () => {
         </div>
       </div>
 
-      <style>{`
-        @keyframes heroKenBurns { from { transform: scale(1.08); } to { transform: scale(1); } }
-      `}</style>
     </section>
   );
 };

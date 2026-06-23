@@ -155,17 +155,27 @@ const FullscreenAd = ({ ad, adIndex, total, onClose, onNext, isLast }) => {
         animation: closing ? "adOut 0.28s ease forwards" : "adIn 0.45s cubic-bezier(0.16,1,0.3,1) both",
       }}
     >
-      {/* ── CARD ── */}
+      {/* ── CARD — full-bleed image, square ── */}
       <div
-        className="relative w-full max-w-[940px] flex flex-col md:flex-row rounded-2xl overflow-hidden bg-[#0F1111]"
-        style={{ maxHeight: "94dvh", boxShadow: "0 40px 120px rgba(0,0,0,0.75), 0 0 0 1px rgba(255,255,255,0.06)" }}
+        className="relative w-full max-w-[460px] overflow-hidden bg-[#0F1111]"
+        style={{ height: "clamp(540px, 88dvh, 760px)", boxShadow: "0 40px 120px rgba(0,0,0,0.75), 0 0 0 1px rgba(255,255,255,0.06)" }}
       >
-        {/* ── STORY PROGRESS BARS (top, full width) ── */}
+        {/* full-bleed image */}
+        <img
+          src={ad.img}
+          alt={ad.title}
+          className="absolute inset-0 w-full h-full object-cover"
+          style={{ objectPosition: "center 28%", animation: "adKenBurns 9s ease-out both" }}
+        />
+        {/* dark gradient overlay bottom→top for legibility */}
+        <div className="absolute inset-0" style={{ background: "linear-gradient(to top, rgba(15,17,17,0.97) 4%, rgba(15,17,17,0.72) 38%, rgba(15,17,17,0.18) 72%, rgba(15,17,17,0.45) 100%)" }} />
+
+        {/* ── STORY PROGRESS BARS (top, square) ── */}
         <div className="absolute top-0 left-0 right-0 z-30 flex gap-1.5 px-3.5 pt-3">
           {Array.from({ length: total }).map((_, i) => (
-            <div key={i} className="flex-1 h-[3px] rounded-full bg-white/15 overflow-hidden">
+            <div key={i} className="flex-1 h-[3px] bg-white/20 overflow-hidden">
               <div
-                className="h-full rounded-full"
+                className="h-full"
                 style={{
                   width: i < adIndex ? "100%" : i === adIndex ? progress + "%" : "0%",
                   background: ad.accent,
@@ -176,99 +186,69 @@ const FullscreenAd = ({ ad, adIndex, total, onClose, onNext, isLast }) => {
           ))}
         </div>
 
-        {/* ── IMAGE SIDE ── */}
-        <div className="relative flex-shrink-0 md:w-[44%] h-[195px] md:h-auto md:min-h-[472px] bg-black overflow-hidden">
-          <img
-            src={ad.img}
-            alt={ad.title}
-            className="w-full h-full object-cover"
-            style={{ objectPosition: "center 25%", animation: "adKenBurns 9s ease-out both" }}
-          />
-          {/* blend gradient: bottom on mobile, right on desktop */}
-          <div className="absolute inset-0 md:hidden" style={{ background: "linear-gradient(to bottom, rgba(15,17,17,0) 35%, rgba(15,17,17,0.95) 100%)" }} />
-          <div className="absolute inset-0 hidden md:block" style={{ background: "linear-gradient(to right, rgba(15,17,17,0) 55%, rgba(15,17,17,0.98) 100%)" }} />
+        {/* ── TOP ROW: brand + countdown/close ── */}
+        <div className="absolute top-6 left-0 right-0 z-30 px-5 flex items-start justify-between">
+          <div className="flex items-center gap-2">
+            <span className="text-[8px] font-bold uppercase tracking-[0.22em] text-white/50">
+              Publicité · {adIndex + 1}/{total}
+            </span>
+          </div>
 
-          {/* tag + badge over image, bottom-left */}
-          <div className="absolute bottom-3.5 left-4 right-4 flex flex-wrap items-center gap-2 z-10">
+          {canClose ? (
+            <button
+              onClick={dismiss}
+              aria-label="Fermer"
+              className="w-9 h-9 border border-white/20 bg-black/30 hover:bg-black/50 backdrop-blur-sm flex items-center justify-center transition-colors flex-shrink-0"
+            >
+              <i className="fa-solid fa-xmark text-white text-sm" />
+            </button>
+          ) : (
+            <div className="relative w-9 h-9 flex items-center justify-center flex-shrink-0" title="Publicité">
+              <svg className="absolute inset-0 -rotate-90" viewBox="0 0 36 36">
+                <circle cx="18" cy="18" r={R} fill="none" stroke="rgba(255,255,255,0.18)" strokeWidth="2.5" />
+                <circle
+                  cx="18" cy="18" r={R} fill="none" stroke={ad.accent} strokeWidth="2.5" strokeLinecap="round"
+                  strokeDasharray={CIRC} strokeDashoffset={CIRC * (1 - progress / 100)}
+                  style={{ transition: "stroke-dashoffset 0.1s linear" }}
+                />
+              </svg>
+              <span className="text-[11px] font-black text-white tabular-nums">{timeLeft}</span>
+            </div>
+          )}
+        </div>
+
+        {/* ── CONTENT (bottom) ── */}
+        <div className="absolute bottom-0 left-0 right-0 z-20 p-6 md:p-7">
+
+          {/* tag + badge chips */}
+          <div className="flex flex-wrap items-center gap-2 mb-3.5">
             <span
-              className="inline-flex items-center gap-1.5 text-[8.5px] font-black uppercase tracking-[0.14em] px-2.5 py-1.5 rounded-full backdrop-blur-md"
+              className="inline-flex items-center gap-1.5 text-[8.5px] font-black uppercase tracking-[0.14em] px-2.5 py-1.5 backdrop-blur-md"
               style={{ border: `1px solid ${ad.accent}70`, color: ad.accent, background: `${ad.accent}1f` }}
             >
               <i className={`fa-solid ${ad.tagIcon}`} style={{ fontSize: 8 }} />
               {ad.tag}
             </span>
-            <span className="inline-flex items-center text-[8.5px] font-black uppercase tracking-[0.1em] px-2.5 py-1.5 rounded-full bg-white text-[#0F1111] shadow-sm">
+            <span className="inline-flex items-center text-[8.5px] font-black uppercase tracking-[0.1em] px-2.5 py-1.5 bg-white text-[#0F1111]">
               {ad.badge}
             </span>
           </div>
-        </div>
-
-        {/* ── CONTENT SIDE ── */}
-        <div className="relative flex-1 flex flex-col p-6 md:p-8 pt-6 md:pt-9 overflow-y-auto">
-
-          {/* top row: OFS brand + countdown/close */}
-          <div className="flex items-start justify-between mb-5 md:mb-6">
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-xl bg-[#FF9900] flex items-center justify-center flex-shrink-0 shadow-lg shadow-[#FF9900]/30">
-                <i className="fa-solid fa-bolt text-[#0F1111] text-sm" />
-              </div>
-              <div className="leading-none">
-                <p className="text-[12px] font-black text-white tracking-tight leading-none">
-                  OneFree<span className="text-[#FF9900]">Style</span>
-                </p>
-                <p className="text-[8px] font-bold text-white/40 uppercase tracking-[0.16em] mt-1">
-                  Douala 🇨🇲 · Sélection Elite
-                </p>
-              </div>
-            </div>
-
-            {/* countdown ring → close button */}
-            {canClose ? (
-              <button
-                onClick={dismiss}
-                aria-label="Fermer"
-                className="w-9 h-9 rounded-full border border-white/20 bg-white/5 hover:bg-white/15 flex items-center justify-center transition-colors flex-shrink-0"
-              >
-                <i className="fa-solid fa-xmark text-white text-sm" />
-              </button>
-            ) : (
-              <div className="relative w-9 h-9 flex items-center justify-center flex-shrink-0" title="Publicité">
-                <svg className="absolute inset-0 -rotate-90" viewBox="0 0 36 36">
-                  <circle cx="18" cy="18" r={R} fill="none" stroke="rgba(255,255,255,0.14)" strokeWidth="2.5" />
-                  <circle
-                    cx="18" cy="18" r={R} fill="none" stroke={ad.accent} strokeWidth="2.5" strokeLinecap="round"
-                    strokeDasharray={CIRC} strokeDashoffset={CIRC * (1 - progress / 100)}
-                    style={{ transition: "stroke-dashoffset 0.1s linear" }}
-                  />
-                </svg>
-                <span className="text-[11px] font-black text-white tabular-nums">{timeLeft}</span>
-              </div>
-            )}
-          </div>
-
-          {/* PUB label */}
-          <span className="text-[8px] font-bold uppercase tracking-[0.22em] text-white/25 mb-3">
-            Publicité · {adIndex + 1}/{total}
-          </span>
 
           {/* headline */}
           <h2
             className="font-black text-white tracking-tight mb-3"
-            style={{ lineHeight: 1.04, fontSize: "clamp(1.6rem, 4.6vw, 2.4rem)" }}
+            style={{ lineHeight: 1.03, fontSize: "clamp(1.9rem, 8vw, 2.7rem)" }}
           >
             <span style={{ color: ad.accent }}>{firstWord}</span>{restTitle ? " " + restTitle : ""}
           </h2>
 
           {/* sub */}
-          <p
-            className="text-white/65 leading-relaxed mb-6 max-w-[440px]"
-            style={{ fontSize: "clamp(0.82rem, 1.8vw, 0.95rem)" }}
-          >
+          <p className="text-white/70 leading-relaxed mb-5 max-w-[400px]" style={{ fontSize: "clamp(0.82rem, 3.6vw, 0.95rem)" }}>
             {ad.sub}
           </p>
 
           {/* trust row */}
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 mb-7">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 mb-5">
             {[
               { icon: "fa-shield-halved", label: "Paiement sécurisé" },
               { icon: "fa-truck-fast",    label: "Livraison Douala" },
@@ -281,12 +261,12 @@ const FullscreenAd = ({ ad, adIndex, total, onClose, onNext, isLast }) => {
             ))}
           </div>
 
-          {/* CTA row — pinned to bottom */}
-          <div className="mt-auto flex items-center gap-2 flex-wrap">
+          {/* CTA row */}
+          <div className="flex items-center gap-2 flex-wrap">
             <button
               onClick={handleCta}
-              className="group/cta inline-flex items-center gap-2.5 px-6 py-3.5 rounded-xl font-black uppercase tracking-wider text-[#0F1111] transition-transform active:scale-95 hover:scale-[1.03]"
-              style={{ background: ad.accent, fontSize: "clamp(0.7rem, 1.6vw, 0.8rem)", boxShadow: `0 8px 30px ${ad.accent}55` }}
+              className="group/cta inline-flex items-center gap-2.5 px-6 py-3.5 font-black uppercase tracking-wider text-[#0F1111] transition-transform active:scale-95 hover:scale-[1.02]"
+              style={{ background: ad.accent, fontSize: "clamp(0.7rem, 3.4vw, 0.8rem)", boxShadow: `0 8px 30px ${ad.accent}55` }}
             >
               {ad.cta}
               <i className={`fa-solid ${ad.external ? "fa-arrow-up-right-from-square" : "fa-arrow-right"} group-hover/cta:translate-x-0.5 transition-transform`} style={{ fontSize: 11 }} />
@@ -295,8 +275,8 @@ const FullscreenAd = ({ ad, adIndex, total, onClose, onNext, isLast }) => {
             {(!isLast || canClose) && (
               <button
                 onClick={!isLast ? goNext : dismiss}
-                className="inline-flex items-center gap-2 px-4 py-3 rounded-xl text-white/45 hover:text-white/85 font-bold uppercase tracking-wider transition-colors"
-                style={{ fontSize: "clamp(0.64rem, 1.4vw, 0.72rem)" }}
+                className="inline-flex items-center gap-2 px-4 py-3 text-white/50 hover:text-white/90 font-bold uppercase tracking-wider transition-colors"
+                style={{ fontSize: "clamp(0.64rem, 3vw, 0.72rem)" }}
               >
                 {!isLast ? "Passer" : "Fermer"}
                 <i className={`fa-solid ${!isLast ? "fa-chevron-right" : "fa-xmark"}`} style={{ fontSize: 9 }} />
