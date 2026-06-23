@@ -67,9 +67,36 @@ const PROMPTS = [
 ];
 
 const ADS = [
-  { title: "Livraison express Douala", sub: "Reçois en 2h · Gratuit dès 10 000 FCFA", icon: "fa-truck-fast", bg: "from-[#232F3E] to-[#37475A]" },
-  { title: "Programme Rewards", sub: "Gagne des points à chaque achat", icon: "fa-gift", bg: "from-[#B85C00] to-[#FF9900]" },
-  { title: "Deviens vendeur", sub: "Ouvre ta boutique en ligne gratuitement", icon: "fa-store", bg: "from-[#007185] to-[#00A8B5]" },
+  {
+    badge: "Livraison Express",
+    title: "Reçois en 2 heures à Douala",
+    sub: "Livraison gratuite dès 10 000 FCFA d'achat",
+    cta: "Découvrir",
+    icon: "fa-truck-fast",
+    bg: "from-[#131921] via-[#232F3E] to-[#37475A]",
+    accent: "#FF9900",
+    to: "/store",
+  },
+  {
+    badge: "Buyticle Rewards",
+    title: "Gagne des points à chaque achat",
+    sub: "Échange tes points contre des réductions exclusives",
+    cta: "J'en profite",
+    icon: "fa-gift",
+    bg: "from-[#7A3D00] via-[#B85C00] to-[#FF9900]",
+    accent: "#FFE0B2",
+    to: "/rewards",
+  },
+  {
+    badge: "Espace Vendeur",
+    title: "Ouvre ta boutique gratuitement",
+    sub: "Vends partout au Cameroun en quelques clics",
+    cta: "Commencer",
+    icon: "fa-store",
+    bg: "from-[#00505C] via-[#007185] to-[#00A8B5]",
+    accent: "#A7F3E8",
+    to: "/register",
+  },
 ];
 
 const MIN_H = 20;
@@ -92,7 +119,7 @@ const OFSAssistant = ({ addToCart }) => {
   const [showBoutiques, setShowBoutiques] = useState(false);
   const [mapVendor, setMapVendor] = useState(null);
   const [heightVh, setHeightVh] = useState(DEFAULT_H);
-  const [adIndex] = useState(() => Math.floor(Math.random() * ADS.length));
+  const [adIndex, setAdIndex] = useState(0);
   const inputRef = useRef(null);
   const dragging = useRef(false);
   const startY = useRef(0);
@@ -130,6 +157,13 @@ const OFSAssistant = ({ addToCart }) => {
     else document.body.style.overflow = '';
     return () => { document.body.style.overflow = ''; };
   }, [open]);
+
+  // ── Auto-slide ads (only on landing, before any search) ──
+  useEffect(() => {
+    if (!open || aiResult || thinking || showBoutiques || mapVendor) return;
+    const t = setInterval(() => setAdIndex(i => (i + 1) % ADS.length), 4500);
+    return () => clearInterval(t);
+  }, [open, aiResult, thinking, showBoutiques, mapVendor]);
 
   // ── Drag to resize ──
   const onDragStart = useCallback((clientY) => {
@@ -231,8 +265,6 @@ const OFSAssistant = ({ addToCart }) => {
   const reset = () => { setQuery(''); setResults([]); setAiResult(null); setShowBoutiques(false); setMapVendor(null); };
   const closeDrawer = () => { setOpen(false); setHeightVh(DEFAULT_H); reset(); };
 
-  const ad = ADS[adIndex];
-
   return (
     <>
       {/* Floating trigger */}
@@ -257,15 +289,11 @@ const OFSAssistant = ({ addToCart }) => {
               <div className="w-10 h-1 bg-[#D5D9D9] rounded-full" />
             </div>
 
-            {/* Top bar with logo + search */}
+            {/* Top bar with search */}
             <div className="flex items-center gap-2 px-4 py-1.5 border-b border-[#E7E7E7] flex-shrink-0">
               <button onClick={closeDrawer} className="w-8 h-8 flex items-center justify-center text-[#565959] hover:text-[#0F1111] flex-shrink-0">
                 <i className="fa-solid fa-xmark text-sm" />
               </button>
-              <div className="flex items-center gap-1.5 flex-shrink-0 mr-1">
-                <span className="text-[15px] font-black text-[#FF9900] leading-none">B</span>
-                <span className="text-[13px] font-black text-[#0F1111] leading-none tracking-tight">Buyticle</span>
-              </div>
               <form onSubmit={handleSubmit} className="flex-1 relative">
                 <i className="fa-solid fa-sparkles absolute left-2.5 top-1/2 -translate-y-1/2 text-[#FF9900] text-xs" />
                 <input ref={inputRef} value={query}
@@ -440,16 +468,39 @@ const OFSAssistant = ({ addToCart }) => {
                 <div>
                   {/* ── LANDING ── */}
                   <div className="px-4 py-5">
-                    {/* Ad banner */}
-                    <div className={`bg-gradient-to-r ${ad.bg} rounded-lg p-3.5 mb-5 flex items-center gap-3`}>
-                      <div className="w-10 h-10 bg-white/15 rounded-lg flex items-center justify-center flex-shrink-0">
-                        <i className={`fa-solid ${ad.icon} text-white text-base`} />
+                    {/* ── Ad carousel (Amazon-style) ── */}
+                    <div className="relative overflow-hidden rounded-lg mb-5">
+                      <div className="flex transition-transform duration-500 ease-out"
+                        style={{ transform: `translateX(-${adIndex * 100}%)` }}>
+                        {ADS.map((a, i) => (
+                          <div key={i} className={`min-w-full bg-gradient-to-r ${a.bg} relative`}>
+                            {/* sponsored label */}
+                            <span className="absolute top-2 right-2 text-[8px] font-semibold text-white/45 uppercase tracking-wider">Sponsorisé</span>
+                            <div className="flex items-center gap-4 p-4 pr-3">
+                              <div className="w-14 h-14 bg-white/12 rounded-xl flex items-center justify-center flex-shrink-0 backdrop-blur-sm">
+                                <i className={`fa-solid ${a.icon} text-white text-2xl`} />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-[9px] font-bold uppercase tracking-widest mb-0.5" style={{ color: a.accent }}>{a.badge}</p>
+                                <p className="text-[14px] font-black text-white leading-tight">{a.title}</p>
+                                <p className="text-[10px] text-white/65 mt-0.5 leading-snug">{a.sub}</p>
+                                <button onClick={() => { closeDrawer(); navigate(a.to); }}
+                                  className="mt-2 inline-flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-[#F3F4F4] text-[#0F1111] text-[11px] font-bold rounded-md transition-colors">
+                                  {a.cta}
+                                  <i className="fa-solid fa-arrow-right text-[9px]" />
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-[12px] font-bold text-white">{ad.title}</p>
-                        <p className="text-[10px] text-white/70">{ad.sub}</p>
+                      {/* dots */}
+                      <div className="absolute bottom-2.5 left-1/2 -translate-x-1/2 flex items-center gap-1.5">
+                        {ADS.map((_, i) => (
+                          <button key={i} onClick={() => setAdIndex(i)} aria-label={`Pub ${i + 1}`}
+                            className={`h-1.5 rounded-full transition-all ${i === adIndex ? 'w-5 bg-white' : 'w-1.5 bg-white/40 hover:bg-white/60'}`} />
+                        ))}
                       </div>
-                      <span className="text-[8px] font-bold text-white/40 uppercase tracking-wider flex-shrink-0">Pub</span>
                     </div>
 
                     <div className="text-center mb-5">
