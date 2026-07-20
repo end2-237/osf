@@ -104,13 +104,11 @@ async function validateReferralCode(code) {
 
 async function processReferral(referrerId, newUserId) {
   try {
-    await supabase.from('referrals').insert({ referrer_id: referrerId, referred_id: newUserId, created_at: new Date().toISOString() });
-    const { data: profile } = await supabase.from('profiles').select('loyalty_points').eq('id', referrerId).single();
-    const currentPts = profile?.loyalty_points ?? 0;
-    await supabase.from('loyalty_transactions').insert({ user_id: referrerId, type: 'referral_bonus', points: 200, reference_id: newUserId, description: 'Bonus parrainage - nouvel inscrit', created_at: new Date().toISOString() });
-    await supabase.from('profiles').update({ loyalty_points: currentPts + 200 }).eq('id', referrerId);
-    await supabase.from('loyalty_transactions').insert({ user_id: newUserId, type: 'welcome_bonus', points: 50, reference_id: referrerId, description: 'Bonus bienvenue - parraine par un membre', created_at: new Date().toISOString() });
-    await supabase.from('profiles').update({ loyalty_points: 50 }).eq('id', newUserId);
+    // RPC serveur (SECURITY DEFINER) : attribue les points au parrain ET au
+    // filleul en une transaction. Les writes directs échoueraient sous RLS car
+    // ils modifient la ligne profiles d'un autre utilisateur (le parrain).
+    const { error } = await supabase.rpc('process_referral', { p_referrer: referrerId, p_referred: newUserId });
+    if (error) throw error;
   } catch (err) { console.warn('[processReferral]', err.message); }
 }
 
