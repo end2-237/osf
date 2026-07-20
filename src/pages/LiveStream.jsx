@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import LiveVideo from "../components/LiveVideo";
 import {
   fetchShows, fetchShow, fetchMessages, subscribeToShow, unsubscribe,
   postMessage, uploadLiveImage, placeBid, buyNow,
@@ -144,11 +145,10 @@ const LiveSlide = ({ show: initial, active, user, addToCart }) => {
 
   return (
     <div className="relative h-full w-full bg-black snap-start overflow-hidden">
-      {/* VIDEO placeholder */}
-      {show.cover_url
-        ? <img src={show.cover_url} alt="" className="absolute inset-0 w-full h-full object-cover" />
-        : <div className="absolute inset-0 bg-gradient-to-br from-[#232F3E] to-black" />}
-      <div className="absolute inset-0 bg-gradient-to-b from-black/50 via-transparent to-black/85" />
+      {/* VIDEO LIVE (WebRTC) — repli sur la couverture si non diffusé */}
+      <LiveVideo room={show.id} publish={false} active={active && isLive}
+        poster={show.cover_url} className="absolute inset-0 w-full h-full" />
+      <div className="absolute inset-0 bg-gradient-to-b from-black/50 via-transparent to-black/85 pointer-events-none" />
 
       {/* SOLD flash */}
       {soldFlash && (
