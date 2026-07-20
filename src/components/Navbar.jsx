@@ -484,6 +484,13 @@ const Navbar = ({ isDark, toggleTheme, cartCount, toggleCart, toggleVisualSearch
 
             <div className="flex-grow min-w-2" />
 
+            <Link to="/live"
+              className={`flex items-center gap-1.5 text-[13px] font-bold ${catHover} px-3 h-8 rounded-md transition-colors flex-shrink-0 whitespace-nowrap text-[#CC0C39]`}
+            >
+              <span className="w-1.5 h-1.5 bg-[#CC0C39] rounded-full animate-pulse"></span>
+              <span className="hidden sm:inline">Live</span>
+            </Link>
+
             <Link to="/boutiques"
               className={`flex items-center gap-1 ${catText} text-[13px] ${catHover} px-3 h-8 rounded-md transition-colors flex-shrink-0 whitespace-nowrap font-medium`}
             >

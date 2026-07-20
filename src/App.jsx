@@ -39,6 +39,9 @@ const CartPage       = lazy(() => import('./pages/CartPage.jsx'));
 const NotFound       = lazy(() => import('./pages/NotFound.jsx'));
 const CGVPage        = lazy(() => import('./pages/CGVPage.jsx'));
 const AboutPage      = lazy(() => import('./pages/AboutPage.jsx'));
+const LivePage       = lazy(() => import('./pages/LivePage.jsx'));
+const LiveStream     = lazy(() => import('./pages/LiveStream.jsx'));
+const CreatorProfile = lazy(() => import('./pages/CreatorProfile.jsx'));
 
 const PageLoader = () => (
   <div className="flex items-center justify-center min-h-[60vh]">
@@ -65,6 +68,7 @@ function AppContent() {
     || location.pathname === '/register'
     || location.pathname === '/admin'
     || location.pathname.startsWith('/super-admin')
+    || location.pathname.startsWith('/live/')
     || location.pathname === '/track';
 
   // Listen for CartPage "checkout" event and open cart sidebar
@@ -210,6 +214,9 @@ function AppContent() {
             <Route path="/terms" element={<CGVPage />} />
             <Route path="/about" element={<AboutPage />} />
             <Route path="/a-propos" element={<AboutPage />} />
+            <Route path="/live" element={<LivePage />} />
+            <Route path="/live/:id" element={<LiveStream addToCart={addToCart} />} />
+            <Route path="/creator/:handle" element={<CreatorProfile />} />
 
             <Route
               path="/product/:productId"
