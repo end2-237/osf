@@ -1,34 +1,55 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import { fetchFollowedLive } from "../lib/liveApi";
+import { fetchShows, fetchFollowedLive } from "../lib/liveApi";
 
-// Rangée "Créateurs suivis" sur l'accueil — met en avant ceux qui sont en live.
+// Rangée live sur l'accueil : les lives EN DIRECT (pour tous) + les créateurs
+// suivis par l'utilisateur (mis en avant s'ils sont en live).
 const FollowedLiveRow = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [items, setItems] = useState([]);
 
   useEffect(() => {
-    if (!user?.id) { setItems([]); return; }
-    fetchFollowedLive(user.id).then(setItems);
+    let alive = true;
+    (async () => {
+      const [shows, followed] = await Promise.all([
+        fetchShows({}),
+        user?.id ? fetchFollowedLive(user.id) : [],
+      ]);
+      if (!alive) return;
+      const map = new Map();
+      // lives en direct d'abord (visibles par tous)
+      shows.filter(s => s.status === "live").forEach(s => {
+        const vid = s.vendor?.id || s.vendor_id;
+        map.set(vid, { vendorId: vid, handle: s.creatorHandle, name: s.creatorName, avatar: s.creatorAvatar, live: true, showId: s.id });
+      });
+      // créateurs suivis (ajoutés s'ils n'y sont pas déjà)
+      followed.forEach(c => { if (!map.has(c.vendorId)) map.set(c.vendorId, c); });
+      setItems([...map.values()].sort((a, b) => Number(b.live) - Number(a.live)));
+    })();
+    return () => { alive = false; };
   }, [user?.id]);
 
-  if (!user || items.length === 0) return null;
+  if (items.length === 0) return null;
 
   const go = (c) => {
     if (c.live && c.showId) navigate(`/live/${c.showId}`);
     else navigate(`/creator/${c.handle}`);
   };
 
+  const liveCount = items.filter(i => i.live).length;
+
   return (
     <section className="max-w-[1600px] mx-auto px-4 md:px-6 py-4">
       <div className="bg-white border border-[#D5D9D9] rounded-xl p-4">
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-sm font-black text-[#0F1111] flex items-center gap-2">
-            <i className="fa-solid fa-user-check text-[#FF9900]" />Créateurs suivis
+            {liveCount > 0
+              ? <><span className="flex items-center gap-1 bg-[#CC0C39] text-white text-[8px] font-black uppercase px-2 py-0.5 rounded-full tracking-wider"><span className="w-1.5 h-1.5 bg-white rounded-full animate-pulse" />Live</span>En direct</>
+              : <><i className="fa-solid fa-user-check text-[#FF9900]" />Créateurs suivis</>}
           </h2>
-          <button onClick={() => navigate("/live")} className="text-[10px] font-black uppercase text-[#007185] hover:text-[#C45500]">Voir les lives</button>
+          <button onClick={() => navigate("/live")} className="text-[10px] font-black uppercase text-[#007185] hover:text-[#C45500]">Voir tout</button>
         </div>
         <div className="flex items-start gap-4 overflow-x-auto hide-scrollbar">
           {items.map(c => (
