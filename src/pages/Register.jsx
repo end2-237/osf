@@ -369,7 +369,14 @@ export default function Register() {
       const result = await signUpMember(mForm.email, mForm.password, mForm.displayName);
       const uid = result?.user?.id ?? result?.id ?? null;
       if (uid && refStatus === 'valid' && refOwner) { await processReferral(refOwner.id, uid); localStorage.removeItem('ofs_referral_code'); }
-      setSuccess('Profil créé ! Vérifiez votre boîte mail.');
+      // Session ouverte immédiatement (confirmation email désactivée) → accueil.
+      // Sinon message + redirection vers la connexion.
+      if (result?.session) {
+        navigate('/');
+      } else {
+        setSuccess('Profil créé ! Vérifiez votre boîte mail, puis connectez-vous.');
+        setTimeout(() => navigate('/login'), 2500);
+      }
     } catch (err) { setError(err.message); }
     finally { setLoading(false); }
   }
@@ -379,32 +386,36 @@ export default function Register() {
     try {
       const result = await signUpVendor(vForm.email, vForm.password, { full_name: vForm.full_name, shop_name: vForm.shop_name, phone: vForm.phone });
       const uid = result?.user?.id ?? result?.id ?? null;
+      if (!uid) throw new Error("Compte non créé — réessayez.");
       const ts = Date.now(); const base = `vendor-kyc/${uid}/${ts}`;
       let idFrontUrl = null, idBackUrl = null, selfieStorageUrl = null;
+
+      const uploadKyc = async (path, file, options) => {
+        const { error: upErr } = await supabase.storage.from('kyc-documents').upload(path, file, options);
+        if (upErr) throw new Error("Échec de l'envoi des documents : " + upErr.message);
+        return supabase.storage.from('kyc-documents').getPublicUrl(path).data.publicUrl;
+      };
+
       if (vForm.id_front) {
         const ext = vForm.id_front.name.split('.').pop();
-        await supabase.storage.from('kyc-documents').upload(`${base}/id-front.${ext}`, vForm.id_front, { upsert: true });
-        const { data: { publicUrl } } = supabase.storage.from('kyc-documents').getPublicUrl(`${base}/id-front.${ext}`);
-        idFrontUrl = publicUrl;
+        idFrontUrl = await uploadKyc(`${base}/id-front.${ext}`, vForm.id_front, { upsert: true });
       }
       if (vForm.id_back) {
         const ext = vForm.id_back.name.split('.').pop();
-        await supabase.storage.from('kyc-documents').upload(`${base}/id-back.${ext}`, vForm.id_back, { upsert: true });
-        const { data: { publicUrl } } = supabase.storage.from('kyc-documents').getPublicUrl(`${base}/id-back.${ext}`);
-        idBackUrl = publicUrl;
+        idBackUrl = await uploadKyc(`${base}/id-back.${ext}`, vForm.id_back, { upsert: true });
       }
       if (selfieBlob) {
-        await supabase.storage.from('kyc-documents').upload(`${base}/selfie.jpg`, selfieBlob, { contentType: 'image/jpeg', upsert: true });
-        const { data: { publicUrl } } = supabase.storage.from('kyc-documents').getPublicUrl(`${base}/selfie.jpg`);
-        selfieStorageUrl = publicUrl;
+        selfieStorageUrl = await uploadKyc(`${base}/selfie.jpg`, selfieBlob, { contentType: 'image/jpeg', upsert: true });
       }
-      await supabase.from('vendor_applications').insert({
+
+      const { error: appErr } = await supabase.from('vendor_applications').insert({
         user_id: uid, shop_name: vForm.shop_name, full_name: vForm.full_name,
         phone: vForm.phone, city: vForm.city, category: vForm.category,
         description: vForm.description, plan: vForm.plan, id_type: vForm.id_type,
         id_front_url: idFrontUrl, id_back_url: idBackUrl, selfie_url: selfieStorageUrl,
         status: 'pending', submitted_at: new Date().toISOString(),
       });
+      if (appErr) throw new Error("Enregistrement du dossier échoué : " + appErr.message);
       if (uid && refStatus === 'valid' && refOwner) { await processReferral(refOwner.id, uid); localStorage.removeItem('ofs_referral_code'); }
       setSubmitted(true);
     } catch (err) { setError(err.message); }

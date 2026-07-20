@@ -145,13 +145,36 @@ export const AuthProvider = ({ children }) => {
   /* ─── SIGN UP MEMBRE (client avec remise) ─── */
   const signUpMember = async (email, password, displayName) => {
     const { data: authData, error: authError } = await supabase.auth.signUp({
-      email,
+      email: email.trim(),
       password,
       options: { data: { display_name: displayName } },
     });
     if (authError) throw new Error(authError.message);
     if (!authData.user) throw new Error("Échec création du compte.");
     // Pas d'insertion dans vendors → l'utilisateur est un membre normal
+    return authData;
+  };
+
+  /* ─── SIGN UP VENDEUR (demande KYC) ───
+     Crée uniquement le compte auth. Le dossier est ensuite déposé dans
+     `vendor_applications` (statut "pending") par Register.jsx et validé
+     par un admin, qui crée alors la ligne `vendors`. On n'insère donc
+     PAS directement dans `vendors` ici. */
+  const signUpVendor = async (email, password, vendorData = {}) => {
+    const { data: authData, error: authError } = await supabase.auth.signUp({
+      email: email.trim(),
+      password,
+      options: {
+        data: {
+          display_name: vendorData.shop_name || vendorData.full_name || '',
+          full_name: vendorData.full_name || '',
+          phone: vendorData.phone || '',
+          account_type: 'vendor',
+        },
+      },
+    });
+    if (authError) throw new Error(authError.message);
+    if (!authData.user) throw new Error("Échec création du compte vendeur.");
     return authData;
   };
 
@@ -194,6 +217,7 @@ export const AuthProvider = ({ children }) => {
       signIn,
       signUp,
       signUpMember,
+      signUpVendor,
       signOut,
       updateVendorField,
     }}>
