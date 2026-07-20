@@ -6,7 +6,11 @@
 import { supabase } from "./supabase";
 
 export const LIVEKIT_URL = import.meta.env.VITE_LIVEKIT_URL || "";
-export const LIVEKIT_ENABLED = !!LIVEKIT_URL;
+// On tente toujours LiveKit : l'Edge Function `livekit-token` est la source de
+// vérité (elle détient les secrets ET renvoie l'URL). Si elle n'est pas
+// configurée, l'appel échoue et les composants retombent sur l'image.
+// → plus besoin de variable VITE_ au build du front.
+export const LIVEKIT_ENABLED = true;
 
 export async function getLiveToken(room, publish = false) {
   const { data, error } = await supabase.functions.invoke("livekit-token", {

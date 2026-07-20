@@ -4,11 +4,13 @@ import { LIVEKIT_ENABLED, getLiveToken } from "../lib/livekit";
 
 // Diffuse (publish=true, l'hôte) ou lit (publish=false, spectateur) un live WebRTC.
 // Se connecte uniquement quand `active`. Repli sur `poster` si LiveKit off / pas de flux.
-export default function LiveVideo({ room: roomName, publish = false, active = true, poster, className = "" }) {
+export default function LiveVideo({ room: roomName, publish = false, active = true, poster, className = "", onState }) {
   const videoRef = useRef(null);
   const [state, setState]     = useState("idle"); // idle | connecting | live | error | off
   const [hasVideo, setHasVideo] = useState(false);
   const [muted, setMuted]     = useState(true);   // autoplay navigateur → démarre muet
+
+  useEffect(() => { onState?.(state); }, [state]);
 
   useEffect(() => {
     if (!LIVEKIT_ENABLED || !active || !roomName) { setState("off"); setHasVideo(false); return; }

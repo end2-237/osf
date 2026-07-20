@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { supabase, uploadProductImage } from "../lib/supabase";
 import LiveVideo from "./LiveVideo";
-import { LIVEKIT_ENABLED } from "../lib/livekit";
 import {
   LIVE_CATEGORIES, getVendorShows, createShow, setShowStatus,
   addLiveProduct, endProduct, fetchActiveProduct, fetchMessages, fetchShowBids,
@@ -151,6 +150,7 @@ const ManageShow = ({ show, vendor, onBack, onStatus, onToast }) => {
   const [pImg, setPImg]         = useState(null);
   const [pImgPrev, setPImgPrev] = useState(null);
   const [adding, setAdding]     = useState(false);
+  const [camState, setCamState] = useState("idle");
   const chanRef = useRef(null);
   const chatRef = useRef(null);
 
@@ -206,13 +206,13 @@ const ManageShow = ({ show, vendor, onBack, onStatus, onToast }) => {
       {/* CAMÉRA (diffusion WebRTC) */}
       {isLive && (
         <div className="bg-black rounded-2xl overflow-hidden relative aspect-video max-w-md">
-          <LiveVideo room={show.id} publish={true} active={true} poster={show.cover_url} className="w-full h-full" />
+          <LiveVideo room={show.id} publish={true} active={true} poster={show.cover_url} className="w-full h-full" onState={setCamState} />
           <span className="absolute top-2 left-2 flex items-center gap-1 bg-[#CC0C39] text-white text-[9px] font-black uppercase px-2 py-1 rounded-full z-10">
             <span className="w-1.5 h-1.5 bg-white rounded-full animate-pulse" />Ta caméra
           </span>
-          {!LIVEKIT_ENABLED && (
-            <div className="absolute inset-0 flex items-center justify-center bg-black/60 text-center px-4">
-              <p className="text-white/80 text-[11px]">Vidéo non configurée — le live fonctionne (chat, enchères), mais la caméra nécessite LiveKit (voir docs/LIVE_SETUP.md).</p>
+          {camState === "error" && (
+            <div className="absolute inset-0 flex items-center justify-center bg-black/70 text-center px-4">
+              <p className="text-white/85 text-[11px] leading-relaxed">Caméra indisponible — autorise l'accès caméra dans le navigateur, et vérifie que la fonction <b>livekit-token</b> est déployée (voir docs/LIVE_SETUP.md).</p>
             </div>
           )}
         </div>
