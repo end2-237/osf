@@ -62,12 +62,13 @@ const VENDOR_STEPS = [
   { key: 'review',   label: 'Soumission', icon: 'fa-paper-plane' },
 ];
 
+// Consignes de cadrage pour un selfie de vérification clair — aucune détection
+// biométrique n'est effectuée, le super-admin compare le selfie à la pièce.
 const LIVENESS_STEPS = [
-  { id: 'center',  icon: 'fa-crosshairs', label: 'Centrez votre visage',        color: 'text-blue-500'   },
-  { id: 'blink',   icon: 'fa-eye-slash',  label: 'Clignez des yeux 2x',         color: 'text-yellow-600' },
-  { id: 'smile',   icon: 'fa-face-smile', label: 'Souriez',                     color: 'text-green-600'  },
-  { id: 'left',    icon: 'fa-arrow-left', label: 'Tournez légèrement à gauche', color: 'text-purple-600' },
-  { id: 'capture', icon: 'fa-camera',     label: 'Maintenez la position...',    color: 'text-[#FF9900]'  },
+  { id: 'center',  icon: 'fa-crosshairs',   label: 'Centrez votre visage',           color: 'text-blue-500'  },
+  { id: 'light',   icon: 'fa-lightbulb',    label: 'Placez-vous dans la lumière',    color: 'text-yellow-600'},
+  { id: 'look',    icon: 'fa-eye',          label: "Regardez l'objectif",            color: 'text-green-600' },
+  { id: 'capture', icon: 'fa-camera',       label: 'Maintenez la position…',         color: 'text-[#FF9900]' },
 ];
 
 const SHOP_CATEGORIES = [
@@ -654,8 +655,8 @@ export default function Register() {
             {vStep === 4 && (
               <div className="space-y-5">
                 <div className="pb-4 border-b border-[#D5D9D9]">
-                  <h2 className="text-lg font-bold text-[#0F1111] mb-1">Vérification faciale en direct</h2>
-                  <p className="text-[#565959] text-sm">Un selfie guidé pour confirmer que vous êtes le détenteur du document.</p>
+                  <h2 className="text-lg font-bold text-[#0F1111] mb-1">Photo de vérification</h2>
+                  <p className="text-[#565959] text-sm">Un selfie clair, comparé à votre pièce d'identité lors de la validation du dossier.</p>
                 </div>
 
                 {livenessPhase === 'intro' && !selfieUrl && (

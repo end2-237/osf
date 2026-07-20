@@ -2260,6 +2260,247 @@ const AffiliationTab = ({ orders }) => {
 };
 
 // ─── SUPER ADMIN PAGE ─────────────────────────────────────────────────────────
+// ─── VENDOR KYC APPLICATIONS ──────────────────────────────────────────────────
+const PLAN_BADGE = {
+  starter: { label: "Starter", color: "#565959", bg: "#EAEDED" },
+  pro:     { label: "Pro",     color: "#C45500", bg: "#FFF8D3" },
+  elite:   { label: "Elite",   color: "#7c3aed", bg: "#f5f3ff" },
+};
+const APP_STATUS = {
+  pending:  { label: "En attente", color: "text-[#FF9900]", bg: "bg-[#FFF8D3]", border: "border-[#FCD200]/40" },
+  approved: { label: "Approuvé",   color: "text-[#007600]", bg: "bg-[#E8F5E8]", border: "border-[#007600]/30" },
+  rejected: { label: "Refusé",     color: "text-[#B12704]", bg: "bg-[#FEE7E5]", border: "border-[#B12704]/30" },
+};
+
+// Extrait le chemin de l'objet depuis une URL storage (le bucket kyc-documents
+// est privé → on re-signe le chemin pour l'afficher).
+const kycObjectPath = (url) => {
+  if (!url) return null;
+  const marker = "/kyc-documents/";
+  const i = url.indexOf(marker);
+  return i >= 0 ? url.slice(i + marker.length).split("?")[0] : url;
+};
+
+const KycDoc = ({ label, url }) => {
+  const [signed, setSigned] = useState(null);
+  const [err,    setErr]    = useState(false);
+
+  useEffect(() => {
+    let alive = true;
+    const path = kycObjectPath(url);
+    if (!path) { setErr(true); return; }
+    supabase.storage.from("kyc-documents").createSignedUrl(path, 3600).then(({ data, error }) => {
+      if (!alive) return;
+      if (error || !data?.signedUrl) setErr(true);
+      else setSigned(data.signedUrl);
+    });
+    return () => { alive = false; };
+  }, [url]);
+
+  return (
+    <div className="flex-1 min-w-[100px]">
+      <p className="text-[8px] font-black uppercase tracking-widest text-[#565959] mb-1">{label}</p>
+      {err ? (
+        <div className="aspect-[4/3] bg-[#FEE7E5] border border-[#B12704]/20 rounded-lg flex items-center justify-center">
+          <span className="text-[8px] text-[#B12704] font-bold text-center px-1">Document<br/>indisponible</span>
+        </div>
+      ) : !signed ? (
+        <div className="aspect-[4/3] bg-[#EAEDED] rounded-lg animate-pulse" />
+      ) : (
+        <a href={signed} target="_blank" rel="noreferrer" className="block group">
+          <img src={signed} alt={label} className="aspect-[4/3] w-full object-cover rounded-lg border border-[#D5D9D9] group-hover:border-[#FF9900] transition-all" />
+        </a>
+      )}
+    </div>
+  );
+};
+
+const VendorApplicationsTab = () => {
+  const [apps,    setApps]    = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [filter,  setFilter]  = useState("pending"); // pending | approved | rejected | all
+  const [acting,  setActing]  = useState({});
+  const [msg,     setMsg]     = useState(null);
+  const [rejectId, setRejectId] = useState(null);
+  const [note,    setNote]    = useState("");
+
+  const load = async () => {
+    setLoading(true);
+    let q = supabase.from("vendor_applications").select("*").order("submitted_at", { ascending: false });
+    if (filter !== "all") q = q.eq("status", filter);
+    const { data, error } = await q;
+    if (error) setMsg({ type: "error", text: error.message });
+    setApps(data || []);
+    setLoading(false);
+  };
+
+  useEffect(() => { load(); }, [filter]);
+
+  const approve = async (id) => {
+    setActing(a => ({ ...a, [id]: "approving" }));
+    setMsg(null);
+    const { error } = await supabase.rpc("approve_vendor_application", { p_app_id: id });
+    setActing(a => ({ ...a, [id]: null }));
+    if (error) setMsg({ type: "error", text: "Échec approbation : " + error.message });
+    else { setMsg({ type: "success", text: "Vendeur créé — la boutique est active." }); load(); }
+  };
+
+  const confirmReject = async () => {
+    const id = rejectId;
+    setActing(a => ({ ...a, [id]: "rejecting" }));
+    const { error } = await supabase.rpc("reject_vendor_application", { p_app_id: id, p_note: note || null });
+    setActing(a => ({ ...a, [id]: null }));
+    setRejectId(null); setNote("");
+    if (error) setMsg({ type: "error", text: "Échec refus : " + error.message });
+    else { setMsg({ type: "success", text: "Dossier refusé." }); load(); }
+  };
+
+  const COUNTS = filter; // just for label clarity
+
+  return (
+    <div className="space-y-5">
+      <div className="bg-[#131921] rounded-xl px-5 py-4">
+        <p className="text-[9px] font-black uppercase tracking-widest text-[#FF9900] mb-0.5">Onboarding</p>
+        <h2 className="text-white font-black text-lg leading-tight">Dossiers vendeurs — KYC</h2>
+        <p className="text-[10px] text-[#ADBAC7] mt-0.5">Vérifiez l'identité puis approuvez ou refusez. L'approbation crée la boutique et donne l'accès vendeur.</p>
+      </div>
+
+      {msg && (
+        <div className={`rounded-xl px-4 py-3 text-[11px] font-bold flex items-center gap-2 ${
+          msg.type === "success" ? "bg-[#E8F5E8] text-[#007600] border border-[#007600]/20" : "bg-[#FEE7E5] text-[#B12704] border border-[#B12704]/20"
+        }`}>
+          <i className={`fa-solid ${msg.type === "success" ? "fa-circle-check" : "fa-circle-exclamation"}`} />
+          {msg.text}
+        </div>
+      )}
+
+      {/* Filter tabs */}
+      <div className="flex gap-2 flex-wrap">
+        {[
+          { key: "pending",  label: "En attente" },
+          { key: "approved", label: "Approuvés"  },
+          { key: "rejected", label: "Refusés"    },
+          { key: "all",      label: "Tous"        },
+        ].map(opt => (
+          <button key={opt.key} onClick={() => setFilter(opt.key)}
+            className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-wider border transition-all ${
+              filter === opt.key
+                ? "bg-[#131921] text-[#FF9900] border-[#131921]"
+                : "bg-white text-[#565959] border-[#D5D9D9] hover:border-[#565959]"
+            }`}>
+            {opt.label}
+          </button>
+        ))}
+      </div>
+
+      {loading ? (
+        <div className="space-y-3">{[1,2].map(i => <div key={i} className="animate-pulse h-56 bg-white rounded-xl" />)}</div>
+      ) : apps.length === 0 ? (
+        <div className="bg-white border border-dashed border-[#D5D9D9] rounded-xl p-10 text-center">
+          <i className="fa-regular fa-id-card text-3xl text-[#D5D9D9] mb-3 block" />
+          <p className="text-[#565959] font-bold text-sm">Aucun dossier {filter !== "all" ? APP_STATUS[filter]?.label.toLowerCase() : ""}</p>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {apps.map(app => {
+            const plan = PLAN_BADGE[app.plan] || PLAN_BADGE.starter;
+            const st   = APP_STATUS[app.status] || APP_STATUS.pending;
+            return (
+              <div key={app.id} className="bg-white border border-[#D5D9D9] rounded-xl overflow-hidden">
+                {/* Header */}
+                <div className="flex items-start justify-between gap-3 p-4 border-b border-[#EAEDED]">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap mb-1">
+                      <h3 className="font-black text-[#0F1111] text-sm truncate">{app.shop_name}</h3>
+                      <span className="text-[8px] font-black uppercase px-2 py-0.5 rounded-full" style={{ color: plan.color, background: plan.bg }}>{plan.label}</span>
+                      <span className={`text-[8px] font-black uppercase px-2 py-0.5 rounded-full border ${st.bg} ${st.color} ${st.border}`}>{st.label}</span>
+                    </div>
+                    <p className="text-[11px] text-[#565959]">
+                      <i className="fa-solid fa-user text-[9px] mr-1.5" />{app.full_name}
+                      <span className="mx-2 text-[#D5D9D9]">·</span>
+                      <i className="fa-solid fa-phone text-[9px] mr-1.5" />{app.phone}
+                    </p>
+                    <p className="text-[10px] text-[#767676] mt-0.5">
+                      <i className="fa-solid fa-location-dot text-[9px] mr-1.5" />{app.city || "—"}
+                      {app.category && <><span className="mx-2 text-[#D5D9D9]">·</span><i className="fa-solid fa-tag text-[9px] mr-1.5" />{app.category}</>}
+                    </p>
+                  </div>
+                  <p className="text-[8px] text-[#767676] text-right flex-shrink-0">
+                    {app.submitted_at ? new Date(app.submitted_at).toLocaleDateString("fr-FR", { day:"2-digit", month:"short", year:"numeric" }) : ""}
+                  </p>
+                </div>
+
+                {app.description && (
+                  <p className="text-[11px] text-[#0F1111] px-4 pt-3 leading-relaxed">{app.description}</p>
+                )}
+
+                {/* KYC docs */}
+                <div className="p-4">
+                  <p className="text-[9px] font-black uppercase tracking-widest text-[#565959] mb-2">
+                    Documents {app.id_type ? `· ${app.id_type.toUpperCase()}` : ""}
+                  </p>
+                  <div className="flex gap-3">
+                    <KycDoc label="Pièce recto" url={app.id_front_url} />
+                    <KycDoc label="Pièce verso" url={app.id_back_url} />
+                    <KycDoc label="Selfie"      url={app.selfie_url} />
+                  </div>
+                </div>
+
+                {/* Review note (if any) */}
+                {app.review_note && app.status === "rejected" && (
+                  <p className="text-[10px] text-[#B12704] px-4 pb-2"><i className="fa-solid fa-comment-dots mr-1.5" />{app.review_note}</p>
+                )}
+
+                {/* Actions */}
+                {app.status === "pending" && (
+                  <div className="flex gap-2 p-4 pt-0">
+                    <button onClick={() => approve(app.id)} disabled={!!acting[app.id]}
+                      className="flex items-center gap-1.5 px-4 py-2 bg-[#E8F5E8] hover:bg-[#007600]/10 border border-[#007600]/20 text-[#007600] font-black text-[9px] uppercase rounded-lg transition-all disabled:opacity-50">
+                      {acting[app.id] === "approving"
+                        ? <i className="fa-solid fa-circle-notch animate-spin text-[9px]" />
+                        : <i className="fa-solid fa-check text-[9px]" />}
+                      Approuver la boutique
+                    </button>
+                    <button onClick={() => { setRejectId(app.id); setNote(""); }} disabled={!!acting[app.id]}
+                      className="flex items-center gap-1.5 px-4 py-2 bg-[#FEE7E5] hover:bg-[#B12704]/10 border border-[#B12704]/20 text-[#B12704] font-black text-[9px] uppercase rounded-lg transition-all disabled:opacity-50">
+                      <i className="fa-solid fa-xmark text-[9px]" />
+                      Refuser
+                    </button>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Reject modal */}
+      {rejectId && (
+        <div className="fixed inset-0 z-[700] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/50" onClick={() => setRejectId(null)} />
+          <div className="relative bg-white rounded-xl p-5 w-full max-w-sm shadow-xl">
+            <h3 className="font-black text-[#0F1111] text-sm mb-1">Refuser le dossier</h3>
+            <p className="text-[11px] text-[#565959] mb-3">Motif communiqué au candidat (optionnel).</p>
+            <textarea value={note} onChange={e => setNote(e.target.value)} rows={3}
+              placeholder="Ex : pièce d'identité illisible, selfie non conforme…"
+              className="w-full bg-white border border-[#D5D9D9] focus:border-[#FF9900] focus:outline-none rounded-lg p-3 text-[12px] text-[#0F1111] resize-none" />
+            <div className="flex gap-2 mt-3">
+              <button onClick={confirmReject}
+                className="flex-1 py-2.5 bg-[#B12704] hover:bg-[#8a1e03] text-white font-black text-[10px] uppercase rounded-lg transition-all">
+                Confirmer le refus
+              </button>
+              <button onClick={() => setRejectId(null)}
+                className="px-4 py-2.5 border border-[#D5D9D9] text-[#565959] font-black text-[10px] uppercase rounded-lg hover:border-[#565959] transition-all">
+                Annuler
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
 const SuperAdmin = () => {
   const { user, isSuperAdmin } = useAuth();
   const navigate  = useNavigate();
@@ -2325,12 +2566,17 @@ const SuperAdmin = () => {
           .from("reviews").select("id", { count: "exact", head: true })
           .eq("approved", false);
 
+        const { count: pendingApplications } = await supabase
+          .from("vendor_applications").select("id", { count: "exact", head: true })
+          .eq("status", "pending");
+
         setGlobalStats({
           revenue:          totalRevenue,
           orders:           os.length,
           pending:          pendingCount,
           cjPending,
           pendingReviews:   pendingReviews || 0,
+          pendingApplications: pendingApplications || 0,
           products:         ps.length,
           vendorProducts:   vendorProds,
           platformProducts: platformProds,
@@ -2354,6 +2600,7 @@ const SuperAdmin = () => {
 
   const TABS = [
     { key: "overview",     icon: "fa-gauge-high",    label: "Vue globale"     },
+    { key: "vendeurs",     icon: "fa-user-check",     label: "Vendeurs KYC",   badge: globalStats.pendingApplications || 0 },
     { key: "boutiques",    icon: "fa-store",          label: "Boutiques"       },
     { key: "orders",       icon: "fa-bag-shopping",   label: "Commandes",      badge: globalStats.pending    || 0 },
     { key: "fulfillment",  icon: "fa-truck-fast",     label: "Fulfillment CJ", badge: globalStats.cjPending  || 0 },
@@ -2429,6 +2676,10 @@ const SuperAdmin = () => {
             recentOrders={allOrders.slice(0, 8)}
             loading={loading}
           />
+        )}
+
+        {activeTab === "vendeurs" && (
+          <VendorApplicationsTab />
         )}
 
         {activeTab === "boutiques" && (
