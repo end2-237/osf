@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useAuth } from "../context/AuthContext";
+import VendorLivePanel from "../components/VendorLivePanel";
 import {
   supabase,
   uploadProductImage,
@@ -303,7 +304,10 @@ const Dashboard = () => {
   const navigate = useNavigate();
 
   /* ─ State ─ */
-  const [activeTab, setActiveTab] = useState("inventory");
+  const [activeTab, setActiveTab] = useState(() => {
+    try { return new URLSearchParams(window.location.search).get("tab") || "inventory"; }
+    catch { return "inventory"; }
+  });
   const [products, setProducts] = useState([]);
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -781,6 +785,7 @@ const Dashboard = () => {
           <div className="flex items-center gap-1 bg-zinc-100 dark:bg-zinc-800 p-1 rounded-xl border border-zinc-200 dark:border-white/10 overflow-x-auto hide-scrollbar">
             {[
               { key: "inventory", icon: "fa-box",          label: "Inventaire" },
+              { key: "live",      icon: "fa-video",        label: "Live" },
               { key: "orders",    icon: "fa-bag-shopping", label: "Commandes", badge: pendingCount },
               { key: "analytics", icon: "fa-chart-line",   label: "Analytics" },
             ].map((tab) => (
@@ -1989,6 +1994,11 @@ const Dashboard = () => {
               </div>
             </div>
           </div>
+        )}
+
+        {/* ══ LIVE ══ */}
+        {activeTab === "live" && (
+          <VendorLivePanel vendor={vendor} onToast={showToast} />
         )}
       </div>
 
