@@ -52,7 +52,7 @@ const CreatorProfile = () => {
       if (!v) { setLoading(false); return; }
       setVendor(v);
       const [{ data: prof }, sh, fc, fol] = await Promise.all([
-        supabase.from("profiles").select("full_name, avatar_url, city").eq("id", v.user_id).maybeSingle(),
+        supabase.from("profiles").select("full_name, avatar_url, city, bio, instagram, whatsapp, website, tiktok").eq("id", v.user_id).maybeSingle(),
         getVendorShows(v.id),
         getFollowerCount(v.id),
         isFollowing(v.id, user?.id),
@@ -132,6 +132,28 @@ const CreatorProfile = () => {
             </h1>
             <p className="text-[12px] text-[#565959]">@{vendor.shop_name || vendor.id?.slice(0, 8)}</p>
             {(profile?.city || vendor.city) && <p className="text-[11px] text-[#565959] mt-1"><i className="fa-solid fa-location-dot mr-1" />{profile?.city || vendor.city}</p>}
+            {profile?.bio && <p className="text-[12px] text-[#0F1111] mt-2 max-w-md mx-auto leading-relaxed">{profile.bio}</p>}
+            {(() => {
+              const igUrl = profile?.instagram ? `https://instagram.com/${profile.instagram.replace(/^@/, "")}` : null;
+              const ttUrl = profile?.tiktok ? `https://tiktok.com/@${profile.tiktok.replace(/^@/, "")}` : null;
+              const waUrl = profile?.whatsapp ? `https://wa.me/${profile.whatsapp.replace(/[^0-9]/g, "")}` : null;
+              const links = [
+                igUrl && { icon: "fa-brands fa-instagram", url: igUrl, color: "#E1306C" },
+                ttUrl && { icon: "fa-brands fa-tiktok", url: ttUrl, color: "#0F1111" },
+                waUrl && { icon: "fa-brands fa-whatsapp", url: waUrl, color: "#25D366" },
+                profile?.website && { icon: "fa-solid fa-globe", url: profile.website, color: "#007185" },
+              ].filter(Boolean);
+              return links.length ? (
+                <div className="flex items-center justify-center gap-2 mt-2.5">
+                  {links.map((l, i) => (
+                    <a key={i} href={l.url} target="_blank" rel="noreferrer"
+                      className="w-8 h-8 rounded-full border border-[#D5D9D9] flex items-center justify-center hover:border-[#FF9900] transition-all">
+                      <i className={`${l.icon} text-sm`} style={{ color: l.color }} />
+                    </a>
+                  ))}
+                </div>
+              ) : null;
+            })()}
           </div>
 
           <div className="flex items-center gap-2 mt-4">

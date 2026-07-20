@@ -2,12 +2,54 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../context/AuthContext";
+import { fetchSavedLives, formatCount } from "../lib/liveApi";
+
+// ─── FAVORIS LIVE ───────────────────────────────────────────────────────────
+const LiveFavoritesTab = ({ userId }) => {
+  const [items, setItems] = useState([]);
+  const [loading, setLoading] = useState(true);
+  useEffect(() => {
+    if (!userId) { setLoading(false); return; }
+    fetchSavedLives(userId).then(d => { setItems(d); setLoading(false); });
+  }, [userId]);
+
+  if (loading) return <div className="grid grid-cols-2 md:grid-cols-3 gap-3">{[...Array(6)].map((_, i) => <div key={i} className="aspect-[3/4] bg-white border border-[#D5D9D9] rounded animate-pulse" />)}</div>;
+  if (!items.length) return (
+    <div className="bg-white border border-[#D5D9D9] rounded p-10 text-center">
+      <i className="fa-regular fa-bookmark text-[#D5D9D9] text-3xl mb-3 block" />
+      <p className="text-[#565959] font-bold text-sm">Aucun live en favori</p>
+      <Link to="/live" className="text-[#007185] text-xs font-bold mt-2 inline-block">Découvrir les lives →</Link>
+    </div>
+  );
+  return (
+    <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+      {items.map(s => (
+        <Link key={s.id} to={`/live/${s.id}`} className="relative rounded-xl overflow-hidden group aspect-[3/4] block bg-[#131921]">
+          {s.cover_url
+            ? <img src={s.cover_url} alt={s.title} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
+            : <div className="w-full h-full flex items-center justify-center"><i className="fa-solid fa-video text-white/20 text-2xl" /></div>}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
+          <div className="absolute top-2 left-2">
+            {s.status === "live"
+              ? <span className="flex items-center gap-1 bg-[#CC0C39] text-white text-[8px] font-black uppercase px-2 py-0.5 rounded-full"><span className="w-1.5 h-1.5 bg-white rounded-full animate-pulse" />Live</span>
+              : <span className="bg-white/90 text-[#0F1111] text-[8px] font-black uppercase px-2 py-0.5 rounded-full">{s.status === "ended" ? "Terminé" : "Bientôt"}</span>}
+          </div>
+          <div className="absolute bottom-0 left-0 right-0 p-2.5">
+            <p className="text-white text-[11px] font-black leading-tight line-clamp-2">{s.title}</p>
+            <p className="text-white/70 text-[9px]">{s.creatorName}</p>
+          </div>
+        </Link>
+      ))}
+    </div>
+  );
+};
 
 // ─── CONFIG ────────────────────────────────────────────────────────────────────
 const TABS = [
   { key: "overview",      label: "Accueil",       icon: "fa-house"          },
   { key: "orders",        label: "Commandes",     icon: "fa-bag-shopping"   },
   { key: "wishlist",      label: "Favoris",       icon: "fa-heart"          },
+  { key: "favoris_live",  label: "Favoris live",  icon: "fa-tower-broadcast" },
   { key: "addresses",     label: "Adresses",      icon: "fa-location-dot"   },
   { key: "reviews",       label: "Mes avis",      icon: "fa-star"           },
   { key: "referral",      label: "Parrainage",    icon: "fa-user-plus"      },
@@ -974,6 +1016,7 @@ const Settings = ({ profile, user, onSave, onToast }) => {
     full_name: profile?.full_name || "", phone: profile?.phone || "", bio: profile?.bio || "",
     city: profile?.city || "Douala", birthday: profile?.birthday || "", gender: profile?.gender || "",
     instagram: profile?.instagram || "", whatsapp: profile?.whatsapp || "",
+    website: profile?.website || "", tiktok: profile?.tiktok || "",
   });
   const [saving,        setSaving]        = useState(false);
   const [saved,         setSaved]         = useState(false);
@@ -987,6 +1030,7 @@ const Settings = ({ profile, user, onSave, onToast }) => {
       full_name: profile?.full_name || "", phone: profile?.phone || "", bio: profile?.bio || "",
       city: profile?.city || "Douala", birthday: profile?.birthday || "", gender: profile?.gender || "",
       instagram: profile?.instagram || "", whatsapp: profile?.whatsapp || "",
+      website: profile?.website || "", tiktok: profile?.tiktok || "",
     });
   }, [profile?.id]);
 
@@ -1084,7 +1128,9 @@ const Settings = ({ profile, user, onSave, onToast }) => {
         <div className="p-4 space-y-3">
           {[
             { k: "instagram", icon: "fa-brands fa-instagram", label: "Instagram", ph: "@votre_handle", color: "#E1306C" },
+            { k: "tiktok",    icon: "fa-brands fa-tiktok",    label: "TikTok",    ph: "@votre_handle", color: "#0F1111" },
             { k: "whatsapp",  icon: "fa-brands fa-whatsapp",  label: "WhatsApp",  ph: "+237 6XX XXX XXX", color: "#25D366" },
+            { k: "website",   icon: "fa-solid fa-globe",      label: "Site web",  ph: "https://…", color: "#007185" },
           ].map(f => (
             <div key={f.k} className="flex items-center gap-3">
               <i className={`${f.icon} text-base w-5 flex-shrink-0`} style={{ color: f.color }}></i>
@@ -1210,6 +1256,7 @@ const ProfilePage = ({ addToCart }) => {
     overview:      <Overview profile={profile} orders={orders} wishlist={wishlist} reviews={reviews} setTab={setTab} loyaltyPoints={loyaltyPoints} />,
     orders:        <Orders orders={orders} loading={loading} />,
     wishlist:      <WishlistTab items={wishlist} loading={loading} onRemove={removeWishlist} addToCart={addToCart} />,
+    favoris_live:  <LiveFavoritesTab userId={user?.id} />,
     addresses:     <Addresses addresses={addresses} onSave={saveAddress} onDelete={deleteAddress} />,
     reviews:       <ReviewsTab reviews={reviews} />,
     referral:      <Referral profile={profile} userId={user?.id} onToast={showToast} />,
@@ -1375,7 +1422,7 @@ const ProfilePage = ({ addToCart }) => {
             </div>
 
             {/* Tab content */}
-            {loading && !["settings","security","notifications","addresses","referral"].includes(tab)
+            {loading && !["settings","security","notifications","addresses","referral","favoris_live"].includes(tab)
               ? <div className="space-y-3">{[...Array(4)].map((_, i) => <div key={i} className="h-20 bg-white border border-[#D5D9D9] rounded animate-pulse" />)}</div>
               : CONTENT[tab]
             }

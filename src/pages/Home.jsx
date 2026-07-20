@@ -6,6 +6,7 @@ import CategoryGrid from "../components/CategoryGrid";
 import ProductsByCategory from "../components/ProductsByCategory";
 import FlashDrop from "../components/FlashDrop";
 import Marquee from "../components/Marquee";
+import FollowedLiveRow from "../components/FollowedLiveRow";
 import { supabase } from "../lib/supabase";
 
 // ─── ADS CONFIG ───────────────────────────────────────────────────────────────
@@ -621,6 +622,9 @@ const Home = ({ openModal, addToCart }) => {
 
       {/* 1. HERO */}
       <HeroBanners />
+
+      {/* 1b. CRÉATEURS SUIVIS / EN LIVE */}
+      <FollowedLiveRow />
 
       {/* 2. MARQUEE */}
       <Marquee />

@@ -3,7 +3,7 @@ import { useParams, useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import LiveVideo from "../components/LiveVideo";
 import {
-  fetchShows, fetchShow, fetchMessages, subscribeToShow, unsubscribe,
+  fetchShows, fetchShow, fetchMessages, fetchSoldProducts, subscribeToShow, unsubscribe,
   postMessage, uploadLiveImage, placeBid, buyNow,
   isFollowing, toggleFollow, getFollowerCount, isSaved, toggleSave,
   formatCount, fcfa,
@@ -23,6 +23,7 @@ const LiveSlide = ({ show: initial, active, user, addToCart }) => {
   const [show, setShow]         = useState(initial);
   const [product, setProduct]   = useState(initial.product || null);
   const [messages, setMessages] = useState([]);
+  const [soldItems, setSoldItems] = useState([]);
   const [viewers, setViewers]   = useState(initial.viewer_count || 0);
   const [draft, setDraft]       = useState("");
   const [sending, setSending]   = useState(false);
@@ -44,9 +45,10 @@ const LiveSlide = ({ show: initial, active, user, addToCart }) => {
     if (!active) return;
     let alive = true;
     (async () => {
-      const [full, msgs, fCount, savedNow, followNow] = await Promise.all([
+      const [full, msgs, sold, fCount, savedNow, followNow] = await Promise.all([
         fetchShow(show.id),
         fetchMessages(show.id),
+        fetchSoldProducts(show.id),
         vendorId ? getFollowerCount(vendorId) : 0,
         isSaved(show.id, uid),
         vendorId ? isFollowing(vendorId, uid) : false,
@@ -54,6 +56,7 @@ const LiveSlide = ({ show: initial, active, user, addToCart }) => {
       if (!alive) return;
       if (full) { setShow(full); setProduct(full.product); }
       setMessages(msgs);
+      setSoldItems(sold);
       setFollowers(fCount);
       setSaved(savedNow);
       setFollowing(followNow);
@@ -62,7 +65,11 @@ const LiveSlide = ({ show: initial, active, user, addToCart }) => {
         onMessage: (m) => setMessages(prev => [...prev.slice(-60), m]),
         onProduct: (p) => {
           setProduct(prev => (!prev || p.created_at >= prev.created_at) ? p : prev);
-          if (p.status === "sold") { setSoldFlash(true); setTimeout(() => setSoldFlash(false), 3500); }
+          if (p.status === "sold") {
+            setSoldFlash(true); setTimeout(() => setSoldFlash(false), 3500);
+            setSoldItems(prev => prev.some(x => x.id === p.id) ? prev
+              : [{ id: p.id, name: p.name, img: p.img, sold_price: p.sold_price, sold_to_name: p.sold_to_name }, ...prev]);
+          }
         },
         onShow: (s) => setShow(prev => ({ ...prev, ...s })),
         onViewers: (n) => setViewers(n),
@@ -216,8 +223,22 @@ const LiveSlide = ({ show: initial, active, user, addToCart }) => {
         <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={attachImage} />
       </div>
 
-      {/* CHAT */}
-      <div ref={chatRef} className="absolute left-0 right-16 bottom-52 max-h-44 overflow-y-auto hide-scrollbar px-3 space-y-1.5 z-20">
+      {/* SOLD STRIP (flouté) + CHAT */}
+      <div className="absolute left-0 right-16 bottom-52 z-20 flex flex-col gap-2">
+        {soldItems.length > 0 && (
+          <div className="flex items-center gap-2 overflow-x-auto hide-scrollbar px-3">
+            <span className="text-[8px] font-black uppercase tracking-widest text-white/70 flex-shrink-0">Vendus</span>
+            {soldItems.map(s => (
+              <div key={s.id} className="relative flex-shrink-0 w-12 h-12 rounded-lg overflow-hidden border border-white/20" title={`${s.name} — vendu`}>
+                <img src={s.img} alt="" className="w-full h-full object-cover blur-[2px] brightness-[.6]" />
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <span className="text-[6px] font-black text-white bg-[#CC0C39] px-1 py-0.5 rounded-sm -rotate-6">VENDU</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      <div ref={chatRef} className="max-h-44 overflow-y-auto hide-scrollbar px-3 space-y-1.5">
         {messages.map((m, i) => (
           <div key={m.id || i} className="flex items-start gap-2">
             <span className={`text-[11px] font-black flex-shrink-0 ${m.user_id === uid ? "text-[#FFD814]" : "text-white/80"}`}>{m.user_name || "invité"}</span>
@@ -228,6 +249,7 @@ const LiveSlide = ({ show: initial, active, user, addToCart }) => {
           </div>
         ))}
         {uploadingImg && <p className="text-white/60 text-[10px]">Envoi de l'image…</p>}
+      </div>
       </div>
 
       {/* BOTTOM */}

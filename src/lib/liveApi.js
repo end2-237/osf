@@ -89,6 +89,69 @@ export async function fetchActiveProduct(showId) {
   return data?.[0] || null;
 }
 
+// Produits déjà vendus d'un show (pour le bandeau "vendus" flouté)
+export async function fetchSoldProducts(showId) {
+  const { data } = await supabase
+    .from("live_products").select("id, name, img, sold_price, sold_to_name")
+    .eq("show_id", showId).eq("status", "sold")
+    .order("sold_at", { ascending: false });
+  return data || [];
+}
+
+// Adjuger l'enchère en cours au meilleur enchérisseur (hôte)
+export async function awardProduct(productId) {
+  const { data, error } = await supabase.rpc("award_live_product", { p_product_id: productId });
+  if (error) throw error;
+  return data;
+}
+
+// Produits de la boutique du vendeur (pour les présenter à l'antenne)
+export async function getVendorProducts(vendorId) {
+  const { data } = await supabase
+    .from("products").select("id, name, img, price, type")
+    .eq("vendor_id", vendorId).order("created_at", { ascending: false }).limit(60);
+  return data || [];
+}
+
+// Créateurs suivis + leur statut live (pour l'accueil)
+export async function fetchFollowedLive(userId) {
+  if (!userId) return [];
+  const { data: fol } = await supabase.from("follows").select("vendor_id").eq("follower_id", userId);
+  const vendorIds = (fol || []).map(f => f.vendor_id);
+  if (!vendorIds.length) return [];
+  const { data: vendors } = await supabase.from("vendors").select("id, shop_name, user_id").in("id", vendorIds);
+  const { data: shows } = await supabase.from("live_shows")
+    .select("id, vendor_id, status, cover_url, title").in("vendor_id", vendorIds).in("status", ["live", "scheduled"]);
+  const hostIds = (vendors || []).map(v => v.user_id);
+  let profs = {};
+  if (hostIds.length) {
+    const { data } = await supabase.from("profiles").select("id, full_name, avatar_url").in("id", hostIds);
+    (data || []).forEach(p => { profs[p.id] = p; });
+  }
+  return (vendors || []).map(v => {
+    const live = (shows || []).find(s => s.vendor_id === v.id && s.status === "live");
+    const next = (shows || []).find(s => s.vendor_id === v.id);
+    const prof = profs[v.user_id] || {};
+    const name = v.shop_name || prof.full_name || "Créateur";
+    return {
+      vendorId: v.id, handle: v.shop_name || v.user_id, name,
+      avatar: prof.avatar_url || (AVATAR_FALLBACK + encodeURIComponent(name)),
+      live: !!live, showId: (live || next)?.id || null,
+    };
+  }).sort((a, b) => Number(b.live) - Number(a.live));
+}
+
+// Lives mis en favori par l'utilisateur
+export async function fetchSavedLives(userId) {
+  if (!userId) return [];
+  const { data: saves } = await supabase.from("live_saves").select("show_id").eq("user_id", userId);
+  const ids = (saves || []).map(s => s.show_id);
+  if (!ids.length) return [];
+  const { data } = await supabase
+    .from("live_shows").select("*, vendor:vendors!vendor_id(id, shop_name, user_id)").in("id", ids);
+  return enrichShows(data || []);
+}
+
 export async function fetchMessages(showId, limit = 50) {
   const { data } = await supabase
     .from("live_messages").select("*")

@@ -5,6 +5,7 @@ import {
   LIVE_CATEGORIES, getVendorShows, createShow, setShowStatus,
   addLiveProduct, endProduct, fetchActiveProduct, fetchMessages, fetchShowBids,
   subscribeToShow, unsubscribe, fcfa, formatCount,
+  getVendorProducts, awardProduct,
 } from "../lib/liveApi";
 
 const inputCls = "w-full bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl px-4 py-3 text-sm font-bold text-zinc-900 dark:text-white placeholder-zinc-400 outline-none focus:border-primary transition-colors";
@@ -151,6 +152,8 @@ const ManageShow = ({ show, vendor, onBack, onStatus, onToast }) => {
   const [pImgPrev, setPImgPrev] = useState(null);
   const [adding, setAdding]     = useState(false);
   const [camState, setCamState] = useState("idle");
+  const [catalog, setCatalog]   = useState([]);
+  const [pickedImgUrl, setPickedImgUrl] = useState(null);
   const chanRef = useRef(null);
   const chatRef = useRef(null);
 
@@ -159,6 +162,7 @@ const ManageShow = ({ show, vendor, onBack, onStatus, onToast }) => {
       setProduct(await fetchActiveProduct(show.id));
       setMessages(await fetchMessages(show.id));
       setBids(await fetchShowBids(show.id));
+      setCatalog(await getVendorProducts(vendor.id));
       chanRef.current = subscribeToShow(show.id, `host-${vendor.user_id}`, {
         onMessage: (m) => setMessages(prev => [...prev.slice(-80), m]),
         onProduct: (p) => setProduct(p),
@@ -176,14 +180,34 @@ const ManageShow = ({ show, vendor, onBack, onStatus, onToast }) => {
     if (!pf.name.trim()) return onToast?.("Nom du produit requis", "", "error");
     setAdding(true);
     try {
-      let img = null;
+      let img = pickedImgUrl;
       if (pImg) img = await uploadProductImage(pImg, vendor.id);
       const p = await addLiveProduct(show.id, { ...pf, img });
       setProduct(p);
-      setPf({ name: "", mode: "auction", start_price: "", bid_step: "500", buy_now: "" }); setPImg(null); setPImgPrev(null);
+      setPf({ name: "", mode: "auction", start_price: "", bid_step: "500", buy_now: "" });
+      setPImg(null); setPImgPrev(null); setPickedImgUrl(null);
       onToast?.("Produit présenté à l'antenne", "", "success");
     } catch (e) { onToast?.("Erreur", e.message, "error"); }
     finally { setAdding(false); }
+  };
+
+  const pickFromCatalog = (prod) => {
+    setPf(f => ({ ...f, name: prod.name, mode: "fixed", buy_now: String(prod.price ?? "") }));
+    setPickedImgUrl(prod.img); setPImgPrev(prod.img); setPImg(null);
+  };
+
+  const award = async () => {
+    if (!product) return;
+    try { const p = await awardProduct(product.id); setProduct(p); onToast?.("Adjugé !", `${p.sold_to_name} — ${fcfa(p.sold_price)}`, "success"); }
+    catch (e) { onToast?.("Erreur", e.message, "error"); }
+  };
+
+  const shareLink = async () => {
+    const url = `${window.location.origin}/live/${show.id}`;
+    try {
+      if (navigator.share) await navigator.share({ title: show.title, text: "Rejoins mon live 🔴", url });
+      else { await navigator.clipboard.writeText(url); onToast?.("Lien copié !", url, "success"); }
+    } catch {}
   };
 
   const isLive = show.status === "live";
@@ -197,6 +221,9 @@ const ManageShow = ({ show, vendor, onBack, onStatus, onToast }) => {
           <span className="flex items-center gap-1.5 bg-zinc-900 dark:bg-zinc-800 text-white text-[11px] font-black px-3 py-1.5 rounded-full">
             <i className="fa-solid fa-eye text-primary" />{formatCount(viewers)} en direct
           </span>
+          <button onClick={shareLink} className="bg-zinc-900 dark:bg-primary text-white dark:text-black px-4 py-1.5 rounded-full text-[10px] font-black uppercase hover:bg-primary hover:text-black transition-all">
+            <i className="fa-solid fa-share-nodes mr-1" />Partager
+          </button>
           {isLive
             ? <button onClick={() => onStatus(show, "ended")} className="bg-zinc-200 dark:bg-zinc-700 text-zinc-900 dark:text-white px-4 py-1.5 rounded-full text-[10px] font-black uppercase">Terminer</button>
             : <button onClick={() => onStatus(show, "live")} className="bg-[#CC0C39] text-white px-4 py-1.5 rounded-full text-[10px] font-black uppercase">Passer en direct</button>}
@@ -225,18 +252,44 @@ const ManageShow = ({ show, vendor, onBack, onStatus, onToast }) => {
           <p className="text-[11px] text-zinc-400 mb-4">Il s'affiche instantanément chez les spectateurs.</p>
 
           {product && product.status === "active" && (
-            <div className="mb-4 bg-zinc-50 dark:bg-zinc-800 rounded-xl p-3 flex items-center gap-3">
-              {product.img && <img src={product.img} alt="" className="w-12 h-12 rounded-lg object-cover" />}
-              <div className="flex-1 min-w-0">
-                <p className="font-bold text-sm text-zinc-900 dark:text-white truncate">{product.name}</p>
-                <p className="text-[11px] text-zinc-400">{fcfa(product.current_bid || product.buy_now)} · {product.mode === "auction" ? `enchère (${product.high_bidder_name || "—"})` : "prix fixe"}</p>
+            <div className="mb-4 bg-zinc-50 dark:bg-zinc-800 rounded-xl p-3">
+              <div className="flex items-center gap-3">
+                {product.img && <img src={product.img} alt="" className="w-12 h-12 rounded-lg object-cover" />}
+                <div className="flex-1 min-w-0">
+                  <p className="font-bold text-sm text-zinc-900 dark:text-white truncate">{product.name}</p>
+                  <p className="text-[11px] text-zinc-400">{fcfa(product.current_bid || product.buy_now)} · {product.mode === "auction" ? `enchère (${product.high_bidder_name || "personne"})` : "prix fixe"}</p>
+                </div>
+                <button onClick={() => endProduct(product.id)} className="text-[9px] font-black uppercase text-zinc-400 hover:text-[#CC0C39]">Clôturer</button>
               </div>
-              <button onClick={() => endProduct(product.id)} className="text-[9px] font-black uppercase text-zinc-400 hover:text-[#CC0C39]">Clôturer</button>
+              {product.mode === "auction" && product.high_bidder_id && (
+                <button onClick={award}
+                  className="mt-3 w-full bg-[#CC0C39] text-white py-2.5 rounded-xl text-[10px] font-black uppercase tracking-wider hover:bg-[#a30a2e] transition-all">
+                  <i className="fa-solid fa-gavel mr-1.5" />Adjuger à {product.high_bidder_name} — {fcfa(product.current_bid)}
+                </button>
+              )}
             </div>
           )}
           {product && product.status === "sold" && (
             <div className="mb-4 bg-[#00ff88]/10 text-[#0a8f52] rounded-xl p-3 text-[12px] font-bold">
               <i className="fa-solid fa-circle-check mr-1.5" />{product.name} vendu à {product.sold_to_name} — {fcfa(product.sold_price)}
+            </div>
+          )}
+
+          {catalog.length > 0 && (
+            <div className="mb-4">
+              <label className={labelCls}>Depuis ta boutique (clique pour pré-remplir)</label>
+              <div className="flex gap-2 overflow-x-auto hide-scrollbar pb-1">
+                {catalog.map(prod => (
+                  <button key={prod.id} onClick={() => pickFromCatalog(prod)}
+                    className="flex-shrink-0 w-20 text-left group">
+                    <div className="w-20 h-20 rounded-xl overflow-hidden bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 group-hover:border-primary transition-all">
+                      {prod.img && <img src={prod.img} alt="" className="w-full h-full object-cover" />}
+                    </div>
+                    <p className="text-[9px] font-bold text-zinc-600 dark:text-zinc-300 truncate mt-1">{prod.name}</p>
+                    <p className="text-[9px] font-black text-zinc-900 dark:text-white">{fcfa(prod.price)}</p>
+                  </button>
+                ))}
+              </div>
             </div>
           )}
 
