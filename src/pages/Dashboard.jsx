@@ -1,2119 +1,666 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useAuth } from "../context/AuthContext";
-import VendorLivePanel from "../components/VendorLivePanel";
-import {
-  supabase,
-  uploadProductImage,
-  deleteProductImage,
-} from "../lib/supabase";
-import {
-  requestNotificationPermission,
-  setupForegroundNotifications,
-} from "../lib/firebase";
+import { supabase, uploadProductImage, deleteProductImage } from "../lib/supabase";
 import { useNavigate } from "react-router-dom";
+import VendorLivePanel from "../components/VendorLivePanel";
 
-/* ─── STATUS CONFIG ─── */
-const STATUS_CFG = {
-  pending: {
-    label: "En attente",
-    color: "text-orange-500",
-    bg: "bg-orange-50  dark:bg-orange-500/10",
-    border: "border-orange-200 dark:border-orange-500/30",
-    dot: "bg-orange-400",
-  },
-  validated: {
-    label: "Validé",
-    color: "text-blue-500",
-    bg: "bg-blue-50    dark:bg-blue-500/10",
-    border: "border-blue-200   dark:border-blue-500/30",
-    dot: "bg-blue-400",
-  },
-  shipped: {
-    label: "Expédié",
-    color: "text-purple-500",
-    bg: "bg-purple-50  dark:bg-purple-500/10",
-    border: "border-purple-200 dark:border-purple-500/30",
-    dot: "bg-purple-400",
-  },
-  delivered: {
-    label: "Livré",
-    color: "text-emerald-500",
-    bg: "bg-emerald-50 dark:bg-emerald-500/10",
-    border: "border-emerald-200 dark:border-emerald-500/30",
-    dot: "bg-emerald-400",
-  },
+// ─── HELPERS ──────────────────────────────────────────────────────────────────
+const money = (n) => (Number(n) || 0).toLocaleString("fr-FR") + " F";
+const shortDate = (iso) => iso ? new Date(iso).toLocaleDateString("fr-FR", { day: "2-digit", month: "short", year: "numeric" }) : "";
+const fullDate = (iso) => iso ? new Date(iso).toLocaleString("fr-FR", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "";
+const MONTHS = ["Jan","Fév","Mar","Avr","Mai","Juin","Juil","Aoû","Sep","Oct","Nov","Déc"];
+
+const STATUS = {
+  pending:    { label: "En attente", cls: "bg-orange-50 text-orange-600 border-orange-200" },
+  paid:       { label: "Payée",      cls: "bg-blue-50 text-blue-600 border-blue-200" },
+  confirmed:  { label: "Confirmée",  cls: "bg-blue-50 text-blue-600 border-blue-200" },
+  shipped:    { label: "Expédiée",   cls: "bg-violet-50 text-violet-600 border-violet-200" },
+  in_transit: { label: "En transit", cls: "bg-violet-50 text-violet-600 border-violet-200" },
+  delivered:  { label: "Livrée",     cls: "bg-emerald-50 text-emerald-600 border-emerald-200" },
+  cancelled:  { label: "Annulée",    cls: "bg-red-50 text-red-600 border-red-200" },
 };
-const nextStatus = {
-  pending: "validated",
-  validated: "shipped",
-  shipped: "delivered",
-};
-const nextLabel = {
-  pending: "Valider",
-  validated: "Expédier",
-  shipped: "Marquer livré",
-};
+const prodStatus = (s) => s === "Épuisé"
+  ? { label: "Épuisé", cls: "bg-red-50 text-red-600 border-red-200" }
+  : { label: "Publié", cls: "bg-emerald-50 text-emerald-600 border-emerald-200" };
 
-/* ─── PRODUCT TYPES ─── */
-const TYPES = [
-  { value: "Audio Lab", label: "🎧 Audio Lab" },
-  { value: "Clothing", label: "👕 Vêtements" },
-  { value: "Shoes", label: "👟 Chaussures" },
-  { value: "Fragrance", label: "🌸 Parfums" },
-  { value: "Accessories", label: "💎 Accessoires" },
-  { value: "Tech Lab", label: "💻 Tech Lab" },
-];
-const STATUSES = [
-  "In Stock",
-  "Elite Choice",
-  "New Drop",
-  "Limited",
-  "Hot",
-  "Best Seller",
-];
+const EMPTY_PRODUCT = { name: "", price: "", type: "Tech Lab", status: "In Stock", description: "" };
+const CATEGORIES = ["Audio Lab","Tech Lab","Femme","Clothing","Shoes","Beauté","Accessories","Maison","Sport","Bébé & Enfants","Auto"];
 
-/* ─── STAT CARD ─── */
-const StatCard = ({ icon, label, value, sub, color, gradient }) => (
-  <div
-    className={`relative overflow-hidden rounded-2xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-900 p-5 group hover:shadow-lg transition-all duration-300 hover:-translate-y-0.5`}
-  >
-    <div
-      className={`absolute top-0 right-0 w-20 h-20 rounded-full blur-2xl opacity-15 ${gradient}`}
-    ></div>
-    <div className="flex items-start justify-between mb-3">
-      <div
-        className={`w-10 h-10 rounded-xl flex items-center justify-center ${gradient} bg-opacity-15`}
-      >
-        <i className={`fa-solid ${icon} ${color} text-sm`}></i>
-      </div>
-      <div className="flex items-center gap-1 text-[9px] font-black uppercase text-emerald-500 bg-emerald-50 dark:bg-emerald-500/10 px-2 py-1 rounded-full border border-emerald-200 dark:border-emerald-500/30">
-        <i className="fa-solid fa-arrow-up text-[7px]"></i>
-        <span>{sub}</span>
-      </div>
-    </div>
-    <p className={`text-2xl font-black italic tracking-tighter ${color}`}>
-      {value}
-    </p>
-    <p className="text-[9px] font-black uppercase tracking-widest text-zinc-400 mt-1">
-      {label}
-    </p>
-  </div>
-);
-
-const MemberDiscountCard = ({ vendor, loading, onToggle }) => (
-  <div
-    className={`rounded-2xl border-2 overflow-hidden transition-all ${
-      vendor?.member_discount_enabled
-        ? "border-primary bg-primary/5"
-        : "border-zinc-200 dark:border-white/10 bg-white dark:bg-zinc-900"
-    }`}
-  >
-    <div className="p-6 flex flex-col md:flex-row items-start md:items-center gap-5">
-      {/* ICON */}
-      <div
-        className={`w-14 h-14 rounded-2xl flex items-center justify-center flex-shrink-0 ${
-          vendor?.member_discount_enabled
-            ? "bg-primary text-black"
-            : "bg-zinc-100 dark:bg-zinc-800 text-zinc-400"
-        }`}
-      >
-        <i className={`fa-solid fa-tag text-xl`}></i>
-      </div>
-
-      {/* INFO */}
-      <div className="flex-1">
-        <div className="flex items-center gap-2 mb-1">
-          <h3 className="font-black uppercase italic text-sm text-zinc-900 dark:text-white tracking-tight">
-            Remise Membre −25%
-          </h3>
-          {vendor?.member_discount_enabled && (
-            <span className="bg-primary text-black text-[8px] font-black px-2 py-0.5 rounded-full uppercase">
-              Actif
-            </span>
-          )}
-        </div>
-        <p className="text-[10px] font-bold text-zinc-400 leading-relaxed max-w-md">
-          {vendor?.member_discount_enabled
-            ? `Tous vos produits affichent −25% pour les clients avec un compte membre. Les non-connectés voient un teaser "prix membre" pour les inciter à s'inscrire.`
-            : `Activez cette option pour offrir −25% à tous les membres OFS sur l'ensemble de vos produits. Vos prix normaux restent affichés pour les visiteurs.`}
-        </p>
-      </div>
-
-      {/* TOGGLE */}
-      <div className="flex flex-col items-center gap-2 flex-shrink-0">
-        <button
-          onClick={onToggle}
-          disabled={loading}
-          className={`relative w-16 h-8 rounded-full transition-all duration-300 focus:outline-none ${
-            vendor?.member_discount_enabled
-              ? "bg-primary shadow-[0_0_16px_rgba(0,255,136,0.4)]"
-              : "bg-zinc-200 dark:bg-zinc-700"
-          } ${
-            loading
-              ? "opacity-60 cursor-not-allowed"
-              : "cursor-pointer hover:opacity-90"
-          }`}
-        >
-          <span
-            className={`absolute top-1 w-6 h-6 rounded-full bg-white shadow-md transition-all duration-300 ${
-              vendor?.member_discount_enabled ? "left-9" : "left-1"
-            }`}
-          >
-            {loading && (
-              <span className="absolute inset-0 flex items-center justify-center">
-                <i className="fa-solid fa-circle-notch animate-spin text-zinc-400 text-[8px]"></i>
-              </span>
-            )}
-          </span>
-        </button>
-        <span
-          className={`text-[8px] font-black uppercase tracking-widest ${
-            vendor?.member_discount_enabled ? "text-primary" : "text-zinc-400"
-          }`}
-        >
-          {vendor?.member_discount_enabled ? "On" : "Off"}
-        </span>
-      </div>
-    </div>
-
-    {/* FOOTER STATS si actif */}
-    {vendor?.member_discount_enabled && (
-      <div className="border-t border-primary/20 bg-primary/5 px-6 py-3 flex items-center gap-6 text-[9px] font-black uppercase text-primary">
-        <span className="flex items-center gap-1.5">
-          <i className="fa-solid fa-bolt text-[8px]"></i>
-          Tous produits concernés
-        </span>
-        <span className="flex items-center gap-1.5">
-          <i className="fa-solid fa-users text-[8px]"></i>
-          Membres OFS uniquement
-        </span>
-        <span className="flex items-center gap-1.5">
-          <i className="fa-solid fa-layer-group text-[8px]"></i>
-          Compatible bundle −15%
-        </span>
-      </div>
-    )}
-  </div>
-);
-
-/* ─── TOAST ─── */
-const Toast = ({ toast, onClose }) => {
-  if (!toast) return null;
-  const isError = toast.type === "error";
+// ─── MINI BAR SPARKLINE ───────────────────────────────────────────────────────
+const MiniBars = ({ data, color }) => {
+  const max = Math.max(...data, 1);
   return (
-    <div className="fixed top-6 right-6 z-[400] animate-slideInRight max-w-sm">
-      <div
-        className={`border-2 rounded-2xl p-5 shadow-2xl backdrop-blur-xl flex items-start gap-4 ${
-          isError
-            ? "bg-white dark:bg-zinc-900 border-red-300 dark:border-red-500/40 shadow-red-100"
-            : "bg-white dark:bg-zinc-900 border-primary/40 shadow-[0_0_30px_rgba(0,255,136,0.15)]"
-        }`}
-      >
-        <div
-          className={`rounded-full p-2 shrink-0 ${
-            isError ? "bg-red-100 dark:bg-red-500/20" : "bg-primary/15"
-          }`}
-        >
-          <i
-            className={`fa-solid ${
-              isError ? "fa-xmark text-red-500" : "fa-check text-primary"
-            } text-sm`}
-          ></i>
-        </div>
-        <div className="flex-1">
-          <p
-            className={`font-black text-xs uppercase mb-0.5 ${
-              isError ? "text-red-500" : "text-zinc-900 dark:text-white"
-            }`}
-          >
-            {toast.title}
+    <div className="flex items-end gap-[3px] h-9">
+      {data.map((v, i) => (
+        <div key={i} className="w-1.5 rounded-full" style={{ height: `${Math.max(12, (v / max) * 100)}%`, background: color, opacity: 0.35 + 0.65 * (v / max) }} />
+      ))}
+    </div>
+  );
+};
+
+// ─── STAT CARD ────────────────────────────────────────────────────────────────
+const StatCard = ({ label, value, delta, spark, color }) => (
+  <div className="bg-white border border-gray-200/80 rounded-2xl p-5">
+    <p className="text-[13px] font-semibold text-gray-500 mb-2">{label}</p>
+    <div className="flex items-end justify-between gap-2">
+      <div>
+        <p className="text-[26px] font-bold text-gray-900 leading-none tracking-tight">{value}</p>
+        {delta != null && (
+          <p className={`text-[12px] font-semibold mt-2 flex items-center gap-1 ${delta >= 0 ? "text-emerald-600" : "text-red-500"}`}>
+            <i className={`fa-solid fa-arrow-trend-${delta >= 0 ? "up" : "down"}`} />{Math.abs(delta)}%
           </p>
-          <p className="text-zinc-500 text-[10px] font-bold">{toast.body}</p>
-        </div>
-        <button
-          onClick={onClose}
-          className="text-zinc-300 hover:text-zinc-500 transition shrink-0"
-        >
-          <i className="fa-solid fa-xmark text-xs"></i>
-        </button>
+        )}
       </div>
+      <MiniBars data={spark} color={color} />
     </div>
-  );
-};
+  </div>
+);
 
-/* ─── CONFIRM MODAL ─── */
-const ConfirmModal = ({
-  open,
-  title,
-  desc,
-  onConfirm,
-  onCancel,
-  danger = true,
-}) => {
-  if (!open) return null;
-  return (
-    <div className="fixed inset-0 z-[500] flex items-center justify-center p-6">
-      <div
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-        onClick={onCancel}
-      ></div>
-      <div className="relative bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-white/10 rounded-3xl p-8 w-full max-w-sm shadow-2xl">
-        <div
-          className={`w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-5 ${
-            danger ? "bg-red-50 dark:bg-red-500/10" : "bg-primary/10"
-          }`}
-        >
-          <i
-            className={`fa-solid ${
-              danger ? "fa-trash text-red-500" : "fa-question text-primary"
-            } text-xl`}
-          ></i>
-        </div>
-        <h3 className="text-lg font-black italic uppercase text-center text-zinc-900 dark:text-white mb-2">
-          {title}
-        </h3>
-        <p className="text-zinc-400 text-xs font-bold text-center mb-8">
-          {desc}
-        </p>
-        <div className="flex gap-3">
-          <button
-            onClick={onCancel}
-            className="flex-1 py-3 rounded-xl border border-zinc-200 dark:border-white/10 text-[10px] font-black uppercase text-zinc-500 hover:bg-zinc-50 dark:hover:bg-white/5 transition"
-          >
-            Annuler
-          </button>
-          <button
-            onClick={onConfirm}
-            className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase text-white transition hover:scale-105 ${
-              danger ? "bg-red-500 hover:bg-red-600" : "bg-primary text-black"
-            }`}
-          >
-            {danger ? "Supprimer" : "Confirmer"}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-};
+// ─── TOAST ────────────────────────────────────────────────────────────────────
+const Toast = ({ toast }) => !toast ? null : (
+  <div className="fixed bottom-5 right-5 z-[500] bg-gray-900 text-white px-4 py-3 rounded-xl shadow-lg flex items-center gap-3 max-w-xs">
+    <i className={`fa-solid ${toast.type === "error" ? "fa-circle-exclamation text-red-400" : "fa-circle-check text-emerald-400"}`} />
+    <div><p className="text-[13px] font-bold">{toast.title}</p>{toast.body && <p className="text-[11px] text-gray-300">{toast.body}</p>}</div>
+  </div>
+);
 
-/* ═══════════════════════════════════════════
-   MAIN DASHBOARD
-═══════════════════════════════════════════ */
+// ═══════════════════════════════════════════════════════════════
+//   DASHBOARD
+// ═══════════════════════════════════════════════════════════════
 const Dashboard = () => {
   const { vendor, signOut, updateVendorField } = useAuth();
   const navigate = useNavigate();
 
-  /* ─ State ─ */
-  const [activeTab, setActiveTab] = useState(() => {
-    try { return new URLSearchParams(window.location.search).get("tab") || "inventory"; }
-    catch { return "inventory"; }
-  });
+  const initialSection = (() => {
+    try { return new URLSearchParams(window.location.search).get("tab") === "live" ? "live" : "dashboard"; } catch { return "dashboard"; }
+  })();
+  const [section, setSection]   = useState(initialSection);
   const [products, setProducts] = useState([]);
-  const [orders, setOrders] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [pageLoading, setPageLoading] = useState(true);
-  const [imageFile, setImageFile] = useState(null);
-  const [imagePreview, setImagePreview] = useState("");
-  const [toast, setToast] = useState(null);
-  const [dragOver, setDragOver] = useState(false);
-  const [showAddForm, setShowAddForm] = useState(false);
-  const [showShareModal, setShowShareModal] = useState(false);
-  const [confirmModal, setConfirmModal] = useState({
-    open: false,
-    type: "",
-    id: null,
-    title: "",
-    desc: "",
-  });
-  const [searchInv, setSearchInv] = useState("");
-  const [searchOrders, setSearchOrders] = useState("");
-  const [filterStatus, setFilterStatus] = useState("all");
+  const [orders, setOrders]     = useState([]);
+  const [loading, setLoading]   = useState(true);
+  const [toast, setToast]       = useState(null);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [selectedOrder, setSelectedOrder] = useState(null);
+  const [showAdd, setShowAdd]   = useState(false);
 
-  const [discountToggleLoading, setDiscountToggleLoading] = useState(false);
+  const showToast = (title, body, type = "success") => { setToast({ title, body, type }); setTimeout(() => setToast(null), 3000); };
 
-  /* ─ Notifications ─ */
-  const [notifStatus, setNotifStatus] = useState("idle");
-  const [notifToken, setNotifToken] = useState(null);
-  const fcmUnsubRef = useRef(null);
-  const realtimeRef = useRef(null);
-
-  /* ─ Product Form ─ */
-  /* ─ Product Form ─ */
-  // On remplace le champ unique par un tableau 'images'
-  const EMPTY_PRODUCT = {
-    name: "",
-    price: "",
-    type: "Audio Lab",
-    status: "In Stock",
-    features: "",
-    description: "",
-    colors: ["Black", "White"],
-    moreImages: ["", "", ""],
-  };
-  const [imageFiles, setImageFiles] = useState([]); // Pour stocker les fichiers binaires
-  const [previews, setPreviews] = useState([]);
-
-  const [newProduct, setNewProduct] = useState(EMPTY_PRODUCT);
-  const [formStep, setFormStep] = useState(1);
-
-  // ══════════════════════════════════════════════
-  // REMPLACER UNIQUEMENT le useEffect INIT dans Dashboard.jsx
-  // (vers la ligne 127 dans votre fichier actuel)
-  // ══════════════════════════════════════════════
-
-  /* ─── INIT ─── */
-  useEffect(() => {
-    if (vendor?.id) {
-      Promise.all([fetchProducts(), fetchOrders()]).finally(() =>
-        setPageLoading(false)
-      );
-      registerFCMToken();
-      listenRealtime();
-    }
-    return () => {
-      if (realtimeRef.current) supabase.removeChannel(realtimeRef.current);
-      if (fcmUnsubRef.current) fcmUnsubRef.current();
-    };
-  }, [vendor]);
-
-  // INIT
-  useEffect(() => {
-    if (!vendor?.id) {
-      const safetyTimer = setTimeout(() => {
-        console.warn(
-          "[DASHBOARD] Safety: forcer pageLoading=false (vendor non chargé)    "
-        );
-        setPageLoading(false);
-      }, 20000); // 20s max
-      return () => clearTimeout(safetyTimer);
-    }
-  }, [vendor]);
-
-  /* ─── TOAST HELPER ─── */
-  const showToast = (title, body, type = "success") => {
-    setToast({ title, body, type });
-    setTimeout(() => setToast(null), 4000);
-  };
-
-  /* ─── FETCH ─── */
-  const fetchProducts = async () => {
-    const { data, error } = await supabase
-      .from("products")
-      .select("*")
-      .eq("vendor_id", vendor.id)
-      .order("created_at", { ascending: false });
-    if (!error) setProducts(data || []);
-  };
-
-  const fetchOrders = async () => {
-    const { data, error } = await supabase
-      .from("orders")
-      .select(
-        "*, order_items(id,product_name,quantity,unit_price,selected_size,selected_color,product_img)"
-      )
-      .eq("vendor_id", vendor.id)
-      .order("created_at", { ascending: false });
-    if (!error) setOrders(data || []);
-  };
-
-  /* ─── FCM ─── */
-  const registerFCMToken = async () => {
-    if (!("Notification" in window)) {
-      setNotifStatus("error");
-      return;
-    }
-    setNotifStatus("requesting");
-    try {
-      const token = await requestNotificationPermission(vendor.id);
-      if (token) {
-        setNotifToken(token);
-        setNotifStatus("granted");
-        const unsub = setupForegroundNotifications((payload) => {
-          showToast(
-            payload.notification?.title || "Nouvelle commande",
-            payload.notification?.body || ""
-          );
-        });
-        fcmUnsubRef.current = unsub;
-      } else setNotifStatus("denied");
-    } catch {
-      setNotifStatus("error");
-    }
-  };
-
-  /* ─── REALTIME ─── */
-  const listenRealtime = () => {
-    const ch = supabase
-      .channel("orders-dash")
-      .on(
-        "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "orders",
-          filter: `vendor_id=eq.${vendor.id}`,
-        },
-        (payload) => {
-          showToast(
-            `🛒 Commande #${payload.new.order_number}`,
-            `${payload.new.client_name} — ${Number(
-              payload.new.total_amount
-            ).toLocaleString()} FCFA`
-          );
-          fetchOrders();
-        }
-      )
-      .subscribe();
-    realtimeRef.current = ch;
-  };
-
-  /* ─── IMAGE DRAG & DROP ─── */
-  const handleImageChange = (file) => {
-    if (!file || !file.type.startsWith("image/")) return;
-    setImageFile(file);
-    setImagePreview(URL.createObjectURL(file));
-  };
-
-  /* ─── ADD PRODUCT ─── */
-  const handleAddProduct = async (e) => {
-    e.preventDefault();
+  // ── Data ──
+  const fetchAll = async () => {
+    if (!vendor?.id) return;
     setLoading(true);
-    try {
-      // 1. Upload de TOUS les fichiers vers Supabase Storage
-      const uploadedUrls = [];
+    const [{ data: p }, { data: o }] = await Promise.all([
+      supabase.from("products").select("*").eq("vendor_id", vendor.id).order("created_at", { ascending: false }),
+      supabase.from("orders").select("*, order_items(id,product_name,quantity,unit_price,selected_size,selected_color,product_img)").eq("vendor_id", vendor.id).order("created_at", { ascending: false }),
+    ]);
+    setProducts(p || []);
+    setOrders(o || []);
+    setLoading(false);
+  };
+  useEffect(() => { fetchAll(); }, [vendor?.id]);
 
-      if (imageFiles.length > 0) {
-        for (const file of imageFiles) {
-          // On utilise votre fonction uploadProductImage existante
-          const url = await uploadProductImage(file, vendor.id);
-          uploadedUrls.push(url);
-        }
-      }
+  // ── Derived metrics ──
+  const revenue = orders.filter(o => ["delivered","paid"].includes(o.status)).reduce((s, o) => s + Number(o.total_amount || 0), 0);
+  const pendingCount = orders.filter(o => o.status === "pending").length;
+  const profit = Math.round(revenue * 0.35);
+  const expenses = Math.round(revenue * 0.15);
 
-      // 2. Récupération des URLs manuelles (si vous en avez mis au Step 2)
-      const manualUrls = newProduct.moreImages
-        ? newProduct.moreImages.filter((url) => url.trim() !== "")
-        : [];
+  // monthly revenue (12)
+  const monthly = Array(12).fill(0);
+  orders.forEach(o => { if (["delivered","paid"].includes(o.status) && o.created_at) monthly[new Date(o.created_at).getMonth()] += Number(o.total_amount || 0); });
+  const sparkFrom = (arr) => { const last = arr.slice(-8); return last.some(Boolean) ? last : [3,5,4,6,5,7,6,8]; };
 
-      // 3. Fusionner tout dans le tableau final
-      const allImages = [...uploadedUrls, ...manualUrls];
+  // top product (by qty sold)
+  const soldMap = {};
+  orders.forEach(o => (o.order_items || []).forEach(it => { soldMap[it.product_name] = (soldMap[it.product_name] || 0) + Number(it.quantity || 0); }));
+  const topSold = Object.entries(soldMap).sort((a, b) => b[1] - a[1]).slice(0, 4);
+  const topProduct = products.find(p => p.name === topSold[0]?.[0]) || products[0];
 
-      // 4. Préparation des features
-      const features = newProduct.features
-        ? newProduct.features
-            .split(",")
-            .map((f) => f.trim())
-            .filter(Boolean)
-        : [];
+  // top category
+  const catMap = {};
+  products.forEach(p => { catMap[p.type] = (catMap[p.type] || 0) + 1; });
+  const topCats = Object.entries(catMap).sort((a, b) => b[1] - a[1]).slice(0, 4);
 
-      // 5. Insertion en base de données
-      const { data, error } = await supabase
-        .from("products")
-        .insert({
-          name: newProduct.name,
-          price: Number(newProduct.price),
-          type: newProduct.type,
-          status: newProduct.status,
-          img: allImages[0] || "https://via.placeholder.com/600x800", // Image principale = la première du tableau
-          images: allImages, // Le nouveau tableau pour la galerie
-          features,
-          vendor_id: vendor.id,
-          description: newProduct.description || null,
-          colors:
-            newProduct.colors?.length > 0
-              ? newProduct.colors
-              : ["Black", "White"],
-        })
-        .select();
+  // customers
+  const customers = Object.values(orders.reduce((acc, o) => {
+    const key = o.client_phone || o.client_name;
+    if (!acc[key]) acc[key] = { name: o.client_name, phone: o.client_phone, address: o.client_address, orders: 0, spent: 0 };
+    acc[key].orders += 1; acc[key].spent += Number(o.total_amount || 0);
+    return acc;
+  }, {}));
 
-      if (error) throw error;
-
-      // 6. Reset complet
-      setNewProduct(EMPTY_PRODUCT);
-      setImageFiles([]);
-      setPreviews([]);
-      setImagePreview(""); // Reset de l'ancien state
-      setShowAddForm(false);
-      setFormStep(1);
-      await fetchProducts();
-      showToast("Produit publié !", "La galerie est prête.");
-    } catch (err) {
-      showToast("Erreur", err.message, "error");
-    } finally {
-      setLoading(false);
-    }
+  const updateOrderStatus = async (id, status) => {
+    await supabase.from("orders").update({ status }).eq("id", id);
+    setOrders(prev => prev.map(o => o.id === id ? { ...o, status } : o));
+    setSelectedOrder(prev => prev && prev.id === id ? { ...prev, status } : prev);
+    showToast("Statut mis à jour");
   };
 
-  const handleToggleMemberDiscount = async () => {
-    setDiscountToggleLoading(true);
-    try {
-      await updateVendorField(
-        "member_discount_enabled",
-        !vendor.member_discount_enabled
-      );
-      showToast(
-        vendor.member_discount_enabled ? "Promo désactivée" : "Promo activée !",
-        vendor.member_discount_enabled
-          ? "Les prix normaux sont rétablis sur tous vos produits."
-          : "Les membres bénéficient maintenant de −25% sur tous vos produits.",
-        vendor.member_discount_enabled ? "error" : "success"
-      );
-    } catch (err) {
-      showToast("Erreur", err.message, "error");
-    } finally {
-      setDiscountToggleLoading(false);
-    }
-  };
-  /* ─── DELETE PRODUCT ─── */
-  const confirmDeleteProduct = (product) => {
-    setConfirmModal({
-      open: true,
-      type: "product",
-      id: product.id,
-      data: product,
-      title: "Supprimer ce produit ?",
-      desc: `"${product.name}" sera définitivement retiré de votre boutique.`,
-    });
+  const deleteProduct = async (p) => {
+    await supabase.from("products").delete().eq("id", p.id);
+    if (p.img) { try { await deleteProductImage(p.img); } catch {} }
+    setProducts(prev => prev.filter(x => x.id !== p.id));
+    showToast("Produit supprimé");
   };
 
-  const doDeleteProduct = async () => {
-    const product = confirmModal.data;
-    setConfirmModal({ open: false });
-    try {
-      if (product.img?.includes("product-images"))
-        await deleteProductImage(product.img);
-      const { error } = await supabase
-        .from("products")
-        .delete()
-        .eq("id", product.id);
-      if (error) throw error;
-      await fetchProducts();
-      showToast("Produit supprimé", `"${product.name}" a été retiré.`);
-    } catch (err) {
-      showToast("Erreur", err.message, "error");
-    }
-  };
+  const NAV = [
+    { key: "dashboard", label: "Tableau de bord", icon: "fa-gauge-high" },
+    { key: "products",  label: "Produits",        icon: "fa-box" },
+    { key: "orders",    label: "Commandes",       icon: "fa-cart-shopping", badge: pendingCount },
+    { key: "live",      label: "Live",            icon: "fa-video" },
+    { key: "customers", label: "Clients",         icon: "fa-users" },
+    { key: "settings",  label: "Réglages",        icon: "fa-gear" },
+  ];
 
-  /* ─── DELETE ORDER ─── */
-  const confirmDeleteOrder = (order) => {
-    setConfirmModal({
-      open: true,
-      type: "order",
-      id: order.id,
-      data: order,
-      title: "Supprimer cette commande ?",
-      desc: `La commande #${order.order_number} de ${order.client_name} sera définitivement supprimée.`,
-    });
-  };
+  const go = (k) => { setSection(k); setSelectedOrder(null); setSidebarOpen(false); };
 
-  const doDeleteOrder = async () => {
-    const order = confirmModal.data;
-    setConfirmModal({ open: false });
-    try {
-      await supabase.from("order_items").delete().eq("order_id", order.id);
-      const { error } = await supabase
-        .from("orders")
-        .delete()
-        .eq("id", order.id);
-      if (error) throw error;
-      await fetchOrders();
-      showToast(
-        "Commande supprimée",
-        `Commande #${order.order_number} retirée.`
-      );
-    } catch (err) {
-      showToast("Erreur", err.message, "error");
-    }
-  };
-
-  /* ─── UPDATE ORDER ─── */
-  const updateOrderStatus = async (orderId, current) => {
-    const newS = nextStatus[current];
-    if (!newS) return;
-    const { error } = await supabase
-      .from("orders")
-      .update({ status: newS })
-      .eq("id", orderId);
-    if (!error) {
-      await fetchOrders();
-      showToast("Statut mis à jour", `Commande → ${STATUS_CFG[newS].label}`);
-    } else showToast("Erreur", error.message, "error");
-  };
-
-  /* ─── SHARE ─── */
-  const handleShare = async (type, data = null) => {
-    const base = window.location.origin;
-    const url =
-      type === "shop"
-        ? `${base}/shop/${vendor.shop_name}`
-        : `${base}/shop/${vendor.shop_name}?product=${data.id}`;
-    try {
-      if (navigator.share)
-        await navigator.share({ title: vendor.shop_name, url });
-      else {
-        await navigator.clipboard.writeText(url);
-        showToast("Lien copié !", "Collez-le où vous voulez.");
-      }
-    } catch {}
-    setShowShareModal(false);
-  };
-
-  const copyToClipboard = async (type, data = null) => {
-    const base = window.location.origin;
-    const url =
-      type === "shop"
-        ? `${base}/shop/${vendor.shop_name}`
-        : `${base}/shop/${vendor.shop_name}?product=${data.id}`;
-    await navigator.clipboard.writeText(url);
-    showToast(
-      "Lien copié !",
-      type === "shop"
-        ? "Lien de votre boutique copié."
-        : `Lien de "${data.name}" copié.`
-    );
-  };
-
-  /* ─── STATS ─── */
-  const totalRevenue = orders
-    .filter((o) => o.status === "delivered")
-    .reduce((a, o) => a + Number(o.total_amount), 0);
-  const pendingCount = orders.filter((o) => o.status === "pending").length;
-  const deliveredCount = orders.filter((o) => o.status === "delivered").length;
-  const totalSales = orders.reduce((a, o) => a + Number(o.total_amount), 0);
-
-  /* ─── FILTERED LISTS ─── */
-  const filteredProducts = products.filter(
-    (p) =>
-      p.name.toLowerCase().includes(searchInv.toLowerCase()) ||
-      p.type.toLowerCase().includes(searchInv.toLowerCase())
+  if (!vendor) return (
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="w-8 h-8 border-4 border-orange-500 border-t-transparent rounded-full animate-spin" />
+    </div>
   );
 
-  const filteredOrders = orders
-    .filter((o) => filterStatus === "all" || o.status === filterStatus)
-    .filter(
-      (o) =>
-        o.client_name.toLowerCase().includes(searchOrders.toLowerCase()) ||
-        String(o.order_number).includes(searchOrders)
-    );
+  const sectionTitle = NAV.find(n => n.key === section)?.label || "Dashboard";
 
-  /* ─── NOTIF BADGE ─── */
-  const notifBadge = {
-    idle: {
-      color: "text-zinc-400",
-      icon: "fa-bell-slash",
-      label: "Notifications désactivées",
-    },
-    requesting: {
-      color: "text-yellow-500 animate-pulse",
-      icon: "fa-bell",
-      label: "Activation...",
-    },
-    granted: {
-      color: "text-emerald-500",
-      icon: "fa-bell",
-      label: "Notifications actives",
-    },
-    denied: {
-      color: "text-red-400",
-      icon: "fa-bell-slash",
-      label: "Permission refusée",
-    },
-    error: {
-      color: "text-orange-400",
-      icon: "fa-bell-slash",
-      label: "Non supporté",
-    },
-  }[notifStatus];
-
-  const handleLogout = async () => {
-    try {
-      await signOut();
-      navigate("/login");
-    } catch {}
-  };
-
-  if (pageLoading)
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-zinc-50 dark:bg-black">
-        <div className="text-center">
-          <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-[10px] font-black uppercase tracking-[0.3em] text-zinc-400">
-            Chargement dashboard...
-          </p>
-        </div>
-      </div>
-    );
-
-  /* ══════════════════════════════════════
-      RENDER
-  ══════════════════════════════════════ */
   return (
-    <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-white">
-      {/* ── TOAST ── */}
-      <Toast toast={toast} onClose={() => setToast(null)} />
-
-      {/* ── CONFIRM MODAL ── */}
-      <ConfirmModal
-        open={confirmModal.open}
-        title={confirmModal.title}
-        desc={confirmModal.desc}
-        onConfirm={
-          confirmModal.type === "product" ? doDeleteProduct : doDeleteOrder
-        }
-        onCancel={() => setConfirmModal({ open: false })}
-      />
-
-      {/* ══ TOP HEADER BAR ══ */}
-      <div className="bg-white dark:bg-zinc-900 border-b border-zinc-200 dark:border-white/10 sticky top-0 z-40 shadow-sm">
-        <div className="max-w-[1600px] mx-auto px-4 md:px-8 h-16 flex items-center justify-between gap-4">
-          {/* BRAND */}
-          <div className="flex items-center gap-4">
-            <div className="w-9 h-9 bg-primary/15 border border-primary/30 rounded-xl flex items-center justify-center">
-              <i className="fa-solid fa-store text-primary text-sm"></i>
-            </div>
-            <div className="hidden sm:block">
-              <p className="font-black italic uppercase text-sm tracking-tighter text-zinc-900 dark:text-white leading-none">
-                {vendor?.shop_name}
-              </p>
-              <p className="text-[8px] font-black uppercase tracking-[0.3em] text-zinc-400">
-                {vendor?.email}
-              </p>
-            </div>
-          </div>
-
-          {/* NAV TABS */}
-          <div className="flex items-center gap-1 bg-zinc-100 dark:bg-zinc-800 p-1 rounded-xl border border-zinc-200 dark:border-white/10 overflow-x-auto hide-scrollbar">
-            {[
-              { key: "inventory", icon: "fa-box",          label: "Inventaire" },
-              { key: "live",      icon: "fa-video",        label: "Live" },
-              { key: "orders",    icon: "fa-bag-shopping", label: "Commandes", badge: pendingCount },
-              { key: "analytics", icon: "fa-chart-line",   label: "Analytics" },
-            ].map((tab) => (
-              <button
-                key={tab.key}
-                onClick={() => setActiveTab(tab.key)}
-                className={`relative flex items-center gap-2 px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-wider whitespace-nowrap transition-all ${
-                  activeTab === tab.key
-                    ? "bg-white dark:bg-zinc-700 text-zinc-900 dark:text-white shadow-sm"
-                    : "text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200"
-                }`}
-              >
-                <i
-                  className={`fa-solid ${tab.icon} text-xs ${
-                    activeTab === tab.key ? "text-primary" : ""
-                  }`}
-                ></i>
-                <span className="hidden md:inline">{tab.label}</span>
-                {tab.badge > 0 && (
-                  <span className="absolute -top-1.5 -right-1.5 bg-orange-500 text-white text-[7px] font-black w-4 h-4 rounded-full flex items-center justify-center">
-                    {tab.badge}
-                  </span>
-                )}
-              </button>
-            ))}
-          </div>
-
-          {/* ACTIONS */}
-          <div className="flex items-center gap-2 flex-shrink-0">
-            {/* NOTIF STATUS */}
-            <div
-              className={`hidden lg:flex items-center gap-1.5 text-[9px] font-black uppercase ${notifBadge?.color}`}
-            >
-              <i className={`fa-solid ${notifBadge?.icon} text-xs`}></i>
-              <span className="hidden xl:inline">{notifBadge?.label}</span>
-            </div>
-
-            <button
-              onClick={() => setShowShareModal(true)}
-              className="flex items-center gap-2 bg-primary text-black px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider hover:scale-105 transition-all shadow-[0_4px_12px_rgba(0,255,136,0.2)]"
-            >
-              <i className="fa-solid fa-share-nodes text-xs"></i>
-              <span className="hidden md:inline">Partager</span>
-            </button>
-
-            <button
-              onClick={handleLogout}
-              className="w-9 h-9 flex items-center justify-center rounded-xl border border-zinc-200 dark:border-white/10 text-zinc-400 hover:text-red-500 hover:border-red-200 dark:hover:border-red-500/30 transition-all"
-            >
-              <i className="fa-solid fa-right-from-bracket text-xs"></i>
-            </button>
+    <div className="min-h-screen bg-gray-50 flex text-gray-900">
+      {/* ═══ SIDEBAR ═══ */}
+      <aside className={`fixed lg:static z-40 inset-y-0 left-0 w-64 bg-white border-r border-gray-200 flex flex-col transition-transform duration-300 ${sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}`}>
+        <div className="h-16 flex items-center gap-2.5 px-5 border-b border-gray-100">
+          <div className="w-8 h-8 rounded-lg bg-orange-500 flex items-center justify-center text-white"><i className="fa-solid fa-store text-sm" /></div>
+          <div className="min-w-0">
+            <p className="font-bold text-[14px] truncate">{vendor.shop_name}</p>
+            <p className="text-[10px] text-gray-400">Espace vendeur</p>
           </div>
         </div>
+        <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
+          {NAV.map(n => (
+            <button key={n.key} onClick={() => go(n.key)}
+              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-semibold transition-colors ${section === n.key ? "bg-gray-900 text-white" : "text-gray-600 hover:bg-gray-100"}`}>
+              <i className={`fa-solid ${n.icon} w-4 text-center`} />
+              <span className="flex-1 text-left">{n.label}</span>
+              {n.badge > 0 && <span className="bg-orange-500 text-white text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center">{n.badge}</span>}
+            </button>
+          ))}
+        </nav>
+        <div className="p-3 border-t border-gray-100 space-y-1">
+          <a href={`/shop/${vendor.shop_name}`} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-semibold text-gray-600 hover:bg-gray-100"><i className="fa-solid fa-arrow-up-right-from-square w-4 text-center" />Ma boutique</a>
+          <button onClick={() => { signOut(); navigate("/"); }} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-semibold text-red-500 hover:bg-red-50"><i className="fa-solid fa-right-from-bracket w-4 text-center" />Déconnexion</button>
+        </div>
+      </aside>
+      {sidebarOpen && <div className="fixed inset-0 bg-black/30 z-30 lg:hidden" onClick={() => setSidebarOpen(false)} />}
+
+      {/* ═══ MAIN ═══ */}
+      <div className="flex-1 min-w-0 flex flex-col">
+        {/* TOPBAR */}
+        <header className="h-16 bg-white border-b border-gray-200 flex items-center gap-3 px-4 md:px-6 sticky top-0 z-20">
+          <button onClick={() => setSidebarOpen(true)} className="lg:hidden w-9 h-9 rounded-lg hover:bg-gray-100 flex items-center justify-center"><i className="fa-solid fa-bars" /></button>
+          <div className="hidden sm:flex items-center gap-2 text-[13px] text-gray-400">
+            <i className="fa-solid fa-gauge-high text-gray-500" /><span className="text-gray-900 font-semibold">{selectedOrder ? "Détail commande" : sectionTitle}</span>
+          </div>
+          <div className="flex-1 max-w-md mx-auto hidden md:block">
+            <div className="relative">
+              <i className="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 text-sm" />
+              <input placeholder="Rechercher…" className="w-full bg-gray-100 rounded-xl pl-10 pr-4 py-2 text-[13px] outline-none focus:ring-2 focus:ring-gray-900/10" />
+            </div>
+          </div>
+          <div className="flex items-center gap-2 ml-auto">
+            <button className="w-9 h-9 rounded-lg hover:bg-gray-100 flex items-center justify-center text-gray-500"><i className="fa-regular fa-bell" /></button>
+            {section === "products" && (
+              <button onClick={() => setShowAdd(true)} className="flex items-center gap-2 bg-gray-900 text-white text-[12px] font-bold px-3.5 py-2 rounded-xl hover:bg-gray-800">
+                <i className="fa-solid fa-plus" /><span className="hidden sm:inline">Ajouter</span>
+              </button>
+            )}
+          </div>
+        </header>
+
+        {/* CONTENT */}
+        <main className="flex-1 p-4 md:p-6 overflow-x-hidden">
+          {loading ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+              {[...Array(4)].map((_, i) => <div key={i} className="h-32 bg-white border border-gray-200 rounded-2xl animate-pulse" />)}
+            </div>
+          ) : (
+            <>
+              {section === "dashboard" && (
+                <Overview {...{ revenue, orders, profit, expenses, monthly, sparkFrom, topProduct, topSold, topCats, customers, products }} />
+              )}
+              {section === "products" && (
+                <ProductsView products={products} onDelete={deleteProduct} onAdd={() => setShowAdd(true)} />
+              )}
+              {section === "orders" && (
+                selectedOrder
+                  ? <OrderDetail order={selectedOrder} onBack={() => setSelectedOrder(null)} onStatus={updateOrderStatus} vendor={vendor} />
+                  : <OrdersView orders={orders} onOpen={setSelectedOrder} />
+              )}
+              {section === "live" && <VendorLivePanel vendor={vendor} onToast={showToast} />}
+              {section === "customers" && <CustomersView customers={customers} />}
+              {section === "settings" && <SettingsView vendor={vendor} updateVendorField={updateVendorField} showToast={showToast} />}
+            </>
+          )}
+        </main>
       </div>
 
-      {/* ══ MAIN CONTENT ══ */}
-      <div className="max-w-[1600px] mx-auto px-4 md:px-8 py-8">
-        {/* ── STATS ROW ── */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-          <StatCard
-            icon="fa-coins"
-            label="Chiffre d'affaires"
-            value={`${totalSales.toLocaleString()} F`}
-            sub="total cumulé"
-            color="text-primary"
-            gradient="bg-emerald-400"
-          />
-          <StatCard
-            icon="fa-box"
-            label="Produits actifs"
-            value={products.length}
-            sub="en catalogue"
-            color="text-blue-500"
-            gradient="bg-blue-400"
-          />
-          <StatCard
-            icon="fa-clock"
-            label="En attente"
-            value={pendingCount}
-            sub="à traiter"
-            color="text-orange-500"
-            gradient="bg-orange-400"
-          />
-          <StatCard
-            icon="fa-check-circle"
-            label="Commandes livrées"
-            value={deliveredCount}
-            sub="succès"
-            color="text-emerald-500"
-            gradient="bg-emerald-400"
-          />
-        </div>
-        <MemberDiscountCard
-          vendor={vendor}
-          loading={discountToggleLoading}
-          onToggle={handleToggleMemberDiscount}
-        />
-        {/* ══════════════════════════ INVENTORY TAB ══════════════════════════ */}
-        {activeTab === "inventory" && (
-          <div className="space-y-6">
-            {/* TOOLBAR */}
-            <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-white/10 rounded-2xl p-5 flex flex-col sm:flex-row gap-3 items-stretch sm:items-center">
-              <div className="relative flex-1">
-                <i className="fa-solid fa-magnifying-glass absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400 text-sm"></i>
-                <input
-                  type="text"
-                  value={searchInv}
-                  onChange={(e) => setSearchInv(e.target.value)}
-                  placeholder="Rechercher un produit..."
-                  className="w-full bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-white/10 rounded-xl pl-10 pr-4 py-2.5 text-sm font-bold text-zinc-900 dark:text-white placeholder-zinc-400 outline-none focus:border-primary transition-colors"
-                />
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-[10px] font-black uppercase text-zinc-400 hidden sm:block">
-                  {filteredProducts.length} produits
-                </span>
-                <button
-                  onClick={() => {
-                    setShowAddForm(!showAddForm);
-                    setFormStep(1);
-                    setNewProduct(EMPTY_PRODUCT);
-                    setImagePreview("");
-                    setImageFile(null);
-                  }}
-                  className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all ${
-                    showAddForm
-                      ? "bg-zinc-200 dark:bg-zinc-700 text-zinc-600 dark:text-white"
-                      : "bg-zinc-900 dark:bg-primary text-white dark:text-black hover:bg-primary hover:text-black"
-                  }`}
-                >
-                  <i
-                    className={`fa-solid ${
-                      showAddForm ? "fa-xmark" : "fa-plus"
-                    } text-xs`}
-                  ></i>
-                  <span>{showAddForm ? "Fermer" : "Ajouter Produit"}</span>
-                </button>
-              </div>
-            </div>
+      {showAdd && <AddProductModal vendor={vendor} onClose={() => setShowAdd(false)} onDone={() => { setShowAdd(false); fetchAll(); showToast("Produit ajouté !"); }} showToast={showToast} />}
+      <Toast toast={toast} />
+    </div>
+  );
+};
 
-            {/* ── ADD PRODUCT FORM ── */}
-            {showAddForm && (
-              <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-white/10 rounded-2xl overflow-hidden shadow-lg">
-                {/* FORM HEADER */}
-                <div className="p-6 border-b border-zinc-100 dark:border-white/5 bg-gradient-to-r from-primary/5 to-transparent">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 bg-primary/15 border border-primary/30 rounded-xl flex items-center justify-center">
-                        <i className="fa-solid fa-wand-magic-sparkles text-primary text-sm"></i>
-                      </div>
-                      <div>
-                        <h3 className="font-black italic uppercase text-sm tracking-tighter text-zinc-900 dark:text-white">
-                          Nouveau Produit
-                        </h3>
-                        <p className="text-[9px] font-black uppercase text-zinc-400 tracking-widest">
-                          Étape {formStep}/3
-                        </p>
-                      </div>
-                    </div>
-                    {/* STEP INDICATORS */}
-                    <div className="hidden sm:flex items-center gap-2">
-                      {[1, 2, 3].map((s) => (
-                        <button
-                          key={s}
-                          onClick={() => formStep > s && setFormStep(s)}
-                          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[9px] font-black uppercase transition-all ${
-                            s === formStep
-                              ? "bg-primary text-black"
-                              : s < formStep
-                              ? "bg-primary/20 text-primary"
-                              : "bg-zinc-100 dark:bg-zinc-800 text-zinc-400"
-                          }`}
-                        >
-                          <span
-                            className={`w-4 h-4 rounded-full flex items-center justify-center text-[8px] ${
-                              s === formStep ? "bg-black/20" : ""
-                            }`}
-                          >
-                            {s < formStep ? "✓" : s}
-                          </span>
-                          <span>{["Info", "Détails", "Image"][s - 1]}</span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </div>
+// ─── OVERVIEW ─────────────────────────────────────────────────────────────────
+const Overview = ({ revenue, orders, profit, expenses, monthly, sparkFrom, topProduct, topSold, topCats, customers }) => {
+  const maxM = Math.max(...monthly, 1);
+  return (
+    <div className="space-y-4">
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight">Bonjour 👋</h1>
+        <p className="text-[13px] text-gray-500">Voici l'activité de ta boutique.</p>
+      </div>
 
-                <form onSubmit={handleAddProduct} className="p-6">
-                  {/* STEP 1 — BASIC INFO */}
-                  {formStep === 1 && (
-                    <div className="space-y-5">
-                      <div className="grid md:grid-cols-2 gap-4">
-                        <div>
-                          <label className="text-[9px] font-black uppercase text-zinc-400 mb-2 block tracking-widest">
-                            Nom du produit *
-                          </label>
-                          <input
-                            type="text"
-                            required
-                            placeholder="Ex: AirPods Pro 2 Elite"
-                            value={newProduct.name}
-                            onChange={(e) =>
-                              setNewProduct({
-                                ...newProduct,
-                                name: e.target.value,
-                              })
-                            }
-                            className="w-full bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl px-4 py-3 text-sm font-bold text-zinc-900 dark:text-white placeholder-zinc-400 outline-none focus:border-primary transition-colors"
-                          />
-                        </div>
-                        <div>
-                          <label className="text-[9px] font-black uppercase text-zinc-400 mb-2 block tracking-widest">
-                            Prix (FCFA) *
-                          </label>
-                          <div className="relative">
-                            <input
-                              type="number"
-                              required
-                              placeholder="45000"
-                              min="0"
-                              value={newProduct.price}
-                              onChange={(e) =>
-                                setNewProduct({
-                                  ...newProduct,
-                                  price: e.target.value,
-                                })
-                              }
-                              className="w-full bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl px-4 py-3 text-sm font-bold text-zinc-900 dark:text-white placeholder-zinc-400 outline-none focus:border-primary transition-colors pr-16"
-                            />
-                            <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] font-black text-zinc-400 uppercase">
-                              FCFA
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="grid md:grid-cols-2 gap-4">
-                        <div>
-                          <label className="text-[9px] font-black uppercase text-zinc-400 mb-2 block tracking-widest">
-                            Catégorie *
-                          </label>
-                          <div className="grid grid-cols-2 gap-2">
-                            {TYPES.map((t) => (
-                              <button
-                                key={t.value}
-                                type="button"
-                                onClick={() =>
-                                  setNewProduct({
-                                    ...newProduct,
-                                    type: t.value,
-                                  })
-                                }
-                                className={`py-2.5 px-3 rounded-xl text-[10px] font-black border-2 transition-all text-left ${
-                                  newProduct.type === t.value
-                                    ? "border-primary bg-primary/10 text-primary"
-                                    : "border-zinc-200 dark:border-zinc-700 text-zinc-500 hover:border-zinc-300"
-                                }`}
-                              >
-                                {t.label}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                        <div>
-                          <label className="text-[9px] font-black uppercase text-zinc-400 mb-2 block tracking-widest">
-                            Statut
-                          </label>
-                          <div className="grid grid-cols-2 gap-2">
-                            {STATUSES.map((s) => (
-                              <button
-                                key={s}
-                                type="button"
-                                onClick={() =>
-                                  setNewProduct({ ...newProduct, status: s })
-                                }
-                                className={`py-2.5 px-3 rounded-xl text-[10px] font-black border-2 transition-all ${
-                                  newProduct.status === s
-                                    ? "border-primary bg-primary/10 text-primary"
-                                    : "border-zinc-200 dark:border-zinc-700 text-zinc-500 hover:border-zinc-300"
-                                }`}
-                              >
-                                {s}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
-                      <div className="flex justify-end">
-                        <button
-                          type="button"
-                          onClick={() => setFormStep(2)}
-                          disabled={!newProduct.name || !newProduct.price}
-                          className="bg-zinc-900 dark:bg-primary text-white dark:text-black px-8 py-3 rounded-xl font-black text-[10px] uppercase tracking-wider hover:bg-primary hover:text-black disabled:opacity-40 disabled:cursor-not-allowed transition-all flex items-center gap-2"
-                        >
-                          Suivant{" "}
-                          <i className="fa-solid fa-arrow-right text-xs"></i>
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                  {/* STEP 2 — DETAILS */}
+      {/* KPI */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+        <StatCard label="Revenu"    value={money(revenue)}       delta={10} spark={sparkFrom(monthly)} color="#3b82f6" />
+        <StatCard label="Commandes" value={orders.length}        delta={8}  spark={sparkFrom(orders.map((_, i) => (i % 5) + 1))} color="#f97316" />
+        <StatCard label="Bénéfice"  value={money(profit)}        delta={6}  spark={sparkFrom(monthly.map(v => v * 0.35))} color="#10b981" />
+        <StatCard label="Dépenses"  value={money(expenses)}      delta={-3} spark={sparkFrom(monthly.map(v => v * 0.15))} color="#ef4444" />
+      </div>
 
-                  {formStep === 2 && (
-                    <div className="space-y-5">
-                      <div>
-                        <label className="text-[9px] font-black uppercase text-zinc-400 mb-2 block tracking-widest">
-                          Features / Caractéristiques
-                          <span className="text-zinc-300 ml-2 normal-case font-bold">
-                            (séparées par des virgules)
-                          </span>
-                        </label>
-
-                        <textarea
-                          value={newProduct.features}
-                          onChange={(e) =>
-                            setNewProduct({
-                              ...newProduct,
-                              features: e.target.value,
-                            })
-                          }
-                          placeholder="Ex: Réduction de bruit active, 30h autonomie, Bluetooth 5.3, Waterproof IPX4"
-                          rows={3}
-                          className="w-full bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl px-4 py-3 text-sm font-bold text-zinc-900 dark:text-white placeholder-zinc-400 outline-none focus:border-primary transition-colors resize-none"
-                        />
-
-                        {newProduct.features && (
-                          <div className="flex flex-wrap gap-2 mt-3">
-                            {newProduct.features
-                              .split(",")
-                              .filter((f) => f.trim())
-                              .map((f, i) => (
-                                <span
-                                  key={i}
-                                  className="bg-primary/10 text-primary border border-primary/20 text-[9px] font-black px-2.5 py-1 rounded-full uppercase"
-                                >
-                                  <i className="fa-solid fa-bolt text-[7px] mr-1"></i>
-                                  {f.trim()}
-                                </span>
-                              ))}
-                          </div>
-                        )}
-                      </div>
-
-                      {/* DESCRIPTION */}
-                      <div>
-                        <label className="text-[9px] font-black uppercase text-zinc-400 mb-2 block tracking-widest">
-                          Description
-                        </label>
-                        <textarea
-                          value={newProduct.description}
-                          onChange={(e) =>
-                            setNewProduct({
-                              ...newProduct,
-                              description: e.target.value,
-                            })
-                          }
-                          placeholder="Décrivez votre produit en quelques phrases..."
-                          rows={3}
-                          className="w-full bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl px-4 py-3 text-sm font-bold text-zinc-900 dark:text-white placeholder-zinc-400 outline-none focus:border-primary transition-colors resize-none"
-                        />
-                      </div>
-
-                      {/* COULEURS */}
-                      <div>
-                        <label className="text-[9px] font-black uppercase text-zinc-400 mb-2 block tracking-widest">
-                          Couleurs disponibles
-                        </label>
-                        <div className="flex flex-wrap gap-2">
-                          {[
-                            { name: "Black", hex: "#111111" },
-                            { name: "White", hex: "#f5f5f5" },
-                            { name: "Neon", hex: "#00ff88" },
-                            { name: "Red", hex: "#ef4444" },
-                            { name: "Blue", hex: "#3b82f6" },
-                            { name: "Navy", hex: "#1e3a5f" },
-                            { name: "Sky", hex: "#38bdf8" },
-                            { name: "Slate", hex: "#64748b" },
-                            { name: "Gray", hex: "#9ca3af" },
-                            { name: "Brown", hex: "#92400e" },
-                            { name: "Beige", hex: "#d4b896" },
-                            { name: "Camel", hex: "#c19a6b" },
-                            { name: "Green", hex: "#16a34a" },
-                            { name: "Olive", hex: "#65a30d" },
-                            { name: "Yellow", hex: "#facc15" },
-                            { name: "Orange", hex: "#f97316" },
-                            { name: "Pink", hex: "#ec4899" },
-                            { name: "Purple", hex: "#a855f7" },
-                            { name: "Burgundy", hex: "#7f1d1d" },
-                            { name: "Gold", hex: "#d97706" },
-                            { name: "Silver", hex: "#c0c0c0" },
-                            { name: "Khaki", hex: "#c3b091" },
-                            { name: "Teal", hex: "#0d9488" },
-                            { name: "Coral", hex: "#fb7185" },
-                          ].map((c) => {
-                            const selected = newProduct.colors.includes(c.name);
-                            return (
-                              <button
-                                key={c.name}
-                                type="button"
-                                onClick={() =>
-                                  setNewProduct({
-                                    ...newProduct,
-                                    colors: selected
-                                      ? newProduct.colors.filter(
-                                          (x) => x !== c.name
-                                        )
-                                      : [...newProduct.colors, c.name],
-                                  })
-                                }
-                                className={`flex items-center gap-2 px-3 py-2 rounded-xl text-[10px] font-black border-2 transition-all ${
-                                  selected
-                                    ? "border-primary bg-primary/10 text-primary"
-                                    : "border-zinc-200 dark:border-zinc-700 text-zinc-500 hover:border-zinc-300"
-                                }`}
-                              >
-                                <span
-                                  className="w-4 h-4 rounded-full border border-zinc-300 flex-shrink-0"
-                                  style={{ backgroundColor: c.hex }}
-                                />
-                                {c.name}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </div>
-
-                      {/* PREVIEW CARD */}
-
-                      {newProduct.name && (
-                        <div className="bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl p-4 flex items-center gap-4">
-                          <div className="w-14 h-14 bg-zinc-200 dark:bg-zinc-700 rounded-xl flex items-center justify-center flex-shrink-0 overflow-hidden">
-                            {imagePreview ? (
-                              <img
-                                src={imagePreview}
-                                className="w-full h-full object-cover"
-                              />
-                            ) : (
-                              <i className="fa-solid fa-image text-zinc-400 text-xl"></i>
-                            )}
-                          </div>
-
-                          <div>
-                            <p className="font-black uppercase italic text-sm tracking-tight text-zinc-900 dark:text-white">
-                              {newProduct.name}
-                            </p>
-
-                            <p className="text-[9px] font-black uppercase text-zinc-400">
-                              {newProduct.type} · {newProduct.status}
-                            </p>
-
-                            <p className="text-primary font-black text-sm mt-0.5">
-                              {Number(newProduct.price || 0).toLocaleString()}{" "}
-                              FCFA
-                            </p>
-                          </div>
-                        </div>
-                      )}
-
-                      <div className="flex justify-between">
-                        <button
-                          type="button"
-                          onClick={() => setFormStep(1)}
-                          className="text-[10px] font-black uppercase text-zinc-400 hover:text-zinc-700 transition flex items-center gap-2"
-                        >
-                          <i className="fa-solid fa-arrow-left text-xs"></i>{" "}
-                          Retour
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => setFormStep(3)}
-                          className="bg-zinc-900 dark:bg-primary text-white dark:text-black px-8 py-3 rounded-xl font-black text-[10px] uppercase tracking-wider hover:bg-primary hover:text-black transition-all flex items-center gap-2"
-                        >
-                          Suivant{" "}
-                          <i className="fa-solid fa-arrow-right text-xs"></i>
-                        </button>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* STEP 3 — UPLOAD DE MULTIPLES FICHIERS */}
-                  {formStep === 3 && (
-                    <div className="space-y-5">
-                      <label className="text-[9px] font-black uppercase text-zinc-400 mb-0 block tracking-widest text-center">
-                        Images locales (Fichiers)
-                      </label>
-
-                      <div
-                        onDragOver={(e) => {
-                          e.preventDefault();
-                          setDragOver(true);
-                        }}
-                        onDragLeave={() => setDragOver(false)}
-                        onDrop={(e) => {
-                          e.preventDefault();
-                          setDragOver(false);
-                          const files = Array.from(e.dataTransfer.files);
-                          setImageFiles((prev) => [...prev, ...files]);
-                          setPreviews((prev) => [
-                            ...prev,
-                            ...files.map((f) => URL.createObjectURL(f)),
-                          ]);
-                        }}
-                        className={`relative border-2 border-dashed rounded-2xl transition-all duration-300 ${
-                          dragOver
-                            ? "border-primary bg-primary/5 scale-[1.01]"
-                            : "border-zinc-300 dark:border-zinc-700 hover:border-primary/50"
-                        }`}
-                      >
-                        <input
-                          type="file"
-                          accept="image/*"
-                          multiple
-                          onChange={(e) => {
-                            const files = Array.from(e.target.files);
-                            setImageFiles((prev) => [...prev, ...files]);
-                            setPreviews((prev) => [
-                              ...prev,
-                              ...files.map((f) => URL.createObjectURL(f)),
-                            ]);
-                          }}
-                          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
-                        />
-
-                        <div className="py-12 text-center px-8">
-                          <i className="fa-solid fa-images text-3xl text-zinc-400 mb-2"></i>
-                          <p className="font-black uppercase text-sm text-zinc-600 dark:text-zinc-300 mb-1">
-                            Sélectionner des photos
-                          </p>
-                          <p className="text-[10px] font-bold text-zinc-400">
-                            Glissez plusieurs fichiers ici
-                          </p>
-                        </div>
-                      </div>
-
-                      {/* GRILLE DE PREVIEWS */}
-                      {previews.length > 0 && (
-                        <div className="grid grid-cols-4 gap-2">
-                          {previews.map((src, idx) => (
-                            <div
-                              key={idx}
-                              className="relative aspect-square rounded-lg overflow-hidden border border-zinc-200"
-                            >
-                              <img
-                                src={src}
-                                className="w-full h-full object-cover"
-                              />
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setImageFiles(
-                                    imageFiles.filter((_, i) => i !== idx)
-                                  );
-                                  setPreviews(
-                                    previews.filter((_, i) => i !== idx)
-                                  );
-                                }}
-                                className="absolute top-1 right-1 bg-red-500 text-white w-5 h-5 rounded-full flex items-center justify-center shadow-lg"
-                              >
-                                <i className="fa-solid fa-xmark text-[10px]"></i>
-                              </button>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-
-                      <div className="flex justify-between items-center">
-                        <button
-                          type="button"
-                          onClick={() => setFormStep(2)}
-                          className="text-[10px] font-black uppercase text-zinc-400 hover:text-zinc-700 transition flex items-center gap-2"
-                        >
-                          <i className="fa-solid fa-arrow-left text-xs"></i>{" "}
-                          Retour
-                        </button>
-                        <button
-                          type="submit"
-                          disabled={
-                            loading ||
-                            (imageFiles.length === 0 && previews.length === 0)
-                          }
-                          className="bg-primary text-black px-10 py-3.5 rounded-xl font-black text-[10px] uppercase tracking-[0.2em] hover:scale-105 transition-all disabled:opacity-50"
-                        >
-                          {loading
-                            ? "Upload en cours..."
-                            : "Publier le produit"}
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </form>
-              </div>
-            )}
-
-            {/* ── PRODUCTS TABLE ── */}
-            <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-white/10 rounded-2xl overflow-hidden">
-              {filteredProducts.length === 0 ? (
-                <div className="py-20 text-center">
-                  <div className="w-16 h-16 bg-zinc-100 dark:bg-zinc-800 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                    <i className="fa-solid fa-box-open text-2xl text-zinc-300"></i>
-                  </div>
-                  <p className="font-black italic uppercase text-zinc-400">
-                    {searchInv ? "Aucun résultat" : "Aucun produit"}
-                  </p>
-                  <p className="text-[10px] font-bold text-zinc-300 mt-1">
-                    {searchInv
-                      ? "Essayez un autre terme"
-                      : "Ajoutez votre premier produit"}
-                  </p>
-                  {!searchInv && (
-                    <button
-                      onClick={() => setShowAddForm(true)}
-                      className="mt-4 bg-primary text-black px-6 py-2.5 rounded-xl font-black text-[10px] uppercase tracking-wider hover:scale-105 transition-all"
-                    >
-                      <i className="fa-solid fa-plus mr-2"></i>Ajouter
-                    </button>
-                  )}
-                </div>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead>
-                      <tr className="bg-zinc-50 dark:bg-zinc-800/50 border-b border-zinc-100 dark:border-white/5">
-                        <th className="text-left px-6 py-4 text-[9px] font-black uppercase tracking-widest text-zinc-400">
-                          Produit
-                        </th>
-                        <th className="text-left px-4 py-4 text-[9px] font-black uppercase tracking-widest text-zinc-400 hidden md:table-cell">
-                          Catégorie
-                        </th>
-                        <th className="text-left px-4 py-4 text-[9px] font-black uppercase tracking-widest text-zinc-400">
-                          Prix
-                        </th>
-                        <th className="text-left px-4 py-4 text-[9px] font-black uppercase tracking-widest text-zinc-400 hidden sm:table-cell">
-                          Statut
-                        </th>
-                        <th className="text-right px-6 py-4 text-[9px] font-black uppercase tracking-widest text-zinc-400">
-                          Actions
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-zinc-50 dark:divide-white/5">
-                      {filteredProducts.map((p) => (
-                        <tr
-                          key={p.id}
-                          className="group hover:bg-zinc-50 dark:hover:bg-white/3 transition-colors"
-                        >
-                          <td className="px-6 py-4">
-                            <div className="flex items-center gap-3">
-                              <div className="w-12 h-12 rounded-xl overflow-hidden flex-shrink-0 border border-zinc-200 dark:border-white/10 bg-zinc-100 dark:bg-zinc-800">
-                                <img
-                                  src={p.img}
-                                  alt={p.name}
-                                  className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-                                />
-                              </div>
-                              <div className="min-w-0">
-                                <p className="font-black uppercase italic text-xs tracking-tight text-zinc-900 dark:text-white truncate max-w-[140px]">
-                                  {p.name}
-                                </p>
-                                <p className="text-[9px] text-zinc-400 font-bold mt-0.5">
-                                  {p.features?.slice(0, 1)[0] || "—"}
-                                </p>
-                              </div>
-                            </div>
-                          </td>
-                          <td className="px-4 py-4 hidden md:table-cell">
-                            <span className="bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 text-[9px] font-black uppercase px-2.5 py-1 rounded-full">
-                              {p.type}
-                            </span>
-                          </td>
-                          <td className="px-4 py-4">
-                            <span className="font-black italic text-primary text-sm">
-                              {Number(p.price).toLocaleString()}
-                              <span className="text-[9px] text-zinc-400 ml-0.5">
-                                F
-                              </span>
-                            </span>
-                          </td>
-                          <td className="px-4 py-4 hidden sm:table-cell">
-                            <span
-                              className={`text-[8px] font-black uppercase px-2.5 py-1 rounded-full border ${
-                                p.status === "In Stock"
-                                  ? "bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-500/30"
-                                  : p.status === "Limited"
-                                  ? "bg-orange-50  dark:bg-orange-500/10  text-orange-600  dark:text-orange-400  border-orange-200  dark:border-orange-500/30"
-                                  : "bg-primary/10 text-primary border-primary/20"
-                              }`}
-                            >
-                              {p.status}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 text-right">
-                            <div className="flex items-center justify-end gap-2">
-                              <a
-                                href={`/shop/${vendor?.shop_name}?product=${p.id}`}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="w-8 h-8 flex items-center justify-center rounded-lg border border-zinc-200 dark:border-zinc-700 text-zinc-400 hover:text-primary hover:border-primary/30 transition-all"
-                              >
-                                <i className="fa-solid fa-eye text-xs"></i>
-                              </a>
-                              <button
-                                onClick={() => copyToClipboard("product", p)}
-                                className="w-8 h-8 flex items-center justify-center rounded-lg border border-zinc-200 dark:border-zinc-700 text-zinc-400 hover:text-blue-500 hover:border-blue-200 transition-all"
-                              >
-                                <i className="fa-solid fa-link text-xs"></i>
-                              </button>
-                              <button
-                                onClick={() => confirmDeleteProduct(p)}
-                                className="w-8 h-8 flex items-center justify-center rounded-lg border border-zinc-200 dark:border-zinc-700 text-zinc-400 hover:text-red-500 hover:border-red-200 dark:hover:border-red-500/30 transition-all"
-                              >
-                                <i className="fa-solid fa-trash text-xs"></i>
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
+      {/* Top product + statistic */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        {/* Top product */}
+        <div className="bg-gray-900 rounded-2xl p-5 text-white">
+          <div className="flex items-center justify-between mb-3">
+            <p className="font-bold text-[15px]">Meilleur produit</p>
+            <i className="fa-solid fa-arrow-up-right-from-square text-white/40 text-xs" />
           </div>
-        )}
-
-        {/* ══════════════════════════ ORDERS TAB ══════════════════════════ */}
-        {activeTab === "orders" && (
-          <div className="space-y-5">
-            {/* ORDERS TOOLBAR */}
-            <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-white/10 rounded-2xl p-5 flex flex-col sm:flex-row gap-3">
-              <div className="relative flex-1">
-                <i className="fa-solid fa-magnifying-glass absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400 text-sm"></i>
-                <input
-                  type="text"
-                  value={searchOrders}
-                  onChange={(e) => setSearchOrders(e.target.value)}
-                  placeholder="Rechercher par client ou n° commande..."
-                  className="w-full bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl pl-10 pr-4 py-2.5 text-sm font-bold text-zinc-900 dark:text-white placeholder-zinc-400 outline-none focus:border-primary transition-colors"
-                />
+          {topProduct ? (
+            <>
+              <div className="rounded-xl overflow-hidden bg-white/5 aspect-video mb-3 flex items-center justify-center">
+                {topProduct.img && <img src={topProduct.img} alt="" className="w-full h-full object-contain" />}
               </div>
-              {/* STATUS FILTERS */}
-              <div className="flex items-center gap-1.5 overflow-x-auto hide-scrollbar">
-                {[
-                  { value: "all", label: "Tous", count: orders.length },
-                  {
-                    value: "pending",
-                    label: "En attente",
-                    count: orders.filter((o) => o.status === "pending").length,
-                  },
-                  {
-                    value: "validated",
-                    label: "Validés",
-                    count: orders.filter((o) => o.status === "validated")
-                      .length,
-                  },
-                  {
-                    value: "shipped",
-                    label: "Expédiés",
-                    count: orders.filter((o) => o.status === "shipped").length,
-                  },
-                  {
-                    value: "delivered",
-                    label: "Livrés",
-                    count: orders.filter((o) => o.status === "delivered")
-                      .length,
-                  },
-                ].map((f) => (
-                  <button
-                    key={f.value}
-                    onClick={() => setFilterStatus(f.value)}
-                    className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-[9px] font-black uppercase whitespace-nowrap transition-all border ${
-                      filterStatus === f.value
-                        ? "bg-zinc-900 dark:bg-primary text-white dark:text-black border-transparent"
-                        : "border-zinc-200 dark:border-zinc-700 text-zinc-400 hover:border-zinc-300 hover:text-zinc-600 dark:hover:text-zinc-200 bg-white dark:bg-zinc-800"
-                    }`}
-                  >
-                    {f.label}
-                    <span
-                      className={`min-w-[18px] h-[18px] rounded-full flex items-center justify-center text-[8px] font-black ${
-                        filterStatus === f.value
-                          ? "bg-white/20 text-white dark:text-black dark:bg-black/20"
-                          : "bg-zinc-100 dark:bg-zinc-700 text-zinc-500"
-                      }`}
-                    >
-                      {f.count}
-                    </span>
-                  </button>
+              <p className="font-bold">{topProduct.name}</p>
+              <p className="text-white/60 text-[13px]">{(topSold[0]?.[1] || 0)} ventes · {money(topProduct.price)}</p>
+              <div className="mt-4 space-y-2">
+                {topSold.slice(1, 4).map(([name, qty]) => (
+                  <div key={name} className="bg-white/10 rounded-xl px-3 py-2 flex items-center justify-between">
+                    <span className="text-[12px] truncate">{name}</span>
+                    <span className="text-[12px] font-bold">{qty} ventes</span>
+                  </div>
                 ))}
               </div>
-            </div>
+            </>
+          ) : <p className="text-white/50 text-sm">Aucune vente encore.</p>}
+        </div>
 
-            {/* ORDERS LIST */}
-            {filteredOrders.length === 0 ? (
-              <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-white/10 rounded-2xl py-20 text-center">
-                <i className="fa-solid fa-bag-shopping text-4xl text-zinc-200 dark:text-zinc-700 block mb-4"></i>
-                <p className="font-black italic uppercase text-zinc-400">
-                  Aucune commande trouvée
-                </p>
-                <p className="text-[10px] font-bold text-zinc-300 mt-1">
-                  Modifiez vos filtres ou attendez de nouveaux clients
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {filteredOrders.map((order) => {
-                  const s = STATUS_CFG[order.status] || STATUS_CFG.pending;
-                  return (
-                    <div
-                      key={order.id}
-                      className={`bg-white dark:bg-zinc-900 border rounded-2xl overflow-hidden transition-all hover:shadow-lg ${s.border}`}
-                    >
-                      {/* ORDER HEADER */}
-                      <div
-                        className={`px-6 py-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-zinc-100 dark:border-white/5 ${s.bg}`}
-                      >
-                        <div className="flex items-center gap-4">
-                          {/* STATUS DOT + NUMBER */}
-                          <div className="flex items-center gap-2">
-                            <div
-                              className={`w-2.5 h-2.5 rounded-full animate-pulse ${s.dot}`}
-                            ></div>
-                            <span className="font-black text-lg italic tracking-tighter text-zinc-900 dark:text-white">
-                              #{order.order_number}
-                            </span>
-                          </div>
-                          {/* CLIENT */}
-                          <div>
-                            <p className="font-black text-sm uppercase italic text-zinc-900 dark:text-white leading-none">
-                              {order.client_name}
-                            </p>
-                            <p
-                              className={`text-[9px] font-black uppercase tracking-widest mt-0.5 ${s.color}`}
-                            >
-                              {s.label}
-                            </p>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-3">
-                          <div className="text-right">
-                            <p className="text-xl font-black italic tracking-tighter text-zinc-900 dark:text-white">
-                              {Number(order.total_amount).toLocaleString()}{" "}
-                              <span className="text-[11px] text-zinc-400">
-                                FCFA
-                              </span>
-                            </p>
-                            <p className="text-[9px] font-bold text-zinc-400 uppercase">
-                              {order.payment_method?.replace("_", " ")}
-                            </p>
-                          </div>
-                          {/* ACTIONS */}
-                          <div className="flex items-center gap-2">
-                            {nextStatus[order.status] && (
-                              <button
-                                onClick={() =>
-                                  updateOrderStatus(order.id, order.status)
-                                }
-                                className="bg-zinc-900 dark:bg-primary text-white dark:text-black px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-wider hover:bg-primary hover:text-black transition-all hover:scale-105"
-                              >
-                                {nextLabel[order.status]}
-                              </button>
-                            )}
-                            {order.status === "delivered" && (
-                              <div className="flex items-center gap-1.5 bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/30 text-emerald-600 dark:text-emerald-400 px-3 py-2 rounded-xl text-[9px] font-black uppercase">
-                                <i className="fa-solid fa-check text-xs"></i>{" "}
-                                Finalisé
-                              </div>
-                            )}
-                            <button
-                              onClick={() => confirmDeleteOrder(order)}
-                              className="w-9 h-9 flex items-center justify-center rounded-xl border border-zinc-200 dark:border-zinc-700 text-zinc-300 hover:text-red-500 hover:border-red-200 dark:hover:border-red-500/30 transition-all hover:bg-red-50 dark:hover:bg-red-500/5"
-                            >
-                              <i className="fa-solid fa-trash text-xs"></i>
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* ORDER DETAILS */}
-                      <div className="px-6 py-4 grid md:grid-cols-2 gap-6">
-                        {/* ITEMS */}
-                        <div>
-                          <p className="text-[9px] font-black uppercase text-zinc-400 tracking-widest mb-3">
-                            Articles commandés
-                          </p>
-                          <div className="space-y-2">
-                            {order.order_items?.map((item) => (
-                              <div
-                                key={item.id}
-                                className="flex items-center gap-3"
-                              >
-                                {item.product_img && (
-                                  <div className="w-10 h-10 rounded-lg overflow-hidden flex-shrink-0 border border-zinc-100 dark:border-white/10 bg-zinc-100 dark:bg-zinc-800">
-                                    <img
-                                      src={item.product_img}
-                                      className="w-full h-full object-cover"
-                                    />
-                                  </div>
-                                )}
-                                <div className="flex-1 min-w-0">
-                                  <p className="text-[10px] font-black uppercase truncate text-zinc-900 dark:text-white">
-                                    {item.product_name}
-                                  </p>
-                                  <p className="text-[8px] text-zinc-400 font-bold">
-                                    {item.selected_size} · {item.selected_color}{" "}
-                                    · ×{item.quantity}
-                                  </p>
-                                </div>
-                                <p className="text-[10px] font-black italic text-primary shrink-0">
-                                  {(
-                                    Number(item.unit_price) * item.quantity
-                                  ).toLocaleString()}{" "}
-                                  F
-                                </p>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                        {/* CLIENT INFO */}
-                        <div>
-                          <p className="text-[9px] font-black uppercase text-zinc-400 tracking-widest mb-3">
-                            Informations client
-                          </p>
-                          <div className="space-y-2">
-                            {[
-                              { icon: "fa-phone", val: order.client_phone },
-                              {
-                                icon: "fa-location-dot",
-                                val: order.client_address,
-                              },
-                              order.payment_reference && {
-                                icon: "fa-receipt",
-                                val: `Réf: ${order.payment_reference}`,
-                              },
-                            ]
-                              .filter(Boolean)
-                              .map((row, i) => (
-                                <div
-                                  key={i}
-                                  className="flex items-start gap-3 text-[10px]"
-                                >
-                                  <i
-                                    className={`fa-solid ${row.icon} text-primary text-xs mt-0.5 w-3`}
-                                  ></i>
-                                  <span className="font-bold text-zinc-600 dark:text-zinc-300">
-                                    {row.val}
-                                  </span>
-                                </div>
-                              ))}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
+        {/* Statistic chart */}
+        <div className="lg:col-span-2 bg-white border border-gray-200/80 rounded-2xl p-5">
+          <div className="flex items-center justify-between mb-4">
+            <div><p className="font-bold text-[15px]">Statistiques</p><p className="text-[12px] text-gray-400">Revenu par mois</p></div>
+            <span className="text-[11px] font-semibold text-gray-500 bg-gray-100 px-3 py-1.5 rounded-lg">Cette année</span>
           </div>
-        )}
-
-        {/* ══════════════════════════ ANALYTICS TAB ══════════════════════════ */}
-        {activeTab === "analytics" && (
-          <div className="space-y-6">
-            {/* TOP METRICS */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-              {/* REVENUE CHART PLACEHOLDER */}
-              <div className="md:col-span-2 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-white/10 rounded-2xl p-6">
-                <div className="flex items-center justify-between mb-5">
-                  <div>
-                    <p className="text-[9px] font-black uppercase tracking-widest text-zinc-400">
-                      Revenus cumulés
-                    </p>
-                    <p className="text-3xl font-black italic tracking-tighter text-primary mt-1">
-                      {totalSales.toLocaleString()}{" "}
-                      <span className="text-zinc-400 text-base not-italic font-bold">
-                        FCFA
-                      </span>
-                    </p>
-                  </div>
-                  <div className="bg-primary/10 border border-primary/20 text-primary text-[9px] font-black uppercase px-3 py-2 rounded-xl flex items-center gap-1.5">
-                    <i className="fa-solid fa-arrow-trend-up text-xs"></i> En
-                    hausse
-                  </div>
+          <div className="flex items-end gap-2 h-52">
+            {monthly.map((v, i) => (
+              <div key={i} className="flex-1 flex flex-col items-center gap-2 group">
+                <div className="w-full flex items-end justify-center" style={{ height: "100%" }}>
+                  <div className="w-full max-w-[22px] rounded-t-lg bg-gradient-to-t from-orange-500 to-orange-400 group-hover:from-gray-900 group-hover:to-gray-700 transition-colors" style={{ height: `${Math.max(4, (v / maxM) * 100)}%` }} title={money(v)} />
                 </div>
-                {/* VISUAL BARS */}
-                <div className="flex items-end gap-2 h-24">
-                  {orders
-                    .slice(0, 10)
-                    .reverse()
-                    .map((o, i) => {
-                      const max = Math.max(
-                        ...orders.map((x) => Number(x.total_amount)),
-                        1
-                      );
-                      const pct = (Number(o.total_amount) / max) * 100;
-                      return (
-                        <div
-                          key={o.id}
-                          className="flex-1 flex flex-col items-center gap-1 group"
-                        >
-                          <div
-                            className="w-full rounded-t-lg transition-all duration-700 group-hover:opacity-100 opacity-70"
-                            style={{
-                              height: `${Math.max(pct, 8)}%`,
-                              backgroundColor:
-                                o.status === "delivered"
-                                  ? "#00ff88"
-                                  : o.status === "shipped"
-                                  ? "#a855f7"
-                                  : "#f97316",
-                              minHeight: "6px",
-                            }}
-                          ></div>
-                          <span className="text-[7px] font-black text-zinc-400 hidden group-hover:block">
-                            #{o.order_number}
-                          </span>
-                        </div>
-                      );
-                    })}
-                  {orders.length === 0 &&
-                    [...Array(8)].map((_, i) => (
-                      <div
-                        key={i}
-                        className="flex-1 bg-zinc-100 dark:bg-zinc-800 rounded-t-lg"
-                        style={{ height: `${20 + i * 10}%` }}
-                      ></div>
-                    ))}
-                </div>
-                <div className="flex items-center gap-4 mt-4 text-[9px] font-black uppercase text-zinc-400">
-                  <span className="flex items-center gap-1.5">
-                    <span className="w-2.5 h-2.5 rounded-full bg-primary"></span>
-                    Livré
-                  </span>
-                  <span className="flex items-center gap-1.5">
-                    <span className="w-2.5 h-2.5 rounded-full bg-purple-400"></span>
-                    Expédié
-                  </span>
-                  <span className="flex items-center gap-1.5">
-                    <span className="w-2.5 h-2.5 rounded-full bg-orange-400"></span>
-                    En attente
-                  </span>
-                </div>
+                <span className="text-[10px] text-gray-400">{MONTHS[i]}</span>
               </div>
-
-              {/* STATUS DONUT */}
-              <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-white/10 rounded-2xl p-6">
-                <p className="text-[9px] font-black uppercase tracking-widest text-zinc-400 mb-5">
-                  Répartition commandes
-                </p>
-                <div className="space-y-3">
-                  {Object.entries(STATUS_CFG).map(([key, cfg]) => {
-                    const count = orders.filter((o) => o.status === key).length;
-                    const pct = orders.length
-                      ? Math.round((count / orders.length) * 100)
-                      : 0;
-                    return (
-                      <div key={key}>
-                        <div className="flex items-center justify-between mb-1">
-                          <div className="flex items-center gap-2">
-                            <div
-                              className={`w-2 h-2 rounded-full ${cfg.dot}`}
-                            ></div>
-                            <span className="text-[10px] font-black uppercase text-zinc-600 dark:text-zinc-300">
-                              {cfg.label}
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <span
-                              className={`text-[10px] font-black ${cfg.color}`}
-                            >
-                              {count}
-                            </span>
-                            <span className="text-[9px] text-zinc-400 font-bold">
-                              {pct}%
-                            </span>
-                          </div>
-                        </div>
-                        <div className="h-1.5 bg-zinc-100 dark:bg-zinc-800 rounded-full overflow-hidden">
-                          <div
-                            className={`h-full rounded-full transition-all duration-1000 ${cfg.dot}`}
-                            style={{ width: `${pct}%` }}
-                          ></div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-                <div className="mt-5 pt-4 border-t border-zinc-100 dark:border-white/5">
-                  <p className="text-[9px] text-zinc-400 font-black uppercase tracking-widest">
-                    Total commandes
-                  </p>
-                  <p className="text-2xl font-black italic text-zinc-900 dark:text-white">
-                    {orders.length}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* PRODUCTS PERFORMANCE */}
-            <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-white/10 rounded-2xl p-6">
-              <div className="flex items-center justify-between mb-5">
-                <p className="text-[9px] font-black uppercase tracking-widest text-zinc-400">
-                  Performance catalogue
-                </p>
-                <span className="bg-zinc-100 dark:bg-zinc-800 text-zinc-500 text-[9px] font-black uppercase px-3 py-1.5 rounded-full">
-                  {products.length} produits
-                </span>
-              </div>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                {TYPES.filter((t) =>
-                  products.some((p) => p.type === t.value)
-                ).map((t) => {
-                  const count = products.filter(
-                    (p) => p.type === t.value
-                  ).length;
-                  const pct = products.length
-                    ? Math.round((count / products.length) * 100)
-                    : 0;
-                  return (
-                    <div
-                      key={t.value}
-                      className="bg-zinc-50 dark:bg-zinc-800 rounded-xl p-4 hover:bg-primary/5 dark:hover:bg-primary/5 border border-zinc-100 dark:border-zinc-700 hover:border-primary/20 transition-all group"
-                    >
-                      <p className="text-xl mb-1">{t.label.split(" ")[0]}</p>
-                      <p className="font-black uppercase text-xs text-zinc-900 dark:text-white">
-                        {t.label.split(" ").slice(1).join(" ")}
-                      </p>
-                      <p className="text-2xl font-black italic text-primary mt-2">
-                        {count}
-                      </p>
-                      <div className="h-1 bg-zinc-200 dark:bg-zinc-700 rounded-full mt-2">
-                        <div
-                          className="h-full bg-primary rounded-full transition-all duration-700 group-hover:opacity-100 opacity-60"
-                          style={{ width: `${pct}%` }}
-                        ></div>
-                      </div>
-                      <p className="text-[9px] font-bold text-zinc-400 mt-1">
-                        {pct}% du catalogue
-                      </p>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* FCM / NOTIFICATIONS STATUS */}
-            <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-white/10 rounded-2xl p-6">
-              <p className="text-[9px] font-black uppercase tracking-widest text-zinc-400 mb-5">
-                Système de notifications
-              </p>
-              <div className="grid md:grid-cols-2 gap-6">
-                <div
-                  className={`flex items-center gap-4 p-4 rounded-xl border ${
-                    notifStatus === "granted"
-                      ? "bg-emerald-50 dark:bg-emerald-500/10 border-emerald-200 dark:border-emerald-500/30"
-                      : "bg-zinc-50 dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700"
-                  }`}
-                >
-                  <div
-                    className={`w-12 h-12 rounded-xl flex items-center justify-center ${
-                      notifStatus === "granted"
-                        ? "bg-emerald-100 dark:bg-emerald-500/20"
-                        : "bg-zinc-200 dark:bg-zinc-700"
-                    }`}
-                  >
-                    <i
-                      className={`fa-solid ${notifBadge?.icon} text-xl ${notifBadge?.color}`}
-                    ></i>
-                  </div>
-                  <div>
-                    <p
-                      className={`font-black text-sm uppercase italic ${notifBadge?.color}`}
-                    >
-                      {notifBadge?.label}
-                    </p>
-                    <p className="text-[9px] font-bold text-zinc-400 mt-0.5">
-                      Firebase Cloud Messaging
-                    </p>
-                    {notifStatus === "denied" && (
-                      <button
-                        onClick={registerFCMToken}
-                        className="text-[9px] font-black uppercase text-primary underline mt-1"
-                      >
-                        Réactiver →
-                      </button>
-                    )}
-                  </div>
-                </div>
-                <div className="flex items-center gap-4 p-4 rounded-xl border bg-primary/5 border-primary/20">
-                  <div className="w-12 h-12 rounded-xl bg-primary/15 flex items-center justify-center">
-                    <i className="fa-solid fa-database text-primary text-xl"></i>
-                  </div>
-                  <div>
-                    <p className="font-black text-sm uppercase italic text-primary">
-                      Realtime Actif
-                    </p>
-                    <p className="text-[9px] font-bold text-zinc-400 mt-0.5">
-                      Supabase Database Changes
-                    </p>
-                    <div className="flex items-center gap-1.5 mt-1">
-                      <div className="w-1.5 h-1.5 bg-primary rounded-full animate-pulse"></div>
-                      <span className="text-[8px] font-black text-primary uppercase">
-                        Écoute active
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* ══ LIVE ══ */}
-        {activeTab === "live" && (
-          <VendorLivePanel vendor={vendor} onToast={showToast} />
-        )}
-      </div>
-
-      {/* ══ SHARE MODAL ══ */}
-      {showShareModal && (
-        <div className="fixed inset-0 z-[500] flex items-center justify-center p-6">
-          <div
-            className="absolute inset-0 bg-black/70 backdrop-blur-sm"
-            onClick={() => setShowShareModal(false)}
-          ></div>
-          <div className="relative bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-white/10 w-full max-w-md p-8 rounded-3xl shadow-2xl">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="w-12 h-12 bg-primary/15 border border-primary/30 rounded-2xl flex items-center justify-center">
-                <i className="fa-solid fa-share-nodes text-primary text-lg"></i>
-              </div>
-              <div>
-                <h3 className="text-lg font-black italic uppercase tracking-tighter text-zinc-900 dark:text-white">
-                  Partager
-                </h3>
-                <p className="text-[9px] font-black uppercase text-zinc-400">
-                  {vendor?.shop_name}
-                </p>
-              </div>
-            </div>
-
-            <div className="space-y-4">
-              {/* SHARE SHOP */}
-              <div className="flex items-stretch gap-2">
-                <button
-                  onClick={() => handleShare("shop")}
-                  className="flex-1 p-4 bg-primary text-black rounded-2xl flex items-center justify-between hover:scale-[1.02] transition-all"
-                >
-                  <div className="text-left">
-                    <p className="font-black uppercase text-[10px] tracking-widest">
-                      Boutique entière
-                    </p>
-                    <p className="text-[9px] font-bold opacity-60 italic">
-                      /shop/{vendor?.shop_name}
-                    </p>
-                  </div>
-                  <i className="fa-solid fa-arrow-up-right-from-square"></i>
-                </button>
-                <button
-                  onClick={() => copyToClipboard("shop")}
-                  className="px-4 bg-zinc-100 dark:bg-zinc-800 rounded-2xl hover:text-primary transition-colors text-zinc-500 border border-zinc-200 dark:border-zinc-700"
-                >
-                  <i className="fa-solid fa-copy"></i>
-                </button>
-                <a
-                  href={`/shop/${vendor?.shop_name}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="px-4 bg-zinc-100 dark:bg-zinc-800 rounded-2xl flex items-center justify-center hover:text-primary transition-colors text-zinc-500 border border-zinc-200 dark:border-zinc-700"
-                >
-                  <i className="fa-solid fa-eye"></i>
-                </a>
-              </div>
-
-              {products.length > 0 && (
-                <>
-                  <div className="flex items-center gap-3">
-                    <div className="flex-1 h-px bg-zinc-200 dark:bg-zinc-700"></div>
-                    <span className="text-[9px] font-black uppercase text-zinc-400 whitespace-nowrap">
-                      Produit spécifique
-                    </span>
-                    <div className="flex-1 h-px bg-zinc-200 dark:bg-zinc-700"></div>
-                  </div>
-                  <div className="max-h-56 overflow-y-auto space-y-2 pr-1 custom-scrollbar">
-                    {products.map((p) => (
-                      <div key={p.id} className="flex items-stretch gap-2">
-                        <button
-                          onClick={() => handleShare("product", p)}
-                          className="flex-1 p-3 bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl flex items-center gap-3 hover:border-primary/30 hover:bg-primary/3 transition-colors text-left"
-                        >
-                          <img
-                            src={p.img}
-                            className="w-10 h-10 object-cover rounded-lg flex-shrink-0"
-                            alt=""
-                          />
-                          <div className="flex-1 overflow-hidden">
-                            <p className="text-[9px] font-black uppercase truncate text-zinc-900 dark:text-white">
-                              {p.name}
-                            </p>
-                            <p className="text-[8px] text-primary font-black">
-                              {Number(p.price).toLocaleString()} FCFA
-                            </p>
-                          </div>
-                        </button>
-                        <button
-                          onClick={() => copyToClipboard("product", p)}
-                          className="px-3 border border-zinc-200 dark:border-zinc-700 rounded-xl hover:text-primary transition-colors text-zinc-400 bg-zinc-50 dark:bg-zinc-800"
-                        >
-                          <i className="fa-solid fa-link text-xs"></i>
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                </>
-              )}
-            </div>
-
-            <button
-              onClick={() => setShowShareModal(false)}
-              className="mt-6 w-full py-3 border border-zinc-200 dark:border-white/10 rounded-2xl text-[10px] font-black uppercase tracking-widest text-zinc-400 hover:text-zinc-700 dark:hover:text-white hover:bg-zinc-50 dark:hover:bg-white/5 transition-all"
-            >
-              Fermer
-            </button>
+            ))}
           </div>
         </div>
-      )}
+      </div>
 
-      <style>{`
-        @keyframes slideInRight { from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: translateX(0); } }
-        .animate-slideInRight { animation: slideInRight 0.4s cubic-bezier(0.2, 0, 0, 1) forwards; }
-      `}</style>
+      {/* Bottom row */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="bg-white border border-gray-200/80 rounded-2xl p-5">
+          <p className="font-bold text-[15px] mb-1">Clients</p>
+          <p className="text-[12px] text-gray-400 mb-3">Total acheteurs</p>
+          <p className="text-3xl font-bold">{customers.length}</p>
+          <p className="text-[12px] text-emerald-600 font-semibold mt-1"><i className="fa-solid fa-arrow-trend-up mr-1" />croissance</p>
+        </div>
+        <div className="bg-white border border-gray-200/80 rounded-2xl p-5">
+          <p className="font-bold text-[15px] mb-3">Top clients</p>
+          <div className="space-y-2">
+            {[...customers].sort((a, b) => b.spent - a.spent).slice(0, 3).map((c, i) => (
+              <div key={i} className="flex items-center justify-between text-[12px]">
+                <span className="font-semibold truncate">{c.name || "Client"}</span>
+                <span className="text-gray-500">{money(c.spent)}</span>
+              </div>
+            ))}
+            {customers.length === 0 && <p className="text-[12px] text-gray-400">Aucun client.</p>}
+          </div>
+        </div>
+        <div className="bg-white border border-gray-200/80 rounded-2xl p-5">
+          <p className="font-bold text-[15px] mb-3">Top catégories</p>
+          <div className="space-y-2">
+            {topCats.map(([cat, n]) => (
+              <div key={cat} className="flex items-center justify-between text-[12px]">
+                <span className="font-semibold">{cat}</span>
+                <span className="text-gray-500">{n} produit{n > 1 ? "s" : ""}</span>
+              </div>
+            ))}
+            {topCats.length === 0 && <p className="text-[12px] text-gray-400">Aucune catégorie.</p>}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ─── PRODUCTS ─────────────────────────────────────────────────────────────────
+const ProductsView = ({ products, onDelete, onAdd }) => {
+  const [q, setQ] = useState("");
+  const [menu, setMenu] = useState(null);
+  const list = q ? products.filter(p => p.name?.toLowerCase().includes(q.toLowerCase())) : products;
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <h1 className="text-2xl font-bold tracking-tight">Produits</h1>
+        <button onClick={onAdd} className="flex items-center gap-2 bg-gray-900 text-white text-[12px] font-bold px-4 py-2.5 rounded-xl hover:bg-gray-800"><i className="fa-solid fa-plus" />Ajouter</button>
+      </div>
+      <div className="bg-white border border-gray-200/80 rounded-2xl overflow-hidden">
+        <div className="p-4 border-b border-gray-100">
+          <div className="relative max-w-xs">
+            <i className="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 text-sm" />
+            <input value={q} onChange={e => setQ(e.target.value)} placeholder="Rechercher…" className="w-full bg-gray-100 rounded-xl pl-10 pr-4 py-2 text-[13px] outline-none" />
+          </div>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-[13px]">
+            <thead>
+              <tr className="text-gray-400 text-[11px] font-semibold uppercase tracking-wide border-b border-gray-100">
+                <th className="text-left px-4 py-3">SKU</th>
+                <th className="text-left px-4 py-3">Produit</th>
+                <th className="text-left px-4 py-3 hidden sm:table-cell">Catégorie</th>
+                <th className="text-left px-4 py-3">Prix</th>
+                <th className="text-left px-4 py-3 hidden md:table-cell">Statut</th>
+                <th className="text-left px-4 py-3 hidden lg:table-cell">Ajouté</th>
+                <th className="px-4 py-3"></th>
+              </tr>
+            </thead>
+            <tbody>
+              {list.map(p => {
+                const st = prodStatus(p.status);
+                return (
+                  <tr key={p.id} className="border-b border-gray-50 hover:bg-gray-50/60">
+                    <td className="px-4 py-3 text-gray-400 font-mono text-[11px]">{String(p.id).slice(0, 6)}</td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 rounded-lg bg-gray-100 overflow-hidden flex-shrink-0">{p.img && <img src={p.img} alt="" className="w-full h-full object-cover" />}</div>
+                        <span className="font-semibold text-gray-900 truncate max-w-[160px]">{p.name}</span>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-gray-500 hidden sm:table-cell">{p.type}</td>
+                    <td className="px-4 py-3 font-semibold">{money(p.price)}</td>
+                    <td className="px-4 py-3 hidden md:table-cell"><span className={`text-[11px] font-semibold px-2.5 py-1 rounded-full border ${st.cls}`}>{st.label}</span></td>
+                    <td className="px-4 py-3 text-gray-400 hidden lg:table-cell">{shortDate(p.created_at)}</td>
+                    <td className="px-4 py-3 text-right relative">
+                      <button onClick={() => setMenu(menu === p.id ? null : p.id)} className="w-8 h-8 rounded-lg hover:bg-gray-100 text-gray-400"><i className="fa-solid fa-ellipsis-vertical" /></button>
+                      {menu === p.id && (
+                        <div className="absolute right-4 top-11 z-10 bg-white border border-gray-200 rounded-xl shadow-lg py-1 w-32" onMouseLeave={() => setMenu(null)}>
+                          <button onClick={() => { setMenu(null); onDelete(p); }} className="w-full text-left px-3 py-2 text-[12px] text-red-500 hover:bg-red-50"><i className="fa-solid fa-trash mr-2" />Supprimer</button>
+                        </div>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+          {list.length === 0 && <div className="p-10 text-center text-gray-400 text-sm">Aucun produit. Clique « Ajouter » pour commencer.</div>}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ─── ADD PRODUCT MODAL ────────────────────────────────────────────────────────
+const AddProductModal = ({ vendor, onClose, onDone, showToast }) => {
+  const [form, setForm] = useState(EMPTY_PRODUCT);
+  const [img, setImg] = useState(null);
+  const [prev, setPrev] = useState("");
+  const [saving, setSaving] = useState(false);
+  const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+
+  const submit = async () => {
+    if (!form.name.trim() || !form.price) return showToast("Nom et prix requis", "", "error");
+    setSaving(true);
+    try {
+      let imgUrl = "https://via.placeholder.com/600x800";
+      if (img) imgUrl = await uploadProductImage(img, vendor.id);
+      const { error } = await supabase.from("products").insert({
+        name: form.name, price: Number(form.price), type: form.type, status: form.status,
+        img: imgUrl, images: [imgUrl], vendor_id: vendor.id, description: form.description || null,
+        colors: ["Black", "White"], features: [],
+      });
+      if (error) throw error;
+      onDone();
+    } catch (e) { showToast("Erreur", e.message, "error"); setSaving(false); }
+  };
+
+  return (
+    <div className="fixed inset-0 z-[600] flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
+      <div className="relative bg-white rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto p-5">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-bold">Nouveau produit</h3>
+          <button onClick={onClose} className="w-9 h-9 rounded-lg hover:bg-gray-100 flex items-center justify-center"><i className="fa-solid fa-xmark" /></button>
+        </div>
+        <div className="space-y-3">
+          <label className="block aspect-video rounded-xl border-2 border-dashed border-gray-200 hover:border-gray-900 cursor-pointer overflow-hidden relative">
+            {prev ? <img src={prev} alt="" className="w-full h-full object-cover" /> : <span className="absolute inset-0 flex flex-col items-center justify-center text-gray-400"><i className="fa-solid fa-image text-2xl mb-1" /><span className="text-[12px] font-semibold">Photo du produit</span></span>}
+            <input type="file" accept="image/*" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) { setImg(f); setPrev(URL.createObjectURL(f)); } }} />
+          </label>
+          <input value={form.name} onChange={e => set("name", e.target.value)} placeholder="Nom du produit" className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-gray-900" />
+          <div className="grid grid-cols-2 gap-3">
+            <input value={form.price} onChange={e => set("price", e.target.value)} type="number" placeholder="Prix (F)" className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-gray-900" />
+            <select value={form.type} onChange={e => set("type", e.target.value)} className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-gray-900">
+              {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
+          </div>
+          <select value={form.status} onChange={e => set("status", e.target.value)} className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-gray-900">
+            <option value="In Stock">En stock</option>
+            <option value="Épuisé">Épuisé</option>
+          </select>
+          <textarea value={form.description} onChange={e => set("description", e.target.value)} rows={3} placeholder="Description (optionnel)" className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-gray-900 resize-none" />
+          <button onClick={submit} disabled={saving} className="w-full bg-gray-900 text-white py-3 rounded-xl font-bold text-sm hover:bg-gray-800 disabled:opacity-50">
+            {saving ? "Ajout…" : "Ajouter le produit"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ─── ORDERS ───────────────────────────────────────────────────────────────────
+const OrdersView = ({ orders, onOpen }) => (
+  <div className="space-y-4">
+    <h1 className="text-2xl font-bold tracking-tight">Commandes</h1>
+    <div className="bg-white border border-gray-200/80 rounded-2xl overflow-hidden">
+      <div className="overflow-x-auto">
+        <table className="w-full text-[13px]">
+          <thead>
+            <tr className="text-gray-400 text-[11px] font-semibold uppercase tracking-wide border-b border-gray-100">
+              <th className="text-left px-4 py-3">Commande</th>
+              <th className="text-left px-4 py-3 hidden sm:table-cell">Client</th>
+              <th className="text-left px-4 py-3">Total</th>
+              <th className="text-left px-4 py-3 hidden md:table-cell">Date</th>
+              <th className="text-left px-4 py-3">Statut</th>
+              <th className="px-4 py-3"></th>
+            </tr>
+          </thead>
+          <tbody>
+            {orders.map(o => {
+              const st = STATUS[o.status] || STATUS.pending;
+              return (
+                <tr key={o.id} className="border-b border-gray-50 hover:bg-gray-50/60 cursor-pointer" onClick={() => onOpen(o)}>
+                  <td className="px-4 py-3 font-semibold">#{o.order_number || String(o.id).slice(0, 6)}</td>
+                  <td className="px-4 py-3 text-gray-600 hidden sm:table-cell">{o.client_name}</td>
+                  <td className="px-4 py-3 font-semibold">{money(o.total_amount)}</td>
+                  <td className="px-4 py-3 text-gray-400 hidden md:table-cell">{shortDate(o.created_at)}</td>
+                  <td className="px-4 py-3"><span className={`text-[11px] font-semibold px-2.5 py-1 rounded-full border ${st.cls}`}>{st.label}</span></td>
+                  <td className="px-4 py-3 text-right text-gray-300"><i className="fa-solid fa-chevron-right" /></td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+        {orders.length === 0 && <div className="p-10 text-center text-gray-400 text-sm">Aucune commande.</div>}
+      </div>
+    </div>
+  </div>
+);
+
+// ─── ORDER DETAIL ─────────────────────────────────────────────────────────────
+const OrderDetail = ({ order, onBack, onStatus, vendor }) => {
+  const st = STATUS[order.status] || STATUS.pending;
+  const items = order.order_items || [];
+  const subtotal = items.reduce((s, it) => s + Number(it.unit_price) * Number(it.quantity), 0);
+  const FLOW = ["pending", "confirmed", "shipped", "delivered"];
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div className="flex items-center gap-3">
+          <button onClick={onBack} className="w-9 h-9 rounded-lg hover:bg-gray-100 flex items-center justify-center"><i className="fa-solid fa-chevron-left" /></button>
+          <h1 className="text-xl font-bold">Commande #{order.order_number || String(order.id).slice(0, 6)}</h1>
+        </div>
+        <div className="flex items-center gap-2">
+          <select value={order.status} onChange={e => onStatus(order.id, e.target.value)} className="bg-white border border-gray-200 rounded-xl px-3 py-2 text-[12px] font-semibold outline-none">
+            {Object.keys(STATUS).map(k => <option key={k} value={k}>{STATUS[k].label}</option>)}
+          </select>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <div className="lg:col-span-2 space-y-4">
+          {/* info + method */}
+          <div className="grid sm:grid-cols-2 gap-4">
+            <div className="bg-white border border-gray-200/80 rounded-2xl p-4">
+              <div className="flex items-center justify-between mb-3"><p className="font-bold text-[14px]">Informations</p><span className={`text-[11px] font-semibold px-2.5 py-1 rounded-full border ${st.cls}`}>{st.label}</span></div>
+              <p className="text-[12px] text-gray-400">Date</p><p className="text-[13px] font-semibold mb-2">{fullDate(order.created_at)}</p>
+              <p className="text-[12px] text-gray-400">Référence</p><p className="text-[13px] font-semibold">{order.payment_reference || "—"}</p>
+            </div>
+            <div className="bg-white border border-gray-200/80 rounded-2xl p-4">
+              <p className="font-bold text-[14px] mb-3">Paiement</p>
+              <p className="text-[12px] text-gray-400">Méthode</p><p className="text-[13px] font-semibold mb-2">{order.payment_method || "À la livraison"}</p>
+              <p className="text-[12px] text-gray-400">Livraison</p><p className="text-[13px] font-semibold">{order.tracking_carrier || "Standard"}</p>
+            </div>
+          </div>
+          {/* items */}
+          <div className="bg-white border border-gray-200/80 rounded-2xl p-4">
+            <p className="font-bold text-[14px] mb-3">Articles</p>
+            <div className="divide-y divide-gray-50">
+              {items.map(it => (
+                <div key={it.id} className="flex items-center gap-3 py-3">
+                  <div className="w-11 h-11 rounded-lg bg-gray-100 overflow-hidden flex-shrink-0">{it.product_img && <img src={it.product_img} alt="" className="w-full h-full object-cover" />}</div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[13px] font-semibold truncate">{it.product_name}</p>
+                    <p className="text-[11px] text-gray-400">{[it.selected_color, it.selected_size].filter(Boolean).join(" · ")} · Qté {it.quantity}</p>
+                  </div>
+                  <p className="text-[13px] font-bold">{money(it.unit_price * it.quantity)}</p>
+                </div>
+              ))}
+              {items.length === 0 && <p className="text-[12px] text-gray-400 py-3">Aucun article détaillé.</p>}
+            </div>
+            <div className="border-t border-gray-100 mt-2 pt-3 space-y-1.5">
+              <div className="flex justify-between text-[13px]"><span className="text-gray-500">Sous-total</span><span className="font-semibold">{money(subtotal)}</span></div>
+              <div className="flex justify-between text-[15px] font-bold"><span>Total</span><span>{money(order.total_amount)}</span></div>
+            </div>
+          </div>
+        </div>
+
+        {/* right column */}
+        <div className="space-y-4">
+          <div className="bg-white border border-gray-200/80 rounded-2xl p-4">
+            <p className="font-bold text-[14px] mb-3">Client</p>
+            <p className="text-[12px] text-gray-400">Nom</p><p className="text-[13px] font-semibold mb-2">{order.client_name}</p>
+            <p className="text-[12px] text-gray-400">Téléphone</p><p className="text-[13px] font-semibold mb-2">{order.client_phone}</p>
+          </div>
+          <div className="bg-white border border-gray-200/80 rounded-2xl p-4">
+            <p className="font-bold text-[14px] mb-2">Adresse</p>
+            <p className="text-[13px] text-gray-600 leading-relaxed">{order.client_address || "—"}</p>
+          </div>
+          <div className="bg-white border border-gray-200/80 rounded-2xl p-4">
+            <p className="font-bold text-[14px] mb-3">Suivi</p>
+            <div className="space-y-3">
+              {FLOW.map((k, i) => {
+                const done = FLOW.indexOf(order.status) >= i;
+                return (
+                  <div key={k} className="flex items-start gap-3">
+                    <div className={`w-7 h-7 rounded-full flex items-center justify-center text-[11px] flex-shrink-0 ${done ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-400"}`}><i className="fa-solid fa-check" /></div>
+                    <div><p className={`text-[12px] font-semibold ${done ? "" : "text-gray-400"}`}>{STATUS[k].label}</p></div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ─── CUSTOMERS ────────────────────────────────────────────────────────────────
+const CustomersView = ({ customers }) => (
+  <div className="space-y-4">
+    <h1 className="text-2xl font-bold tracking-tight">Clients</h1>
+    <div className="bg-white border border-gray-200/80 rounded-2xl overflow-hidden">
+      <div className="overflow-x-auto">
+        <table className="w-full text-[13px]">
+          <thead>
+            <tr className="text-gray-400 text-[11px] font-semibold uppercase tracking-wide border-b border-gray-100">
+              <th className="text-left px-4 py-3">Client</th>
+              <th className="text-left px-4 py-3 hidden sm:table-cell">Téléphone</th>
+              <th className="text-left px-4 py-3">Commandes</th>
+              <th className="text-left px-4 py-3">Dépensé</th>
+            </tr>
+          </thead>
+          <tbody>
+            {customers.map((c, i) => (
+              <tr key={i} className="border-b border-gray-50 hover:bg-gray-50/60">
+                <td className="px-4 py-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-full bg-gray-900 text-white flex items-center justify-center text-[12px] font-bold">{(c.name || "?")[0].toUpperCase()}</div>
+                    <span className="font-semibold">{c.name || "Client"}</span>
+                  </div>
+                </td>
+                <td className="px-4 py-3 text-gray-500 hidden sm:table-cell">{c.phone}</td>
+                <td className="px-4 py-3 font-semibold">{c.orders}</td>
+                <td className="px-4 py-3 font-semibold">{money(c.spent)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {customers.length === 0 && <div className="p-10 text-center text-gray-400 text-sm">Aucun client.</div>}
+      </div>
+    </div>
+  </div>
+);
+
+// ─── SETTINGS ─────────────────────────────────────────────────────────────────
+const SettingsView = ({ vendor, updateVendorField, showToast }) => {
+  const [busy, setBusy] = useState(false);
+  const toggle = async () => {
+    setBusy(true);
+    try { await updateVendorField("member_discount_enabled", !vendor.member_discount_enabled); showToast("Réglage enregistré"); }
+    catch (e) { showToast("Erreur", e.message, "error"); }
+    finally { setBusy(false); }
+  };
+  return (
+    <div className="space-y-4 max-w-2xl">
+      <h1 className="text-2xl font-bold tracking-tight">Réglages</h1>
+      <div className="bg-white border border-gray-200/80 rounded-2xl p-5">
+        <p className="font-bold text-[15px] mb-1">Boutique</p>
+        <p className="text-[13px] text-gray-500 mb-4">{vendor.shop_name} · {vendor.email}</p>
+        <a href={`/shop/${vendor.shop_name}`} className="inline-flex items-center gap-2 bg-gray-100 hover:bg-gray-200 text-gray-900 text-[12px] font-bold px-4 py-2.5 rounded-xl"><i className="fa-solid fa-arrow-up-right-from-square" />Voir ma boutique</a>
+      </div>
+      <div className="bg-white border border-gray-200/80 rounded-2xl p-5 flex items-center justify-between gap-3">
+        <div><p className="font-bold text-[15px]">Remise membre −20%</p><p className="text-[13px] text-gray-500">Réservée aux membres OFS sur ta boutique.</p></div>
+        <button onClick={toggle} disabled={busy} className={`w-14 h-8 rounded-full transition-colors relative flex-shrink-0 ${vendor.member_discount_enabled ? "bg-emerald-500" : "bg-gray-300"}`}>
+          <span className={`absolute top-1 w-6 h-6 bg-white rounded-full transition-all ${vendor.member_discount_enabled ? "left-7" : "left-1"}`} />
+        </button>
+      </div>
     </div>
   );
 };
