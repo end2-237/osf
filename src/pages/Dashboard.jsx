@@ -3,6 +3,7 @@ import { useAuth } from "../context/AuthContext";
 import { supabase, uploadProductImage, deleteProductImage } from "../lib/supabase";
 import { useNavigate } from "react-router-dom";
 import VendorLivePanel from "../components/VendorLivePanel";
+import AddProductWizard from "../components/AddProductWizard";
 
 // ─── HELPERS ──────────────────────────────────────────────────────────────────
 const money = (n) => (Number(n) || 0).toLocaleString("fr-FR") + " F";
@@ -241,7 +242,7 @@ const Dashboard = () => {
         </main>
       </div>
 
-      {showAdd && <AddProductModal vendor={vendor} onClose={() => setShowAdd(false)} onDone={() => { setShowAdd(false); fetchAll(); showToast("Produit ajouté !"); }} showToast={showToast} />}
+      {showAdd && <AddProductWizard vendor={vendor} onClose={() => setShowAdd(false)} onDone={() => { setShowAdd(false); fetchAll(); showToast("Produit publié !"); }} showToast={showToast} />}
       <Toast toast={toast} />
     </div>
   );
