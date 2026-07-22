@@ -122,11 +122,6 @@ export const AuthProvider = ({ children }) => {
 
   /* ─── SIGN UP VENDOR ─── */
   const signUp = async (email, password, vendorData) => {
-    const { count, error: countError } = await supabase
-      .from('vendors').select('*', { count: 'exact', head: true }).eq('is_active', true);
-    if (countError) throw countError;
-    if (count >= 5) throw new Error('Limite maximale de 5 vendeurs atteinte.');
-
     const { data: authData, error: authError } = await supabase.auth.signUp({ email, password });
     if (authError) throw authError;
     if (!authData.user) throw new Error("Échec création utilisateur.");
