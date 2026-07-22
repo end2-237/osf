@@ -321,32 +321,39 @@ export default function Register() {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } }, audio: false });
       streamRef.current = stream;
-      if (videoRef.current) { videoRef.current.srcObject = stream; videoRef.current.play(); }
+      // L'attachement au <video> se fait dans le useEffect ci-dessous (le
+      // <video> n'est monté qu'une fois la phase passée à 'stream').
       setLivenessPhase('stream'); setLivenessIdx(0);
       let idx = 0;
       const iv = setInterval(() => {
         setLivenessIdx(prev => {
           idx = prev + 1;
-          if (idx >= LIVENESS_STEPS.length) {
-            clearInterval(iv);
-            let c = 3; setCountdown(c);
-            const ci = setInterval(() => { c--; if (c <= 0) { clearInterval(ci); setCountdown(null); captureFrame(); } else setCountdown(c); }, 1000);
-          }
-          return idx;
+          if (idx >= LIVENESS_STEPS.length) { clearInterval(iv); }
+          return Math.min(idx, LIVENESS_STEPS.length - 1);
         });
-      }, 1800);
+      }, 1500);
     } catch (e) { setCamError("Accès à la caméra refusé. Autorisez l'accès dans les paramètres du navigateur."); setLivenessPhase('error'); }
   }, []);
 
+  // Attache le flux caméra au <video> dès qu'il est monté (phase 'stream').
+  useEffect(() => {
+    if (livenessPhase === 'stream' && streamRef.current && videoRef.current) {
+      videoRef.current.srcObject = streamRef.current;
+      videoRef.current.play().catch(() => {});
+    }
+  }, [livenessPhase]);
+
   const captureFrame = () => {
-    if (!videoRef.current || !canvasRef.current) return;
-    const ctx = canvasRef.current.getContext('2d');
-    canvasRef.current.width  = videoRef.current.videoWidth  || 640;
-    canvasRef.current.height = videoRef.current.videoHeight || 480;
-    ctx.drawImage(videoRef.current, 0, 0);
-    const url = canvasRef.current.toDataURL('image/jpeg', 0.85);
-    setSelfieUrl(url); stopCamera(); setLivenessPhase('done');
-    canvasRef.current.toBlob(blob => setSelfieBlob(blob), 'image/jpeg', 0.85);
+    const v = videoRef.current, cv = canvasRef.current;
+    if (!v || !cv) return;
+    if (!v.videoWidth) { setTimeout(captureFrame, 200); return; } // attend que la vidéo soit prête
+    cv.width  = v.videoWidth;
+    cv.height = v.videoHeight;
+    cv.getContext('2d').drawImage(v, 0, 0, cv.width, cv.height);
+    const url = cv.toDataURL('image/jpeg', 0.85);
+    setSelfieUrl(url); setLivenessPhase('done'); setCountdown(null);
+    cv.toBlob(blob => setSelfieBlob(blob), 'image/jpeg', 0.85);
+    stopCamera();
   };
 
   const retryLiveness = () => { setSelfieUrl(null); setSelfieBlob(null); setLivenessPhase('intro'); setLivenessIdx(0); setCountdown(null); };
@@ -716,7 +723,11 @@ export default function Register() {
                         ))}
                       </div>
                     </div>
-                    <p className="text-xs text-[#565959] text-center">Suivez les instructions — Capture automatique</p>
+                    <button onClick={captureFrame}
+                      className="w-full flex items-center justify-center gap-2 bg-[#FFD814] hover:bg-[#F7CA00] text-[#0F1111] border border-[#FCD200] py-3.5 rounded font-bold text-sm transition active:scale-95">
+                      <i className="fa-solid fa-camera text-sm"></i> Capturer la photo
+                    </button>
+                    <p className="text-xs text-[#565959] text-center">Centre ton visage puis appuie sur « Capturer ».</p>
                   </div>
                 )}
 
