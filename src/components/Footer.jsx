@@ -97,7 +97,7 @@ const Footer = () => {
 
           {/* LOGO */}
           <Link to="/" className="logo-font font-bold text-2xl text-white hover:text-[#FF9900] transition-colors">
-            OneFree<span className="text-[#FF9900]">Style</span>
+            Buy<span className="text-[#FF9900]">ticle</span>
           </Link>
 
           {/* SOCIAL LINKS */}

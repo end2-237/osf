@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import ofsLogo from '../assets/ofs.png';
+import ofsLogo from '../assets/buyticle.svg';
 import { supabase } from '../lib/supabase';
 
 const Login = () => {

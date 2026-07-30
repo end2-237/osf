@@ -3,7 +3,7 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import SponsoredBanner from "../components/SponsoredBanner";
 import ProductCard from "../components/ProductCard";
 import { supabase } from "../lib/supabase";
-import ofsLogo from "../assets/ofs.png";
+import ofsLogo from "../assets/buyticle.svg";
 import { useAuth } from "../context/AuthContext";
 
 /* ─────────────────── CONSTANTS ─────────────────── */

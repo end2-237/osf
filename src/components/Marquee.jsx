@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import ofsLogo from "../assets/ofs.png";
+import ofsLogo from "../assets/buyticle.svg";
 import { supabase } from '../lib/supabase';
 
 // ─── PARTENAIRES ─────────────────────────────────────────────────────────────

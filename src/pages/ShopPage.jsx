@@ -2,7 +2,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import ProductCard from '../components/ProductCard';
-import ofsLogo from '../assets/ofs.png';
+import ofsLogo from '../assets/buyticle.svg';
 
 /* ── SKELETON ── */
 const ProductSkeleton = () => (

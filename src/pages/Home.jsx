@@ -547,7 +547,7 @@ const HOME_JSONLD = [
     "name": "Buyticle Cameroun",
     "alternateName": "Buyticle Store",
     "url": "https://www.buyticle.store",
-    "logo": "https://www.buyticle.store/logoofs.png",
+    "logo": "https://www.buyticle.store/buyticle.svg",
     "description": "Boutique en ligne au Cameroun — mode, tech, beauté, maison. Livraison express Douala, Yaoundé et toutes les régions.",
     "address": {
       "@type": "PostalAddress",

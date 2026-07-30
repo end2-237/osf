@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
-import ofsLogo from "../assets/ofs.png";
+import ofsLogo from "../assets/buyticle.svg";
 import { useAuth } from "../context/AuthContext";
 import { useLang } from "../context/LangContext";
 
@@ -265,9 +265,9 @@ const Navbar = ({ isDark, toggleTheme, cartCount, toggleCart, toggleVisualSearch
             <img src={ofsLogo} alt="Buyticle" className="w-7 h-7 md:w-8 md:h-8 flex-shrink-0" />
             <div className="hidden sm:flex flex-col leading-none">
               <span className={`logo-font font-black text-[10px] md:text-[11px] ${logoTextCls} whitespace-nowrap`}>
-                OneFree<span className="text-[#FF9900]">Style</span>
+                Buy<span className="text-[#FF9900]">ticle</span>
               </span>
-              <span className={`text-[8px] ${logoSubCls} font-medium`}>Elite Market</span>
+              <span className={`text-[8px] ${logoSubCls} font-medium`}>Marketplace</span>
             </div>
           </Link>
 

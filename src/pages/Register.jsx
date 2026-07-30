@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, Link, useSearchParams, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
-import ofsLogo from '../assets/ofs.png';
+import ofsLogo from '../assets/buyticle.svg';
 
 // ─── PLANS ───────────────────────────────────────────────────────────────────
 const PLANS = [
