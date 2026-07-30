@@ -6,7 +6,7 @@ import { useAuth } from "../context/AuthContext";
 // ─── CONSTANTES ───────────────────────────────────────────────────────────────
 const CATS = ["Toutes", "Audio Lab", "Mode Femme", "Sneakers", "Parfums", "Tech Lab", "Streetwear", "Accessories"];
 const SORT_OPTIONS = [
-  { value: "score",  label: "Classement OFS" },
+  { value: "score",  label: "Classement Buyticle" },
   { value: "rating", label: "Meilleure note" },
   { value: "sales",  label: "Plus vendus" },
   { value: "recent", label: "Récents" },
@@ -18,7 +18,7 @@ const BADGE = {
   3: { label: "Bronze", grad: "from-orange-400/15 to-orange-400/5", border: "border-orange-400/30", text: "text-orange-300", bar: "bg-orange-400",  icon: "fa-award",  ring: "" },
 };
 
-// ─── CALCUL SCORE OFS ─────────────────────────────────────────────────────────
+// ─── CALCUL SCORE Buyticle ─────────────────────────────────────────────────────────
 const getScore = (v) => {
   const s = Math.min((v._salesCount   || 0) / 15,  40);
   const r = ((v._avgRating  || 0) / 5) * 35;
@@ -219,7 +219,7 @@ const BoutiqueCardGrid = ({ v, rank, onRate, onVisit, userRated }) => {
 
         <div className="mb-3">
           <div className="flex items-center justify-between mb-1">
-            <span className="text-[7px] font-black uppercase tracking-widest text-zinc-600">Score OFS</span>
+            <span className="text-[7px] font-black uppercase tracking-widest text-zinc-600">Score Buyticle</span>
             <span className={"text-[8px] font-black " + ((BADGE[rank]?.text) || "text-primary")}>{score}/100</span>
           </div>
           <ScoreBar score={score} rank={rank} />

@@ -197,7 +197,7 @@ const AllOrdersTab = ({ orders, loading, onStatusChange }) => {
                       )}
                       {!o.vendor_id && (
                         <span className="text-[9px] text-[#FF9900] bg-[#FF9900]/10 px-2 py-0.5 rounded-full border border-[#FF9900]/20 font-bold">
-                          OFS Platform
+                          Buyticle Platform
                         </span>
                       )}
                     </div>
@@ -435,7 +435,7 @@ const OverviewTab = ({ stats, topVendors, recentOrders, loading }) => (
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="font-bold text-[#0F1111] text-sm truncate">{o.client_name}</p>
-                  <p className="text-[10px] text-[#565959]">{o.vendor?.shop_name || "OFS Platform"} · {fmtDate(o.created_at)}</p>
+                  <p className="text-[10px] text-[#565959]">{o.vendor?.shop_name || "Buyticle Platform"} · {fmtDate(o.created_at)}</p>
                 </div>
                 <div className="text-right flex-shrink-0">
                   <p className="font-bold text-[#B12704] text-sm">{Number(o.total_amount).toLocaleString()} F</p>
@@ -1148,9 +1148,9 @@ const WA_KEYS = ['whatsapp_phone', 'whatsapp_msg_default', 'whatsapp_msg_product
 const WhatsAppSettingsPanel = () => {
   const [form, setForm] = useState({
     whatsapp_phone:       "",
-    whatsapp_msg_default: "Bonjour, j'ai une question sur OFS",
-    whatsapp_msg_product: 'Bonjour, je suis intéressé par "{product}" sur OFS',
-    whatsapp_msg_cart:    "Bonjour, j'ai besoin d'aide pour finaliser ma commande sur OFS",
+    whatsapp_msg_default: "Bonjour, j'ai une question sur Buyticle",
+    whatsapp_msg_product: 'Bonjour, je suis intéressé par "{product}" sur Buyticle',
+    whatsapp_msg_cart:    "Bonjour, j'ai besoin d'aide pour finaliser ma commande sur Buyticle",
   });
   const [saved, setSaved] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -2126,7 +2126,7 @@ const AffiliationTab = ({ orders }) => {
   const affiliates = Object.entries(byCode).map(([code, s]) => ({ code, ...s })).sort((a, b) => b.revenue - a.revenue);
 
   const copyLink = (code) => {
-    navigator.clipboard.writeText(`https://www.onefreestyle.store/ref/${code}`);
+    navigator.clipboard.writeText(`https://www.buyticle.store/ref/${code}`);
     setCopied(code); setTimeout(() => setCopied(''), 2000);
   };
 
@@ -2158,7 +2158,7 @@ const AffiliationTab = ({ orders }) => {
         </div>
         {newCode && (
           <p className="text-[11px] text-[#007185] mt-2 font-mono bg-[#F3F4F4] px-3 py-1.5 rounded">
-            https://www.onefreestyle.store/ref/{newCode}
+            https://www.buyticle.store/ref/{newCode}
           </p>
         )}
       </div>
@@ -2624,7 +2624,7 @@ const SuperAdmin = () => {
             </div>
             <div>
               <div className="flex items-center gap-2 mb-0.5">
-                <p className="text-[8px] font-black uppercase tracking-[0.35em] text-[#FF9900]">OFS Cameroun</p>
+                <p className="text-[8px] font-black uppercase tracking-[0.35em] text-[#FF9900]">Buyticle Cameroun</p>
                 <span className="bg-[#B12704] text-white text-[7px] font-black px-2 py-0.5 rounded-full uppercase tracking-widest">Super Admin</span>
               </div>
               <h1 className="text-white font-black text-xl leading-tight">Panneau d'administration</h1>
@@ -2703,7 +2703,7 @@ const SuperAdmin = () => {
             <div className="bg-[#131921] rounded-xl px-5 py-3 flex items-start gap-3">
               <i className="fa-solid fa-info-circle text-[#007185] mt-0.5 flex-shrink-0"></i>
               <p className="text-[11px] text-[#ADBAC7] leading-relaxed">
-                Les produits importés depuis CJ Dropshipping ont <span className="text-[#FF9900] font-bold">vendor_id = null</span> — ils sont des <strong className="text-white">produits plateforme OFS</strong>, visibles dans tout le store mais non rattachés à un vendeur.
+                Les produits importés depuis CJ Dropshipping ont <span className="text-[#FF9900] font-bold">vendor_id = null</span> — ils sont des <strong className="text-white">produits plateforme Buyticle</strong>, visibles dans tout le store mais non rattachés à un vendeur.
                 Les commandes de ces produits remontent directement à l'admin.
               </p>
             </div>

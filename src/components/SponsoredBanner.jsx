@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 
 /* ─────────────────────────────────────────────────────────────────────────────
-   SponsoredBanner — Amazon Sponsored Brands format + OFS CM identity
+   SponsoredBanner — Amazon Sponsored Brands format + Buyticle CM identity
    Height: 52px (desktop) · slim, pixel-perfect, no wasted space
    ───────────────────────────────────────────────────────────────────────────── */
 const SponsoredBanner = ({ excludeVendorId = null, className = "" }) => {
@@ -48,7 +48,7 @@ const SponsoredBanner = ({ excludeVendorId = null, className = "" }) => {
 
   const imgs     = products.slice(0, 4);
   const headline = products[0]?.name ?? "";
-  const initials = vendor.shop_name?.slice(0, 2).toUpperCase() ?? "OFS";
+  const initials = vendor.shop_name?.slice(0, 2).toUpperCase() ?? "Buyticle";
 
   return (
     <div
@@ -62,10 +62,10 @@ const SponsoredBanner = ({ excludeVendorId = null, className = "" }) => {
 
         {/* ── LEFT: vendor headline ─────────────────────────── */}
         <div className="hidden md:flex flex-col justify-center w-[200px] flex-shrink-0 pr-4 border-r border-[#EBEBEB] h-full gap-0.5">
-          {/* OFS Certified micro-badge */}
+          {/* Buyticle Certified micro-badge */}
           <div className="flex items-center gap-1">
             <span className="text-[7.5px] font-black text-[#FF9900] uppercase tracking-[0.18em] leading-none">
-              OFS Certifié
+              Buyticle Certifié
             </span>
             <i className="fa-solid fa-circle-check text-[#FF9900]" style={{ fontSize: 7 }}></i>
           </div>
@@ -155,7 +155,7 @@ const SponsoredBanner = ({ excludeVendorId = null, className = "" }) => {
         {showTip && (
           <div className="absolute bottom-5 right-0 w-60 bg-[#1a1a1a] text-white text-[10px] rounded-sm p-3 shadow-2xl z-50 leading-relaxed border border-white/10">
             <p className="font-bold text-[#FF9900] mb-1 text-[9px] uppercase tracking-widest">Pourquoi ce contenu ?</p>
-            Ce résultat est affiché car cette boutique est partenaire certifié OFS Cameroun.
+            Ce résultat est affiché car cette boutique est partenaire certifié Buyticle Cameroun.
             <br />
             <Link to="/boutiques" className="text-[#FF9900] font-bold underline mt-1 inline-block">
               En savoir plus →

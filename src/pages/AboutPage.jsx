@@ -56,7 +56,7 @@ const AboutPage = () => {
             <span className="px-3 py-1 bg-[#FF9900]/20 border border-[#FF9900]/30 rounded-full text-[11px] font-bold text-[#FF9900] uppercase tracking-wider">À propos</span>
           </div>
           <h1 className="text-3xl md:text-4xl font-black text-white mb-2">Buyticle</h1>
-          <p className="text-[#8899A6] text-sm italic">« Tu cherches, on l'a toujours » · <span className="text-[#FF9900]">buyticle.com</span></p>
+          <p className="text-[#8899A6] text-sm italic">« Tu cherches, on l'a toujours » · <span className="text-[#FF9900]">buyticle.store</span></p>
           <p className="text-[#6B7D8D] text-xs mt-3">Informatique · Prestation de service · Commerce général · Douala, Cameroun 🇨🇲</p>
         </div>
       </div>
@@ -148,7 +148,7 @@ const AboutPage = () => {
                 {[
                   { icon: "fa-building",     label: "Raison sociale",     value: "BUYTICLE ETS" },
                   { icon: "fa-store",        label: "Marque commerciale", value: "Buyticle" },
-                  { icon: "fa-globe",        label: "Site officiel",      value: "buyticle.com" },
+                  { icon: "fa-globe",        label: "Site officiel",      value: "buyticle.store" },
                   { icon: "fa-id-card",      label: "N° RCCM",           value: "CM-DLA-01-2025-A10-01482" },
                   { icon: "fa-calendar-day", label: "Date de création",   value: "17 juin 2025" },
                   { icon: "fa-location-dot", label: "Siège social",       value: "Bonamoussadi, Douala — Cameroun" },
@@ -196,7 +196,7 @@ const AboutPage = () => {
                 </div>
                 <div className="flex items-center gap-3">
                   <i className="fa-solid fa-globe text-[#FF9900] w-4 text-center" />
-                  <span className="text-sm text-[#0F1111] font-medium">buyticle.com</span>
+                  <span className="text-sm text-[#0F1111] font-medium">buyticle.store</span>
                 </div>
               </div>
               <div className="flex flex-wrap gap-3 mt-2">

@@ -190,7 +190,7 @@ const ReviewCard = ({ review, currentUserId, onDelete }) => {
                 </span>
               ) : (
                 <span className="flex items-center gap-1 text-[7px] font-black text-[#007600] bg-[#E8F5E8] border border-[#007600]/20 px-1.5 py-0.5 rounded-full">
-                  <i className="fa-solid fa-check text-[7px]" /> Vérifié OFS
+                  <i className="fa-solid fa-check text-[7px]" /> Vérifié Buyticle
                 </span>
               )}
               {review._source === "cj" && review.flagIconUrl && (
@@ -488,7 +488,7 @@ const ReviewsSection = ({ productId, cjProductId }) => {
         <div className="flex gap-2 flex-wrap">
           {[
             { key: "all", label: `Tous (${allReviews.length})` },
-            { key: "ofs", label: `OFS (${ofsReviews.length})` },
+            { key: "ofs", label: `Buyticle (${ofsReviews.length})` },
             { key: "cj",  label: `Acheteurs CJ (${cjReviews.length})` },
           ].map((opt) => (
             <button key={opt.key} onClick={() => setSource(opt.key)}

@@ -31,7 +31,7 @@ const TechProducts = ({ openModal }) => {
             VR LAB <br /> ALPHA 4K
           </h3>
           <p className="text-zinc-400 mb-8 max-w-sm">
-            La réalité virtuelle, version OneFreestyle Elite. Immersion visuelle et sonore totale.
+            La réalité virtuelle, version Buyticle Elite. Immersion visuelle et sonore totale.
           </p>
           <button className="bg-black dark:bg-white text-white dark:text-black px-8 py-3 font-black text-[10px] uppercase tracking-widest">
             Entrer dans la matrice

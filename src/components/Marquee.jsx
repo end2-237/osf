@@ -14,7 +14,7 @@ const PARTNERS = [
   { name: "Huawei",  icon: "fa-circle-check", color: "text-red-400" },
 ];
 
-// ─── CALCUL SCORE OFS ─────────────────────────────────────────────────────────
+// ─── CALCUL SCORE Buyticle ─────────────────────────────────────────────────────────
 const getScore = (v) => {
   const s = Math.min((v._salesCount   || 0) / 15, 40);
   const r = ((v._avgRating  || 0) / 5) * 35;
@@ -45,9 +45,9 @@ const Item = ({ item }) => {
   if (item.type === "logo") return (
     <span className="inline-flex items-center gap-2 px-6">
       <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-primary/25 bg-primary/5">
-        <img src={ofsLogo} alt="OFS" className="w-3.5 h-3.5 opacity-90" />
+        <img src={ofsLogo} alt="Buyticle" className="w-3.5 h-3.5 opacity-90" />
         <span className="font-black text-[10px] uppercase tracking-tight text-white/80">
-          OFS <span className="text-primary italic">Elite</span>
+          Buyticle <span className="text-primary italic">Elite</span>
         </span>
       </span>
     </span>

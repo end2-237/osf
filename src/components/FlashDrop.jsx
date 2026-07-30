@@ -18,7 +18,7 @@ const SLIDES = [
     tag:     "Flash Drop Elite",
     tagIcon: "fa-bolt",
     title:   "THE ULTIMATE BEAT",
-    sub:     "Basses sismiques. Design OneFreestyle. Stock ultra-limité.",
+    sub:     "Basses sismiques. Design Buyticle. Stock ultra-limité.",
     cta:     "Réserver l'édition",
     ctaLink: "/store",
     img:     "https://images.unsplash.com/photo-1546435770-a3e426bf472b?q=80&w=1000",
@@ -212,7 +212,7 @@ const FlashDrop = () => {
               </div>
             ))}
             <div className="ml-auto flex-shrink-0 text-[9px] font-black uppercase tracking-widest text-[#37475A]">
-              OneFreestyle · Douala, Cameroun 🇨🇲
+              Buyticle · Douala, Cameroun 🇨🇲
             </div>
           </div>
         </div>
@@ -233,7 +233,7 @@ const FlashDrop = () => {
                 Meilleures <span className="text-[#FF9900] italic">Boutiques</span>
               </h2>
               <p className="text-[11px] text-[#565959] font-medium mt-0.5">
-                Classement en temps réel · Score OFS
+                Classement en temps réel · Score Buyticle
               </p>
             </div>
 

@@ -831,7 +831,7 @@ export default function Register() {
                   <p className="text-sm text-[#565959] leading-relaxed">
                     J'atteste que les informations sont exactes et que les documents m'appartiennent. J'accepte les{' '}
                     <span className="text-[#007185] underline cursor-pointer">conditions d'utilisation</span> et la{' '}
-                    <span className="text-[#007185] underline cursor-pointer">politique de confidentialité</span> d'OFS Elite.
+                    <span className="text-[#007185] underline cursor-pointer">politique de confidentialité</span> d'Buyticle Elite.
                   </p>
                 </label>
 
@@ -842,7 +842,7 @@ export default function Register() {
           </div>
 
           <p className="mt-4 text-center text-xs text-[#565959]">
-            OneFreestyle Elite · Vérification KYC conforme à la loi camerounaise N°2010/012 · support@onefreestyle.cm
+            Buyticle Elite · Vérification KYC conforme à la loi camerounaise N°2010/012 · support@buyticle.store
           </p>
           <p className="mt-2 text-center text-sm text-[#565959]">
             Déjà inscrit ?{' '}
@@ -893,7 +893,7 @@ export default function Register() {
         </div>
         <div className="relative z-10">
           <div className="h-px w-8 bg-[#FF9900] mb-2" />
-          <p className="text-[#37475A] text-xs tracking-widest uppercase">© 2026 OFS System</p>
+          <p className="text-[#37475A] text-xs tracking-widest uppercase">© 2026 Buyticle System</p>
         </div>
       </div>
 
@@ -916,7 +916,7 @@ export default function Register() {
           <div className="flex bg-[#F3F4F4] p-1 rounded border border-[#D5D9D9] mb-5">
             {[
               { key: 'member',  label: 'Client',   icon: <Ico.User />,     desc: 'Acheter & profiter' },
-              { key: 'vendor',  label: 'Vendeur',  icon: <Ico.Business />, desc: 'Vendre sur OFS'    },
+              { key: 'vendor',  label: 'Vendeur',  icon: <Ico.Business />, desc: 'Vendre sur Buyticle'    },
             ].map(f => (
               <button key={f.key} onClick={() => f.key === 'vendor' ? setFlow('vendor') : setFlow('member')}
                 className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded text-sm font-bold transition-all ${flow === f.key ? 'bg-white text-[#0F1111] shadow border border-[#D5D9D9]' : 'text-[#565959] hover:text-[#0F1111]'}`}>

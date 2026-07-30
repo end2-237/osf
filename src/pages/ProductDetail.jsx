@@ -48,7 +48,7 @@ const PROMO_ADS = [
   { tag: "Studio Lab",   title: "Personnalise-le",    sub: "Grave, imprime, customise. Fais-en une pièce unique.",           icon: "fa-wand-magic-sparkles", bg: "from-purple-500/15 to-purple-500/5", border: "border-purple-400/25", cta: "Accéder au Studio", href: "/studio",  accent: "text-purple-600" },
 ];
 
-// ─── OFS SEAL ─────────────────────────────────────────────────────────────────
+// ─── Buyticle SEAL ─────────────────────────────────────────────────────────────────
 const OFSSeal = ({ size = 64 }) => (
   <div className="relative flex items-center justify-center" style={{ width: size, height: size }}>
     <svg viewBox="0 0 64 64" className="absolute inset-0 w-full h-full" style={{ opacity: 0.95 }}>
@@ -56,13 +56,13 @@ const OFSSeal = ({ size = 64 }) => (
         <path id="sealRing2" d="M 32,32 m -22,0 a 22,22 0 1,1 44,0 a 22,22 0 1,1 -44,0" fill="none" />
       </defs>
       <text fontSize="5.8" fontWeight="900" fill="#FF9900" fontFamily="monospace" letterSpacing="2.2">
-        <textPath href="#sealRing2">OFS CAMEROUN • AUTHENTIC •</textPath>
+        <textPath href="#sealRing2">Buyticle CAMEROUN • AUTHENTIC •</textPath>
       </text>
     </svg>
     <div className="rounded-full flex items-center justify-center border-2 border-[#FF9900]"
       style={{ width: size * 0.6, height: size * 0.6, backgroundColor: "#131921" }}>
       <div className="text-center">
-        <div className="text-[#FF9900] font-black leading-none" style={{ fontSize: size * 0.14 }}>OFS</div>
+        <div className="text-[#FF9900] font-black leading-none" style={{ fontSize: size * 0.14 }}>Buyticle</div>
         <i className="fa-solid fa-check text-[#FFD814]" style={{ fontSize: size * 0.1 }}></i>
       </div>
     </div>
@@ -187,7 +187,7 @@ const ImageGallery = ({ images, activeImg, setActiveImg, name, status, videoThum
           className="w-full h-full object-contain"
           controls muted loop playsInline
           onCanPlay={handleVideoCanPlay}
-          onError={(e) => console.error("[OFS video error]", e.target.src, e.target.error)}
+          onError={(e) => console.error("[Buyticle video error]", e.target.src, e.target.error)}
         />
       ) : (
         <img
@@ -289,9 +289,9 @@ const VideoAdPanel = () => {
       <div className="bg-[#131921] border-b border-[#232F3E] px-4 py-2 flex items-center justify-between flex-shrink-0">
         <div className="flex items-center gap-2">
           <div className="w-1.5 h-1.5 rounded-full bg-[#FF9900] animate-pulse" />
-          <span className="text-[8px] font-black uppercase tracking-[0.2em] text-[#FF9900]">OFS Live · Publicité</span>
+          <span className="text-[8px] font-black uppercase tracking-[0.2em] text-[#FF9900]">Buyticle Live · Publicité</span>
         </div>
-        <span className="text-[8px] text-[#565959] font-bold uppercase">OneFreestyle Studio</span>
+        <span className="text-[8px] text-[#565959] font-bold uppercase">Buyticle Studio</span>
       </div>
       <div className="relative flex-grow">
         {!errored[current] ? (
@@ -395,7 +395,7 @@ const DeliveryPanel = ({ price: productPrice, qty, selectedCity, onCityChange, w
           {[
             { flag: "🇨🇳", label: "Fournisseur",   sub: "Guangzhou",       active: false },
             { arrow: true,  label: "✈ Transit",      sub: "3 – 7 jours",    flight: true  },
-            { flag: "🏭",   label: "OFS Entrepôt",   sub: "Bonamoussadi",   active: false },
+            { flag: "🏭",   label: "Buyticle Entrepôt",   sub: "Bonamoussadi",   active: false },
             { arrow: true,  label: selectedCity.delay, sub: "",              flight: false },
             { flag: "🇨🇲",  label: selectedCity.city, sub: "Livraison",     active: true  },
           ].map((step, i) => step.arrow ? (
@@ -781,7 +781,7 @@ const ProductDetail = ({ addToCart, openModal }) => {
     title:       product?.name,
     description: seoDesc,
     image:       product?.img || product?.images?.[0],
-    url:         product ? `https://www.onefreestyle.store/product/${product.id}` : undefined,
+    url:         product ? `https://www.buyticle.store/product/${product.id}` : undefined,
     type:        'product',
   });
 
@@ -936,7 +936,7 @@ const ProductDetail = ({ addToCart, openModal }) => {
   // JSON-LD — placed after `price` to avoid temporal dead zone
   const jsonLdSchemas = useMemo(() => {
     if (!product) return null;
-    const productUrl = `https://www.onefreestyle.store/product/${product.id}`;
+    const productUrl = `https://www.buyticle.store/product/${product.id}`;
     const images = product.images?.length > 0
       ? product.images
       : product.img ? [product.img] : [];
@@ -957,7 +957,7 @@ const ProductDetail = ({ addToCart, openModal }) => {
         "availability": product.stock_qty === 0
           ? "https://schema.org/OutOfStock"
           : "https://schema.org/InStock",
-        "seller": { "@type": "Organization", "name": "OFS Cameroun" },
+        "seller": { "@type": "Organization", "name": "Buyticle Cameroun" },
       },
       ...(product.rating_avg > 0 && product.review_count > 0 && {
         "aggregateRating": {
@@ -969,9 +969,9 @@ const ProductDetail = ({ addToCart, openModal }) => {
     };
 
     const breadcrumbItems = [
-      { "@type": "ListItem", "position": 1, "name": "Accueil", "item": "https://www.onefreestyle.store/" },
-      { "@type": "ListItem", "position": 2, "name": "Store",   "item": "https://www.onefreestyle.store/store" },
-      ...(product.type ? [{ "@type": "ListItem", "position": 3, "name": product.type, "item": `https://www.onefreestyle.store/store?type=${encodeURIComponent(product.type)}` }] : []),
+      { "@type": "ListItem", "position": 1, "name": "Accueil", "item": "https://www.buyticle.store/" },
+      { "@type": "ListItem", "position": 2, "name": "Store",   "item": "https://www.buyticle.store/store" },
+      ...(product.type ? [{ "@type": "ListItem", "position": 3, "name": product.type, "item": `https://www.buyticle.store/store?type=${encodeURIComponent(product.type)}` }] : []),
       { "@type": "ListItem", "position": product.type ? 4 : 3, "name": product.name, "item": productUrl },
     ];
 
@@ -1402,7 +1402,7 @@ const ProductDetail = ({ addToCart, openModal }) => {
                       Boutique : {vendor.shop_name}
                     </Link>
                   ) : (
-                    <span className="text-sm text-[#007185]">Sélection <b>OFS Cameroun</b></span>
+                    <span className="text-sm text-[#007185]">Sélection <b>Buyticle Cameroun</b></span>
                   )}
                   {product.brand && (
                     <span className="text-[9px] font-black uppercase tracking-widest bg-[#F3F4F4] border border-[#D5D9D9] px-2 py-0.5 rounded text-[#565959]">
@@ -1426,7 +1426,7 @@ const ProductDetail = ({ addToCart, openModal }) => {
                   </span>
                   <span className="text-[#D5D9D9]">|</span>
                   <span className="text-xs bg-[#FF9900]/10 text-[#FF9900] border border-[#FF9900]/25 px-2 py-0.5 rounded font-bold uppercase tracking-wide">
-                    OFS Certifié
+                    Buyticle Certifié
                   </span>
                   {product.is_discount_sell && (
                     <span className="text-xs bg-[#CC0C39] text-white px-2 py-0.5 rounded font-bold uppercase tracking-wide">
@@ -1584,7 +1584,7 @@ const ProductDetail = ({ addToCart, openModal }) => {
                     </span>
                     <span className="flex items-center gap-1 text-[10px] text-[#565959]">
                       <i className="fa-solid fa-medal text-[#FF9900] text-[9px]" />
-                      Qualité vérifiée OFS
+                      Qualité vérifiée Buyticle
                     </span>
                     <span className="flex items-center gap-1 text-[10px] text-[#FF9900] font-bold">
                       <i className="fa-solid fa-star text-[9px]" />
@@ -1695,7 +1695,7 @@ const ProductDetail = ({ addToCart, openModal }) => {
                         <i className="fa-solid fa-arrow-right text-[#D5D9D9] text-[8px] flex-shrink-0" />
                         <span className="flex items-center gap-1 flex-shrink-0">
                           <span>🏭</span>
-                          <span className="font-bold text-[#0F1111]">OFS Douala</span>
+                          <span className="font-bold text-[#0F1111]">Buyticle Douala</span>
                         </span>
                         <i className="fa-solid fa-arrow-right text-[#FF9900] text-[8px] flex-shrink-0" />
                         <span className="flex items-center gap-1 flex-shrink-0 text-[#007600] font-bold">
@@ -1862,7 +1862,7 @@ const ProductDetail = ({ addToCart, openModal }) => {
                     </span>
                     <span className="text-xs text-[#FF9900] font-bold">
                       <i className="fa-solid fa-star text-[9px] mr-0.5" />
-                      +{Math.max(1, Math.floor((activeTierPrice * qty) / 500))} pts OFS
+                      +{Math.max(1, Math.floor((activeTierPrice * qty) / 500))} pts Buyticle
                     </span>
                   </div>
                   {(() => {
@@ -1991,7 +1991,7 @@ const ProductDetail = ({ addToCart, openModal }) => {
                 <div className="space-y-2 text-sm">
                   <div className="flex items-center gap-2 text-[#565959]">
                     <i className="fa-solid fa-store w-4 text-xs text-[#565959]" />
-                    <span>Vendu par <b className="text-[#0F1111]">{vendor?.shop_name || "OFS Cameroun"}</b></span>
+                    <span>Vendu par <b className="text-[#0F1111]">{vendor?.shop_name || "Buyticle Cameroun"}</b></span>
                   </div>
                   <div className="flex items-center gap-2 text-[#565959]">
                     <i className="fa-solid fa-shield-halved w-4 text-xs text-[#007185]" />
@@ -1999,7 +1999,7 @@ const ProductDetail = ({ addToCart, openModal }) => {
                   </div>
                   <div className="flex items-center gap-2 text-[#565959]">
                     <i className="fa-solid fa-star w-4 text-xs text-[#FF9900]" />
-                    <span>Points OFS : <b className="text-[#FF9900]">+{ofsPoints} pts</b> crédités après achat</span>
+                    <span>Points Buyticle : <b className="text-[#FF9900]">+{ofsPoints} pts</b> crédités après achat</span>
                   </div>
                   <button onClick={handleShare}
                     className="flex items-center gap-1.5 text-[#007185] hover:text-[#C45500] hover:underline transition-colors mt-1">
@@ -2167,7 +2167,7 @@ const ProductDetail = ({ addToCart, openModal }) => {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1 flex-wrap">
                         <h4 className="font-bold text-lg text-[#0F1111]">{vendor.shop_name}</h4>
-                        <span className="bg-[#FF9900]/10 text-[#FF9900] border border-[#FF9900]/20 text-[8px] font-black px-2 py-0.5 rounded uppercase tracking-widest">OFS Certifié</span>
+                        <span className="bg-[#FF9900]/10 text-[#FF9900] border border-[#FF9900]/20 text-[8px] font-black px-2 py-0.5 rounded uppercase tracking-widest">Buyticle Certifié</span>
                       </div>
                       <p className="text-[#565959] text-sm mb-2">{vendor.full_name} · Douala, Cameroun 🇨🇲</p>
                       <div className="flex flex-wrap items-center gap-3 text-xs text-[#565959]">

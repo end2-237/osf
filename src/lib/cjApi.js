@@ -92,7 +92,7 @@ export const cjSearchBySku = async (sku) => {
 export const cjGetCategories = () =>
   cjFetch("/product/getCategory");
 
-// ─── OFS Category mapping (CJ → OFS) ─────────────────────────────────────────
+// ─── Buyticle Category mapping (CJ → Buyticle) ─────────────────────────────────────────
 // CJ categoryName is a hierarchical path: "Top / Mid / Leaf" or "Top, Sub > Leaf"
 // We split into segments and test each word, prioritised top-down.
 

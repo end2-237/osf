@@ -214,7 +214,7 @@ const Overview = ({ profile, orders, wishlist, reviews, setTab, loyaltyPoints })
             </div>
             <div className="text-right">
               <p className="font-black text-3xl text-white">{pts.toLocaleString()}</p>
-              <p className="text-[9px] font-black uppercase text-[#ADBAC7] tracking-widest">points OFS</p>
+              <p className="text-[9px] font-black uppercase text-[#ADBAC7] tracking-widest">points Buyticle</p>
             </div>
           </div>
           <div className="relative z-10 mt-4">
@@ -233,7 +233,7 @@ const Overview = ({ profile, orders, wishlist, reviews, setTab, loyaltyPoints })
           <Link to="/rewards"
             className="inline-flex items-center gap-2 text-[#007185] hover:text-[#C45500] text-[10px] font-black uppercase hover:underline"
           >
-            <i className="fa-solid fa-gift text-[9px]"></i>OFS Rewards →
+            <i className="fa-solid fa-gift text-[9px]"></i>Buyticle Rewards →
           </Link>
         </div>
       </AmzCard>
@@ -809,7 +809,7 @@ const Referral = ({ profile, userId, onToast }) => {
                           : <span className="text-xs font-black text-[#565959]">{(prof?.full_name || "?")[0].toUpperCase()}</span>
                         }
                       </div>
-                      <p className="text-xs font-bold text-[#0F1111] flex-grow">{prof?.full_name || "Membre OFS"}</p>
+                      <p className="text-xs font-bold text-[#0F1111] flex-grow">{prof?.full_name || "Membre Buyticle"}</p>
                       <span className="text-[9px] font-black text-[#007600]">+200 pts</span>
                     </div>
                   );
@@ -854,7 +854,7 @@ const NotificationsTab = ({ prefs, onSave }) => {
           <Toggle k="new_products"  label="Nouveaux produits"        sub="Alertes nouvelles arrivées"          />
           <Toggle k="price_drops"   label="Baisse de prix"           sub="Sur vos articles en favoris"        />
           <Toggle k="reviews"       label="Avis & feedback"          sub="Demandes d'avis après achat"        />
-          <Toggle k="newsletter"    label="Newsletter OFS"           sub="Actualités et tendances"             />
+          <Toggle k="newsletter"    label="Newsletter Buyticle"           sub="Actualités et tendances"             />
         </div>
       </AmzCard>
       <AmzCard>
@@ -902,7 +902,7 @@ const Security = ({ user, onToast }) => {
     try {
       await supabase.auth.admin?.deleteUser(user.id);
       await supabase.auth.signOut();
-    } catch (e) { setMsg({ type: "error", text: "La suppression doit être effectuée via le support OFS." }); }
+    } catch (e) { setMsg({ type: "error", text: "La suppression doit être effectuée via le support Buyticle." }); }
     finally { setDelLoading(false); setDelConfirm(false); }
   };
 
@@ -1215,7 +1215,7 @@ const ProfilePage = ({ addToCart }) => {
         const { data: freshProfile } = await supabase.from("profiles").select("loyalty_points").eq("id", user.id).single();
         const totalPts = freshProfile?.loyalty_points || profileData.loyalty_points || 0;
         setLoyaltyPoints(totalPts);
-        if (newPts > 0) showToast(`+${newPts} pts OFS crédités pour vos achats !`, "info");
+        if (newPts > 0) showToast(`+${newPts} pts Buyticle crédités pour vos achats !`, "info");
       } catch (e) { console.error("ProfilePage load error:", e); } finally { setLoading(false); }
     })();
   }, [user]);
@@ -1353,7 +1353,7 @@ const ProfilePage = ({ addToCart }) => {
               </div>
               {[
                 { to: "/store",     icon: "fa-bag-shopping", label: "Store"        },
-                { to: "/rewards",   icon: "fa-gift",         label: "OFS Rewards"  },
+                { to: "/rewards",   icon: "fa-gift",         label: "Buyticle Rewards"  },
                 { to: "/boutiques", icon: "fa-store",        label: "Boutiques"    },
               ].map(l => (
                 <Link key={l.to} to={l.to}
@@ -1380,7 +1380,7 @@ const ProfilePage = ({ addToCart }) => {
                 </div>
               ))}
               <div className="mt-3 pt-3 border-t border-[#232F3E] text-center">
-                <span className="text-[9px] font-black uppercase text-[#37475A]">OneFreestyle · Douala 🇨🇲</span>
+                <span className="text-[9px] font-black uppercase text-[#37475A]">Buyticle · Douala 🇨🇲</span>
               </div>
             </div>
           </aside>

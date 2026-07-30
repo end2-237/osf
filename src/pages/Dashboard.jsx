@@ -657,7 +657,7 @@ const SettingsView = ({ vendor, updateVendorField, showToast }) => {
         <a href={`/shop/${vendor.shop_name}`} className="inline-flex items-center gap-2 bg-gray-100 hover:bg-gray-200 text-gray-900 text-[12px] font-bold px-4 py-2.5 rounded-xl"><i className="fa-solid fa-arrow-up-right-from-square" />Voir ma boutique</a>
       </div>
       <div className="bg-white border border-gray-200/80 rounded-2xl p-5 flex items-center justify-between gap-3">
-        <div><p className="font-bold text-[15px]">Remise membre −20%</p><p className="text-[13px] text-gray-500">Réservée aux membres OFS sur ta boutique.</p></div>
+        <div><p className="font-bold text-[15px]">Remise membre −20%</p><p className="text-[13px] text-gray-500">Réservée aux membres Buyticle sur ta boutique.</p></div>
         <button onClick={toggle} disabled={busy} className={`w-14 h-8 rounded-full transition-colors relative flex-shrink-0 ${vendor.member_discount_enabled ? "bg-emerald-500" : "bg-gray-300"}`}>
           <span className={`absolute top-1 w-6 h-6 bg-white rounded-full transition-all ${vendor.member_discount_enabled ? "left-7" : "left-1"}`} />
         </button>

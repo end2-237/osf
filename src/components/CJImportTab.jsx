@@ -565,7 +565,7 @@ const CJImportTab = () => {
           {[
             { label: "Total CJ",     value: total.toLocaleString(),        color: "#FF9900" },
             { label: "Catégories",   value: categories.length || "…",      color: "#FFD814" },
-            { label: "Importés OFS", value: alreadyCount.toLocaleString(), color: "#007185" },
+            { label: "Importés Buyticle", value: alreadyCount.toLocaleString(), color: "#007185" },
             { label: `Page ${page}/${totalPages || "…"}`, value: `${products.length} affichés`, color: "#007600" },
           ].map(s => (
             <div key={s.label} className="px-4 py-3">

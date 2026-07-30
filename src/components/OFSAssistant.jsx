@@ -131,7 +131,7 @@ const OFSAssistant = ({ addToCart }) => {
       ]);
       const prods = prodR.data || [];
       const vends = vendR.data || [];
-      console.log('[OFS Assistant]', { vendors: vends.length, products: prods.length, prodErr: prodR.error, vendErr: vendR.error });
+      console.log('[Buyticle Assistant]', { vendors: vends.length, products: prods.length, prodErr: prodR.error, vendErr: vendR.error });
       const vm = {};
       vends.forEach(v => { vm[v.id] = v; });
       setAllProducts(prods);

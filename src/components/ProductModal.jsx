@@ -47,7 +47,7 @@ const ProductModal = ({ isOpen, product, closeModal, addToCart }) => {
           />
           <div className="absolute top-6 left-6 bg-black/50 backdrop-blur-md px-4 py-2 rounded-full border border-white/10">
             <span className="text-primary font-black text-[10px] uppercase tracking-widest italic">
-              OneFreestyle Authentic
+              Buyticle Authentic
             </span>
           </div>
         </div>

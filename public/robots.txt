@@ -14,4 +14,4 @@ Disallow: /super-admin
 Disallow: /dashboard
 
 # Sitemap
-Sitemap: https://www.onefreestyle.store/sitemap.xml
+Sitemap: https://www.buyticle.store/sitemap.xml

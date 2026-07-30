@@ -16,7 +16,7 @@ const messaging = firebase.messaging();
 messaging.onBackgroundMessage((payload) => {
   console.log('[SW] Message en arrière-plan reçu:', payload);
 
-  const notificationTitle = payload.notification?.title || '🛒 OneFreestyle Elite';
+  const notificationTitle = payload.notification?.title || '🛒 Buyticle';
   const notificationOptions = {
     body: payload.notification?.body || 'Nouvelle notification',
     icon: '/ofs.png',

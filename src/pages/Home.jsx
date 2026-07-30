@@ -30,7 +30,7 @@ const FULLSCREEN_ADS = [
     tag:    "Flash Drop",
     tagIcon:"fa-bolt",
     title:  "THE ULTIMATE BEAT",
-    sub:    "Basses sismiques. Design exclusif OneFreestyle. Stock ultra-limité — avant rupture.",
+    sub:    "Basses sismiques. Design exclusif Buyticle. Stock ultra-limité — avant rupture.",
     cta:    "Voir le produit",
     href:   "/store",
     badge:  "Stock limité",
@@ -544,10 +544,10 @@ const HOME_JSONLD = [
   {
     "@context": "https://schema.org",
     "@type": "Organization",
-    "name": "OFS Cameroun",
-    "alternateName": "OneFreestyle Store",
-    "url": "https://www.onefreestyle.store",
-    "logo": "https://www.onefreestyle.store/logoofs.png",
+    "name": "Buyticle Cameroun",
+    "alternateName": "Buyticle Store",
+    "url": "https://www.buyticle.store",
+    "logo": "https://www.buyticle.store/logoofs.png",
     "description": "Boutique en ligne au Cameroun — mode, tech, beauté, maison. Livraison express Douala, Yaoundé et toutes les régions.",
     "address": {
       "@type": "PostalAddress",
@@ -567,13 +567,13 @@ const HOME_JSONLD = [
   {
     "@context": "https://schema.org",
     "@type": "WebSite",
-    "name": "OFS Cameroun",
-    "url": "https://www.onefreestyle.store",
+    "name": "Buyticle Cameroun",
+    "url": "https://www.buyticle.store",
     "potentialAction": {
       "@type": "SearchAction",
       "target": {
         "@type": "EntryPoint",
-        "urlTemplate": "https://www.onefreestyle.store/search?q={search_term_string}",
+        "urlTemplate": "https://www.buyticle.store/search?q={search_term_string}",
       },
       "query-input": "required name=search_term_string",
     },

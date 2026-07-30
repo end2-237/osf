@@ -13,7 +13,7 @@ const AudioAds = ({ openModal }) => {
             <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent p-12 flex flex-col justify-end">
               <span className="text-primary font-black uppercase tracking-[0.5em] text-[12px] mb-4">Master Audio Series</span>
               <h2 className="text-5xl md:text-7xl font-black text-white italic tracking-tighter leading-none mb-6">
-                SONIC <br /> ONEFREESTYLE X1
+                SONIC <br /> BUYTICLE X1
               </h2>
               <button 
                 onClick={() => openModal(1)} 

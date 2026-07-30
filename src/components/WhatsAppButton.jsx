@@ -63,7 +63,7 @@ const WhatsAppButton = () => {
         const lines = cart.slice(0, 4).map(i => `• ${i.name} (x${i.quantity})`);
         const total = cart.reduce((s, i) => s + (Number(i.price) || 0) * i.quantity, 0);
         return [
-          "Bonjour ! J'avais des articles dans mon panier OFS et je souhaitais finaliser ma commande :",
+          "Bonjour ! J'avais des articles dans mon panier Buyticle et je souhaitais finaliser ma commande :",
           lines.join('\n'),
           `Total estimé : ~${Math.round(total).toLocaleString('fr-FR')} FCFA`,
           'Pouvez-vous m\'aider ?',
@@ -74,16 +74,16 @@ const WhatsAppButton = () => {
     if (path.startsWith('/product/')) {
       const prod = window.__ofs_product || {};
       const name = prod.name || '';
-      const tpl  = settings.whatsapp_msg_product || 'Bonjour, je suis intéressé par "{product}" sur OFS';
-      const text = name ? tpl.replace('{product}', name) : (settings.whatsapp_msg_default || "Bonjour, j'ai une question sur OFS");
+      const tpl  = settings.whatsapp_msg_product || 'Bonjour, je suis intéressé par "{product}" sur Buyticle';
+      const text = name ? tpl.replace('{product}', name) : (settings.whatsapp_msg_default || "Bonjour, j'ai une question sur Buyticle");
       const lines = [text, pageUrl];
       if (prod.img) lines.push(prod.img);
       return lines.join('\n');
     }
     if (path.startsWith('/cart')) {
-      return settings.whatsapp_msg_cart || "Bonjour, j'ai besoin d'aide pour finaliser ma commande sur OFS";
+      return settings.whatsapp_msg_cart || "Bonjour, j'ai besoin d'aide pour finaliser ma commande sur Buyticle";
     }
-    return `${settings.whatsapp_msg_default || "Bonjour, j'ai une question sur OFS"}\n${pageUrl}`;
+    return `${settings.whatsapp_msg_default || "Bonjour, j'ai une question sur Buyticle"}\n${pageUrl}`;
   };
 
   const handleClick = () => {

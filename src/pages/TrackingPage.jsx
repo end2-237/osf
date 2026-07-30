@@ -27,9 +27,9 @@ const STEPS = [
 const TIMELINE_EVENTS = [
   { minStep: 3, label: "Livré au destinataire",   icon: "fa-house", addMin: 48*60 },
   { minStep: 2, label: "Livreur en route",         icon: "fa-truck-fast",         addMin: 20*60 },
-  { minStep: 1, label: "Arrivé entrepôt OFS",      icon: "fa-warehouse",          addMin: 12*60 },
+  { minStep: 1, label: "Arrivé entrepôt Buyticle",      icon: "fa-warehouse",          addMin: 12*60 },
   { minStep: 1, label: "Commande prise en charge", icon: "fa-box-open",            addMin: 5*60  },
-  { minStep: 0, label: "Commande reçue par OFS",   icon: "fa-circle-check",       addMin: 3     },
+  { minStep: 0, label: "Commande reçue par Buyticle",   icon: "fa-circle-check",       addMin: 3     },
   { minStep: 0, label: "Paiement confirmé",         icon: "fa-credit-card",        addMin: 1     },
 ];
 
@@ -52,10 +52,10 @@ const PageHeader = () => (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-4">
       <Link to="/" className="flex items-center gap-2.5 group">
         <div className="w-8 h-8 rounded-lg bg-[#131921] flex items-center justify-center flex-shrink-0">
-          <span className="text-[#FF9900] font-black text-xs tracking-tight">OFS</span>
+          <span className="text-[#FF9900] font-black text-xs tracking-tight">Buyticle</span>
         </div>
         <div className="hidden sm:block">
-          <p className="font-black text-[#0F1111] text-sm leading-none">OneFreestyle</p>
+          <p className="font-black text-[#0F1111] text-sm leading-none">Buyticle</p>
           <p className="text-[10px] text-gray-400 leading-none mt-0.5">Suivi de commande</p>
         </div>
       </Link>
@@ -469,7 +469,7 @@ const SearchForm = ({ onSearch, loading }) => {
     <div className="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden">
       {/* Header */}
       <div className="bg-[#131921] px-6 py-5">
-        <p className="text-[9px] font-black uppercase tracking-[0.3em] text-[#FF9900] mb-1">OFS · Tracking System</p>
+        <p className="text-[9px] font-black uppercase tracking-[0.3em] text-[#FF9900] mb-1">Buyticle · Tracking System</p>
         <h2 className="text-white font-black text-xl">Suivre ma commande</h2>
         <p className="text-gray-400 text-xs mt-1">Entrez votre numéro ou référence pour localiser votre colis</p>
       </div>

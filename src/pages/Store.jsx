@@ -172,9 +172,9 @@ const MarketplaceHero = ({ totalProducts, searchQuery, setSearchQuery, onSearch 
     {/* Ambient glow */}
     <div className="absolute bottom-0 left-24 w-72 h-28 bg-[#FF9900]/10 blur-3xl rounded-full pointer-events-none" />
 
-    {/* ── OFS watermark ── */}
+    {/* ── Buyticle watermark ── */}
     <div className="absolute top-0 right-0 h-full flex items-center pr-6 select-none pointer-events-none">
-      <span className="text-white/[0.04] font-black text-[100px] tracking-[-4px] leading-none">OFS</span>
+      <span className="text-white/[0.04] font-black text-[100px] tracking-[-4px] leading-none">Buyticle</span>
     </div>
 
     {/* ── Content ── */}
@@ -186,7 +186,7 @@ const MarketplaceHero = ({ totalProducts, searchQuery, setSearchQuery, onSearch 
           <div className="flex items-center gap-2 mb-2">
             <span className="inline-flex items-center gap-1.5 bg-[#FF9900] text-[#0F1111] text-[8.5px] font-black px-2 py-[3px] uppercase tracking-[0.15em] shadow-lg rounded-sm">
               <span className="w-1.5 h-1.5 rounded-full bg-[#0F1111] animate-pulse"></span>
-              OFS CM · LIVE
+              Buyticle CM · LIVE
             </span>
             <span className="text-white/30 text-[10px] font-medium tracking-wide">
               {totalProducts}+ références · Douala 🇨🇲
@@ -259,7 +259,7 @@ const TrustStrip = () => (
     <div className="max-w-[1400px] mx-auto flex items-center overflow-x-auto"
       style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}>
       {[
-        { icon: "fa-store",            text: "5+ boutiques",     sub: "certifiées OFS",   color: "#FF9900" },
+        { icon: "fa-store",            text: "5+ boutiques",     sub: "certifiées Buyticle",   color: "#FF9900" },
         { icon: "fa-truck-fast",       text: "Livraison 2h",     sub: "Douala express",   color: "#60a5fa" },
         { icon: "fa-shield-halved",     text: "Paiement sécurisé",sub: "Orange · MTN · Cash", color: "#4ade80" },
         { icon: "fa-rotate-left",      text: "Retour 7 jours",   sub: "sans question",    color: "#c084fc" },
@@ -1157,7 +1157,7 @@ const Store = ({ openModal, addToCart }) => {
       <div className="bg-zinc-800 py-12 px-4 md:px-8 mt-8">
         <div className="max-w-[1400px] mx-auto grid grid-cols-1 md:grid-cols-3 gap-6 items-center">
           <div className="md:col-span-2">
-            <span className="text-primary font-black text-[9px] uppercase tracking-[0.4em] block mb-2">OneFreestyle Elite</span>
+            <span className="text-primary font-black text-[9px] uppercase tracking-[0.4em] block mb-2">Buyticle Elite</span>
             <h3 className="text-2xl md:text-3xl font-black italic uppercase tracking-tighter text-white leading-tight">
               Vends tes produits sur<br />la marketplace <span className="text-primary">#1</span> de Douala
             </h3>

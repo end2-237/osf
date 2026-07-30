@@ -72,7 +72,7 @@ const Login = () => {
           <img
             src="https://images.unsplash.com/photo-1490481651871-ab68de25d43d?auto=format&fit=crop&q=80"
             className="w-full h-full object-cover opacity-10 grayscale"
-            alt="OFS Brand"
+            alt="Buyticle Brand"
           />
           <div className="absolute inset-0 bg-gradient-to-t from-[#131921] via-[#131921]/60 to-transparent" />
         </div>
@@ -105,7 +105,7 @@ const Login = () => {
 
         <div className="relative z-10">
           <div className="h-px w-8 bg-[#FF9900] mb-2" />
-          <p className="text-[#37475A] text-xs tracking-widest uppercase">© 2026 OFS System</p>
+          <p className="text-[#37475A] text-xs tracking-widest uppercase">© 2026 Buyticle System</p>
         </div>
       </div>
 
@@ -125,7 +125,7 @@ const Login = () => {
           <header className="mb-6">
             <h1 className="text-2xl font-bold text-[#0F1111] leading-none mb-1">Se connecter</h1>
             <p className="text-sm text-[#565959]">
-              {from === '/profile' ? 'Connexion requise · Profil' : 'Accédez à votre espace OneFreestyle'}
+              {from === '/profile' ? 'Connexion requise · Profil' : 'Accédez à votre espace Buyticle'}
             </p>
           </header>
 
@@ -228,7 +228,7 @@ const Login = () => {
           )}
 
           <div className="mt-5 pt-5 border-t border-[#D5D9D9] text-center">
-            <span className="text-sm text-[#565959]">Nouveau sur OneFreestyle ? </span>
+            <span className="text-sm text-[#565959]">Nouveau sur Buyticle ? </span>
             <Link to="/register" className="text-sm text-[#007185] hover:text-[#C45500] hover:underline font-bold">
               Créer un compte
             </Link>

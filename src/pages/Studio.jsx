@@ -84,7 +84,7 @@ const Studio = () => {
     const newLayer = {
       id: Date.now(),
       type,
-      content: type === "text" ? "TEXTE OFS" : content,
+      content: type === "text" ? "TEXTE Buyticle" : content,
       x: 150, // Position initiale centrée
       y: 150,
       rotate: 0,
@@ -119,7 +119,7 @@ const Studio = () => {
         <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-10 gap-6">
           <div className="space-y-1">
             <h1 className="text-6xl font-black italic uppercase tracking-tighter text-zinc-900 leading-none">
-              OFS <span className="text-primary">STUDIO</span> PRO
+              Buyticle <span className="text-primary">STUDIO</span> PRO
             </h1>
             <p className="text-zinc-400 font-black uppercase text-[10px] tracking-[0.3em]">
               Workstation de personnalisation haute performance v2.0
@@ -336,7 +336,7 @@ const Studio = () => {
                   {/* COLOR (Uniquement texte) */}
                   {activeLayer.type === 'text' && (
                     <div className="space-y-4">
-                      <label className="text-[9px] font-black uppercase text-zinc-500 tracking-widest">Nuancier OFS</label>
+                      <label className="text-[9px] font-black uppercase text-zinc-500 tracking-widest">Nuancier Buyticle</label>
                       <div className="flex flex-wrap gap-2">
                         {['#00ff88', '#ffffff', '#000000', '#ff2d2d', '#2d8cff', '#ffff2d'].map(c => (
                           <button 
@@ -396,7 +396,7 @@ const Studio = () => {
             <div className="p-10 border-b border-zinc-100 flex justify-between items-center bg-zinc-50/50">
               <div>
                 <h2 className="text-4xl font-black italic uppercase tracking-tighter">Support <span className="text-primary">Library</span></h2>
-                <p className="text-[10px] font-black uppercase text-zinc-400 tracking-widest mt-1">Sélectionnez la base de votre création OFS</p>
+                <p className="text-[10px] font-black uppercase text-zinc-400 tracking-widest mt-1">Sélectionnez la base de votre création Buyticle</p>
               </div>
               <button 
                 onClick={() => setIsCatalogOpen(false)} 

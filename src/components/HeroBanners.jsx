@@ -5,7 +5,7 @@ const SLIDES = [
   {
     tag:  "Nouveau Drop",
     title: "AUDIO ELITE X1",
-    sub:  "Son immersif. Design exclusif. OneFreestyle.",
+    sub:  "Son immersif. Design exclusif. Buyticle.",
     cta:  "Découvrir",
     img:  "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?q=80&w=1600",
     href: "/store",

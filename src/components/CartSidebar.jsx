@@ -590,7 +590,7 @@ const CartSidebar = ({ isOpen, cart, removeFromCart, updateQuantity, toggleCart,
               </h2>
               <p className="text-[10px] text-[#adb5bd] mt-0.5">
                 {step === 'cart'
-                  ? `${cart.length} article${cart.length !== 1 ? 's' : ''} · OneFreestyle 🇨🇲`
+                  ? `${cart.length} article${cart.length !== 1 ? 's' : ''} · Buyticle 🇨🇲`
                   : step === 'checkout' ? 'Où livrer votre commande ?'
                   : 'Comment souhaitez-vous payer ?'}
               </p>
@@ -1130,7 +1130,7 @@ const CartSidebar = ({ isOpen, cart, removeFromCart, updateQuantity, toggleCart,
                   <div className="flex items-center gap-2">
                     <i className={`fa-solid fa-coins text-xs ${usePoints ? 'text-[#FF9900]' : 'text-[#adb5bd]'}`}></i>
                     <div>
-                      <p className="text-xs font-bold text-[#0F1111]">Utiliser mes points OFS</p>
+                      <p className="text-xs font-bold text-[#0F1111]">Utiliser mes points Buyticle</p>
                       <p className="text-[10px] text-[#565959]">{userPoints.toLocaleString()} pts disponibles · −{Math.min(userPoints, maxPointsDiscount).toLocaleString()} FCFA</p>
                     </div>
                   </div>
@@ -1170,7 +1170,7 @@ const CartSidebar = ({ isOpen, cart, removeFromCart, updateQuantity, toggleCart,
                   {pointsDiscount > 0 && (
                     <div className="flex justify-between text-sm">
                       <span className="text-[#FF9900] flex items-center gap-1">
-                        <i className="fa-solid fa-coins text-[9px]" /> Points OFS
+                        <i className="fa-solid fa-coins text-[9px]" /> Points Buyticle
                       </span>
                       <span className="font-bold text-[#FF9900]">−{pointsDiscount.toLocaleString()} F</span>
                     </div>

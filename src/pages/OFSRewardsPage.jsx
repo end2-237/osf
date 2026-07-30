@@ -160,7 +160,7 @@ const RewardsHero = ({ profile, loading, pts }) => {
                 {tier.label}
               </p>
               <p className="text-[10px] font-bold text-zinc-400 mt-0.5">
-                {profile?.full_name ? `${profile.full_name} · ` : ""}Membre OFS Elite
+                {profile?.full_name ? `${profile.full_name} · ` : ""}Membre Buyticle Elite
               </p>
             </div>
           </div>
@@ -231,7 +231,7 @@ const HowToEarn = () => (
     <SectionLabel>Programme de fidélité</SectionLabel>
     <SectionTitle>Gagnez des points<br />à chaque action.</SectionTitle>
     <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400 leading-relaxed mb-8 max-w-lg">
-      Chaque interaction avec OneFreestyle Elite vous rapporte des points. Accumulez-les et échangez-les contre des récompenses exclusives.
+      Chaque interaction avec Buyticle Elite vous rapporte des points. Accumulez-les et échangez-les contre des récompenses exclusives.
     </p>
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
       {EARN_ACTIONS.map((a) => (
@@ -722,7 +722,7 @@ const ReferralSection = ({ profile, userId }) => {
                           : <span className="text-xs font-black text-zinc-500">{(prof?.full_name || "?")[0].toUpperCase()}</span>
                         }
                       </div>
-                      <p className="text-xs font-bold text-zinc-600 dark:text-zinc-300 flex-grow">{prof?.full_name || "Membre OFS"}</p>
+                      <p className="text-xs font-bold text-zinc-600 dark:text-zinc-300 flex-grow">{prof?.full_name || "Membre Buyticle"}</p>
                       <span className="text-[9px] font-black text-emerald-600 dark:text-emerald-400">+200 pts</span>
                     </div>
                   );
@@ -738,7 +738,7 @@ const ReferralSection = ({ profile, userId }) => {
 
 // ─── FAQ ──────────────────────────────────────────────────────────────────────
 const FAQ_ITEMS = [
-  { q:"Mes points expirent-ils ?",               a:"Non. Vos points n'expirent jamais tant que votre compte est actif sur OneFreestyle Elite."             },
+  { q:"Mes points expirent-ils ?",               a:"Non. Vos points n'expirent jamais tant que votre compte est actif sur Buyticle Elite."             },
   { q:"Comment voir mon historique complet ?",   a:"Dans la section Historique de cette page, ou dans votre profil > onglet Récompenses."                 },
   { q:"Puis-je cumuler récompenses et promos ?", a:"Oui. Les récompenses sont cumulables avec le prix membre (−20%) et les bundles (−15%)."               },
   { q:"Combien de temps pour recevoir mes pts ?",a:"Les achats sont crédités automatiquement dès que la commande passe au statut Livrée."                  },
@@ -851,9 +851,9 @@ const OFSRewardsPage = () => {
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div>
               <h1 className="text-3xl md:text-4xl font-black italic uppercase tracking-tight text-zinc-900 dark:text-white leading-tight">
-                OFS <span className="text-emerald-500">Rewards</span>
+                Buyticle <span className="text-emerald-500">Rewards</span>
               </h1>
-              <p className="text-sm font-medium text-zinc-400 mt-1">Programme de fidélité OneFreestyle Elite</p>
+              <p className="text-sm font-medium text-zinc-400 mt-1">Programme de fidélité Buyticle Elite</p>
             </div>
             {!loading && (
               <div className="flex items-center gap-3 bg-zinc-50 dark:bg-zinc-800 border border-zinc-100 dark:border-white/5 rounded-2xl px-5 py-3">

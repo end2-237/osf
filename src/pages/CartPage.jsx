@@ -191,7 +191,7 @@ export default function CartPage() {
             <i className="fa-solid fa-bag-shopping text-[#D5D9D9] text-6xl"></i>
           </div>
           <div>
-            <h1 className="text-[28px] font-bold text-[#0F1111] leading-tight">Votre panier OFS est vide</h1>
+            <h1 className="text-[28px] font-bold text-[#0F1111] leading-tight">Votre panier Buyticle est vide</h1>
             <p className="text-sm text-[#0F1111] mt-2">Découvrez nos meilleures offres au Cameroun 🇨🇲 · Livraison express Douala.</p>
             <Link to="/store"
               className="inline-block mt-4 bg-[#FFD814] hover:bg-[#F7CA00] border border-[#FCD200] rounded-full text-[#0F1111] font-medium text-sm px-8 py-2 transition shadow-[0_2px_5px_rgba(213,217,217,.5)]">

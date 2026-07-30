@@ -262,7 +262,7 @@ const Navbar = ({ isDark, toggleTheme, cartCount, toggleCart, toggleVisualSearch
           <Link to="/"
             className={`flex items-center gap-2 flex-shrink-0 border border-transparent ${hoverEl} rounded px-2 py-1 transition-all`}
           >
-            <img src={ofsLogo} alt="OFS" className="w-7 h-7 md:w-8 md:h-8 flex-shrink-0" />
+            <img src={ofsLogo} alt="Buyticle" className="w-7 h-7 md:w-8 md:h-8 flex-shrink-0" />
             <div className="hidden sm:flex flex-col leading-none">
               <span className={`logo-font font-black text-[10px] md:text-[11px] ${logoTextCls} whitespace-nowrap`}>
                 OneFree<span className="text-[#FF9900]">Style</span>
