@@ -105,7 +105,7 @@ const CGVPage = () => {
                 <div className="flex items-center gap-2 text-sm"><i className="fa-solid fa-id-card text-[#FF9900] w-4" /><span>RCCM : CM-DLA-01-2025-A10-01482</span></div>
                 <div className="flex items-center gap-2 text-sm"><i className="fa-solid fa-calendar text-[#FF9900] w-4" /><span>Créée le 17 juin 2025</span></div>
                 <div className="flex items-center gap-2 text-sm"><i className="fa-solid fa-phone text-[#FF9900] w-4" /><span>(+237) 696 99 58 79</span></div>
-                <div className="flex items-center gap-2 text-sm"><i className="fa-solid fa-globe text-[#FF9900] w-4" /><span>buyticle.store</span></div>
+                <div className="flex items-center gap-2 text-sm"><i className="fa-solid fa-globe text-[#FF9900] w-4" /><span>buyticle.com</span></div>
               </div>
             </SectionBlock>
 

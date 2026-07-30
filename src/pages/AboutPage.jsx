@@ -148,7 +148,7 @@ const AboutPage = () => {
                 {[
                   { icon: "fa-building",     label: "Raison sociale",     value: "BUYTICLE ETS" },
                   { icon: "fa-store",        label: "Marque commerciale", value: "Buyticle" },
-                  { icon: "fa-globe",        label: "Site officiel",      value: "buyticle.store" },
+                  { icon: "fa-globe",        label: "Site officiel",      value: "buyticle.com" },
                   { icon: "fa-id-card",      label: "N° RCCM",           value: "CM-DLA-01-2025-A10-01482" },
                   { icon: "fa-calendar-day", label: "Date de création",   value: "17 juin 2025" },
                   { icon: "fa-location-dot", label: "Siège social",       value: "Bonamoussadi, Douala — Cameroun" },
@@ -196,7 +196,7 @@ const AboutPage = () => {
                 </div>
                 <div className="flex items-center gap-3">
                   <i className="fa-solid fa-globe text-[#FF9900] w-4 text-center" />
-                  <span className="text-sm text-[#0F1111] font-medium">buyticle.store</span>
+                  <span className="text-sm text-[#0F1111] font-medium">buyticle.com</span>
                 </div>
               </div>
               <div className="flex flex-wrap gap-3 mt-2">

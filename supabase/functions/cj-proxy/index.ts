@@ -5,14 +5,14 @@ const CJ_BASE  = "https://developers.cjdropshipping.com/api2.0/v1";
 const CJ_TOKEN = Deno.env.get("CJ_ACCESS_TOKEN") || "";
 
 const ALLOWED_ORIGINS = new Set([
-  "https://www.onefreestyle.store",
-  "https://onefreestyle.store",
+  "https://www.buyticle.store",
+  "https://buyticle.store",
   "http://localhost:5173",
   "http://localhost:4173",
 ]);
 
 const cors = (origin: string) => ({
-  "Access-Control-Allow-Origin":  ALLOWED_ORIGINS.has(origin) ? origin : "https://www.onefreestyle.store",
+  "Access-Control-Allow-Origin":  ALLOWED_ORIGINS.has(origin) ? origin : "https://www.buyticle.store",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
   "Vary": "Origin",

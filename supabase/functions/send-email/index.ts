@@ -6,14 +6,14 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 const RESEND_API_KEY  = Deno.env.get("RESEND_API_KEY")              || "";
 const SUPABASE_URL    = Deno.env.get("SUPABASE_URL")                || "";
 const SUPABASE_SRVKEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")   || "";
-const FROM_EMAIL      = "OFS Cameroun <noreply@onefreestyle.store>";
-const SITE_URL        = "https://www.onefreestyle.store";
+const FROM_EMAIL      = "Buyticle <noreply@buyticle.store>";
+const SITE_URL        = "https://www.buyticle.store";
 const SUPPORT_PHONE   = "237696995879";
-const LOGO_URL        = "https://www.onefreestyle.store/logoofs.png";
+const LOGO_URL        = "https://www.buyticle.store/logoofs.png";
 
 const ALLOWED_ORIGINS = new Set([
-  "https://www.onefreestyle.store",
-  "https://onefreestyle.store",
+  "https://www.buyticle.store",
+  "https://buyticle.store",
   "http://localhost:5173",
   "http://localhost:4173",
 ]);
@@ -124,7 +124,7 @@ const buildEmail = (order: any, items: any[], name: string, paid = false) => {
       <table width="100%" cellpadding="0" cellspacing="0">
         <tr>
           <td style="vertical-align:top;width:60%;">
-            <img src="${LOGO_URL}" height="44" alt="OFS"
+            <img src="${LOGO_URL}" height="44" alt="Buyticle"
               style="display:block;height:44px;max-width:160px;object-fit:contain;" />
             <div style="margin-top:20px;font-size:32px;font-weight:300;color:#202124;letter-spacing:-1px;line-height:1;">Facture</div>
             <div style="margin-top:8px;font-size:12px;color:#5f6368;">Numéro de commande : <span style="font-family:monospace;color:#202124;">#${ref}</span></div>
@@ -133,10 +133,10 @@ const buildEmail = (order: any, items: any[], name: string, paid = false) => {
             <div style="font-size:13px;font-weight:700;color:#202124;line-height:1.8;">
               Buyticle ETS<br>
               <span style="font-weight:400;font-size:12px;color:#5f6368;">
-                OneFreestyle Store<br>
+                Buyticle<br>
                 Bonamoussadi, Douala<br>
                 Cameroun<br>
-                onefreestyle.store
+                buyticle.store
               </span>
             </div>
           </td>
@@ -233,7 +233,7 @@ const buildEmail = (order: any, items: any[], name: string, paid = false) => {
   <!-- FOOTER -->
   <tr>
     <td style="padding:20px 0;font-size:11px;color:#9aa0a6;line-height:1.8;text-align:center;">
-      © ${new Date().getFullYear()} OFS — OneFreestyle Store · onefreestyle.store · Douala, Cameroun<br>
+      © ${new Date().getFullYear()} Buyticle · buyticle.store · Douala, Cameroun<br>
       Buyticle ETS · RCCM : CM-DLA-01-2025-A10-01482 · NIU : P070418499910G
     </td>
   </tr>
@@ -266,7 +266,7 @@ const buildShippedEmail = (order: any, items: any[], name: string) => {
       <table width="100%" cellpadding="0" cellspacing="0">
         <tr>
           <td style="vertical-align:top;width:60%;">
-            <img src="${LOGO_URL}" height="44" alt="OFS"
+            <img src="${LOGO_URL}" height="44" alt="Buyticle"
               style="display:block;height:44px;max-width:160px;object-fit:contain;" />
             <div style="margin-top:20px;font-size:32px;font-weight:300;color:#202124;letter-spacing:-1px;line-height:1;">Avis d'expédition</div>
             <div style="margin-top:8px;font-size:12px;color:#5f6368;">Numéro de commande : <span style="font-family:monospace;color:#202124;">#${ref}</span></div>
@@ -275,10 +275,10 @@ const buildShippedEmail = (order: any, items: any[], name: string) => {
             <div style="font-size:13px;font-weight:700;color:#202124;line-height:1.8;">
               Buyticle ETS<br>
               <span style="font-weight:400;font-size:12px;color:#5f6368;">
-                OneFreestyle Store<br>
+                Buyticle<br>
                 Bonamoussadi, Douala<br>
                 Cameroun<br>
-                onefreestyle.store
+                buyticle.store
               </span>
             </div>
           </td>
@@ -377,7 +377,7 @@ const buildShippedEmail = (order: any, items: any[], name: string) => {
   <!-- FOOTER -->
   <tr>
     <td style="padding:20px 0;font-size:11px;color:#9aa0a6;line-height:1.8;text-align:center;">
-      © ${new Date().getFullYear()} OFS — OneFreestyle Store · onefreestyle.store · Douala, Cameroun<br>
+      © ${new Date().getFullYear()} Buyticle · buyticle.store · Douala, Cameroun<br>
       Buyticle ETS · RCCM : CM-DLA-01-2025-A10-01482 · NIU : P070418499910G
     </td>
   </tr>
@@ -405,7 +405,7 @@ const sendResend = async (to: string, subject: string, html: string) => {
 serve(async (req: Request) => {
   const origin = req.headers.get("origin") || "";
   const corsHeaders = {
-    "Access-Control-Allow-Origin":  ALLOWED_ORIGINS.has(origin) ? origin : "https://www.onefreestyle.store",
+    "Access-Control-Allow-Origin":  ALLOWED_ORIGINS.has(origin) ? origin : "https://www.buyticle.store",
     "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
   };
 
@@ -443,7 +443,7 @@ serve(async (req: Request) => {
       subject = `Paiement confirmé #${ref} — OFS / Buyticle ETS`;
       html    = buildEmail({ ...order, status: "paid" }, itms, name, true);
     } else if (type === "shipped") {
-      subject = `En route ! Commande #${ref} — OFS Cameroun`;
+      subject = `En route ! Commande #${ref} — Buyticle`;
       html    = buildShippedEmail(order, itms, name);
     } else {
       throw new Error(`Unknown type: ${type}`);

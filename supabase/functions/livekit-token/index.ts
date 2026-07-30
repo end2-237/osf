@@ -19,8 +19,8 @@ const SB_URL    = Deno.env.get("SUPABASE_URL")              || "";
 const SB_SRVKEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
 
 const ALLOWED = new Set([
-  "https://www.onefreestyle.store",
-  "https://onefreestyle.store",
+  "https://www.buyticle.store",
+  "https://buyticle.store",
   "https://buyticle.store",
   "https://www.buyticle.store",
   "http://localhost:5173",
