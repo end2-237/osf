@@ -1,18 +1,18 @@
 <svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Buyticle">
   <defs>
-    <mask id="btk-cut">
+    <mask id="btk">
       <rect width="512" height="512" fill="#fff"/>
-      <!-- aperture du "b" (fente près du haut de la boucle) -->
-      <path d="M296 150 a150 150 0 0 1 96 96 a112 112 0 0 0 -96 -96 Z" fill="#000"/>
-      <!-- sac shopping : anse -->
-      <path d="M214 268 a44 40 0 0 1 88 0" fill="none" stroke="#000" stroke-width="22" stroke-linecap="round"/>
-      <!-- sac shopping : corps -->
-      <path d="M196 262 h124 a8 8 0 0 1 8 9 l-12 104 a12 12 0 0 1 -12 11 h-100 a12 12 0 0 1 -12 -11 l-12 -104 a8 8 0 0 1 8 -9 Z" fill="#000"/>
+      <!-- fente / aperture en haut à droite de la boucle -->
+      <path d="M300 158 A150 150 0 0 1 398 236 A126 126 0 0 0 300 158 Z" fill="#000"/>
+      <!-- sac : anse -->
+      <path d="M226 250 a30 30 0 0 1 60 0" fill="none" stroke="#000" stroke-width="20" stroke-linecap="round"/>
+      <!-- sac : corps (légèrement évasé, coins bas arrondis) -->
+      <path d="M214 256 H298 a6 6 0 0 1 6 7 l10 92 a14 14 0 0 1 -14 15 H212 a14 14 0 0 1 -14 -15 l10 -92 a6 6 0 0 1 6 -7 Z" fill="#000"/>
     </mask>
   </defs>
-  <g mask="url(#btk-cut)" fill="#E4590F">
-    <!-- tige du "b" -->
-    <rect x="118" y="70" width="72" height="352" rx="36"/>
+  <g mask="url(#btk)" fill="#E4590F">
+    <!-- tige du "b" : coin haut-gauche arrondi -->
+    <path d="M120 418 V120 Q120 88 152 88 H192 V418 Z"/>
     <!-- boucle du "b" -->
     <circle cx="300" cy="302" r="152"/>
   </g>
