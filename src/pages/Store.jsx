@@ -5,6 +5,7 @@ import ProductCard from "../components/ProductCard";
 import { supabase } from "../lib/supabase";
 import ofsLogo from "../assets/buyticle.svg";
 import { useAuth } from "../context/AuthContext";
+import { applyVendorDiscount, isVendorDiscountEnabled } from "../utils/discountUtils";
 
 /* ─────────────────── CONSTANTS ─────────────────── */
 const SUBCATEGORIES = {
@@ -1085,8 +1086,8 @@ const Store = ({ openModal, addToCart }) => {
             ) : viewMode === "list" ? (
               <div className="space-y-3">
                 {visibleProducts.map(product => {
-                  const isMemberPrice = isMember && (product.vendor?.member_discount_enabled || product.vendor_member_discount_enabled);
-                  const displayPrice  = isMemberPrice ? Math.round(product.price * 0.8) : product.price;
+                  const isMemberPrice = isMember && isVendorDiscountEnabled(product);
+                  const displayPrice  = isMemberPrice ? applyVendorDiscount(product.price, product) : product.price;
                   return (
                     <div key={product.id}
                       className="bg-white border border-[#D5D9D9] rounded p-4 flex items-center gap-4 group hover:border-[#FF9900] hover:shadow-md transition-all cursor-pointer"

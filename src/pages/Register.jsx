@@ -7,45 +7,113 @@ import ofsLogo from '../assets/buyticle.svg';
 // ─── PLANS ───────────────────────────────────────────────────────────────────
 const PLANS = [
   {
-    id: 'starter', name: 'Starter', price: 0, period: 'Gratuit', badge: null,
+    id: 'starter', name: 'Gratuit', price: 0, period: 'pour toujours', badge: null,
     features: [
       { text: '5 produits max', ok: true },
       { text: 'Boutique personnalisée', ok: true },
       { text: 'Commandes & notifications', ok: true },
       { text: 'Analytics basiques', ok: true },
-      { text: 'Remise membre −20%', ok: false },
-      { text: 'Flash Drops', ok: false },
+      { text: 'Remise membre personnalisée', ok: false },
+      { text: 'Lives & Flash Drops', ok: false },
       { text: 'Badge ✓ Vérifié', ok: false },
       { text: 'Support prioritaire', ok: false },
     ],
   },
   {
-    id: 'pro', name: 'Pro', price: 5000, period: '/ mois', badge: 'Populaire',
+    id: 'pro', name: 'Pro', price: 15000, period: '/ mois', badge: 'Populaire',
     features: [
-      { text: '30 produits', ok: true },
+      { text: '100 produits', ok: true },
       { text: 'Boutique personnalisée', ok: true },
       { text: 'Commandes & notifications', ok: true },
       { text: 'Analytics avancés', ok: true },
-      { text: 'Remise membre −20%', ok: true },
-      { text: 'Flash Drops', ok: false },
+      { text: 'Remise membre personnalisée', ok: true },
+      { text: 'Lives & Flash Drops', ok: true },
       { text: 'Badge ✓ Vérifié', ok: true },
       { text: 'Support prioritaire', ok: false },
     ],
   },
   {
-    id: 'elite', name: 'Elite', price: 15000, period: '/ mois', badge: 'Max',
+    id: 'elite', name: 'Elite', price: 50000, period: '/ mois', badge: 'Max',
     features: [
       { text: 'Produits illimités', ok: true },
       { text: 'Boutique personnalisée', ok: true },
       { text: 'Commandes & notifications', ok: true },
       { text: 'Analytics avancés + exports', ok: true },
-      { text: 'Remise membre −20%', ok: true },
-      { text: 'Flash Drops exclusifs', ok: true },
+      { text: 'Remise membre personnalisée', ok: true },
+      { text: 'Lives & Flash Drops exclusifs', ok: true },
       { text: 'Badge ✓ Elite Vérifié', ok: true },
       { text: 'Account manager dédié', ok: true },
     ],
   },
 ];
+
+// ─── ÉQUIVALENCES MONNAIES ───────────────────────────────────────────────────
+// Taux indicatifs, exprimés en unités de devise pour 1 FCFA (XAF).
+// Affichés sous les plans pour les vendeurs hors zone franc CFA.
+const FX_RATES = [
+  { code: 'NGN', label: 'Naira',        flag: '🇳🇬', symbol: '₦',   perXaf: 2.5,      decimals: 0 },
+  { code: 'GHS', label: 'Cedi',         flag: '🇬🇭', symbol: 'GH₵', perXaf: 0.021,    decimals: 0 },
+  { code: 'USD', label: 'Dollar US',    flag: '🇺🇸', symbol: '$',   perXaf: 0.00167,  decimals: 0 },
+  { code: 'EUR', label: 'Euro',         flag: '🇪🇺', symbol: '€',   perXaf: 0.001524, decimals: 0 },
+  { code: 'MAD', label: 'Dirham',       flag: '🇲🇦', symbol: 'DH',  perXaf: 0.0155,   decimals: 0 },
+  { code: 'ZAR', label: 'Rand',         flag: '🇿🇦', symbol: 'R',   perXaf: 0.031,    decimals: 0 },
+];
+
+const convert = (xaf, rate) => {
+  const value = xaf * rate.perXaf;
+  return new Intl.NumberFormat('fr-FR', {
+    minimumFractionDigits: rate.decimals,
+    maximumFractionDigits: rate.decimals,
+  }).format(value);
+};
+
+const PricingEquivalences = () => {
+  const paidPlans = PLANS.filter(p => p.price > 0);
+  return (
+    <div className="bg-white border border-[#D5D9D9] rounded p-4">
+      <div className="flex items-center gap-2 mb-1">
+        <i className="fa-solid fa-globe text-[#FF9900] text-sm"></i>
+        <p className="text-sm font-bold text-[#0F1111]">Équivalences dans d'autres monnaies</p>
+      </div>
+      <p className="text-[11px] text-[#565959] mb-3">
+        Nos prix sont facturés en FCFA (XAF). Voici l'ordre de grandeur dans les monnaies les plus utilisées.
+      </p>
+      <div className="overflow-x-auto">
+        <table className="w-full text-left border-collapse min-w-[340px]">
+          <thead>
+            <tr className="border-b border-[#D5D9D9]">
+              <th className="py-2 pr-3 text-[10px] font-bold uppercase tracking-widest text-[#565959]">Monnaie</th>
+              {paidPlans.map(p => (
+                <th key={p.id} className="py-2 px-3 text-[10px] font-bold uppercase tracking-widest text-[#565959] whitespace-nowrap">
+                  {p.name} · {p.price.toLocaleString('fr-FR')} F
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {FX_RATES.map(rate => (
+              <tr key={rate.code} className="border-b border-[#F3F4F4] last:border-0">
+                <td className="py-2 pr-3 text-[12px] text-[#0F1111] whitespace-nowrap">
+                  <span className="mr-1.5">{rate.flag}</span>
+                  <span className="font-bold">{rate.code}</span>
+                  <span className="text-[#565959] ml-1.5 hidden sm:inline">{rate.label}</span>
+                </td>
+                {paidPlans.map(p => (
+                  <td key={p.id} className="py-2 px-3 text-[12px] font-bold text-[#0F1111] whitespace-nowrap">
+                    ≈ {rate.symbol} {convert(p.price, rate)}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <p className="text-[10px] text-[#adb5bd] mt-3">
+        Taux indicatifs, donnés à titre informatif. Le montant réellement débité est celui en FCFA.
+      </p>
+    </div>
+  );
+};
 
 const ID_TYPES = [
   { value: 'cni',      label: "Carte Nationale d'Identité", short: 'CNI'      },
@@ -605,6 +673,9 @@ export default function Register() {
                   <i className="fa-solid fa-circle-info text-blue-500 text-sm flex-shrink-0 mt-0.5"></i>
                   <p className="text-sm text-[#565959]">Le paiement se fait après validation de votre identité. Vous pouvez commencer avec le plan Gratuit et upgrader à tout moment.</p>
                 </div>
+
+                {/* Équivalences en autres monnaies populaires (dont le naira) */}
+                <PricingEquivalences />
                 <NavBtns onBack={() => setVStep(1)} onNext={() => setVStep(3)} nextDisabled={!vValid[2]} />
               </div>
             )}

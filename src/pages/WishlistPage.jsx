@@ -3,8 +3,9 @@ import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import { useWishlist } from '../hooks/useWishlist';
+import { applyVendorDiscount, getVendorDiscountPercent, isVendorDiscountEnabled } from '../utils/discountUtils';
 
-const MEMBER_DISCOUNT = 0.20;
+
 
 const SORT_OPTIONS = [
   { value: 'recent',     label: 'Ajoutés récemment',  icon: 'fa-clock' },
@@ -30,10 +31,10 @@ const WishlistCard = ({ product, selected, onSelect, onRemove, onAddToCart, onVi
   const [addedFeedback, setAdded]   = useState(false);
   const [removing,      setRemoving] = useState(false);
 
-  const vendorHasPromo = product.vendor?.member_discount_enabled ?? false;
+  const vendorHasPromo = isVendorDiscountEnabled(product);
   const discountActive = isMember && vendorHasPromo;
   const memberPrice    = discountActive
-    ? Math.round(Number(product.price) * (1 - MEMBER_DISCOUNT))
+    ? applyVendorDiscount(product.price, product)
     : Number(product.price);
 
   const handleAdd = (e) => {
@@ -95,7 +96,7 @@ const WishlistCard = ({ product, selected, onSelect, onRemove, onAddToCart, onVi
             <>
               <p className="font-black text-[#B12704] text-lg leading-none">{memberPrice.toLocaleString()} F</p>
               <p className="text-[9px] line-through text-[#565959]">{Number(product.price).toLocaleString()} F</p>
-              <span className="text-[8px] font-black text-[#007600] bg-green-50 border border-green-200 px-1.5 py-0.5 rounded-full">−20% membre</span>
+              <span className="text-[8px] font-black text-[#007600] bg-green-50 border border-green-200 px-1.5 py-0.5 rounded-full">−{getVendorDiscountPercent(product)}% membre</span>
             </>
           ) : (
             <p className="font-black text-[#0F1111] text-lg leading-none">{Number(product.price).toLocaleString()} F</p>
@@ -162,7 +163,7 @@ const WishlistCard = ({ product, selected, onSelect, onRemove, onAddToCart, onVi
           <span className={`absolute top-2 left-2 z-10 text-[7px] font-black uppercase px-2 py-0.5 rounded-full ${
             isMember ? 'bg-[#FF9900] text-[#0F1111]' : 'bg-[#232F3E] text-[#FF9900] border border-[#FF9900]/30'
           }`}>
-            −20%
+            −{getVendorDiscountPercent(product)}%
           </span>
         )}
         <span className="absolute bottom-2 left-2 z-10 bg-[#0F1111]/75 text-white text-[7px] font-black uppercase px-2 py-0.5 rounded-full">
@@ -429,6 +430,12 @@ const WishlistPage = ({ openModal, addToCart }) => {
   const products    = items.map(i => i.products);
   const categories  = ['All', ...new Set(products.map(p => p.type))];
   const totalValue  = items.reduce((s, i) => s + Number(i.products.price), 0);
+  // Chaque boutique a son propre taux : on additionne les remises réelles.
+  const memberSavingsTotal = items.reduce((s, i) => {
+    const p = i.products;
+    if (!isVendorDiscountEnabled(p)) return s;
+    return s + (Number(p.price) - applyVendorDiscount(p.price, p));
+  }, 0);
   const selectedCount = selected.size;
 
   const filtered = useMemo(() => {
@@ -496,7 +503,7 @@ const WishlistPage = ({ openModal, addToCart }) => {
               {isMember && (
                 <div className="bg-[#FF9900]/10 border border-[#FF9900]/30 rounded px-5 py-3 text-center">
                   <p className="text-[#FF9900] font-black text-2xl leading-none">
-                    -{Math.round(totalValue * MEMBER_DISCOUNT).toLocaleString()}
+                    -{memberSavingsTotal.toLocaleString()}
                   </p>
                   <p className="text-[9px] font-bold uppercase text-[#ADBAC7] mt-0.5">Économies</p>
                 </div>
@@ -697,7 +704,7 @@ const WishlistPage = ({ openModal, addToCart }) => {
                     <div className="border-l border-[#D5D9D9] pl-6">
                       <p className="text-[9px] font-black uppercase text-[#565959] tracking-widest mb-0.5">Avec remise membre −20%</p>
                       <p className="text-2xl font-black text-[#B12704]">
-                        {Math.round(totalValue * (1 - MEMBER_DISCOUNT)).toLocaleString()} <span className="text-[#565959] text-sm font-bold">FCFA</span>
+                        {(totalValue - memberSavingsTotal).toLocaleString()} <span className="text-[#565959] text-sm font-bold">FCFA</span>
                       </p>
                     </div>
                   )}

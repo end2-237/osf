@@ -2,15 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
+import { applyVendorDiscount, isVendorDiscountEnabled } from '../utils/discountUtils';
 
-const MEMBER_DISCOUNT            = 0.20;
 const BUNDLE_DISCOUNT_NON_MEMBER = 0.02;
 const BUNDLE_DISCOUNT_MEMBER     = 0.05;
 
 const getUnitPrice = (item, isMember) => {
   const base = Number(item.price) || 0;
-  const vendorHasPromo = item.vendor?.member_discount_enabled ?? item.vendor_member_discount_enabled ?? false;
-  if (isMember && vendorHasPromo) return Math.round(base * (1 - MEMBER_DISCOUNT));
+  if (isMember && isVendorDiscountEnabled(item)) return applyVendorDiscount(base, item);
   return base;
 };
 

@@ -2262,9 +2262,9 @@ const AffiliationTab = ({ orders }) => {
 // ─── SUPER ADMIN PAGE ─────────────────────────────────────────────────────────
 // ─── VENDOR KYC APPLICATIONS ──────────────────────────────────────────────────
 const PLAN_BADGE = {
-  starter: { label: "Starter", color: "#565959", bg: "#EAEDED" },
-  pro:     { label: "Pro",     color: "#C45500", bg: "#FFF8D3" },
-  elite:   { label: "Elite",   color: "#7c3aed", bg: "#f5f3ff" },
+  starter: { label: "Gratuit",         color: "#565959", bg: "#EAEDED" },
+  pro:     { label: "Pro · 15 000 F",  color: "#C45500", bg: "#FFF8D3" },
+  elite:   { label: "Elite · 50 000 F",color: "#7c3aed", bg: "#f5f3ff" },
 };
 const APP_STATUS = {
   pending:  { label: "En attente", color: "text-[#FF9900]", bg: "bg-[#FFF8D3]", border: "border-[#FCD200]/40" },
