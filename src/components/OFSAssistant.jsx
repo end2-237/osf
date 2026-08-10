@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
+import { getVendorDiscountPercent } from '../utils/discountUtils';
 
 const GROQ_KEY = import.meta.env.VITE_GROQ_API_KEY || '';
 const GROQ_MODEL = 'llama-3.1-8b-instant';
@@ -8,6 +9,7 @@ const GROQ_MODEL = 'llama-3.1-8b-instant';
 const OFS_CATEGORIES = [
   "Audio Lab", "Tech Lab", "Clothing", "Shoes", "Femme", "Beauté",
   "Accessories", "Maison", "Sport", "Bébé & Enfants", "Auto",
+  "Bien-être", "Santé", "Nutrition",
 ];
 
 const SYSTEM_PROMPT = `Tu es l'assistant shopping Buyticle, une marketplace camerounaise.
@@ -412,7 +414,7 @@ const OFSAssistant = ({ addToCart }) => {
                                 </div>
                               </div>
                               {v.member_discount_enabled && (
-                                <span className="text-[8px] font-black bg-[#007600] text-white px-1.5 py-0.5 flex-shrink-0">-20%</span>
+                                <span className="text-[8px] font-black bg-[#007600] text-white px-1.5 py-0.5 flex-shrink-0">-{getVendorDiscountPercent(v)}%</span>
                               )}
                             </div>
                             {vProds.length > 0 ? (

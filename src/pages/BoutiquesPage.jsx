@@ -2,9 +2,10 @@ import React, { useState, useEffect, useCallback } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../context/AuthContext";
+import { getVendorDiscountPercent } from "../utils/discountUtils";
 
 // ─── CONSTANTES ───────────────────────────────────────────────────────────────
-const CATS = ["Toutes", "Audio Lab", "Mode Femme", "Sneakers", "Parfums", "Tech Lab", "Streetwear", "Accessories"];
+const CATS = ["Toutes", "Audio Lab", "Mode Femme", "Sneakers", "Parfums", "Tech Lab", "Streetwear", "Accessories", "Bien-être", "Santé", "Nutrition"];
 const SORT_OPTIONS = [
   { value: "score",  label: "Classement Buyticle" },
   { value: "rating", label: "Meilleure note" },
@@ -244,7 +245,7 @@ const BoutiqueCardGrid = ({ v, rank, onRate, onVisit, userRated }) => {
             <span key={cat} className="text-[7px] font-black uppercase px-2 py-0.5 rounded-full bg-zinc-800 text-zinc-400 border border-white/5">{cat}</span>
           ))}
           {v.member_discount_enabled && (
-            <span className="text-[7px] font-black uppercase px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">−20% membres</span>
+            <span className="text-[7px] font-black uppercase px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">−{getVendorDiscountPercent(v)}% membres</span>
           )}
         </div>
 
@@ -281,7 +282,7 @@ const BoutiqueRowList = ({ v, rank, onRate, onVisit, userRated }) => {
         <div className="flex items-center gap-2 mb-0.5">
           <p className="font-black text-[12px] text-white uppercase tracking-tighter truncate">{v.shop_name}</p>
           {v._salesCount > 300 && <span className="text-[6px] font-black bg-orange-500/20 text-orange-400 border border-orange-400/25 px-1.5 py-0.5 rounded-full flex-shrink-0">🔥</span>}
-          {v.member_discount_enabled && <span className="text-[6px] font-black bg-primary/10 text-primary border border-primary/20 px-1.5 py-0.5 rounded-full flex-shrink-0">−20%</span>}
+          {v.member_discount_enabled && <span className="text-[6px] font-black bg-primary/10 text-primary border border-primary/20 px-1.5 py-0.5 rounded-full flex-shrink-0">−{getVendorDiscountPercent(v)}%</span>}
         </div>
         <p className="text-[8px] text-zinc-500">{v._categories?.slice(0,2).join(" · ") || v.full_name} · {v._productCount || 0} produits</p>
         <div className="mt-1.5 w-36"><ScoreBar score={score} rank={rank} /></div>

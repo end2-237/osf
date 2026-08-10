@@ -73,7 +73,8 @@ const LIVENESS_STEPS = [
 
 const SHOP_CATEGORIES = [
   'Audio Lab', 'Mode Femme', 'Sneakers', 'Streetwear',
-  'Tech Lab', 'Parfums', 'Accessories', 'Divers',
+  'Tech Lab', 'Parfums', 'Accessories', 'Bien-être',
+  'Santé', 'Nutrition', 'Divers',
 ];
 
 // ─── ICONS ───────────────────────────────────────────────────────────────────

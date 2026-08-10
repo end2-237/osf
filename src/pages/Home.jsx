@@ -593,7 +593,7 @@ const Home = ({ openModal, addToCart }) => {
       try {
         const { data: pData } = await supabase
           .from("products")
-          .select("*, vendor:vendors!vendor_id(member_discount_enabled)")
+          .select("*, vendor:vendors!vendor_id(member_discount_enabled, member_discount_rate, logo_url, shop_name)")
           .order("created_at", { ascending: false });
         setProductsList(pData || []);
       } catch (err) {

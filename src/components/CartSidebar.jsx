@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
@@ -7,18 +7,22 @@ import DOMPurify from 'dompurify';
 
 const safeText = (str) => DOMPurify.sanitize(str || '', { ALLOWED_TAGS: [] });
 import { recordAffiliateCommission } from '../lib/affiliate';
+import {
+  applyVendorDiscount,
+  getVendorDiscountPercent,
+  isVendorDiscountEnabled,
+} from '../utils/discountUtils';
 
-const MEMBER_DISCOUNT            = 0.20;
+// Moyens de paiement de la plateforme. Chaque vendeur choisit ceux qu'il accepte
+// depuis son dashboard (vendors.payment_methods).
+const ALL_PAYMENT_METHODS = ['orange_money', 'mtn_momo', 'cash_on_delivery'];
+
 const BUNDLE_DISCOUNT_NON_MEMBER = 0.02;
 const BUNDLE_DISCOUNT_MEMBER     = 0.05;
 
 const getUnitPrice = (item, isMember) => {
   const base = Number(item.price) || 0;
-  const vendorHasPromo =
-    item.vendor?.member_discount_enabled ??
-    item.vendor_member_discount_enabled ??
-    false;
-  if (isMember && vendorHasPromo) return Math.round(base * (1 - MEMBER_DISCOUNT));
+  if (isMember && isVendorDiscountEnabled(item)) return applyVendorDiscount(base, item);
   return base;
 };
 
@@ -134,7 +138,7 @@ const CartSidebar = ({ isOpen, cart, removeFromCart, updateQuantity, toggleCart,
 
   useEffect(() => {
     if (step !== 'payment' || vendorIds.length === 0) return;
-    supabase.from('vendors').select('id, phone, shop_name').in('id', vendorIds)
+    supabase.from('vendors').select('id, phone, shop_name, payment_methods').in('id', vendorIds)
       .then(({ data }) => {
         if (data) {
           const map = {};
@@ -143,6 +147,24 @@ const CartSidebar = ({ isOpen, cart, removeFromCart, updateQuantity, toggleCart,
         }
       });
   }, [step]);
+
+  // ─── MOYENS DE PAIEMENT AUTORISÉS ────────────────────────────────────────────
+  // Intersection des moyens acceptés par toutes les boutiques du panier.
+  // Les articles sans vendeur (catalogue plateforme) n'imposent aucune restriction.
+  const allowedPaymentMethods = useMemo(() => {
+    const shops = vendorIds.map(id => cartVendors[id]).filter(Boolean);
+    if (shops.length === 0) return ALL_PAYMENT_METHODS;
+    return ALL_PAYMENT_METHODS.filter(m => shops.every(v => {
+      const list = Array.isArray(v.payment_methods) && v.payment_methods.length
+        ? v.payment_methods
+        : ALL_PAYMENT_METHODS;
+      return list.includes(m);
+    }));
+  }, [cartVendors, cart]);
+
+  useEffect(() => {
+    if (paymentMethod && !allowedPaymentMethods.includes(paymentMethod)) setPaymentMethod('');
+  }, [allowedPaymentMethods]);
 
   // Read pending promo from sessionStorage when cart opens (set by CartPage)
   useEffect(() => {
@@ -242,9 +264,17 @@ const CartSidebar = ({ isOpen, cart, removeFromCart, updateQuantity, toggleCart,
   const finalTotal   = subtotalAfterMember - bundleAmount - promoDiscount - pointsDiscount + cjShipping;
 
   const potentialMemberSavings = cart.reduce((s, i) => {
-    const has = i.vendor?.member_discount_enabled ?? i.vendor_member_discount_enabled ?? false;
-    return has ? s + Math.round((Number(i.price)||0) * i.quantity * MEMBER_DISCOUNT) : s;
+    if (!isVendorDiscountEnabled(i)) return s;
+    const line = (Number(i.price) || 0) * i.quantity;
+    return s + (line - applyVendorDiscount(line, i));
   }, 0);
+
+  // % de remise affiché : celui de la boutique quand le panier est mono-vendeur,
+  // sinon on reste générique (plusieurs boutiques = plusieurs taux).
+  const discountPercents = [...new Set(
+    cart.filter(isVendorDiscountEnabled).map(getVendorDiscountPercent)
+  )];
+  const memberDiscountLabel = discountPercents.length === 1 ? `−${discountPercents[0]}%` : 'membre';
 
   const getVendorAmount = (vId) => {
     const items = cart.filter(i => (i.vendor_id||'no_vendor') === vId);
@@ -634,7 +664,7 @@ const CartSidebar = ({ isOpen, cart, removeFromCart, updateQuantity, toggleCart,
                     <div className="flex items-center gap-3 px-4 py-3 bg-[#FFF8D3]">
                       <i className="fa-solid fa-crown text-[#FF9900] text-base flex-shrink-0"></i>
                       <div>
-                        <p className="text-sm font-bold text-[#0F1111]">Remise Membre Elite −20% ✓</p>
+                        <p className="text-sm font-bold text-[#0F1111]">Remise Membre Elite {memberDiscountLabel} ✓</p>
                         <p className="text-xs text-[#565959]">−{memberSavingsAmount.toLocaleString()} FCFA économisés</p>
                       </div>
                     </div>
@@ -966,6 +996,7 @@ const CartSidebar = ({ isOpen, cart, removeFromCart, updateQuantity, toggleCart,
               {paymentPhase === 'select' && (
                 <>
                   {/* ORANGE MONEY */}
+                  {allowedPaymentMethods.includes('orange_money') && (
                   <div className="bg-white rounded border border-[#D5D9D9] overflow-hidden">
                     <button onClick={() => { setPaymentMethod('orange_money'); setError(''); }}
                       className={`w-full flex items-center gap-3 px-4 py-3.5 transition ${isOM ? 'bg-orange-50' : 'hover:bg-[#F3F4F4]'}`}>
@@ -1002,8 +1033,10 @@ const CartSidebar = ({ isOpen, cart, removeFromCart, updateQuantity, toggleCart,
                       </div>
                     )}
                   </div>
+                  )}
 
                   {/* MTN MOMO */}
+                  {allowedPaymentMethods.includes('mtn_momo') && (
                   <div className="bg-white rounded border border-[#D5D9D9] overflow-hidden">
                     <button onClick={() => { setPaymentMethod('mtn_momo'); setError(''); }}
                       className={`w-full flex items-center gap-3 px-4 py-3.5 transition ${isMTN ? 'bg-yellow-50' : 'hover:bg-[#F3F4F4]'}`}>
@@ -1040,8 +1073,10 @@ const CartSidebar = ({ isOpen, cart, removeFromCart, updateQuantity, toggleCart,
                       </div>
                     )}
                   </div>
+                  )}
 
                   {/* CASH ON DELIVERY */}
+                  {allowedPaymentMethods.includes('cash_on_delivery') && (
                   <div className="bg-white rounded border border-[#D5D9D9] overflow-hidden">
                     <button onClick={() => { setPaymentMethod('cash_on_delivery'); setError(''); }}
                       className={`w-full flex items-center gap-3 px-4 py-3.5 transition ${paymentMethod === 'cash_on_delivery' ? 'bg-green-50' : 'hover:bg-[#F3F4F4]'}`}>
@@ -1068,6 +1103,18 @@ const CartSidebar = ({ isOpen, cart, removeFromCart, updateQuantity, toggleCart,
                       </div>
                     )}
                   </div>
+                  )}
+
+                  {allowedPaymentMethods.length === 0 && (
+                    <div className="bg-white rounded border border-[#FCD200] p-4 text-center">
+                      <i className="fa-solid fa-triangle-exclamation text-[#FF9900] text-xl mb-2"></i>
+                      <p className="text-sm font-bold text-[#0F1111] mb-1">Aucun moyen de paiement commun</p>
+                      <p className="text-xs text-[#565959]">
+                        Les boutiques de ce panier n'acceptent pas les mêmes moyens de paiement.
+                        Passez commande boutique par boutique.
+                      </p>
+                    </div>
+                  )}
                 </>
               )}
 
@@ -1149,7 +1196,7 @@ const CartSidebar = ({ isOpen, cart, removeFromCart, updateQuantity, toggleCart,
                   </div>
                   {hasMemberSavings && (
                     <div className="flex justify-between text-sm">
-                      <span className="text-[#007600]">Remise membre −20%</span>
+                      <span className="text-[#007600]">Remise membre {memberDiscountLabel}</span>
                       <span className="font-bold text-[#007600]">−{memberSavingsAmount.toLocaleString()} F</span>
                     </div>
                   )}

@@ -7,6 +7,7 @@ import DOMPurify from "dompurify";
 import SponsoredBanner from "../components/SponsoredBanner";
 import { useWishlist } from "../hooks/useWishlist";
 import { useAuth } from "../context/AuthContext";
+import { applyVendorDiscount } from "../utils/discountUtils";
 import { cjGetProductDetail, mapCjToProduct, isVideoUrl, PRICE_MARGIN } from "../lib/cjApi";
 import { useTranslate } from "../hooks/useTranslate";
 import { useLang } from "../context/LangContext";
@@ -14,7 +15,7 @@ import { translateText, stripHtml } from "../lib/translate";
 import { useSEO } from "../hooks/useSEO";
 import { useJsonLd } from "../hooks/useJsonLd";
 
-const MEMBER_DISCOUNT = 0.2;
+
 
 // ─── DELIVERY ZONES ───────────────────────────────────────────────────────────
 const DELIVERY_ZONES = [
@@ -634,16 +635,16 @@ const SuggestionsSection = ({ currentProduct, openModal, addToCart }) => {
       setLoading(true);
       try {
         const [{ data: typeData }, { data: trendData }] = await Promise.all([
-          supabase.from("products").select("*, vendor:vendors!vendor_id(member_discount_enabled, shop_name)")
+          supabase.from("products").select("*, vendor:vendors!vendor_id(member_discount_enabled, member_discount_rate, shop_name, logo_url)")
             .eq("type", currentProduct.type).neq("id", currentProduct.id).limit(12),
-          supabase.from("products").select("*, vendor:vendors!vendor_id(member_discount_enabled, shop_name)")
+          supabase.from("products").select("*, vendor:vendors!vendor_id(member_discount_enabled, member_discount_rate, shop_name, logo_url)")
             .neq("type", currentProduct.type).neq("id", currentProduct.id).limit(12),
         ]);
         setSameType(typeData || []);
         setTrending(trendData || []);
         if (currentProduct.vendor_id) {
           const { data: vData } = await supabase.from("products")
-            .select("*, vendor:vendors!vendor_id(member_discount_enabled, shop_name)")
+            .select("*, vendor:vendors!vendor_id(member_discount_enabled, member_discount_rate, shop_name, logo_url)")
             .eq("vendor_id", currentProduct.vendor_id).neq("id", currentProduct.id).limit(8);
           setSameVendor(vData || []);
         }
@@ -930,7 +931,8 @@ const ProductDetail = ({ addToCart, openModal }) => {
   }, [product?.id]);
 
   const price       = Number(product?.price) || 0;
-  const memberPrice = Math.round(price * (1 - MEMBER_DISCOUNT));
+  // Taux de remise propre à la boutique du vendeur (20 % par défaut).
+  const memberPrice = applyVendorDiscount(price, product);
   const ofsPoints   = Math.max(1, Math.floor(price / 500));
 
   // JSON-LD — placed after `price` to avoid temporal dead zone

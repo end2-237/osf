@@ -376,7 +376,7 @@ const WishlistPage = ({ openModal, addToCart }) => {
     setLoading(true);
     const { data } = await supabase
       .from('wishlists')
-      .select('product_id, created_at, products(*, vendor:vendors!vendor_id(member_discount_enabled))')
+      .select('product_id, created_at, products(*, vendor:vendors!vendor_id(member_discount_enabled, member_discount_rate, logo_url, shop_name))')
       .eq('user_id', user.id)
       .order('created_at', { ascending: false });
     setItems(data?.filter(d => d.products) || []);

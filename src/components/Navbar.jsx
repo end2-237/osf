@@ -20,6 +20,9 @@ const CATEGORIES = [
   { name: "Accessoires", catKey: "Accessories",     icon: "fa-gem",                isNew: false },
   { name: "Maison",      catKey: "Maison",          icon: "fa-house",              isNew: true  },
   { name: "Sport",       catKey: "Sport",           icon: "fa-dumbbell",           isNew: true  },
+  { name: "Bien-être",   catKey: "Bien-être",       icon: "fa-spa",                isNew: true  },
+  { name: "Santé",       catKey: "Santé",           icon: "fa-heart-pulse",        isNew: true  },
+  { name: "Nutrition",   catKey: "Nutrition",       icon: "fa-apple-whole",        isNew: true  },
   { name: "Flash Deals", catKey: null,              icon: "fa-bolt",               isNew: false },
 ];
 

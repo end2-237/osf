@@ -4,6 +4,11 @@ import { supabase } from "../lib/supabase";
 import { useAuth } from "../context/AuthContext";
 import { useLang } from "../context/LangContext";
 import { translateText } from "../lib/translate";
+import {
+  applyVendorDiscount,
+  getVendorDiscountPercent,
+  isVendorDiscountEnabled,
+} from "../utils/discountUtils";
 
 const CATEGORIES = [
   { key: "All",         label: "Tout voir",   icon: "fa-table-cells",         color: "#FF9900" },
@@ -14,6 +19,9 @@ const CATEGORIES = [
   { key: "Fragrance",   label: "Parfums",     icon: "fa-spray-can-sparkles",  color: "#ec4899" },
   { key: "Accessories", label: "Accessoires", icon: "fa-gem",                 color: "#eab308" },
   { key: "Femme",       label: "Pour Elle",   icon: "fa-person-dress",        color: "#ec4899" },
+  { key: "Bien-être",   label: "Bien-être",   icon: "fa-spa",                 color: "#22c55e" },
+  { key: "Santé",       label: "Santé",       icon: "fa-heart-pulse",         color: "#ef4444" },
+  { key: "Nutrition",   label: "Nutrition",   icon: "fa-apple-whole",         color: "#84cc16" },
 ];
 
 const TRENDING = [
@@ -64,8 +72,6 @@ const PRICE_RANGES = [
   { label: "Plus de 150 000 F",      min: 150000, max: Infinity },
 ];
 
-const MEMBER_DISCOUNT = 0.20;
-
 const SkeletonCard = () => (
   <div className="bg-white border border-[#D5D9D9] rounded overflow-hidden animate-pulse">
     <div className="aspect-square bg-[#EAEDED]" />
@@ -81,10 +87,11 @@ const ProductCard = ({ product, onView, onAddToCart, isMember, flashIndex }) => 
   const [added, setAdded] = useState(false);
   const isCj = !product.vendor_id;
 
-  const vendorHasPromo = product.vendor?.member_discount_enabled ?? false;
+  const vendorHasPromo = isVendorDiscountEnabled(product);
+  const discountPct    = getVendorDiscountPercent(product);
   const discountActive = isMember && vendorHasPromo;
   const price          = Number(product.price);
-  const memberPrice    = discountActive ? Math.round(price * (1 - MEMBER_DISCOUNT)) : price;
+  const memberPrice    = discountActive ? applyVendorDiscount(price, product) : price;
   const flashPct       = flashIndex != null ? Math.floor(10 + (flashIndex * 7) % 30) : null;
   const origFlash      = flashPct ? Math.round(price / (1 - flashPct / 100)) : null;
 
@@ -113,7 +120,7 @@ const ProductCard = ({ product, onView, onAddToCart, isMember, flashIndex }) => 
         )}
         {discountActive && !flashPct && (
           <div className="absolute top-2 left-2 bg-[#FF9900] text-[#0F1111] text-[8px] font-black px-2 py-0.5">
-            −20% membre
+            −{discountPct}% membre
           </div>
         )}
         {product.status === "Épuisé" && (
@@ -368,7 +375,7 @@ const SearchPage = ({ openModal, addToCart }) => {
     setLoading(true);
     supabase
       .from("products")
-      .select("*, vendor:vendors!vendor_id(id, shop_name, member_discount_enabled)")
+      .select("*, vendor:vendors!vendor_id(id, shop_name, member_discount_enabled, member_discount_rate, logo_url)")
       .order("created_at", { ascending: false })
       .then(({ data }) => {
         setProducts(data || []);

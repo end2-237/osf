@@ -4,8 +4,11 @@ import { useAuth } from "../context/AuthContext";
 import { useWishlist } from "../hooks/useWishlist";
 import { useNavigate } from "react-router-dom";
 import { useTranslate } from "../hooks/useTranslate";
-
-const MEMBER_DISCOUNT = 0.2;
+import {
+  applyVendorDiscount,
+  getVendorDiscountPercent,
+  isVendorDiscountEnabled,
+} from "../utils/discountUtils";
 
 // ─── Color hex resolution ─────────────────────────────────────────────────────
 const COLOR_HEX = {
@@ -54,9 +57,10 @@ const ProductCard = React.memo(({ product, openModal, addToCart }) => {
   const translatedName = useTranslate(product.name);
 
   const originalPrice  = (() => { const n = parseFloat(product.price); return isNaN(n) || n <= 0 ? 0 : n; })();
-  const vendorHasPromo = product.vendor?.member_discount_enabled ?? product.vendor_member_discount_enabled ?? false;
+  const vendorHasPromo = isVendorDiscountEnabled(product);
+  const discountPct    = getVendorDiscountPercent(product);
   const discountActive = isMember && vendorHasPromo;
-  const memberPrice    = discountActive ? Math.round(originalPrice * (1 - MEMBER_DISCOUNT)) : originalPrice;
+  const memberPrice    = discountActive ? applyVendorDiscount(originalPrice, product) : originalPrice;
 
   const ratingVal   = 3.8 + ((product.id?.charCodeAt(0) || 65) % 12) * 0.1;
   const reviewCount = 10 + ((product.id?.charCodeAt(0) || 65) % 200);
@@ -75,6 +79,7 @@ const ProductCard = React.memo(({ product, openModal, addToCart }) => {
       ...product,
       price: originalPrice,
       vendor_member_discount_enabled: vendorHasPromo,
+      vendor_member_discount_rate: discountPct,
       selectedSize:  product.type === "Shoes" ? "42" : "M",
       selectedColor: "Black",
       quantity: 1,
@@ -190,7 +195,7 @@ const ProductCard = React.memo(({ product, openModal, addToCart }) => {
               <span className="text-xs text-[#565959] line-through">
                 {originalPrice.toLocaleString()} F
               </span>
-              <span className="text-xs text-[#B12704]">(-20%)</span>
+              <span className="text-xs text-[#B12704]">(-{discountPct}%)</span>
             </>
           ) : (
             <>
@@ -201,7 +206,7 @@ const ProductCard = React.memo(({ product, openModal, addToCart }) => {
                 <Link to="/register" onClick={(e) => e.stopPropagation()}
                   className="text-[11px] text-[#007185] hover:underline block"
                 >
-                  Prix membre: {Math.round(originalPrice * 0.8).toLocaleString()} F
+                  Prix membre: {applyVendorDiscount(originalPrice, product).toLocaleString()} F
                 </Link>
               )}
             </>

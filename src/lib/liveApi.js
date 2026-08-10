@@ -17,6 +17,9 @@ export const LIVE_CATEGORIES = [
   { key: "Sport",          label: "Sport",       icon: "fa-dumbbell"           },
   { key: "Bébé & Enfants", label: "Enfants",     icon: "fa-baby"               },
   { key: "Auto",           label: "Auto",        icon: "fa-car"                },
+  { key: "Bien-être",      label: "Bien-être",   icon: "fa-spa"                },
+  { key: "Santé",          label: "Santé",       icon: "fa-heart-pulse"        },
+  { key: "Nutrition",      label: "Nutrition",   icon: "fa-apple-whole"        },
 ];
 
 // ─── Formatters ───

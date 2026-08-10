@@ -1,20 +1,18 @@
 // src/lib/cartHelpers.js
 
-const MEMBER_DISCOUNT = 0.25;
+import { applyVendorDiscount, isVendorDiscountEnabled } from '../utils/discountUtils';
+
 const BUNDLE_DISCOUNT = 0.20;
 
 /**
  * Prix unitaire effectif d'un article.
- * −25% si l'utilisateur est membre ET le vendeur a activé la promo.
+ * Remise appliquée si l'utilisateur est membre ET le vendeur a activé la promo.
+ * Le pourcentage est celui défini par le vendeur pour sa boutique.
  */
 export const getUnitPrice = (item, isMember) => {
   const base = Number(item.price) || 0;
-  const vendorHasPromo =
-    item.vendor?.member_discount_enabled ??
-    item.vendor_member_discount_enabled ??
-    false;
-  if (isMember && vendorHasPromo) {
-    return Math.round(base * (1 - MEMBER_DISCOUNT));
+  if (isMember && isVendorDiscountEnabled(item)) {
+    return applyVendorDiscount(base, item);
   }
   return base;
 };

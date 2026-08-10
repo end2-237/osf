@@ -163,7 +163,8 @@ function AppContent() {
 
   const shareCart = () => {
     const FIELDS = ['id','name','price','img','quantity','selectedSize','selectedColor',
-      'vendor_id','vendor_member_discount_enabled','cj_product_id','weight_g','ship_weight_g'];
+      'vendor_id','vendor_member_discount_enabled','vendor_member_discount_rate',
+      'cj_product_id','weight_g','ship_weight_g'];
     const minimal = cart.map(item =>
       Object.fromEntries(FIELDS.filter(k => item[k] != null).map(k => [k, item[k]]))
     );

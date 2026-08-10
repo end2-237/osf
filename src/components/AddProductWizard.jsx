@@ -14,6 +14,9 @@ const SUBCATEGORIES = {
   "Sport":           ["Fitness", "Vêtements Sport", "Cyclisme", "Natation", "Camping"],
   "Bébé & Enfants":  ["Jouets", "Vêtements Enfant", "Nurserie", "Scolaire"],
   "Auto":            ["Intérieur Auto", "Extérieur Auto", "Moto & Scooter", "Entretien"],
+  "Bien-être":       ["Massage & Relaxation", "Aromathérapie", "Yoga & Méditation", "Spa & Hammam", "Sommeil"],
+  "Santé":           ["Parapharmacie", "Premiers Secours", "Matériel Médical", "Hygiène", "Santé Connectée", "Orthopédie"],
+  "Nutrition":       ["Compléments Alimentaires", "Protéines & Sport", "Vitamines & Minéraux", "Superaliments", "Tisanes & Infusions", "Minceur"],
 };
 const CATEGORIES = Object.keys(SUBCATEGORIES);
 const SIZE_PRESETS = {

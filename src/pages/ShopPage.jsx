@@ -3,6 +3,7 @@ import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase';
 import ProductCard from '../components/ProductCard';
 import ofsLogo from '../assets/buyticle.svg';
+import { getVendorDiscountPercent } from '../utils/discountUtils';
 
 /* ── SKELETON ── */
 const ProductSkeleton = () => (
@@ -25,7 +26,7 @@ const VendorMemberBadge = ({ vendor }) => {
   return (
     <div className="flex items-center gap-2 bg-primary/10 border border-primary/30 text-primary text-[9px] font-black px-3 py-1.5 rounded-full uppercase">
       <i className="fa-solid fa-tag text-[8px]"></i>
-      <span>Remise −20% membres sur tout</span>
+      <span>Remise −{getVendorDiscountPercent(vendor)}% membres sur tout</span>
     </div>
   );
 };
@@ -173,6 +174,9 @@ const TYPE_ICONS = {
   'Shoes': 'fa-shoe-prints',
   'Fragrance': 'fa-spray-can-sparkles',
   'Accessories': 'fa-gem',
+  'Bien-être': 'fa-spa',
+  'Santé': 'fa-heart-pulse',
+  'Nutrition': 'fa-apple-whole',
 };
 
 /* ── MAIN SHOPPAGE ── */
@@ -288,7 +292,7 @@ const ShopPage = ({ openModal, addToCart }) => {
     return (
       <div className="flex items-center gap-2 bg-primary/10 border border-primary/30 text-primary text-[9px] font-black px-3 py-1.5 rounded-full uppercase">
         <i className="fa-solid fa-tag text-[8px]"></i>
-        <span>Remise −25% membres sur tout</span>
+        <span>Remise −{getVendorDiscountPercent(vendor)}% membres sur tout</span>
       </div>
     );
   };

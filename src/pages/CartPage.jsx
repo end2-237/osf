@@ -50,7 +50,7 @@ export default function CartPage() {
         cartTypes.length > 0
           ? notInCart(
               supabase.from('products')
-                .select('*, vendor:vendors!vendor_id(member_discount_enabled)')
+                .select('*, vendor:vendors!vendor_id(member_discount_enabled, member_discount_rate, logo_url, shop_name)')
                 .in('type', cartTypes)
                 .order('created_at', { ascending: false })
                 .limit(15)
@@ -58,7 +58,7 @@ export default function CartPage() {
           : Promise.resolve([]),
         notInCart(
           supabase.from('products')
-            .select('*, vendor:vendors!vendor_id(member_discount_enabled)')
+            .select('*, vendor:vendors!vendor_id(member_discount_enabled, member_discount_rate, logo_url, shop_name)')
             .order('created_at', { ascending: false })
             .limit(60)
         ).then(r => r.data || []),

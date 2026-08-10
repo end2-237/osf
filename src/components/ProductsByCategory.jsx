@@ -8,6 +8,9 @@ const SECTIONS = [
   { key: 'Clothing', label: 'Streetwear', icon: 'fa-shirt', color: 'text-purple-400', accent: '#a855f7' },
   { key: 'Shoes', label: 'Sneakers', icon: 'fa-shoe-prints', color: 'text-orange-400', accent: '#f97316' },
   { key: 'Tech Lab', label: 'Tech Lab', icon: 'fa-microchip', color: 'text-blue-400', accent: '#3b82f6' },
+  { key: 'Bien-être', label: 'Bien-être', icon: 'fa-spa', color: 'text-emerald-400', accent: '#22c55e' },
+  { key: 'Santé', label: 'Santé', icon: 'fa-heart-pulse', color: 'text-red-400', accent: '#ef4444' },
+  { key: 'Nutrition', label: 'Nutrition', icon: 'fa-apple-whole', color: 'text-lime-400', accent: '#84cc16' },
 ];
 
 const SkeletonCard = () => (

@@ -25,7 +25,7 @@ const prodStatus = (s) => s === "Épuisé"
   : { label: "Publié", cls: "bg-emerald-50 text-emerald-600 border-emerald-200" };
 
 const EMPTY_PRODUCT = { name: "", price: "", type: "Tech Lab", status: "In Stock", description: "" };
-const CATEGORIES = ["Audio Lab","Tech Lab","Femme","Clothing","Shoes","Beauté","Accessories","Maison","Sport","Bébé & Enfants","Auto"];
+const CATEGORIES = ["Audio Lab","Tech Lab","Femme","Clothing","Shoes","Beauté","Accessories","Maison","Sport","Bébé & Enfants","Auto","Bien-être","Santé","Nutrition"];
 
 // ─── MINI BAR SPARKLINE ───────────────────────────────────────────────────────
 const MiniBars = ({ data, color }) => {

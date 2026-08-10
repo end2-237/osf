@@ -19,6 +19,9 @@ const SUBCATEGORIES = {
   "Sport":           ["Fitness", "Vêtements Sport", "Cyclisme", "Natation", "Camping"],
   "Bébé & Enfants":  ["Jouets", "Vêtements Enfant", "Nurserie", "Scolaire"],
   "Auto":            ["Intérieur Auto", "Extérieur Auto", "Moto & Scooter", "Entretien"],
+  "Bien-être":       ["Massage & Relaxation", "Aromathérapie", "Yoga & Méditation", "Spa & Hammam", "Sommeil"],
+  "Santé":           ["Parapharmacie", "Premiers Secours", "Matériel Médical", "Hygiène", "Santé Connectée", "Orthopédie"],
+  "Nutrition":       ["Compléments Alimentaires", "Protéines & Sport", "Vitamines & Minéraux", "Superaliments", "Tisanes & Infusions", "Minceur"],
 };
 
 const CATEGORIES = [
@@ -34,6 +37,9 @@ const CATEGORIES = [
   { key: "Sport",          label: "Sport",       icon: "fa-dumbbell",           color: "#f97316" },
   { key: "Bébé & Enfants", label: "Enfants",     icon: "fa-baby",               color: "#fb923c" },
   { key: "Auto",           label: "Auto",        icon: "fa-car",                color: "#64748b" },
+  { key: "Bien-être",      label: "Bien-être",   icon: "fa-spa",                color: "#22c55e" },
+  { key: "Santé",          label: "Santé",       icon: "fa-heart-pulse",        color: "#ef4444" },
+  { key: "Nutrition",      label: "Nutrition",   icon: "fa-apple-whole",        color: "#84cc16" },
 ];
 
 const SORT_OPTIONS = [
@@ -48,7 +54,7 @@ const SORT_OPTIONS = [
 const SORT_OPTIONS_ALL = SORT_OPTIONS.filter(o => o.value !== "recent");
 
 // Category keys (no "All") used for parallel fetch
-const CAT_KEYS = ["Audio Lab", "Tech Lab", "Clothing", "Shoes", "Femme", "Beauté", "Accessories", "Maison", "Sport", "Bébé & Enfants", "Auto"];
+const CAT_KEYS = ["Audio Lab", "Tech Lab", "Clothing", "Shoes", "Femme", "Beauté", "Accessories", "Maison", "Sport", "Bébé & Enfants", "Auto", "Bien-être", "Santé", "Nutrition"];
 const ALL_PER_CAT = Math.ceil(48 / CAT_KEYS.length); // ~4-5 per category
 
 // Editorial section breaks injected every N products in the grid
@@ -763,7 +769,7 @@ const Store = ({ openModal, addToCart }) => {
           CAT_KEYS.map(async (cat) => {
             let q = supabase
               .from("products")
-              .select("*, vendor:vendors!vendor_id(member_discount_enabled)")
+              .select("*, vendor:vendors!vendor_id(member_discount_enabled, member_discount_rate, logo_url, shop_name)")
               .eq("type", cat)
               .order("created_at", { ascending: false })
               .range(from, from + ALL_PER_CAT - 1);
@@ -814,7 +820,7 @@ const Store = ({ openModal, addToCart }) => {
         // ── Standard single-query path ──────────────────────────────────────
         let q = supabase
           .from("products")
-          .select("*, vendor:vendors!vendor_id(member_discount_enabled)", { count: "exact" });
+          .select("*, vendor:vendors!vendor_id(member_discount_enabled, member_discount_rate, logo_url, shop_name)", { count: "exact" });
 
         if (category !== "All") q = q.eq("type", category);
         if (subcategory)        q = q.eq("subcategory", subcategory);
@@ -872,7 +878,7 @@ const Store = ({ openModal, addToCart }) => {
   useEffect(() => {
     const init = async () => {
       // Use count-only queries per type to avoid the 1000-row Supabase default limit
-      const TYPES = ["Audio Lab","Tech Lab","Femme","Clothing","Shoes","Beauté","Accessories","Maison","Sport","Bébé & Enfants","Auto"];
+      const TYPES = ["Audio Lab","Tech Lab","Femme","Clothing","Shoes","Beauté","Accessories","Maison","Sport","Bébé & Enfants","Auto","Bien-être","Santé","Nutrition"];
       const [countResults, { data: maxPData }, { data: vData }] = await Promise.all([
         Promise.all(TYPES.map(t =>
           supabase.from("products").select("*", { count: "exact", head: true }).eq("type", t)

@@ -31,6 +31,9 @@ const COLUMNS = [
       { label: "Tech Lab",             path: "/store" },
       { label: "Sneakers",             path: "/store" },
       { label: "Parfums Elite",        path: "/store" },
+      { label: "Bien-être",            path: "/search?cat=Bien-%C3%AAtre" },
+      { label: "Santé",                path: "/search?cat=Sant%C3%A9" },
+      { label: "Nutrition",            path: "/search?cat=Nutrition" },
     ],
   },
   {
