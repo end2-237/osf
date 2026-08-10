@@ -38,15 +38,23 @@ const VendorLivePanel = ({ vendor, onToast }) => {
     setCover(f); setCoverPrev(URL.createObjectURL(f));
   };
 
-  const submitShow = async () => {
+  // goLive = true → le show est créé PUIS passé en direct, et l'écran de
+  // diffusion s'ouvre immédiatement. Sinon il reste simplement programmé.
+  const submitShow = async (goLive = true) => {
     if (!form.title.trim()) return onToast?.("Titre requis", "", "error");
     setCreating(true);
     try {
       let coverUrl = null;
       if (cover) coverUrl = await uploadProductImage(cover, vendor.id);
-      await createShow({ vendor, title: form.title.trim(), category: form.category, coverUrl });
+      const show = await createShow({ vendor, title: form.title.trim(), category: form.category, coverUrl });
       setForm({ title: "", category: LIVE_CATEGORIES[0].key }); setCover(null); setCoverPrev(null);
-      onToast?.("Live créé !", "Il est prêt à être lancé.", "success");
+      if (goLive) {
+        await setShowStatus(show.id, "live");
+        onToast?.("Tu es en direct 🔴", "Autorise ta caméra pour démarrer.", "success");
+        setActive({ ...show, status: "live" });
+      } else {
+        onToast?.("Live programmé", "Tu pourras le lancer quand tu veux.", "success");
+      }
       load();
     } catch (e) { onToast?.("Erreur", e.message, "error"); }
     finally { setCreating(false); }
@@ -66,8 +74,11 @@ const VendorLivePanel = ({ vendor, onToast }) => {
       {/* CREATE */}
       <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-white/10 rounded-2xl p-5">
         <h3 className="font-black italic uppercase tracking-tighter text-zinc-900 dark:text-white text-lg mb-4">
-          <i className="fa-solid fa-video text-[#CC0C39] mr-2" />Nouveau live
+          <i className="fa-solid fa-video text-[#CC0C39] mr-2" />Passer en live
         </h3>
+        <p className="text-[11px] text-zinc-400 -mt-3 mb-4">
+          Donne un titre à ton direct, choisis ta catégorie et lance la diffusion.
+        </p>
         <div className="grid md:grid-cols-2 gap-4">
           <div>
             <label className={labelCls}>Titre du live</label>
@@ -87,10 +98,17 @@ const VendorLivePanel = ({ vendor, onToast }) => {
             </label>
           </div>
         </div>
-        <button onClick={submitShow} disabled={creating}
-          className="mt-4 bg-primary text-black px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-wider hover:scale-105 transition-all shadow-[0_4px_12px_rgba(0,255,136,0.2)] disabled:opacity-50">
-          {creating ? "Création…" : "Créer le live"}
-        </button>
+        <div className="mt-4 flex flex-wrap items-center gap-2">
+          <button onClick={() => submitShow(true)} disabled={creating}
+            className="bg-[#CC0C39] text-white px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-wider hover:scale-105 transition-all shadow-[0_4px_12px_rgba(204,12,57,0.25)] disabled:opacity-50">
+            <span className="inline-block w-1.5 h-1.5 bg-white rounded-full animate-pulse mr-2 align-middle" />
+            {creating ? "Lancement…" : "Passer en live"}
+          </button>
+          <button onClick={() => submitShow(false)} disabled={creating}
+            className="text-[10px] font-black uppercase tracking-wider text-zinc-400 hover:text-zinc-900 dark:hover:text-white px-3 py-2.5">
+            Programmer pour plus tard
+          </button>
+        </div>
       </div>
 
       {/* LIST */}
@@ -98,7 +116,7 @@ const VendorLivePanel = ({ vendor, onToast }) => {
         <h3 className="font-black italic uppercase tracking-tighter text-zinc-900 dark:text-white text-lg mb-3">Mes lives</h3>
         {shows.length === 0 ? (
           <div className="bg-white dark:bg-zinc-900 border border-dashed border-zinc-200 dark:border-white/10 rounded-2xl p-10 text-center text-zinc-400 text-sm">
-            Aucun live. Crée ton premier show ci-dessus.
+            Aucun live pour l'instant. Lance ton premier direct ci-dessus.
           </div>
         ) : (
           <div className="space-y-2">
@@ -127,7 +145,7 @@ const VendorLivePanel = ({ vendor, onToast }) => {
                     {s.status === "scheduled" && (
                       <button onClick={() => changeStatus(s, "live")}
                         className="bg-[#CC0C39] text-white px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider hover:bg-[#a30a2e] transition-all">
-                        Passer live
+                        Passer en live
                       </button>
                     )}
                   </div>

@@ -76,6 +76,31 @@ export const uploadProductImage = async (file, vendorId) => {
   return publicUrl;
 };
 
+// Visuels de boutique : logo (photo de profil) et couverture.
+// Bucket public dédié — le chemin est stable par vendeur/type pour que
+// l'ancienne image soit remplacée à chaque envoi (upsert).
+export const uploadVendorAsset = async (file, vendorId, kind = 'logo') => {
+  const compressed = await compressImage(file);
+  const fileName = `${vendorId}/${kind}.jpg`;
+
+  const { data, error } = await supabase.storage
+    .from('vendor-assets')
+    .upload(fileName, compressed, {
+      cacheControl: '3600',
+      contentType: 'image/jpeg',
+      upsert: true
+    });
+
+  if (error) throw error;
+
+  const { data: { publicUrl } } = supabase.storage
+    .from('vendor-assets')
+    .getPublicUrl(data.path);
+
+  // Cache-buster : le chemin ne change pas d'un envoi à l'autre.
+  return `${publicUrl}?v=${Date.now()}`;
+};
+
 export const deleteProductImage = async (imageUrl) => {
   const path = imageUrl.split('/product-images/')[1];
   if (!path) return;

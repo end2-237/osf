@@ -2160,8 +2160,10 @@ const ProductDetail = ({ addToCart, openModal }) => {
                 </div>
                 <div className="max-w-[1500px] mx-auto px-4 md:px-6 pb-5">
                   <div className="flex flex-col md:flex-row items-start md:items-center gap-5">
-                    <div className="w-14 h-14 bg-[#131921] rounded flex items-center justify-center border-2 border-[#FF9900]/30 flex-shrink-0 relative">
-                      <i className="fa-solid fa-store text-[#FF9900] text-xl" />
+                    <div className="w-14 h-14 bg-[#131921] rounded flex items-center justify-center border-2 border-[#FF9900]/30 flex-shrink-0 relative overflow-hidden">
+                      {vendor.logo_url
+                        ? <img src={vendor.logo_url} alt={vendor.shop_name} className="w-full h-full object-cover" />
+                        : <i className="fa-solid fa-store text-[#FF9900] text-xl" />}
                       <div className="absolute -bottom-1.5 -right-1.5 w-5 h-5 bg-[#007600] rounded-full flex items-center justify-center border-2 border-white">
                         <i className="fa-solid fa-check text-white text-[7px]" />
                       </div>

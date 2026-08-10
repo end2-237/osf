@@ -92,8 +92,10 @@ const Item = ({ item }) => {
         {item.rank <= 3 && (
           <span className="text-[10px]">{["🥇","🥈","🥉"][item.rank - 1]}</span>
         )}
-        <span className="w-5 h-5 rounded-full bg-zinc-800 border border-white/10 flex items-center justify-center flex-shrink-0">
-          <i className="fa-solid fa-store text-[7px] text-zinc-400"></i>
+        <span className="w-5 h-5 rounded-full bg-zinc-800 border border-white/10 overflow-hidden flex items-center justify-center flex-shrink-0">
+          {item.logo
+            ? <img src={item.logo} alt="" className="w-full h-full object-cover" />
+            : <i className="fa-solid fa-store text-[7px] text-zinc-400"></i>}
         </span>
         <span className="font-bold text-[11px] text-white/80">{item.name}</span>
         <i className="fa-solid fa-circle-check text-primary text-[8px]"></i>
@@ -136,7 +138,7 @@ const Marquee = () => {
       try {
         const { data: vData } = await supabase
           .from('vendors')
-          .select('id, shop_name, full_name, member_discount_enabled')
+          .select('id, shop_name, full_name, member_discount_enabled, member_discount_rate, logo_url')
           .eq('is_active', true);
 
         if (!vData?.length) return;
@@ -191,6 +193,7 @@ const Marquee = () => {
     ? topShops.map((v, i) => ({
         type:   "shop",
         name:   v.shop_name,
+        logo:   v.logo_url,
         cat:    v._categories?.slice(0, 1).join('') || '',
         rating: v._avgRating || 0,
         score:  getScore(v),

@@ -338,9 +338,11 @@ const VendorsSection = ({ vendors, loading, vendorProducts }) => {
                 >
                   {/* Mini product thumbnail or icon */}
                   <div className="w-6 h-6 rounded-full overflow-hidden bg-[#F3F4F4] flex-shrink-0 flex items-center justify-center">
-                    {thumb
-                      ? <img src={thumb} alt="" className="w-full h-full object-cover" />
-                      : <i className="fa-solid fa-store text-primary text-[8px]"></i>
+                    {vendor.logo_url
+                      ? <img src={vendor.logo_url} alt={vendor.shop_name} className="w-full h-full object-cover" />
+                      : thumb
+                        ? <img src={thumb} alt="" className="w-full h-full object-cover" />
+                        : <i className="fa-solid fa-store text-primary text-[8px]"></i>
                     }
                   </div>
                   <span className="text-[11px] font-bold uppercase tracking-tight text-[#0F1111] group-hover:text-[#C45500] transition-colors whitespace-nowrap">

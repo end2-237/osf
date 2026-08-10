@@ -294,6 +294,7 @@ const FlashDrop = () => {
 
                       <div className="flex-grow">
                         <div className="flex items-center gap-1.5 mb-0.5">
+                          {v.logo_url && <img src={v.logo_url} alt="" className="w-5 h-5 rounded-full object-cover flex-shrink-0" />}
                           <p className="font-black text-[13px] text-[#0F1111] leading-tight truncate">{v.shop_name}</p>
                           <i className="fa-solid fa-circle-check text-[#007185] text-[9px] flex-shrink-0"></i>
                         </div>
@@ -334,6 +335,7 @@ const FlashDrop = () => {
                       <span className="text-xl flex-shrink-0">{cfg.emoji}</span>
                       <div className="flex-grow min-w-0">
                         <div className="flex items-center gap-1.5 mb-0.5">
+                          {v.logo_url && <img src={v.logo_url} alt="" className="w-4 h-4 rounded-full object-cover flex-shrink-0" />}
                           <p className="font-black text-[12px] text-[#0F1111] truncate">{v.shop_name}</p>
                           <i className="fa-solid fa-circle-check text-[#007185] text-[8px] flex-shrink-0"></i>
                         </div>

@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useAuth } from "../context/AuthContext";
-import { supabase, uploadProductImage, deleteProductImage } from "../lib/supabase";
+import { supabase, uploadProductImage, uploadVendorAsset, deleteProductImage } from "../lib/supabase";
 import { useNavigate } from "react-router-dom";
 import VendorLivePanel from "../components/VendorLivePanel";
 import AddProductWizard from "../components/AddProductWizard";
+import { DISCOUNT_PRESETS, clampDiscountPercent, getVendorDiscountPercent } from "../utils/discountUtils";
 
 // ─── HELPERS ──────────────────────────────────────────────────────────────────
 const money = (n) => (Number(n) || 0).toLocaleString("fr-FR") + " F";
@@ -40,12 +41,13 @@ const MiniBars = ({ data, color }) => {
 };
 
 // ─── STAT CARD ────────────────────────────────────────────────────────────────
-const StatCard = ({ label, value, delta, spark, color }) => (
+const StatCard = ({ label, value, delta, hint, spark, color }) => (
   <div className="bg-white border border-gray-200/80 rounded-2xl p-5">
     <p className="text-[13px] font-semibold text-gray-500 mb-2">{label}</p>
     <div className="flex items-end justify-between gap-2">
       <div>
         <p className="text-[26px] font-bold text-gray-900 leading-none tracking-tight">{value}</p>
+        {hint && <p className="text-[11px] text-gray-400 mt-2">{hint}</p>}
         {delta != null && (
           <p className={`text-[12px] font-semibold mt-2 flex items-center gap-1 ${delta >= 0 ? "text-emerald-600" : "text-red-500"}`}>
             <i className={`fa-solid fa-arrow-trend-${delta >= 0 ? "up" : "down"}`} />{Math.abs(delta)}%
@@ -104,7 +106,9 @@ const Dashboard = () => {
   const revenue = orders.filter(o => ["delivered","paid"].includes(o.status)).reduce((s, o) => s + Number(o.total_amount || 0), 0);
   const pendingCount = orders.filter(o => o.status === "pending").length;
   const profit = Math.round(revenue * 0.35);
-  const expenses = Math.round(revenue * 0.15);
+  // Panier moyen : bien plus parlant qu'une "dépense" estimée au doigt mouillé.
+  const paidOrders  = orders.filter(o => ["delivered", "paid"].includes(o.status));
+  const avgBasket   = paidOrders.length ? Math.round(revenue / paidOrders.length) : 0;
 
   // monthly revenue (12)
   const monthly = Array(12).fill(0);
@@ -148,7 +152,7 @@ const Dashboard = () => {
     { key: "dashboard", label: "Tableau de bord", icon: "fa-gauge-high" },
     { key: "products",  label: "Produits",        icon: "fa-box" },
     { key: "orders",    label: "Commandes",       icon: "fa-cart-shopping", badge: pendingCount },
-    { key: "live",      label: "Live",            icon: "fa-video" },
+    { key: "live",      label: "Passer en live",  icon: "fa-video" },
     { key: "customers", label: "Clients",         icon: "fa-users" },
     { key: "settings",  label: "Réglages",        icon: "fa-gear" },
   ];
@@ -168,7 +172,11 @@ const Dashboard = () => {
       {/* ═══ SIDEBAR ═══ */}
       <aside className={`fixed lg:static z-40 inset-y-0 left-0 w-64 bg-white border-r border-gray-200 flex flex-col transition-transform duration-300 ${sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}`}>
         <div className="h-16 flex items-center gap-2.5 px-5 border-b border-gray-100">
-          <div className="w-8 h-8 rounded-lg bg-orange-500 flex items-center justify-center text-white"><i className="fa-solid fa-store text-sm" /></div>
+          <div className="w-8 h-8 rounded-lg bg-orange-500 overflow-hidden flex items-center justify-center text-white flex-shrink-0">
+            {vendor.logo_url
+              ? <img src={vendor.logo_url} alt="" className="w-full h-full object-cover" />
+              : <i className="fa-solid fa-store text-sm" />}
+          </div>
           <div className="min-w-0">
             <p className="font-bold text-[14px] truncate">{vendor.shop_name}</p>
             <p className="text-[10px] text-gray-400">Espace vendeur</p>
@@ -224,7 +232,7 @@ const Dashboard = () => {
           ) : (
             <>
               {section === "dashboard" && (
-                <Overview {...{ revenue, orders, profit, expenses, monthly, sparkFrom, topProduct, topSold, topCats, customers, products }} />
+                <Overview {...{ revenue, orders, profit, avgBasket, paidOrders, monthly, sparkFrom, topProduct, topSold, topCats, customers, products }} />
               )}
               {section === "products" && (
                 <ProductsView products={products} onDelete={deleteProduct} onAdd={() => setShowAdd(true)} />
@@ -249,7 +257,7 @@ const Dashboard = () => {
 };
 
 // ─── OVERVIEW ─────────────────────────────────────────────────────────────────
-const Overview = ({ revenue, orders, profit, expenses, monthly, sparkFrom, topProduct, topSold, topCats, customers }) => {
+const Overview = ({ revenue, orders, profit, avgBasket, paidOrders, monthly, sparkFrom, topProduct, topSold, topCats, customers }) => {
   const maxM = Math.max(...monthly, 1);
   return (
     <div className="space-y-4">
@@ -263,7 +271,7 @@ const Overview = ({ revenue, orders, profit, expenses, monthly, sparkFrom, topPr
         <StatCard label="Revenu"    value={money(revenue)}       delta={10} spark={sparkFrom(monthly)} color="#3b82f6" />
         <StatCard label="Commandes" value={orders.length}        delta={8}  spark={sparkFrom(orders.map((_, i) => (i % 5) + 1))} color="#f97316" />
         <StatCard label="Bénéfice"  value={money(profit)}        delta={6}  spark={sparkFrom(monthly.map(v => v * 0.35))} color="#10b981" />
-        <StatCard label="Dépenses"  value={money(expenses)}      delta={-3} spark={sparkFrom(monthly.map(v => v * 0.15))} color="#ef4444" />
+        <StatCard label="Panier moyen" value={money(avgBasket)} hint={`sur ${paidOrders.length} commande${paidOrders.length > 1 ? "s" : ""} payée${paidOrders.length > 1 ? "s" : ""}`} spark={sparkFrom(monthly)} color="#8b5cf6" />
       </div>
 
       {/* Top product + statistic */}
@@ -640,27 +648,181 @@ const CustomersView = ({ customers }) => (
 );
 
 // ─── SETTINGS ─────────────────────────────────────────────────────────────────
+const PAYMENT_OPTIONS = [
+  { key: "orange_money",     label: "Orange Money",       sub: "Push USSD · confirmation instantanée", icon: "fa-mobile-screen-button", color: "text-orange-500" },
+  { key: "mtn_momo",         label: "MTN MoMo",           sub: "Push USSD · confirmation instantanée", icon: "fa-mobile-screen-button", color: "text-yellow-600" },
+  { key: "cash_on_delivery", label: "Paiement à la livraison", sub: "Espèces à la réception du colis", icon: "fa-truck-fast",           color: "text-emerald-600" },
+];
+const ALL_PAYMENT_KEYS = PAYMENT_OPTIONS.map(o => o.key);
+
+const Switch = ({ on, onClick, disabled }) => (
+  <button onClick={onClick} disabled={disabled} className={`w-14 h-8 rounded-full transition-colors relative flex-shrink-0 disabled:opacity-50 ${on ? "bg-emerald-500" : "bg-gray-300"}`}>
+    <span className={`absolute top-1 w-6 h-6 bg-white rounded-full transition-all ${on ? "left-7" : "left-1"}`} />
+  </button>
+);
+
 const SettingsView = ({ vendor, updateVendorField, showToast }) => {
-  const [busy, setBusy] = useState(false);
-  const toggle = async () => {
+  const [busy, setBusy]   = useState(false);
+  const [rate, setRate]   = useState(getVendorDiscountPercent(vendor));
+  const [uploading, setUploading] = useState("");
+
+  useEffect(() => { setRate(getVendorDiscountPercent(vendor)); }, [vendor?.id, vendor?.member_discount_rate]);
+
+  const acceptedPayments = Array.isArray(vendor.payment_methods) && vendor.payment_methods.length
+    ? vendor.payment_methods
+    : ALL_PAYMENT_KEYS;
+
+  const save = async (field, value, msg = "Réglage enregistré") => {
     setBusy(true);
-    try { await updateVendorField("member_discount_enabled", !vendor.member_discount_enabled); showToast("Réglage enregistré"); }
+    try { await updateVendorField(field, value); showToast(msg); }
     catch (e) { showToast("Erreur", e.message, "error"); }
     finally { setBusy(false); }
   };
+
+  const toggleDiscount = () => save("member_discount_enabled", !vendor.member_discount_enabled);
+
+  const saveRate = () => save("member_discount_rate", clampDiscountPercent(rate), `Remise fixée à ${clampDiscountPercent(rate)} %`);
+
+  const togglePayment = (key) => {
+    const next = acceptedPayments.includes(key)
+      ? acceptedPayments.filter(k => k !== key)
+      : [...acceptedPayments, key];
+    if (next.length === 0) return showToast("Impossible", "Garde au moins un moyen de paiement.", "error");
+    // On conserve l'ordre canonique pour un affichage stable côté panier.
+    save("payment_methods", ALL_PAYMENT_KEYS.filter(k => next.includes(k)), "Moyens de paiement mis à jour");
+  };
+
+  const pickImage = async (e, kind) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    setUploading(kind);
+    try {
+      const url = await uploadVendorAsset(file, vendor.id, kind);
+      await updateVendorField(kind === "logo" ? "logo_url" : "cover_url", url);
+      showToast(kind === "logo" ? "Photo de profil mise à jour" : "Photo de couverture mise à jour");
+    } catch (err) { showToast("Erreur", err.message, "error"); }
+    finally { setUploading(""); }
+  };
+
+  const removeImage = (kind) => save(kind === "logo" ? "logo_url" : "cover_url", null, "Image retirée");
+
   return (
     <div className="space-y-4 max-w-2xl">
       <h1 className="text-2xl font-bold tracking-tight">Réglages</h1>
-      <div className="bg-white border border-gray-200/80 rounded-2xl p-5">
-        <p className="font-bold text-[15px] mb-1">Boutique</p>
-        <p className="text-[13px] text-gray-500 mb-4">{vendor.shop_name} · {vendor.email}</p>
-        <a href={`/shop/${vendor.shop_name}`} className="inline-flex items-center gap-2 bg-gray-100 hover:bg-gray-200 text-gray-900 text-[12px] font-bold px-4 py-2.5 rounded-xl"><i className="fa-solid fa-arrow-up-right-from-square" />Voir ma boutique</a>
+
+      {/* ── IDENTITÉ VISUELLE ── */}
+      <div className="bg-white border border-gray-200/80 rounded-2xl overflow-hidden">
+        <div className="relative h-36 bg-gray-100">
+          {vendor.cover_url
+            ? <img src={vendor.cover_url} alt="" className="w-full h-full object-cover" />
+            : <div className="w-full h-full flex items-center justify-center text-gray-300"><i className="fa-solid fa-image text-3xl" /></div>}
+          <label className="absolute bottom-3 right-3 bg-white/95 hover:bg-white text-gray-900 text-[11px] font-bold px-3 py-2 rounded-xl cursor-pointer shadow-sm">
+            <i className="fa-solid fa-camera mr-1.5" />{uploading === "cover" ? "Envoi…" : "Photo de couverture"}
+            <input type="file" accept="image/*" className="hidden" onChange={e => pickImage(e, "cover")} disabled={!!uploading} />
+          </label>
+          {vendor.cover_url && (
+            <button onClick={() => removeImage("cover")} disabled={busy}
+              className="absolute top-3 right-3 w-8 h-8 rounded-lg bg-white/90 hover:bg-white text-gray-500 hover:text-red-500 text-xs">
+              <i className="fa-solid fa-trash" />
+            </button>
+          )}
+        </div>
+        <div className="p-5 flex items-start gap-4 -mt-12">
+          <div className="relative flex-shrink-0">
+            <div className="w-20 h-20 rounded-2xl bg-gray-100 border-4 border-white overflow-hidden flex items-center justify-center">
+              {vendor.logo_url
+                ? <img src={vendor.logo_url} alt="" className="w-full h-full object-cover" />
+                : <i className="fa-solid fa-store text-gray-300 text-2xl" />}
+            </div>
+            <label className="absolute -bottom-1 -right-1 w-8 h-8 rounded-full bg-gray-900 hover:bg-gray-800 text-white flex items-center justify-center cursor-pointer text-[11px]">
+              <i className={`fa-solid ${uploading === "logo" ? "fa-spinner fa-spin" : "fa-camera"}`} />
+              <input type="file" accept="image/*" className="hidden" onChange={e => pickImage(e, "logo")} disabled={!!uploading} />
+            </label>
+          </div>
+          <div className="flex-1 min-w-0 pt-12">
+            <p className="font-bold text-[15px] truncate">{vendor.shop_name}</p>
+            <p className="text-[13px] text-gray-500 truncate mb-3">{vendor.email}</p>
+            <p className="text-[12px] text-gray-400 mb-3">
+              Ta photo de profil s'affiche sur ta boutique, dans le lien de ta boutique et partout où
+              elle apparaît sur Buyticle.
+            </p>
+            <div className="flex items-center gap-2 flex-wrap">
+              <a href={`/shop/${vendor.shop_name}`} className="inline-flex items-center gap-2 bg-gray-100 hover:bg-gray-200 text-gray-900 text-[12px] font-bold px-4 py-2.5 rounded-xl"><i className="fa-solid fa-arrow-up-right-from-square" />Voir ma boutique</a>
+              {vendor.logo_url && (
+                <button onClick={() => removeImage("logo")} disabled={busy}
+                  className="inline-flex items-center gap-2 text-[12px] font-bold px-4 py-2.5 rounded-xl text-red-500 hover:bg-red-50">
+                  <i className="fa-solid fa-trash" />Retirer la photo
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
       </div>
-      <div className="bg-white border border-gray-200/80 rounded-2xl p-5 flex items-center justify-between gap-3">
-        <div><p className="font-bold text-[15px]">Remise membre −20%</p><p className="text-[13px] text-gray-500">Réservée aux membres Buyticle sur ta boutique.</p></div>
-        <button onClick={toggle} disabled={busy} className={`w-14 h-8 rounded-full transition-colors relative flex-shrink-0 ${vendor.member_discount_enabled ? "bg-emerald-500" : "bg-gray-300"}`}>
-          <span className={`absolute top-1 w-6 h-6 bg-white rounded-full transition-all ${vendor.member_discount_enabled ? "left-7" : "left-1"}`} />
-        </button>
+
+      {/* ── REMISE MEMBRE ── */}
+      <div className="bg-white border border-gray-200/80 rounded-2xl p-5 space-y-4">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <p className="font-bold text-[15px]">Remise membre</p>
+            <p className="text-[13px] text-gray-500">Réservée aux membres Buyticle sur ta boutique.</p>
+          </div>
+          <Switch on={!!vendor.member_discount_enabled} onClick={toggleDiscount} disabled={busy} />
+        </div>
+
+        {vendor.member_discount_enabled && (
+          <div className="border-t border-gray-100 pt-4">
+            <p className="text-[12px] font-bold uppercase tracking-wide text-gray-400 mb-2">Ton pourcentage</p>
+            <div className="flex flex-wrap gap-2 mb-3">
+              {DISCOUNT_PRESETS.map(p => (
+                <button key={p} onClick={() => setRate(p)}
+                  className={`px-3.5 py-2 rounded-xl text-[12px] font-bold border transition-colors ${rate === p ? "bg-gray-900 text-white border-gray-900" : "bg-white text-gray-600 border-gray-200 hover:border-gray-900"}`}>
+                  −{p}%
+                </button>
+              ))}
+            </div>
+            <div className="flex items-center gap-3">
+              <input type="range" min={0} max={70} step={1} value={rate}
+                onChange={e => setRate(Number(e.target.value))} className="flex-1 accent-gray-900" />
+              <div className="flex items-center gap-1 bg-gray-50 border border-gray-200 rounded-xl px-3 py-2">
+                <input type="number" min={0} max={70} value={rate}
+                  onChange={e => setRate(clampDiscountPercent(e.target.value))}
+                  className="w-12 bg-transparent text-sm font-bold outline-none text-right" />
+                <span className="text-sm font-bold text-gray-400">%</span>
+              </div>
+              <button onClick={saveRate} disabled={busy || rate === getVendorDiscountPercent(vendor)}
+                className="bg-gray-900 text-white text-[12px] font-bold px-4 py-2.5 rounded-xl hover:bg-gray-800 disabled:opacity-40">
+                Enregistrer
+              </button>
+            </div>
+            <p className="text-[12px] text-gray-400 mt-2">
+              Exemple : un article à 10 000 F est affiché {money(Math.round(10000 * (1 - clampDiscountPercent(rate) / 100)))} aux membres. Maximum 70 %.
+            </p>
+          </div>
+        )}
+      </div>
+
+      {/* ── MOYENS DE PAIEMENT ── */}
+      <div className="bg-white border border-gray-200/80 rounded-2xl p-5">
+        <p className="font-bold text-[15px] mb-1">Moyens de paiement acceptés</p>
+        <p className="text-[13px] text-gray-500 mb-4">Seuls les moyens activés ici sont proposés à tes clients au moment de payer.</p>
+        <div className="space-y-2">
+          {PAYMENT_OPTIONS.map(o => {
+            const on = acceptedPayments.includes(o.key);
+            return (
+              <div key={o.key} className="flex items-center gap-3 border border-gray-100 rounded-xl px-4 py-3">
+                <div className="w-10 h-10 rounded-lg bg-gray-50 flex items-center justify-center flex-shrink-0">
+                  <i className={`fa-solid ${o.icon} ${o.color}`} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-bold text-[13px]">{o.label}</p>
+                  <p className="text-[11px] text-gray-400">{o.sub}</p>
+                </div>
+                <Switch on={on} onClick={() => togglePayment(o.key)} disabled={busy} />
+              </div>
+            );
+          })}
+        </div>
       </div>
     </div>
   );

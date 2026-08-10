@@ -82,8 +82,9 @@ const CreatorProfile = () => {
   );
 
   const name   = vendor.shop_name || profile?.full_name || "Créateur";
-  const avatar = profile?.avatar_url || (AVATAR_FALLBACK + encodeURIComponent(name));
-  const cover  = shows.find(s => s.cover_url)?.cover_url;
+  // La photo de profil de la boutique prime sur l'avatar du compte.
+  const avatar = vendor.logo_url || profile?.avatar_url || (AVATAR_FALLBACK + encodeURIComponent(name));
+  const cover  = vendor.cover_url || shows.find(s => s.cover_url)?.cover_url;
   const isLive = shows.some(s => s.status === "live");
   const liveCount = shows.filter(s => s.status === "live").length;
 

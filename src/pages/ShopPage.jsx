@@ -53,8 +53,8 @@ const VendorHeader = ({ vendor, products, loading }) => {
       {/* COVER IMAGE */}
       <div className="relative h-[280px] md:h-[360px] overflow-hidden rounded-b-3xl">
         <img
-          src={`https://picsum.photos/1600/600?random=${vendor?.id || 1}`}
-          className="w-full h-full object-cover opacity-40 grayscale"
+          src={vendor?.cover_url || `https://picsum.photos/1600/600?random=${vendor?.id || 1}`}
+          className={`w-full h-full object-cover ${vendor?.cover_url ? 'opacity-60' : 'opacity-40 grayscale'}`}
           alt=""
         />
         {/* GRADIENT OVERLAYS */}
@@ -79,8 +79,10 @@ const VendorHeader = ({ vendor, products, loading }) => {
 
             {/* AVATAR */}
             <div className="relative flex-shrink-0">
-              <div className="w-20 h-20 md:w-24 md:h-24 rounded-2xl bg-gradient-to-br from-primary/20 to-primary/5 border-2 border-primary/40 flex items-center justify-center shadow-[0_0_30px_rgba(0,255,136,0.2)]">
-                <i className="fa-solid fa-store text-primary text-3xl"></i>
+              <div className="w-20 h-20 md:w-24 md:h-24 rounded-2xl bg-gradient-to-br from-primary/20 to-primary/5 border-2 border-primary/40 flex items-center justify-center shadow-[0_0_30px_rgba(0,255,136,0.2)] overflow-hidden">
+                {vendor?.logo_url
+                  ? <img src={vendor.logo_url} alt={vendor.shop_name} className="w-full h-full object-cover" />
+                  : <i className="fa-solid fa-store text-primary text-3xl"></i>}
               </div>
               <div className="absolute -bottom-1 -right-1 bg-primary rounded-full w-5 h-5 flex items-center justify-center shadow-lg">
                 <i className="fa-solid fa-check text-black text-[8px]"></i>

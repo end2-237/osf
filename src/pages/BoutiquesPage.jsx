@@ -176,7 +176,9 @@ const BoutiqueCardGrid = ({ v, rank, onRate, onVisit, userRated }) => {
     <div className={"bg-zinc-900 border rounded-[2rem] overflow-hidden transition-all group flex flex-col " + (badge ? "border-white/10 hover:border-white/20 " + (badge.ring || "") : "border-white/5 hover:border-white/10")}>
 
       <div className="relative h-28 bg-zinc-800 overflow-hidden">
-        {preview.length >= 3 ? (
+        {v.cover_url ? (
+          <img src={v.cover_url} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
+        ) : preview.length >= 3 ? (
           <div className="grid grid-cols-3 h-full">
             {preview.map((p,i) => (
               <div key={i} className="overflow-hidden">
@@ -209,8 +211,10 @@ const BoutiqueCardGrid = ({ v, rank, onRate, onVisit, userRated }) => {
 
       <div className="px-4 pb-4 flex-grow flex flex-col">
         <div className="flex items-end gap-3 -mt-5 mb-3 relative z-10">
-          <div className="w-11 h-11 bg-primary/10 border-2 border-zinc-900 rounded-xl flex items-center justify-center flex-shrink-0">
-            <i className="fa-solid fa-store text-primary text-sm" />
+          <div className="w-11 h-11 bg-primary/10 border-2 border-zinc-900 rounded-xl flex items-center justify-center flex-shrink-0 overflow-hidden">
+            {v.logo_url
+              ? <img src={v.logo_url} alt={v.shop_name} className="w-full h-full object-cover" />
+              : <i className="fa-solid fa-store text-primary text-sm" />}
           </div>
           <div className="pb-0.5 min-w-0">
             <p className="font-black text-[12px] text-white uppercase tracking-tighter leading-tight truncate">{v.shop_name}</p>
@@ -275,8 +279,10 @@ const BoutiqueRowList = ({ v, rank, onRate, onVisit, userRated }) => {
   return (
     <div className="bg-zinc-900 border border-white/5 rounded-2xl px-5 py-4 flex items-center gap-4 hover:border-white/10 transition-all">
       <div className={"w-8 text-center flex-shrink-0 font-black text-lg " + rc}>#{rank}</div>
-      <div className="w-11 h-11 bg-primary/10 border border-primary/20 rounded-xl flex items-center justify-center flex-shrink-0">
-        <i className="fa-solid fa-store text-primary text-sm" />
+      <div className="w-11 h-11 bg-primary/10 border border-primary/20 rounded-xl flex items-center justify-center flex-shrink-0 overflow-hidden">
+        {v.logo_url
+          ? <img src={v.logo_url} alt={v.shop_name} className="w-full h-full object-cover" />
+          : <i className="fa-solid fa-store text-primary text-sm" />}
       </div>
       <div className="flex-grow min-w-0">
         <div className="flex items-center gap-2 mb-0.5">
@@ -446,8 +452,10 @@ const BoutiquesPage = () => {
                       className={"w-full bg-gradient-to-br border rounded-2xl p-4 text-center cursor-pointer hover:scale-[1.02] transition-transform " + b.grad + " " + b.border}
                     >
                       <div className="text-xl mb-1">{emoji}</div>
-                      <div className="w-9 h-9 mx-auto mb-1.5 bg-primary/10 border border-primary/20 rounded-xl flex items-center justify-center">
-                        <i className="fa-solid fa-store text-primary text-sm" />
+                      <div className="w-9 h-9 mx-auto mb-1.5 bg-primary/10 border border-primary/20 rounded-xl flex items-center justify-center overflow-hidden">
+                        {v.logo_url
+                          ? <img src={v.logo_url} alt={v.shop_name} className="w-full h-full object-cover" />
+                          : <i className="fa-solid fa-store text-primary text-sm" />}
                       </div>
                       <p className={"font-black text-[10px] text-white leading-tight truncate " + b.text}>{v.shop_name}</p>
                       <p className="text-[7px] text-zinc-500 mt-0.5">{v._salesCount} ventes</p>
