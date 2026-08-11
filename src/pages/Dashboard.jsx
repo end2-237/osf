@@ -6,6 +6,7 @@ import VendorLivePanel from "../components/VendorLivePanel";
 import AddProductWizard from "../components/AddProductWizard";
 import VendorStats from "../components/VendorStats";
 import { AccountSection, CreatorProfileSection } from "../components/VendorAccountSettings";
+import { PayoutSection, DeliverySection } from "../components/VendorPayouts";
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RTooltip } from "recharts";
 import { DISCOUNT_PRESETS, clampDiscountPercent, getVendorDiscountPercent } from "../utils/discountUtils";
 
@@ -738,13 +739,7 @@ const PAYMENT_OPTIONS = [
 ];
 const ALL_PAYMENT_KEYS = PAYMENT_OPTIONS.map(o => o.key);
 
-// Numéro d'encaissement rattaché à chaque opérateur mobile.
-const MOMO_FIELDS = {
-  orange_money: { field: "momo_orange_number", label: "Numéro Orange Money", placeholder: "237 6 9X XX XX XX", hint: "Numéro sur lequel tu reçois les paiements Orange Money." },
-  mtn_momo:     { field: "momo_mtn_number",    label: "Numéro MTN MoMo",     placeholder: "237 6 7X XX XX XX", hint: "Numéro sur lequel tu reçois les paiements MTN MoMo." },
-};
-
-// Chiffres uniquement : c'est le format attendu par la base et les opérateurs.
+// Chiffres uniquement : format attendu par la base et les opérateurs.
 const normalizePhone = (v) => String(v || "").replace(/\D/g, "");
 const isValidPhone   = (v) => /^[0-9]{8,15}$/.test(normalizePhone(v));
 
@@ -753,9 +748,11 @@ const SETTINGS_SECTIONS = [
   { id: "identite", label: "Identité visuelle",   icon: "fa-image" },
   { id: "boutique", label: "Infos de la boutique", icon: "fa-store" },
   { id: "createur", label: "Profil créateur",      icon: "fa-user-astronaut" },
-  { id: "remise",   label: "Remise membre",        icon: "fa-tag" },
-  { id: "paiement", label: "Moyens de paiement",   icon: "fa-mobile-screen-button" },
-  { id: "compte",   label: "Compte & connexion",   icon: "fa-key" },
+  { id: "remise",    label: "Remise membre",       icon: "fa-tag" },
+  { id: "livraison", label: "Livraison",           icon: "fa-truck-fast" },
+  { id: "paiement",  label: "Moyens de paiement",  icon: "fa-mobile-screen-button" },
+  { id: "retraits",  label: "Retraits",            icon: "fa-money-bill-transfer" },
+  { id: "compte",    label: "Compte & connexion",  icon: "fa-key" },
 ];
 
 // ─── RAIL DES RÉGLAGES (colonne de droite, collante) ──────────────────────────
@@ -837,16 +834,9 @@ const SettingsView = ({ user, vendor, updateVendorField, updateVendorFields, sho
   const [uploading, setUploading] = useState("");
   const [shop, setShop]   = useState(() => emptyShopForm(vendor));
   const [shopError, setShopError] = useState("");
-  const [momo, setMomo]   = useState({
-    orange_money: vendor?.momo_orange_number || "",
-    mtn_momo:     vendor?.momo_mtn_number    || "",
-  });
 
   useEffect(() => { setRate(getVendorDiscountPercent(vendor)); }, [vendor?.id, vendor?.member_discount_rate]);
   useEffect(() => { setShop(emptyShopForm(vendor)); setShopError(""); }, [vendor?.id]);
-  useEffect(() => {
-    setMomo({ orange_money: vendor?.momo_orange_number || "", mtn_momo: vendor?.momo_mtn_number || "" });
-  }, [vendor?.id, vendor?.momo_orange_number, vendor?.momo_mtn_number]);
 
   const setShopField = (k, v) => { setShop(f => ({ ...f, [k]: v })); setShopError(""); };
   const shopDirty = Object.keys(shop).some(k => (shop[k] || "") !== (vendor?.[k] || ""));
@@ -899,13 +889,6 @@ const SettingsView = ({ user, vendor, updateVendorField, updateVendorFields, sho
       setShopError(e.message);
       showToast("Erreur", e.message, "error");
     } finally { setBusy(false); }
-  };
-
-  const saveMomo = async (key) => {
-    const cfg = MOMO_FIELDS[key];
-    const raw = momo[key];
-    if (raw && !isValidPhone(raw)) return showToast("Numéro invalide", "8 à 15 chiffres attendus.", "error");
-    save(cfg.field, raw ? normalizePhone(raw) : null, raw ? "Numéro enregistré" : "Numéro retiré");
   };
 
   const togglePayment = (key) => {
@@ -967,11 +950,7 @@ const SettingsView = ({ user, vendor, updateVendorField, updateVendorFields, sho
   if (!vendor.logo_url)  todos.push({ id: "logo",  section: "identite", label: "Ajouter une photo de profil" });
   if (!vendor.cover_url) todos.push({ id: "cover", section: "identite", label: "Ajouter une photo de couverture" });
   if (!vendor.description) todos.push({ id: "desc", section: "boutique", label: "Décrire ta boutique" });
-  acceptedPayments.forEach(k => {
-    if (MOMO_FIELDS[k] && !vendor[MOMO_FIELDS[k].field]) {
-      todos.push({ id: k, section: "paiement", label: `Renseigner ton ${MOMO_FIELDS[k].label.replace("Numéro ", "numéro ")}` });
-    }
-  });
+  if (!vendor.delivery_zones) todos.push({ id: "zones", section: "livraison", label: "Préciser tes zones de livraison" });
 
   return (
     <div className="flex flex-col lg:flex-row gap-4 items-start">
@@ -1155,16 +1134,19 @@ const SettingsView = ({ user, vendor, updateVendorField, updateVendorFields, sho
         )}
       </div>
 
+      {/* ── LIVRAISON ── */}
+      <DeliverySection
+        vendor={vendor} updateVendorFields={updateVendorFields} showToast={showToast}
+        sectionRef={el => (sectionRefs.current.livraison = el)}
+      />
+
       {/* ── MOYENS DE PAIEMENT ── */}
       <div id="paiement" ref={el => (sectionRefs.current.paiement = el)} className="scroll-mt-24 bg-white border border-gray-200/80 rounded-2xl p-5">
         <p className="font-bold text-[15px] mb-1">Moyens de paiement acceptés</p>
         <p className="text-[13px] text-gray-500 mb-4">Seuls les moyens activés ici sont proposés à tes clients au moment de payer.</p>
         <div className="space-y-2">
           {PAYMENT_OPTIONS.map(o => {
-            const on  = acceptedPayments.includes(o.key);
-            const cfg = MOMO_FIELDS[o.key];
-            const saved = vendor[cfg?.field] || "";
-            const dirty = cfg ? normalizePhone(momo[o.key]) !== saved : false;
+            const on = acceptedPayments.includes(o.key);
             return (
               <div key={o.key} className="border border-gray-100 rounded-xl overflow-hidden">
                 <div className="flex items-center gap-3 px-4 py-3">
@@ -1178,42 +1160,22 @@ const SettingsView = ({ user, vendor, updateVendorField, updateVendorFields, sho
                   <Switch on={on} onClick={() => togglePayment(o.key)} disabled={busy} />
                 </div>
 
-                {/* Numéro d'encaissement, uniquement pour les opérateurs mobiles activés */}
-                {on && cfg && (
-                  <div className="border-t border-gray-100 bg-gray-50/60 px-4 py-3">
-                    <label className={settingsLabel}>{cfg.label}</label>
-                    <div className="flex items-center gap-2">
-                      <input
-                        value={momo[o.key]}
-                        onChange={e => setMomo(m => ({ ...m, [o.key]: e.target.value }))}
-                        placeholder={cfg.placeholder}
-                        inputMode="tel"
-                        className={`${settingsInput} bg-white`}
-                      />
-                      <button onClick={() => saveMomo(o.key)} disabled={busy || !dirty}
-                        className="bg-gray-900 text-white text-[12px] font-bold px-4 py-2.5 rounded-xl hover:bg-gray-800 disabled:opacity-40 flex-shrink-0">
-                        Enregistrer
-                      </button>
-                    </div>
-                    <p className="text-[11px] text-gray-400 mt-1.5">
-                      {saved
-                        ? <><i className="fa-solid fa-circle-check text-emerald-500 mr-1" />Enregistré : {saved}</>
-                        : <><i className="fa-solid fa-circle-info mr-1" />{cfg.hint}</>}
-                    </p>
-                  </div>
-                )}
               </div>
             );
           })}
         </div>
 
-        {acceptedPayments.some(k => MOMO_FIELDS[k] && !vendor[MOMO_FIELDS[k].field]) && (
-          <p className="text-[12px] text-orange-600 mt-3">
-            <i className="fa-solid fa-triangle-exclamation mr-1.5" />
-            Renseigne le numéro de chaque opérateur activé pour recevoir tes paiements.
-          </p>
-        )}
+        <p className="text-[12px] text-gray-400 mt-3">
+          <i className="fa-solid fa-circle-info mr-1.5" />
+          Les numéros sur lesquels tu reçois l'argent se règlent dans « Retraits ».
+        </p>
       </div>
+
+      {/* ── RETRAITS ── */}
+      <PayoutSection
+        vendor={vendor} showToast={showToast}
+        sectionRef={el => (sectionRefs.current.retraits = el)}
+      />
 
       {/* ── COMPTE & CONNEXION ── */}
       <AccountSection user={user} sectionRef={el => (sectionRefs.current.compte = el)} />

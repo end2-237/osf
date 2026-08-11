@@ -137,8 +137,10 @@ const CartSidebar = ({ isOpen, cart, removeFromCart, updateQuantity, toggleCart,
   const vendorIds     = [...new Set(cart.map(i => i.vendor_id || 'no_vendor'))].filter(id => id !== 'no_vendor');
 
   useEffect(() => {
-    if (step !== 'payment' || vendorIds.length === 0) return;
-    supabase.from('vendors').select('id, phone, shop_name, payment_methods').in('id', vendorIds)
+    if (!isOpen || vendorIds.length === 0) return;
+    supabase.from('vendors')
+      .select('id, phone, shop_name, payment_methods, delivery_fee, free_delivery_threshold, delivery_zones, delivery_delay')
+      .in('id', vendorIds)
       .then(({ data }) => {
         if (data) {
           const map = {};
@@ -146,7 +148,7 @@ const CartSidebar = ({ isOpen, cart, removeFromCart, updateQuantity, toggleCart,
           setCartVendors(map);
         }
       });
-  }, [step]);
+  }, [isOpen, cart.length]);
 
   // ─── MOYENS DE PAIEMENT AUTORISÉS ────────────────────────────────────────────
   // Intersection des moyens acceptés par toutes les boutiques du panier.
@@ -200,10 +202,8 @@ const CartSidebar = ({ isOpen, cart, removeFromCart, updateQuantity, toggleCart,
         return;
       }
       try {
-        const { data } = await supabase
-          .from('orders')
-          .select('id, status')
-          .in('id', pendingOrderIds);
+        // Fonction dédiée : renvoie uniquement id + statut, sans donnée client.
+        const { data } = await supabase.rpc('orders_status', { p_ids: pendingOrderIds });
 
         const allPaid   = data?.length > 0 && data.every(o => o.status === 'paid');
         const anyFailed = data?.some(o => o.status === 'payment_failed' || o.status === 'cancelled');
@@ -261,7 +261,27 @@ const CartSidebar = ({ isOpen, cart, removeFromCart, updateQuantity, toggleCart,
     ? Math.min(userPoints, maxPointsDiscount)
     : 0;
 
-  const finalTotal   = subtotalAfterMember - bundleAmount - promoDiscount - pointsDiscount + cjShipping;
+  // Frais de livraison définis par chaque boutique, offerts au-delà du seuil
+  // qu'elle a fixé. Une boutique qui n'a rien réglé livre gratuitement.
+  const vendorDeliveryFee = (vId, vendorSubtotal) => {
+    const v = cartVendors[vId];
+    const fee = Number(v?.delivery_fee) || 0;
+    if (!fee) return 0;
+    const threshold = Number(v?.free_delivery_threshold) || 0;
+    if (threshold > 0 && vendorSubtotal >= threshold) return 0;
+    return fee;
+  };
+
+  const deliveryTotal = Object.entries(
+    cart.reduce((acc, i) => {
+      const k = i.vendor_id || 'no_vendor';
+      acc[k] = (acc[k] || 0) + getUnitPrice(i, isMember) * (Number(i.quantity) || 1);
+      return acc;
+    }, {})
+  ).reduce((sum, [vId, sub]) => sum + vendorDeliveryFee(vId, sub), 0);
+
+
+  const finalTotal   = subtotalAfterMember - bundleAmount - promoDiscount - pointsDiscount + cjShipping + deliveryTotal;
 
   const potentialMemberSavings = cart.reduce((s, i) => {
     if (!isVendorDiscountEnabled(i)) return s;
@@ -280,6 +300,20 @@ const CartSidebar = ({ isOpen, cart, removeFromCart, updateQuantity, toggleCart,
     const items = cart.filter(i => (i.vendor_id||'no_vendor') === vId);
     const sub   = items.reduce((s, i) => s + getUnitPrice(i, isMember) * i.quantity, 0);
     return hasBundle ? Math.round(sub * (1 - bundleRate)) : sub;
+  };
+
+  // Envoi non bloquant : une notification qui échoue ne doit jamais empêcher
+  // la commande d'aboutir.
+  const notifyOrder = (type, orderId) => {
+    fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-email`, {
+      method: 'POST',
+      headers: {
+        'Content-Type':  'application/json',
+        'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+        'apikey':        import.meta.env.VITE_SUPABASE_ANON_KEY,
+      },
+      body: JSON.stringify({ type, order_id: orderId }),
+    }).catch(() => {});
   };
 
   const formatPhoneForMonetbil = (phone) => {
@@ -369,6 +403,7 @@ const CartSidebar = ({ isOpen, cart, removeFromCart, updateQuantity, toggleCart,
             promo_code:              promoApplied?.code || null,
             promo_discount:          vendorPromoDisc || null,
             referral_code:           referralCode,
+            delivery_fee:            vendorDeliveryFee(vId, vendorSub),
           })
           .select()
           .single();
@@ -380,16 +415,10 @@ const CartSidebar = ({ isOpen, cart, removeFromCart, updateQuantity, toggleCart,
         // Non-blocking email confirmation (only for logged-in users)
 
         if (user?.id) {
-          fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-email`, {
-            method: 'POST',
-            headers: {
-              'Content-Type':  'application/json',
-              'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-              'apikey':        import.meta.env.VITE_SUPABASE_ANON_KEY,
-            },
-            body: JSON.stringify({ type: 'order_confirmation', order_id: orderData.id }),
-          }).catch(() => {});
+          notifyOrder('order_confirmation', orderData.id);
         }
+        // Le vendeur est prévenu à chaque commande, connectée ou non.
+        notifyOrder('vendor_new_order', orderData.id);
       }
 
       if (promoApplied) {
@@ -455,6 +484,7 @@ const CartSidebar = ({ isOpen, cart, removeFromCart, updateQuantity, toggleCart,
             promo_code:              promoApplied?.code || null,
             promo_discount:          vendorPromoDisc || null,
             referral_code:           referralCode,
+            delivery_fee:            vendorDeliveryFee(vId, vendorSub),
           })
           .select()
           .single();
@@ -1233,7 +1263,9 @@ const CartSidebar = ({ isOpen, cart, removeFromCart, updateQuantity, toggleCart,
                   ) : (
                     <div className="flex justify-between text-sm">
                       <span className="text-[#565959]">Livraison · Douala 🇨🇲</span>
-                      <span className="font-bold text-[#007600]">Gratuite</span>
+                      {deliveryTotal > 0
+                        ? <span className="font-bold text-[#0F1111]">{deliveryTotal.toLocaleString()} F</span>
+                        : <span className="font-bold text-[#007600]">Gratuite</span>}
                     </div>
                   )}
                   <div className="flex justify-between items-baseline pt-2 border-t border-[#D5D9D9]">

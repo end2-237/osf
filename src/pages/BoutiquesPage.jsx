@@ -331,7 +331,7 @@ const BoutiquesPage = () => {
       if (!vData?.length) { setVendors([]); return; }
 
       const { data: pData } = await supabase.from("products").select("id, vendor_id, type, img, price");
-      const { data: oData } = await supabase.from("orders").select("vendor_id, status");
+      const { data: oData } = await supabase.rpc("vendor_sales_counts");
 
       let ratingsData = [];
       try {
@@ -341,7 +341,7 @@ const BoutiquesPage = () => {
 
       const enriched = vData.map(v => {
         const vProducts = (pData  || []).filter(p => p.vendor_id === v.id);
-        const vSales    = (oData  || []).filter(o => o.vendor_id === v.id).length;
+        const vSales    = Number((oData || []).find(o => o.vendor_id === v.id)?.sales || 0);
         const vRatings  = ratingsData.filter(r => r.vendor_id === v.id);
         const avgRating = vRatings.length ? vRatings.reduce((a,r) => a + r.stars, 0) / vRatings.length : 0;
         return {

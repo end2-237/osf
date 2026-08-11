@@ -89,20 +89,24 @@ serve(async (req: Request) => {
       })
       .eq("payment_reference", payment_ref);
 
-    // Send confirmation email for paid orders (non-blocking)
+    // Notifications (non bloquantes) une fois le paiement confirmé.
     if (isSuccess && matchingOrders) {
+      const notify = (type: string, orderId: string) =>
+        fetch(`${SUPABASE_URL}/functions/v1/send-email`, {
+          method: "POST",
+          headers: {
+            "Content-Type":  "application/json",
+            "Authorization": `Bearer ${SUPABASE_SRVKEY}`,
+            "apikey":        SUPABASE_SRVKEY,
+          },
+          body: JSON.stringify({ type, order_id: orderId }),
+        }).catch(() => {});
+
       for (const o of matchingOrders) {
-        if (o.user_id) {
-          fetch(`${SUPABASE_URL}/functions/v1/send-email`, {
-            method: "POST",
-            headers: {
-              "Content-Type":  "application/json",
-              "Authorization": `Bearer ${SUPABASE_SRVKEY}`,
-              "apikey":        SUPABASE_SRVKEY,
-            },
-            body: JSON.stringify({ type: "payment_confirmed", order_id: o.id }),
-          }).catch(() => {});
-        }
+        // Confirmation à l'acheteur connecté…
+        if (o.user_id) notify("payment_confirmed", o.id);
+        // …et alerte au vendeur, qui n'était prévenu de rien jusqu'ici.
+        notify("vendor_new_order", o.id);
       }
     }
 

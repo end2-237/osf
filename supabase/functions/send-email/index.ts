@@ -401,6 +401,67 @@ const sendResend = async (to: string, subject: string, html: string) => {
   return res.json();
 };
 
+// ─── E-MAIL VENDEUR : NOUVELLE COMMANDE ──────────────────────────────────────
+const buildVendorOrderEmail = (order: any, items: any[], vendor: any) => {
+  const ref = order.id.slice(0, 8).toUpperCase();
+  const rows = items.map((it: any) => `
+    <tr>
+      <td style="padding:10px 0;border-bottom:1px solid #e0e0e0;font-size:13px;color:#202124;">
+        ${it.product_name}
+        ${[it.selected_color, it.selected_size].filter(Boolean).length
+          ? `<div style="font-size:12px;color:#5f6368;">${[it.selected_color, it.selected_size].filter(Boolean).join(" · ")}</div>`
+          : ""}
+      </td>
+      <td style="padding:10px 0;border-bottom:1px solid #e0e0e0;text-align:center;font-size:13px;color:#5f6368;">×${it.quantity}</td>
+      <td style="padding:10px 0;border-bottom:1px solid #e0e0e0;text-align:right;font-size:13px;color:#202124;white-space:nowrap;">${fmt(it.unit_price * it.quantity)}</td>
+    </tr>`).join("");
+
+  return `
+  <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;max-width:600px;margin:0 auto;padding:24px;background:#ffffff;">
+    <div style="background:#131921;padding:20px;border-radius:8px 8px 0 0;">
+      <div style="color:#FF9900;font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;">Buyticle · Espace vendeur</div>
+      <div style="color:#ffffff;font-size:20px;font-weight:700;margin-top:4px;">Nouvelle commande #${ref}</div>
+    </div>
+
+    <div style="border:1px solid #e0e0e0;border-top:none;border-radius:0 0 8px 8px;padding:20px;">
+      <p style="font-size:14px;color:#202124;margin:0 0 16px;">
+        Bonjour ${vendor.full_name || vendor.shop_name || ""}, tu viens de recevoir une commande sur
+        <strong>${vendor.shop_name || "ta boutique"}</strong>.
+      </p>
+
+      <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:16px;">
+        ${rows}
+        <tr>
+          <td colspan="2" style="padding:12px 0;font-size:15px;font-weight:700;color:#202124;">Total</td>
+          <td style="padding:12px 0;text-align:right;font-size:15px;font-weight:700;color:#B12704;">${fmt(order.total_amount)}</td>
+        </tr>
+      </table>
+
+      <div style="background:#f7f7f7;border-radius:6px;padding:14px;margin-bottom:16px;">
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;color:#5f6368;letter-spacing:1px;margin-bottom:8px;">Client</div>
+        <div style="font-size:13px;color:#202124;line-height:1.7;">
+          ${order.client_name || "—"}<br/>
+          <a href="tel:${order.client_phone || ""}" style="color:#007185;text-decoration:none;">${order.client_phone || "—"}</a><br/>
+          ${order.client_address || "—"}
+        </div>
+        <div style="font-size:12px;color:#5f6368;margin-top:10px;">
+          Paiement : <strong style="color:#202124;">${paymentLabel(order.payment_method)}</strong>
+        </div>
+      </div>
+
+      <a href="${SITE_URL}/admin"
+        style="display:inline-block;background:#FFD814;border:1px solid #FCD200;border-radius:20px;padding:10px 28px;color:#0F1111;font-size:14px;font-weight:600;text-decoration:none;">
+        Traiter la commande
+      </a>
+
+      <p style="font-size:12px;color:#5f6368;margin-top:20px;">
+        Confirme la commande depuis ton dashboard pour prévenir le client.
+        Besoin d'aide ? <a href="https://wa.me/${SUPPORT_PHONE}" style="color:#007185;">Écris-nous sur WhatsApp</a>.
+      </p>
+    </div>
+  </div>`;
+};
+
 // ─── HANDLER ─────────────────────────────────────────────────────────────────
 serve(async (req: Request) => {
   const origin = req.headers.get("origin") || "";
@@ -425,6 +486,32 @@ serve(async (req: Request) => {
     ]);
 
     if (oErr || !order) throw new Error("Order not found");
+
+    // ─── Alerte vendeur ───
+    // Envoyée pour toute commande, y compris passée sans compte client.
+    if (type === "vendor_new_order") {
+      if (!order.vendor_id) throw new Error("Order has no vendor");
+
+      const { data: vendor } = await supabase
+        .from("vendors")
+        .select("email, shop_name, full_name")
+        .eq("id", order.vendor_id)
+        .maybeSingle();
+
+      if (!vendor?.email) throw new Error("Vendor email not found");
+
+      const ref = order.id.slice(0, 8).toUpperCase();
+      await sendResend(
+        vendor.email,
+        `Nouvelle commande #${ref} — ${fmt(order.total_amount)}`,
+        buildVendorOrderEmail(order, items || [], vendor),
+      );
+      console.log(`[send-email] vendor_new_order → ${vendor.email}`);
+      return new Response(JSON.stringify({ ok: true, to: vendor.email }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     if (!order.user_id)  throw new Error("Guest order — no email to send");
 
     const { data: { user }, error: uErr } = await supabase.auth.admin.getUserById(order.user_id);

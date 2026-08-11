@@ -92,7 +92,7 @@ const FlashDrop = () => {
         if (!vData?.length) { setVendors([]); return; }
 
         const { data: pData } = await supabase.from('products').select('id, vendor_id, type');
-        const { data: oData } = await supabase.from('orders').select('vendor_id');
+        const { data: oData } = await supabase.rpc('vendor_sales_counts');
 
         let ratingsData = [];
         try {
@@ -102,7 +102,7 @@ const FlashDrop = () => {
 
         const enriched = vData.map(v => {
           const vProds   = (pData || []).filter(p => p.vendor_id === v.id);
-          const vSales   = (oData || []).filter(o => o.vendor_id === v.id).length;
+          const vSales   = Number((oData || []).find(o => o.vendor_id === v.id)?.sales || 0);
           const vRatings = ratingsData.filter(r => r.vendor_id === v.id);
           const avgRating = vRatings.length
             ? vRatings.reduce((a, r) => a + r.stars, 0) / vRatings.length : 0;

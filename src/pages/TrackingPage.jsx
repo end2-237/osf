@@ -460,10 +460,14 @@ const TrackingView = ({ order, items, itemsLoading, onBack }) => {
 // ─── SEARCH FORM ──────────────────────────────────────────────────────────────
 
 const SearchForm = ({ onSearch, loading }) => {
-  const [input, setInput] = useState("");
-  const [mode,  setMode]  = useState("phone");
+  const [reference, setReference] = useState("");
+  const [phone,     setPhone]     = useState("");
 
-  const handleSubmit = (e) => { e.preventDefault(); if (input.trim()) onSearch(input.trim(), mode); };
+  const ready = reference.trim() && phone.trim();
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (ready) onSearch(reference.trim(), phone.trim());
+  };
 
   return (
     <div className="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden">
@@ -471,45 +475,50 @@ const SearchForm = ({ onSearch, loading }) => {
       <div className="bg-[#131921] px-6 py-5">
         <p className="text-[9px] font-black uppercase tracking-[0.3em] text-[#FF9900] mb-1">Buyticle · Tracking System</p>
         <h2 className="text-white font-black text-xl">Suivre ma commande</h2>
-        <p className="text-gray-400 text-xs mt-1">Entrez votre numéro ou référence pour localiser votre colis</p>
+        <p className="text-gray-400 text-xs mt-1">Numéro de commande et téléphone utilisé lors de l'achat</p>
       </div>
 
       <div className="p-6 space-y-4">
-        {/* Mode toggle */}
-        <div className="flex bg-gray-50 border border-gray-200 rounded-xl p-1 gap-1">
-          {[
-            { key: "phone", label: "Numéro de téléphone", icon: "fa-mobile-screen-button" },
-            { key: "id",    label: "Référence commande",  icon: "fa-hashtag" },
-          ].map(m => (
-            <button key={m.key} onClick={() => setMode(m.key)}
-              className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-[11px] font-bold transition-all ${
-                mode === m.key
-                  ? "bg-[#131921] text-[#FF9900] shadow-sm"
-                  : "text-gray-400 hover:text-gray-600"
-              }`}>
-              <i className={`fa-solid ${m.icon} text-[10px]`} />
-              <span className="hidden sm:inline">{m.label}</span>
-            </button>
-          ))}
-        </div>
-
-        {/* Input */}
-        <form onSubmit={handleSubmit} className="flex gap-2">
-          <div className="relative flex-1">
-            <i className={`fa-solid ${mode === "phone" ? "fa-mobile-screen-button" : "fa-magnifying-glass"} absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-300 text-sm`} />
-            <input
-              type="text" value={input} onChange={e => setInput(e.target.value)}
-              placeholder={mode === "phone" ? "Ex : 6XXXXXXXX" : "Référence commande"}
-              className="w-full pl-10 pr-4 py-3 border border-gray-200 focus:border-[#FF9900] focus:ring-2 focus:ring-[#FF9900]/10 focus:outline-none rounded-xl text-sm text-[#0F1111] placeholder-gray-300 transition-all"
-            />
+        <form onSubmit={handleSubmit} className="space-y-3">
+          <div>
+            <label className="text-[10px] font-black uppercase tracking-wider text-gray-400 block mb-1.5">
+              Numéro de commande
+            </label>
+            <div className="relative">
+              <i className="fa-solid fa-hashtag absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-300 text-sm" />
+              <input
+                type="text" value={reference} onChange={e => setReference(e.target.value)}
+                placeholder="Ex : 1042"
+                className="w-full pl-10 pr-4 py-3 border border-gray-200 focus:border-[#FF9900] focus:ring-2 focus:ring-[#FF9900]/10 focus:outline-none rounded-xl text-sm text-[#0F1111] placeholder-gray-300 transition-all"
+              />
+            </div>
           </div>
-          <button type="submit" disabled={loading || !input.trim()}
-            className="bg-[#FFD814] hover:bg-[#F7CA00] disabled:opacity-40 text-[#0F1111] px-5 py-3 rounded-xl font-black text-sm border border-[#FCD200] transition-all active:scale-95 flex items-center gap-2">
+
+          <div>
+            <label className="text-[10px] font-black uppercase tracking-wider text-gray-400 block mb-1.5">
+              Téléphone de la commande
+            </label>
+            <div className="relative">
+              <i className="fa-solid fa-mobile-screen-button absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-300 text-sm" />
+              <input
+                type="tel" inputMode="tel" value={phone} onChange={e => setPhone(e.target.value)}
+                placeholder="Ex : 6XXXXXXXX"
+                className="w-full pl-10 pr-4 py-3 border border-gray-200 focus:border-[#FF9900] focus:ring-2 focus:ring-[#FF9900]/10 focus:outline-none rounded-xl text-sm text-[#0F1111] placeholder-gray-300 transition-all"
+              />
+            </div>
+          </div>
+
+          <button type="submit" disabled={loading || !ready}
+            className="w-full bg-[#FFD814] hover:bg-[#F7CA00] disabled:opacity-40 text-[#0F1111] px-5 py-3 rounded-xl font-black text-sm border border-[#FCD200] transition-all active:scale-95 flex items-center justify-center gap-2">
             {loading
               ? <i className="fa-solid fa-spinner animate-spin" />
-              : <><i className="fa-solid fa-magnifying-glass" /><span className="hidden sm:inline">Chercher</span></>
+              : <><i className="fa-solid fa-magnifying-glass" />Suivre ma commande</>
             }
           </button>
+
+          <p className="text-[11px] text-gray-400 text-center">
+            Les deux informations sont demandées pour protéger les coordonnées des clients.
+          </p>
         </form>
       </div>
     </div>
@@ -609,15 +618,18 @@ const TrackingPage = () => {
       .then(({ data }) => { setOrderItems(data || []); setItemsLoading(false); });
   }, [selectedOrder]);
 
-  const handleSearch = useCallback(async (value, mode) => {
+  const handleSearch = useCallback(async (reference, phone) => {
     setSearchLoading(true);
     setSearchError("");
     try {
-      let q = supabase.from("orders").select("*");
-      q = mode === "phone" ? q.ilike("client_phone", `%${value}%`) : q.ilike("id", `%${value}%`);
-      const { data, error } = await q.order("created_at", { ascending: false }).limit(10);
+      // Le suivi invité exige le numéro de commande ET le téléphone : une
+      // recherche par téléphone seul exposerait les commandes des autres.
+      const { data, error } = await supabase.rpc("track_order", {
+        p_reference: reference.trim(),
+        p_phone:     phone.trim(),
+      });
       if (error) throw error;
-      if (!data?.length) { setSearchError("Aucune commande trouvée. Vérifiez votre numéro."); return; }
+      if (!data?.length) { setSearchError("Aucune commande trouvée. Vérifiez le numéro de commande et le téléphone."); return; }
       if (data.length === 1) setSelectedOrder(data[0]);
       else setMyOrders(data);
     } catch {
