@@ -1,98 +1,105 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { supabase } from "../lib/supabase";
 
 /* ════════════════════════════════════════════════════════════════════════════
-   RETRAITS ET LIVRAISON
+   RETRAITS & LIVRAISON
 
-   Les numéros de reversement vivent dans `vendor_payout_settings`, une table
-   privée : `vendors` reste lisible publiquement pour les pages boutique, elle
-   n'a donc pas à porter de coordonnées bancaires.
-
-   Le solde ne compte que les commandes encaissées EN LIGNE. Le paiement à la
-   livraison est collecté directement par le vendeur : la plateforme ne lui
-   doit rien dessus, l'afficher comme « à retirer » serait faux.
+   Le solde ne compte que les commandes encaissées EN LIGNE : le paiement à la
+   livraison est collecté directement par le vendeur, la plateforme ne lui doit
+   rien dessus. Le montant demandé est revalidé côté base par `request_payout`.
    ════════════════════════════════════════════════════════════════════════════ */
 
 const input = "w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-gray-900 transition-colors";
 const label = "text-[11px] font-bold uppercase tracking-wide text-gray-400 block mb-1.5";
 const money = (n) => `${Math.round(Number(n) || 0).toLocaleString("fr-FR")} F`;
 
-const normalizePhone = (v) => String(v || "").replace(/\D/g, "");
-const isValidPhone   = (v) => /^[0-9]{8,15}$/.test(normalizePhone(v));
-
-const METHODS = [
-  { key: "orange_money", field: "momo_orange_number", label: "Orange Money", icon: "fa-mobile-screen-button", color: "text-orange-500" },
-  { key: "mtn_momo",     field: "momo_mtn_number",    label: "MTN MoMo",     icon: "fa-mobile-screen-button", color: "text-yellow-600" },
-];
-
 const PAYOUT_STATUS = {
-  pending:    { label: "En attente", cls: "bg-orange-50 text-orange-600 border-orange-200" },
-  processing: { label: "En cours",   cls: "bg-blue-50 text-blue-600 border-blue-200" },
-  paid:       { label: "Versé",      cls: "bg-emerald-50 text-emerald-600 border-emerald-200" },
-  rejected:   { label: "Refusé",     cls: "bg-red-50 text-red-600 border-red-200" },
+  pending:    { label: "En attente",  cls: "bg-orange-50 text-orange-600 border-orange-200" },
+  processing: { label: "En cours",    cls: "bg-blue-50 text-blue-600 border-blue-200" },
+  paid:       { label: "Versé",       cls: "bg-emerald-50 text-emerald-600 border-emerald-200" },
+  rejected:   { label: "Refusé",      cls: "bg-red-50 text-red-600 border-red-200" },
 };
 
-const shortDate = (iso) => iso
-  ? new Date(iso).toLocaleDateString("fr-FR", { day: "2-digit", month: "short", year: "numeric" })
-  : "—";
+const METHODS = [
+  { key: "orange_money", label: "Orange Money", field: "momo_orange_number" },
+  { key: "mtn_momo",     label: "MTN MoMo",     field: "momo_mtn_number" },
+];
+
+const Feedback = ({ msg }) => !msg ? null : (
+  <p className={`text-[12px] ${msg.type === "error" ? "text-red-500" : "text-emerald-600"}`}>
+    <i className={`fa-solid ${msg.type === "error" ? "fa-circle-exclamation" : "fa-circle-check"} mr-1.5`} />
+    {msg.text}
+  </p>
+);
 
 /* ── RETRAITS ─────────────────────────────────────────────────────────────── */
 export const PayoutSection = ({ vendor, showToast, sectionRef }) => {
-  const [settings, setSettings] = useState({ momo_orange_number: "", momo_mtn_number: "" });
-  const [numbers,  setNumbers]  = useState({ momo_orange_number: "", momo_mtn_number: "" });
-  const [balance,  setBalance]  = useState(null);
-  const [payouts,  setPayouts]  = useState([]);
-  const [loading,  setLoading]  = useState(true);
-  const [busy,     setBusy]     = useState(false);
-  const [amount,   setAmount]   = useState("");
-  const [method,   setMethod]   = useState("orange_money");
-  const [msg,      setMsg]      = useState(null);
+  const [balance, setBalance]   = useState(null);
+  const [payouts, setPayouts]   = useState([]);
+  const [settings, setSettings] = useState(null);
+  const [loading, setLoading]   = useState(true);
+  const [amount, setAmount]     = useState("");
+  const [momo, setMomo]         = useState({ momo_orange_number: "", momo_mtn_number: "" });
+  const [momoBusy, setMomoBusy] = useState("");
+  const [method, setMethod]     = useState("orange_money");
+  const [busy, setBusy]         = useState(false);
+  const [msg, setMsg]           = useState(null);
 
   const load = useCallback(async () => {
     if (!vendor?.id) return;
-    const [{ data: s }, { data: b }, { data: p }] = await Promise.all([
-      supabase.from("vendor_payout_settings")
-        .select("momo_orange_number, momo_mtn_number").eq("vendor_id", vendor.id).maybeSingle(),
+    const [bal, hist, cfg] = await Promise.all([
       supabase.rpc("vendor_balance", { p_vendor_id: vendor.id }),
-      supabase.from("vendor_payouts").select("*")
-        .eq("vendor_id", vendor.id).order("requested_at", { ascending: false }).limit(20),
+      supabase.from("vendor_payouts").select("*").eq("vendor_id", vendor.id)
+        .order("requested_at", { ascending: false }).limit(20),
+      supabase.from("vendor_payout_settings").select("*").eq("vendor_id", vendor.id).maybeSingle(),
     ]);
-    const next = {
-      momo_orange_number: s?.momo_orange_number || "",
-      momo_mtn_number:    s?.momo_mtn_number    || "",
-    };
-    setSettings(next);
-    setNumbers(next);
-    setBalance(Array.isArray(b) ? b[0] : b);
-    setPayouts(p || []);
+    setBalance(Array.isArray(bal.data) ? bal.data[0] : bal.data);
+    setPayouts(hist.data || []);
+    setSettings(cfg.data || null);
+    setMomo({
+      momo_orange_number: cfg.data?.momo_orange_number || "",
+      momo_mtn_number:    cfg.data?.momo_mtn_number    || "",
+    });
     setLoading(false);
   }, [vendor?.id]);
 
   useEffect(() => { load(); }, [load]);
 
+  // Un moyen n'est proposé que si son numéro est enregistré.
+  const usable = METHODS.filter(m => settings?.[m.field]);
+  useEffect(() => {
+    if (usable.length && !usable.some(m => m.key === method)) setMethod(usable[0].key);
+  }, [settings]);   // eslint-disable-line react-hooks/exhaustive-deps
+
+  const available = Number(balance?.available || 0);
+
+  const normalizePhone = (v) => String(v || "").replace(/\D/g, "");
   const saveNumber = async (field) => {
-    const raw = numbers[field];
-    if (raw && !isValidPhone(raw)) {
+    const raw = momo[field];
+    if (raw && !/^[0-9]{8,15}$/.test(normalizePhone(raw))) {
       return showToast?.("Numéro invalide", "8 à 15 chiffres attendus.", "error");
     }
-    setBusy(true);
+    setMomoBusy(field);
     try {
-      const patch = { vendor_id: vendor.id, [field]: raw ? normalizePhone(raw) : null };
+      const patch = {
+        vendor_id: vendor.id,
+        [field]: raw ? normalizePhone(raw) : null,
+        updated_at: new Date().toISOString(),
+      };
       const { error } = await supabase
         .from("vendor_payout_settings").upsert(patch, { onConflict: "vendor_id" });
       if (error) throw error;
-      setSettings(s => ({ ...s, [field]: patch[field] || "" }));
-      setNumbers(s => ({ ...s, [field]: patch[field] || "" }));
+      setSettings(c => ({ ...(c || { vendor_id: vendor.id }), ...patch }));
       showToast?.(raw ? "Numéro enregistré" : "Numéro retiré");
     } catch (e) { showToast?.("Erreur", e.message, "error"); }
-    finally { setBusy(false); }
+    finally { setMomoBusy(""); }
   };
 
-  const requestPayout = async () => {
-    const value = Math.round(Number(amount) || 0);
+  const submit = async () => {
+    const value = Math.round(Number(amount));
     setMsg(null);
-    if (value <= 0)                    return setMsg({ type: "error", text: "Saisis un montant." });
-    if (value > (balance?.available ?? 0)) return setMsg({ type: "error", text: "Montant supérieur à ton solde disponible." });
+    if (!value || value <= 0)     return setMsg({ type: "error", text: "Saisis un montant." });
+    if (value > available)        return setMsg({ type: "error", text: `Maximum disponible : ${money(available)}.` });
 
     setBusy(true);
     try {
@@ -101,7 +108,7 @@ export const PayoutSection = ({ vendor, showToast, sectionRef }) => {
       });
       if (error) throw error;
       setAmount("");
-      setMsg({ type: "ok", text: "Demande enregistrée. Le versement est traité sous 48 h ouvrées." });
+      setMsg({ type: "ok", text: "Demande enregistrée. Elle sera traitée sous 48 h ouvrées." });
       showToast?.("Demande de retrait envoyée");
       load();
     } catch (e) {
@@ -109,15 +116,12 @@ export const PayoutSection = ({ vendor, showToast, sectionRef }) => {
     } finally { setBusy(false); }
   };
 
-  const available   = balance?.available ?? 0;
-  const methodReady = !!settings[METHODS.find(m => m.key === method).field];
-
   return (
-    <div id="retraits" ref={sectionRef} className="scroll-mt-24 bg-white border border-gray-200/80 rounded-2xl p-5 space-y-5">
+    <div id="retraits" ref={sectionRef} className="scroll-mt-24 bg-white border border-gray-200/80 rounded-2xl p-5 space-y-4">
       <div>
         <p className="font-bold text-[15px] mb-1">Retraits</p>
         <p className="text-[13px] text-gray-500">
-          Ton argent encaissé en ligne, et les numéros sur lesquels tu le reçois.
+          Ce que la plateforme a encaissé pour toi et qu'il te reste à récupérer.
         </p>
       </div>
 
@@ -125,107 +129,101 @@ export const PayoutSection = ({ vendor, showToast, sectionRef }) => {
         <div className="h-24 bg-gray-50 rounded-xl animate-pulse" />
       ) : (
         <>
-          {/* Solde */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <div className="bg-gray-900 text-white rounded-xl p-4">
-              <p className="text-[12px] text-white/60">Disponible</p>
-              <p className="text-[22px] font-bold leading-none mt-1.5">{money(available)}</p>
-            </div>
-            <div className="bg-gray-50 rounded-xl p-4">
-              <p className="text-[12px] text-gray-500">Retrait en cours</p>
-              <p className="text-[22px] font-bold text-gray-900 leading-none mt-1.5">{money(balance?.pending)}</p>
-            </div>
-            <div className="bg-gray-50 rounded-xl p-4">
-              <p className="text-[12px] text-gray-500">Déjà versé</p>
-              <p className="text-[22px] font-bold text-gray-900 leading-none mt-1.5">{money(balance?.withdrawn)}</p>
+          {/* Soldes */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {[
+              { label: "Disponible", value: available,                       strong: true },
+              { label: "Encaissé",   value: Number(balance?.collected || 0)               },
+              { label: "En attente", value: Number(balance?.pending   || 0)               },
+              { label: "Déjà versé", value: Number(balance?.withdrawn || 0)               },
+            ].map(b => (
+              <div key={b.label} className={`rounded-xl p-3 ${b.strong ? "bg-gray-900 text-white" : "bg-gray-50"}`}>
+                <p className={`text-[11px] font-semibold ${b.strong ? "text-white/60" : "text-gray-400"}`}>{b.label}</p>
+                <p className={`text-[17px] font-bold mt-1 ${b.strong ? "" : "text-gray-900"}`}>{money(b.value)}</p>
+              </div>
+            ))}
+          </div>
+
+          <p className="text-[11px] text-gray-400">
+            <i className="fa-solid fa-circle-info mr-1" />
+            Seules les commandes payées en ligne (Orange Money, MTN MoMo) alimentent ce solde.
+            Les paiements à la livraison sont encaissés directement par toi.
+          </p>
+
+          {/* Numéros d'encaissement */}
+          <div className="border-t border-gray-100 pt-4">
+            <p className={label}>Numéros sur lesquels tu reçois l'argent</p>
+            <div className="space-y-2">
+              {METHODS.map(m => {
+                const saved = settings?.[m.field] || "";
+                const dirty = normalizePhone(momo[m.field]) !== saved;
+                return (
+                  <div key={m.key}>
+                    <div className="flex items-center gap-2">
+                      <span className="w-28 text-[12px] font-semibold text-gray-600 flex-shrink-0">{m.label}</span>
+                      <input
+                        value={momo[m.field]}
+                        onChange={e => setMomo(v => ({ ...v, [m.field]: e.target.value }))}
+                        placeholder={m.key === "orange_money" ? "237 6 9X XX XX XX" : "237 6 7X XX XX XX"}
+                        inputMode="tel" className={input}
+                      />
+                      <button onClick={() => saveNumber(m.field)} disabled={!!momoBusy || !dirty}
+                        className="bg-gray-900 text-white text-[12px] font-bold px-4 py-2.5 rounded-xl hover:bg-gray-800 disabled:opacity-40 flex-shrink-0">
+                        {momoBusy === m.field ? "…" : "Enregistrer"}
+                      </button>
+                    </div>
+                    {saved && (
+                      <p className="text-[11px] text-emerald-600 mt-1 ml-[7.5rem]">
+                        <i className="fa-solid fa-circle-check mr-1" />Enregistré : {saved}
+                      </p>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </div>
 
-          <p className="text-[12px] text-gray-400">
-            <i className="fa-solid fa-circle-info mr-1.5" />
-            Seules les commandes payées en ligne (Orange Money, MTN MoMo) alimentent ce solde.
-            L'argent des commandes réglées à la livraison est encaissé directement par toi.
-          </p>
-
-          {/* Numéros de reversement */}
-          <div className="border-t border-gray-100 pt-4 space-y-3">
-            <p className="text-[12px] font-bold uppercase tracking-wide text-gray-400">
-              Numéros de reversement
-            </p>
-            {METHODS.map(m => {
-              const dirty = normalizePhone(numbers[m.field]) !== (settings[m.field] || "");
-              return (
-                <div key={m.key}>
-                  <label className={label}>{m.label}</label>
+          {/* Demande */}
+          {usable.length === 0 ? (
+            <div className="bg-orange-50 border border-orange-200 rounded-xl p-4 text-[12px] text-orange-700">
+              <i className="fa-solid fa-triangle-exclamation mr-1.5" />
+              Enregistre au moins un numéro ci-dessus pour pouvoir demander un retrait.
+            </div>
+          ) : (
+            <div className="border-t border-gray-100 pt-4 space-y-3">
+              <div className="grid sm:grid-cols-2 gap-3">
+                <div>
+                  <label className={label}>Montant à retirer</label>
                   <div className="flex items-center gap-2">
-                    <span className="w-10 h-10 rounded-lg bg-gray-50 flex items-center justify-center flex-shrink-0">
-                      <i className={`fa-solid ${m.icon} ${m.color}`} />
-                    </span>
-                    <input value={numbers[m.field]} inputMode="tel"
-                      onChange={e => setNumbers(n => ({ ...n, [m.field]: e.target.value }))}
-                      placeholder="237 6XX XXX XXX" className={input} />
-                    <button onClick={() => saveNumber(m.field)} disabled={busy || !dirty}
-                      className="bg-gray-900 text-white text-[12px] font-bold px-4 py-2.5 rounded-xl hover:bg-gray-800 disabled:opacity-40 flex-shrink-0">
-                      Enregistrer
+                    <input type="number" min={0} max={available} value={amount}
+                      onChange={e => { setAmount(e.target.value); setMsg(null); }}
+                      placeholder="0" className={input} />
+                    <button onClick={() => setAmount(String(available))} disabled={!available}
+                      className="text-[11px] font-bold px-3 py-2.5 rounded-xl bg-gray-100 hover:bg-gray-200 disabled:opacity-40 flex-shrink-0">
+                      Tout
                     </button>
                   </div>
                 </div>
-              );
-            })}
-            <p className="text-[11px] text-gray-400">
-              Ces numéros ne sont visibles que par toi : ils ne figurent pas sur ta page boutique.
-            </p>
-          </div>
-
-          {/* Demande de retrait */}
-          <div className="border-t border-gray-100 pt-4 space-y-3">
-            <p className="text-[12px] font-bold uppercase tracking-wide text-gray-400">
-              Demander un retrait
-            </p>
-            <div className="grid sm:grid-cols-2 gap-3">
-              <div>
-                <label className={label}>Montant (FCFA)</label>
-                <input type="number" min={0} value={amount} inputMode="numeric"
-                  onChange={e => { setAmount(e.target.value); setMsg(null); }}
-                  placeholder={String(available)} className={input} />
+                <div>
+                  <label className={label}>Vers</label>
+                  <select value={method} onChange={e => setMethod(e.target.value)} className={input}>
+                    {usable.map(m => (
+                      <option key={m.key} value={m.key}>
+                        {m.label} — {settings[m.field]}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
-              <div>
-                <label className={label}>Vers</label>
-                <select value={method} onChange={e => { setMethod(e.target.value); setMsg(null); }} className={input}>
-                  {METHODS.map(m => (
-                    <option key={m.key} value={m.key}>
-                      {m.label}{settings[m.field] ? ` · ${settings[m.field]}` : " — numéro manquant"}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
 
-            {amount === "" && available > 0 && (
-              <button onClick={() => setAmount(String(available))}
-                className="block text-[12px] font-semibold text-gray-500 hover:text-gray-900">
-                Retirer la totalité ({money(available)})
+              <Feedback msg={msg} />
+
+              <button onClick={submit} disabled={busy || !available}
+                className="bg-gray-900 text-white text-[12px] font-bold px-5 py-2.5 rounded-xl hover:bg-gray-800 disabled:opacity-40">
+                {busy ? "Envoi…" : "Demander le retrait"}
               </button>
-            )}
-
-            {msg && (
-              <p className={`text-[12px] ${msg.type === "error" ? "text-red-500" : "text-emerald-600"}`}>
-                <i className={`fa-solid ${msg.type === "error" ? "fa-circle-exclamation" : "fa-circle-check"} mr-1.5`} />
-                {msg.text}
-              </p>
-            )}
-            {!methodReady && (
-              <p className="text-[12px] text-orange-600">
-                <i className="fa-solid fa-triangle-exclamation mr-1.5" />
-                Renseigne d'abord ton numéro {METHODS.find(m => m.key === method).label}.
-              </p>
-            )}
-
-            <button onClick={requestPayout} disabled={busy || available <= 0 || !methodReady}
-              className="block bg-gray-900 text-white text-[12px] font-bold px-5 py-2.5 rounded-xl hover:bg-gray-800 disabled:opacity-40">
-              {busy ? "Envoi…" : "Demander le retrait"}
-            </button>
-          </div>
+            </div>
+          )}
 
           {/* Historique */}
           {payouts.length > 0 && (
@@ -246,7 +244,10 @@ export const PayoutSection = ({ vendor, showToast, sectionRef }) => {
                       const st = PAYOUT_STATUS[p.status] || PAYOUT_STATUS.pending;
                       return (
                         <tr key={p.id} className="border-b border-gray-50">
-                          <td className="py-2.5 text-gray-500">{shortDate(p.requested_at)}</td>
+                          <td className="py-2.5 text-gray-500">
+                            {p.requested_at ? new Date(p.requested_at).toLocaleDateString("fr-FR",
+                              { day: "2-digit", month: "short", year: "numeric" }) : "—"}
+                          </td>
                           <td className="py-2.5 text-gray-600">
                             {METHODS.find(m => m.key === p.method)?.label || p.method}
                             <span className="text-gray-400 ml-1.5">{p.phone}</span>
@@ -273,7 +274,7 @@ export const PayoutSection = ({ vendor, showToast, sectionRef }) => {
 
 /* ── LIVRAISON ────────────────────────────────────────────────────────────── */
 const emptyDelivery = (v) => ({
-  delivery_fee:            v?.delivery_fee ?? 0,
+  delivery_fee:            v?.delivery_fee ?? "",
   free_delivery_threshold: v?.free_delivery_threshold ?? "",
   delivery_zones:          v?.delivery_zones || "",
   delivery_delay:          v?.delivery_delay || "",
@@ -282,56 +283,57 @@ const emptyDelivery = (v) => ({
 export const DeliverySection = ({ vendor, updateVendorFields, showToast, sectionRef }) => {
   const [form, setForm] = useState(() => emptyDelivery(vendor));
   const [busy, setBusy] = useState(false);
+  const [msg, setMsg]   = useState(null);
 
-  useEffect(() => { setForm(emptyDelivery(vendor)); }, [
-    vendor?.id, vendor?.delivery_fee, vendor?.free_delivery_threshold,
-    vendor?.delivery_zones, vendor?.delivery_delay,
-  ]);
+  useEffect(() => { setForm(emptyDelivery(vendor)); }, [vendor?.id]);
 
-  const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
-  const dirty =
-    String(form.delivery_fee ?? "")            !== String(vendor?.delivery_fee ?? 0) ||
-    String(form.free_delivery_threshold ?? "") !== String(vendor?.free_delivery_threshold ?? "") ||
-    (form.delivery_zones || "")                !== (vendor?.delivery_zones || "") ||
-    (form.delivery_delay || "")                !== (vendor?.delivery_delay || "");
+  const set = (k, v) => { setForm(f => ({ ...f, [k]: v })); setMsg(null); };
+  const dirty = Object.keys(form).some(k => String(form[k] ?? "") !== String(vendor?.[k] ?? ""));
 
   const save = async () => {
-    setBusy(true);
+    const fee = form.delivery_fee === "" ? 0 : Math.round(Number(form.delivery_fee));
+    const thr = form.free_delivery_threshold === "" ? null : Math.round(Number(form.free_delivery_threshold));
+    if (Number.isNaN(fee) || fee < 0)              return setMsg({ type: "error", text: "Frais de livraison invalides." });
+    if (thr !== null && (Number.isNaN(thr) || thr < 0)) return setMsg({ type: "error", text: "Seuil invalide." });
+
+    setBusy(true); setMsg(null);
     try {
       await updateVendorFields({
-        delivery_fee:            Math.max(0, Math.round(Number(form.delivery_fee) || 0)),
-        free_delivery_threshold: form.free_delivery_threshold === ""
-          ? null : Math.max(0, Math.round(Number(form.free_delivery_threshold) || 0)),
-        delivery_zones: form.delivery_zones.trim() || null,
-        delivery_delay: form.delivery_delay.trim() || null,
+        delivery_fee:            fee,
+        free_delivery_threshold: thr,
+        delivery_zones:          form.delivery_zones.trim() || null,
+        delivery_delay:          form.delivery_delay.trim() || null,
       });
       showToast?.("Livraison mise à jour");
-    } catch (e) { showToast?.("Erreur", e.message, "error"); }
-    finally { setBusy(false); }
+    } catch (e) {
+      setMsg({ type: "error", text: e.message });
+      showToast?.("Erreur", e.message, "error");
+    } finally { setBusy(false); }
   };
 
-  const fee = Math.max(0, Math.round(Number(form.delivery_fee) || 0));
+  const fee = Number(form.delivery_fee) || 0;
+  const thr = Number(form.free_delivery_threshold) || 0;
 
   return (
     <div id="livraison" ref={sectionRef} className="scroll-mt-24 bg-white border border-gray-200/80 rounded-2xl p-5 space-y-4">
       <div>
         <p className="font-bold text-[15px] mb-1">Livraison</p>
         <p className="text-[13px] text-gray-500">
-          Ce que tu factures pour livrer. Laisse à 0 pour livrer gratuitement.
+          Frais appliqués aux commandes de ta boutique. Laisse à 0 pour livrer gratuitement.
         </p>
       </div>
 
       <div className="grid sm:grid-cols-2 gap-3">
         <div>
           <label className={label}>Frais de livraison (FCFA)</label>
-          <input type="number" min={0} inputMode="numeric" value={form.delivery_fee}
-            onChange={e => set("delivery_fee", e.target.value)} className={input} placeholder="1000" />
+          <input type="number" min={0} value={form.delivery_fee}
+            onChange={e => set("delivery_fee", e.target.value)} placeholder="0" className={input} />
         </div>
         <div>
           <label className={label}>Livraison offerte à partir de</label>
-          <input type="number" min={0} inputMode="numeric" value={form.free_delivery_threshold}
+          <input type="number" min={0} value={form.free_delivery_threshold}
             onChange={e => set("free_delivery_threshold", e.target.value)}
-            className={input} placeholder="Aucun seuil" />
+            placeholder="Aucun seuil" className={input} />
         </div>
       </div>
 
@@ -339,28 +341,37 @@ export const DeliverySection = ({ vendor, updateVendorFields, showToast, section
         <div>
           <label className={label}>Zones livrées</label>
           <input value={form.delivery_zones} onChange={e => set("delivery_zones", e.target.value)}
-            className={input} placeholder="Douala, Bonabéri, Yaoundé…" />
+            placeholder="Douala, Bonabéri, Bonamoussadi…" className={input} />
         </div>
         <div>
           <label className={label}>Délai annoncé</label>
           <input value={form.delivery_delay} onChange={e => set("delivery_delay", e.target.value)}
-            className={input} placeholder="24 à 48 h" />
+            placeholder="Sous 24 h" className={input} />
         </div>
       </div>
 
-      <div className="bg-gray-50 rounded-xl p-3 text-[12px] text-gray-600">
-        <i className="fa-solid fa-truck-fast text-[#FF9900] mr-1.5" />
+      <p className="text-[12px] text-gray-400">
         {fee === 0
-          ? "Tes clients ne paient aucun frais de livraison."
-          : form.free_delivery_threshold
-            ? `${money(fee)} de livraison, offerts dès ${money(form.free_delivery_threshold)} d'achat.`
-            : `${money(fee)} de livraison sur chaque commande.`}
-      </div>
+          ? "Actuellement : livraison gratuite sur toutes tes commandes."
+          : thr > 0
+            ? `Actuellement : ${money(fee)} de livraison, offerte dès ${money(thr)} d'achat.`
+            : `Actuellement : ${money(fee)} de livraison sur chaque commande.`}
+      </p>
 
-      <button onClick={save} disabled={busy || !dirty}
-        className="bg-gray-900 text-white text-[12px] font-bold px-5 py-2.5 rounded-xl hover:bg-gray-800 disabled:opacity-40">
-        {busy ? "Enregistrement…" : "Enregistrer"}
-      </button>
+      <Feedback msg={msg} />
+
+      <div className="flex items-center gap-2">
+        <button onClick={save} disabled={busy || !dirty}
+          className="bg-gray-900 text-white text-[12px] font-bold px-5 py-2.5 rounded-xl hover:bg-gray-800 disabled:opacity-40">
+          {busy ? "Enregistrement…" : "Enregistrer"}
+        </button>
+        {dirty && (
+          <button onClick={() => { setForm(emptyDelivery(vendor)); setMsg(null); }} disabled={busy}
+            className="text-[12px] font-bold px-4 py-2.5 rounded-xl text-gray-500 hover:bg-gray-100">
+            Annuler
+          </button>
+        )}
+      </div>
     </div>
   );
 };

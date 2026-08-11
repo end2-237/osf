@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, Link, useSearchParams, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
-import ofsLogo from '../assets/buyticle.svg';
+import { LOGO_URL as ofsLogo } from "../lib/brand";
 
 // ─── PLANS ───────────────────────────────────────────────────────────────────
 const PLANS = [
@@ -533,7 +533,7 @@ export default function Register() {
         {/* Amazon-style top nav */}
         <header className="bg-[#131921] px-4 py-3 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-2">
-            <img src={ofsLogo} alt="Logo" className="w-6 h-6 object-contain invert" />
+            <img src={ofsLogo} alt="Logo" className="w-6 h-6 object-contain" />
             <span className="text-white text-sm font-bold">One<span className="text-[#FF9900]">Freestyle</span></span>
           </Link>
           <button onClick={() => { setFlow('member'); setVStep(0); setError(''); }}
@@ -937,7 +937,7 @@ export default function Register() {
           <div className="absolute inset-0 bg-gradient-to-t from-[#131921] via-[#131921]/60 to-transparent" />
         </div>
         <Link to="/" className="relative z-10 flex items-center gap-2">
-          <img src={ofsLogo} alt="Logo" className="w-6 h-6 object-contain invert" />
+          <img src={ofsLogo} alt="Logo" className="w-6 h-6 object-contain" />
           <span className="text-white text-sm font-bold tracking-wide">One<span className="text-[#FF9900]">Freestyle</span></span>
         </Link>
         <div className="relative z-10 space-y-5">

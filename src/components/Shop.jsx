@@ -1,6 +1,6 @@
 import React from "react";
 import ProductCard from "./ProductCard";
-import ofsLogo from "../assets/buyticle.svg";
+import { LOGO_URL as ofsLogo } from "../lib/brand";
 
 // Composant Squelette avec effet Shimmer
 const ProductSkeleton = () => (

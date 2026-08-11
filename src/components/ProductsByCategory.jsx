@@ -1,7 +1,7 @@
 import React, { useRef } from 'react';
 import { Link } from 'react-router-dom';
 import ProductCard from './ProductCard';
-import ofsLogo from '../assets/buyticle.svg';
+import { LOGO_URL as ofsLogo } from "../lib/brand";
 
 const SECTIONS = [
   { key: 'Audio Lab', label: 'Audio Lab', icon: 'fa-headphones', color: 'text-primary', accent: '#00ff88' },

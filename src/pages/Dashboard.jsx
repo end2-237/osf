@@ -739,6 +739,14 @@ const PAYMENT_OPTIONS = [
 ];
 const ALL_PAYMENT_KEYS = PAYMENT_OPTIONS.map(o => o.key);
 
+// Numéro d'encaissement rattaché à chaque opérateur mobile. Ces numéros sont
+// stockés dans `vendor_payout_settings`, table privée : `vendors` est lisible
+// publiquement et n'a pas à les exposer.
+const MOMO_FIELDS = {
+  orange_money: { field: "momo_orange_number", label: "Numéro Orange Money", placeholder: "237 6 9X XX XX XX", hint: "Numéro sur lequel tu reçois les paiements Orange Money." },
+  mtn_momo:     { field: "momo_mtn_number",    label: "Numéro MTN MoMo",     placeholder: "237 6 7X XX XX XX", hint: "Numéro sur lequel tu reçois les paiements MTN MoMo." },
+};
+
 // Chiffres uniquement : format attendu par la base et les opérateurs.
 const normalizePhone = (v) => String(v || "").replace(/\D/g, "");
 const isValidPhone   = (v) => /^[0-9]{8,15}$/.test(normalizePhone(v));
@@ -951,6 +959,8 @@ const SettingsView = ({ user, vendor, updateVendorField, updateVendorFields, sho
   if (!vendor.cover_url) todos.push({ id: "cover", section: "identite", label: "Ajouter une photo de couverture" });
   if (!vendor.description) todos.push({ id: "desc", section: "boutique", label: "Décrire ta boutique" });
   if (!vendor.delivery_zones) todos.push({ id: "zones", section: "livraison", label: "Préciser tes zones de livraison" });
+  // Le rappel des numéros d'encaissement est porté par la section Retraits,
+  // seule à connaître leur état.
 
   return (
     <div className="flex flex-col lg:flex-row gap-4 items-start">

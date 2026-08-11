@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import ofsLogo from '../assets/buyticle.svg';
+import { LOGO_URL as ofsLogo } from "../lib/brand";
 import { supabase } from '../lib/supabase';
 
 const Login = () => {
@@ -78,7 +78,7 @@ const Login = () => {
         </div>
 
         <Link to="/" className="relative z-10 flex items-center gap-2">
-          <img src={ofsLogo} alt="Logo" className="w-6 h-6 object-contain invert" />
+          <img src={ofsLogo} alt="Logo" className="w-6 h-6 object-contain" />
           <span className="text-white text-sm font-bold tracking-wide">
             One<span className="text-[#FF9900]">Freestyle</span>
           </span>

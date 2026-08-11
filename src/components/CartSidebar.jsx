@@ -316,6 +316,21 @@ const CartSidebar = ({ isOpen, cart, removeFromCart, updateQuantity, toggleCart,
     }).catch(() => {});
   };
 
+  // Alerte le vendeur — la fonction serveur gère aussi les commandes passées
+  // sans compte client. Volontairement non bloquant : un e-mail qui échoue ne
+  // doit pas faire échouer la commande.
+  const notifyVendor = (orderId) => {
+    fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-email`, {
+      method: 'POST',
+      headers: {
+        'Content-Type':  'application/json',
+        'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+        'apikey':        import.meta.env.VITE_SUPABASE_ANON_KEY,
+      },
+      body: JSON.stringify({ type: 'vendor_new_order', order_id: orderId }),
+    }).catch(() => {});
+  };
+
   const formatPhoneForMonetbil = (phone) => {
     let p = phone.replace(/[\s\-\.\(\)]/g, '');
     if (p.startsWith('+')) p = p.slice(1);
@@ -410,6 +425,7 @@ const CartSidebar = ({ isOpen, cart, removeFromCart, updateQuantity, toggleCart,
 
         if (orderError) throw orderError;
         await supabase.from('order_items').insert(buildOrderItems(vendorItems, orderData.id));
+        if (vId !== 'no_vendor') notifyVendor(orderData.id);
         if (user?.id) awardOrderPoints(user.id, orderData.id, vendorAfterPromo).catch(() => {});
         if (referralCode) recordAffiliateCommission(referralCode, orderData.id, vendorAfterPromo, user?.id || null).catch(() => {});
         // Non-blocking email confirmation (only for logged-in users)
@@ -492,6 +508,7 @@ const CartSidebar = ({ isOpen, cart, removeFromCart, updateQuantity, toggleCart,
         if (orderError) throw orderError;
         orderIds.push(orderData.id);
         await supabase.from('order_items').insert(buildOrderItems(vendorItems, orderData.id));
+        if (vId !== 'no_vendor') notifyVendor(orderData.id);
         if (user?.id) awardOrderPoints(user.id, orderData.id, vendorAfterPromo).catch(() => {});
         if (referralCode) recordAffiliateCommission(referralCode, orderData.id, vendorAfterPromo, user?.id || null).catch(() => {});
       }

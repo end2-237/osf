@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
-import ofsLogo from "../assets/buyticle.svg";
+import { LOGO_URL as ofsLogo } from "../lib/brand";
 import { useAuth } from "../context/AuthContext";
 import { useLang } from "../context/LangContext";
 
