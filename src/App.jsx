@@ -43,6 +43,9 @@ const AboutPage      = lazyWithRetry(() => import('./pages/AboutPage.jsx'));
 const LivePage       = lazyWithRetry(() => import('./pages/LivePage.jsx'));
 const LiveStream     = lazyWithRetry(() => import('./pages/LiveStream.jsx'));
 const CreatorProfile = lazyWithRetry(() => import('./pages/CreatorProfile.jsx'));
+// Module Buyticle Delivery : carte + tracés, c'est lourd. Chunk à part, avec
+// son propre écran de chargement.
+const DeliveryConsole = lazyWithRetry(() => import('./pages/DeliveryConsole.jsx'));
 
 const PageLoader = () => (
   <div className="flex items-center justify-center min-h-[60vh]">
@@ -70,6 +73,7 @@ function AppContent() {
     || location.pathname === '/admin'
     || location.pathname.startsWith('/super-admin')
     || location.pathname.startsWith('/live/')
+    || location.pathname.startsWith('/delivery')
     || location.pathname === '/track';
 
   // Listen for CartPage "checkout" event and open cart sidebar
@@ -231,6 +235,11 @@ function AppContent() {
             <Route element={<SuperAdminRoute />}>
               <Route path="/super-admin" element={<SuperAdmin />} />
             </Route>
+            {/* Buyticle Delivery — la console vérifie elle-même la session et
+                le rôle : elle sait afficher « connexion requise » sans rejeter
+                vers une page de login qui ferait perdre la commande visée. */}
+            <Route path="/delivery" element={<DeliveryConsole />} />
+            <Route path="/delivery/:orderId" element={<DeliveryConsole />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </Suspense>

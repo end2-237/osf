@@ -71,6 +71,9 @@ const CartSidebar = ({ isOpen, cart, removeFromCart, updateQuantity, toggleCart,
   const [userProfile,    setUserProfile]    = useState(null);
   const [userAddresses,  setUserAddresses]  = useState([]);
   const [selectedAddrId, setSelectedAddrId] = useState(null);
+  // Point de livraison retenu et devis Buyticle Delivery, une entrée par boutique.
+  const [clientPoint,    setClientPoint]    = useState(null);   // { lat, lng }
+  const [deliveryQuotes, setDeliveryQuotes] = useState({});
 
   // Monetbil
   const [monetbilPhone,   setMonetbilPhone]   = useState('');
@@ -100,6 +103,7 @@ const CartSidebar = ({ isOpen, cart, removeFromCart, updateQuantity, toggleCart,
         setUserAddresses(addrs);
         const def = addrs.find(a => a.is_default) || addrs[0];
         setSelectedAddrId(def.id);
+        setClientPoint(def.lat != null ? { lat: def.lat, lng: def.lng } : null);
         setInfo({
           name:         def.full_name    || prof?.full_name || '',
           phone:        def.phone        || prof?.phone    || '',
@@ -117,6 +121,8 @@ const CartSidebar = ({ isOpen, cart, removeFromCart, updateQuantity, toggleCart,
 
   const handleSelectAddr = (addrId) => {
     setSelectedAddrId(addrId);
+    const picked = userAddresses.find(x => x.id === addrId);
+    setClientPoint(picked?.lat != null ? { lat: picked.lat, lng: picked.lng } : null);
     if (addrId === null) {
       setInfo({ name: userProfile?.full_name || '', phone: userProfile?.phone || '', neighborhood:'', street:'', extra:'' });
     } else {
@@ -139,7 +145,7 @@ const CartSidebar = ({ isOpen, cart, removeFromCart, updateQuantity, toggleCart,
   useEffect(() => {
     if (!isOpen || vendorIds.length === 0) return;
     supabase.from('vendors')
-      .select('id, phone, shop_name, payment_methods, delivery_fee, free_delivery_threshold, delivery_zones, delivery_delay')
+      .select('id, phone, shop_name, payment_methods, delivery_fee, free_delivery_threshold, delivery_zones, delivery_delay, delivery_mode, pickup_lat, pickup_lng')
       .in('id', vendorIds)
       .then(({ data }) => {
         if (data) {
@@ -257,14 +263,71 @@ const CartSidebar = ({ isOpen, cart, removeFromCart, updateQuantity, toggleCart,
 
   // Points redemption: 1 pt = 1 FCFA, max 20% of subtotal
   const maxPointsDiscount = Math.floor((subtotalAfterMember - bundleAmount - promoDiscount) * 0.20);
+  // Devis Buyticle Delivery, une requête par boutique concernée. Refait dès que
+  // le client change de point : deux adresses ne coûtent pas le même prix.
+  useEffect(() => {
+    const needing = Object.values(cartVendors).filter(v => v.delivery_mode === 'buyticle');
+    if (!isOpen || needing.length === 0) { setDeliveryQuotes({}); return; }
+    if (!clientPoint) { setDeliveryQuotes({}); return; }
+
+    let alive = true;
+    (async () => {
+      const rows = await Promise.all(needing.map(async v => {
+        const { data } = await supabase.rpc('quote_delivery', {
+          p_vendor_id: v.id, p_lat: clientPoint.lat, p_lng: clientPoint.lng,
+        });
+        return [v.id, Array.isArray(data) ? data[0] : data];
+      }));
+      if (alive) setDeliveryQuotes(Object.fromEntries(rows));
+    })();
+    return () => { alive = false; };
+  }, [isOpen, cartVendors, clientPoint?.lat, clientPoint?.lng]);   // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Une boutique livrée par Buyticle sans point client ne peut pas être chiffrée.
+  const quoteBlockers = Object.values(cartVendors)
+    .filter(v => v.delivery_mode === 'buyticle')
+    .map(v => ({
+      shop: v.shop_name,
+      missingPoint: !clientPoint,
+      reason: deliveryQuotes[v.id] && !deliveryQuotes[v.id].serviceable
+        ? deliveryQuotes[v.id].reason : null,
+    }))
+    .filter(b => b.missingPoint || b.reason);
+
+  // Ce que la commande retient de la livraison. Figé : la boutique peut changer
+  // de mode demain, la commande d'hier garde ses conditions et ses distances.
+  const deliverySnapshot = (vId) => {
+    const v = cartVendors[vId];
+    const q = deliveryQuotes[vId];
+    return {
+      delivery_mode: v?.delivery_mode || 'self',
+      client_lat:    clientPoint?.lat ?? null,
+      client_lng:    clientPoint?.lng ?? null,
+      pickup_lat:    v?.pickup_lat ?? null,
+      pickup_lng:    v?.pickup_lng ?? null,
+      pickup_km:     q?.serviceable ? q.pickup_km   : null,
+      dropoff_km:    q?.serviceable ? q.dropoff_km  : null,
+      pickup_fee:    q?.serviceable ? q.pickup_fee  : null,
+      dropoff_fee:   q?.serviceable ? q.dropoff_fee : null,
+    };
+  };
+
   const pointsDiscount    = usePoints && userPoints > 0
     ? Math.min(userPoints, maxPointsDiscount)
     : 0;
 
-  // Frais de livraison définis par chaque boutique, offerts au-delà du seuil
-  // qu'elle a fixé. Une boutique qui n'a rien réglé livre gratuitement.
+  // Frais de livraison :
+  //   · boutique qui livre elle-même → son propre tarif, offert au-delà de son
+  //     seuil ; une boutique qui n'a rien réglé livre gratuitement ;
+  //   · Buyticle Delivery → le prix dépend de deux trajets et de la distance,
+  //     il est calculé EN BASE par `quote_delivery`. Le navigateur ne fait que
+  //     l'afficher : on ne laisse pas le client fixer le prix de sa course.
   const vendorDeliveryFee = (vId, vendorSubtotal) => {
     const v = cartVendors[vId];
+    if (v?.delivery_mode === 'buyticle') {
+      const q = deliveryQuotes[vId];
+      return q?.serviceable ? Number(q.total_fee) || 0 : 0;
+    }
     const fee = Number(v?.delivery_fee) || 0;
     if (!fee) return 0;
     const threshold = Number(v?.free_delivery_threshold) || 0;
@@ -419,6 +482,7 @@ const CartSidebar = ({ isOpen, cart, removeFromCart, updateQuantity, toggleCart,
             promo_discount:          vendorPromoDisc || null,
             referral_code:           referralCode,
             delivery_fee:            vendorDeliveryFee(vId, vendorSub),
+            ...deliverySnapshot(vId),
           })
           .select()
           .single();
@@ -501,6 +565,7 @@ const CartSidebar = ({ isOpen, cart, removeFromCart, updateQuantity, toggleCart,
             promo_discount:          vendorPromoDisc || null,
             referral_code:           referralCode,
             delivery_fee:            vendorDeliveryFee(vId, vendorSub),
+            ...deliverySnapshot(vId),
           })
           .select()
           .single();
@@ -580,6 +645,16 @@ const CartSidebar = ({ isOpen, cart, removeFromCart, updateQuantity, toggleCart,
     } else if (step === 'checkout') {
       if (!info.name || !info.phone || (!info.neighborhood && !info.street)) {
         setError("Veuillez remplir le nom, le téléphone et l'adresse");
+        return;
+      }
+      // Buyticle Delivery facture à la distance : sans point de livraison, il
+      // n'y a pas de prix, et laisser passer la commande reviendrait à livrer
+      // à l'aveugle. Une boutique qui livre elle-même n'est pas concernée.
+      if (quoteBlockers.length > 0) {
+        const b = quoteBlockers[0];
+        setError(b.missingPoint
+          ? `${b.shop} passe par Buyticle Delivery : enregistre ta position sur la carte pour connaître les frais.`
+          : `${b.shop} : ${b.reason}`);
         return;
       }
       setStep('payment');
@@ -1285,6 +1360,17 @@ const CartSidebar = ({ isOpen, cart, removeFromCart, updateQuantity, toggleCart,
                         : <span className="font-bold text-[#007600]">Gratuite</span>}
                     </div>
                   )}
+                  {/* Buyticle Delivery : on montre d'où sort le prix. */}
+                  {Object.entries(deliveryQuotes)
+                    .filter(([, q]) => q?.serviceable)
+                    .map(([vId, q]) => (
+                      <p key={vId} className="text-[10px] text-[#565959] text-right">
+                        <i className="fa-solid fa-truck-fast text-[9px] mr-1" />
+                        {cartVendors[vId]?.shop_name} · Buyticle Delivery :
+                        {' '}ramasse {Number(q.pickup_km).toFixed(1)} km ({Number(q.pickup_fee).toLocaleString()} F)
+                        {' '}+ remise {Number(q.dropoff_km).toFixed(1)} km ({Number(q.dropoff_fee).toLocaleString()} F)
+                      </p>
+                    ))}
                   <div className="flex justify-between items-baseline pt-2 border-t border-[#D5D9D9]">
                     <span className="font-bold text-[#0F1111]">Total de la commande :</span>
                     <div className="text-right">

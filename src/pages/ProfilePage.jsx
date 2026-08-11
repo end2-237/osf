@@ -3,6 +3,7 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../context/AuthContext";
 import { fetchSavedLives, formatCount } from "../lib/liveApi";
+import PositionPicker from "../components/PositionPicker";
 
 // ─── FAVORIS LIVE ───────────────────────────────────────────────────────────
 const LiveFavoritesTab = ({ userId }) => {
@@ -459,7 +460,7 @@ const WishlistTab = ({ items, loading, onRemove, addToCart }) => (
 );
 
 // ─── ADDRESSES ────────────────────────────────────────────────────────────────
-const EMPTY_ADDR = { label: "Maison", full_name: "", phone: "", city: "Douala", neighborhood: "", street: "", extra: "", is_default: false };
+const EMPTY_ADDR = { label: "Maison", full_name: "", phone: "", city: "Douala", neighborhood: "", street: "", extra: "", is_default: false, lat: null, lng: null, geo_label: null };
 
 const Addresses = ({ addresses, onSave, onDelete }) => {
   const [showForm, setShowForm] = useState(false);
@@ -531,6 +532,26 @@ const Addresses = ({ addresses, onSave, onDelete }) => {
             </div>
             <AmzInput label="Rue / Avenue *" value={form.street} onChange={e => set("street", e.target.value)} placeholder="Ex: Rue Njo Njo, Avenue Kennedy..." />
             <AmzInput label="Infos supplémentaires" value={form.extra} onChange={e => set("extra", e.target.value)} placeholder="Bâtiment, étage, code d'entrée..." />
+
+            {/* Le point exact. Il sert au livreur, et c'est lui qui permet de
+                calculer les frais de livraison à la commande. */}
+            <PositionPicker
+              value={form.lat != null ? { lat: form.lat, lng: form.lng, label: form.geo_label } : null}
+              onChange={(p) => setForm(f => ({
+                ...f,
+                lat: p?.lat ?? null, lng: p?.lng ?? null,
+                geo_label: p?.label ?? (p ? f.geo_label : null),
+              }))}
+              onAddressFound={(a) => setForm(f => ({
+                ...f,
+                street:       f.street       || a.street       || "",
+                neighborhood: f.neighborhood || a.neighborhood || "",
+                city:         f.city         || a.city         || "Douala",
+              }))}
+              title="Ma position"
+              hint="Pose l'épingle sur ta porte : le livreur y va directement, et les frais sont calculés depuis ce point."
+            />
+
             <label className="flex items-center gap-3 cursor-pointer p-3 bg-[#F7F8F8] border border-[#D5D9D9] rounded hover:border-[#FF9900]/50 transition-colors">
               <input type="checkbox" checked={form.is_default} onChange={e => set("is_default", e.target.checked)} className="accent-[#FF9900] w-4 h-4" />
               <div>
@@ -570,6 +591,11 @@ const Addresses = ({ addresses, onSave, onDelete }) => {
                 <p className="text-[10px] text-[#565959] font-bold">{a.phone}</p>
                 <p className="text-[10px] text-[#565959] mt-1">{[a.street, a.neighborhood, a.city].filter(Boolean).join(", ")}</p>
                 {a.extra && <p className="text-[9px] text-[#ADBAC7] italic mt-1">{a.extra}</p>}
+                <p className="text-[9px] font-black uppercase tracking-widest mt-2"
+                  style={{ color: a.lat != null ? "#007600" : "#565959" }}>
+                  <i className={`fa-solid ${a.lat != null ? "fa-location-crosshairs" : "fa-location-dot"} mr-1`}></i>
+                  {a.lat != null ? "Position enregistrée" : "Sans position"}
+                </p>
                 <button onClick={() => onDelete(a.id)}
                   className="mt-3 text-[9px] font-black uppercase text-[#565959] hover:text-[#B12704] transition-colors border border-[#D5D9D9] hover:border-[#B12704]/30 px-3 py-1.5 rounded"
                 >

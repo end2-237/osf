@@ -7,6 +7,7 @@ import AddProductWizard from "../components/AddProductWizard";
 import VendorStats from "../components/VendorStats";
 import { AccountSection, CreatorProfileSection } from "../components/VendorAccountSettings";
 import { PayoutSection, DeliverySection } from "../components/VendorPayouts";
+import PositionPicker from "../components/PositionPicker";
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RTooltip } from "recharts";
 import { DISCOUNT_PRESETS, clampDiscountPercent, getVendorDiscountPercent } from "../utils/discountUtils";
 
@@ -673,6 +674,21 @@ const OrderDetail = ({ order, onBack, onStatus, vendor }) => {
           <div className="bg-white border border-gray-200/80 rounded-2xl p-4">
             <p className="font-bold text-[14px] mb-2">Adresse</p>
             <p className="text-[13px] text-gray-600 leading-relaxed">{order.client_address || "—"}</p>
+
+            {/* Le trajet ouvre Buyticle Delivery sur cette commande. Sans point
+                enregistré par le client, il n'y a rien à tracer — on le dit
+                plutôt que d'ouvrir une carte vide. */}
+            {order.client_lat != null ? (
+              <a href={`/delivery/${order.id}`}
+                className="mt-3 inline-flex items-center gap-2 bg-gray-900 hover:bg-gray-800 text-white text-[12px] font-bold px-4 py-2.5 rounded-xl">
+                <i className="fa-solid fa-route" />Voir le trajet
+              </a>
+            ) : (
+              <p className="mt-3 text-[11px] text-gray-400">
+                <i className="fa-solid fa-circle-info mr-1.5" />
+                Ce client n'a pas enregistré sa position : le trajet ne peut pas être tracé.
+              </p>
+            )}
           </div>
           <div className="bg-white border border-gray-200/80 rounded-2xl p-4">
             <p className="font-bold text-[14px] mb-3">Suivi</p>
@@ -1060,6 +1076,27 @@ const SettingsView = ({ user, vendor, updateVendorField, updateVendorFields, sho
                   <textarea value={shop.description} onChange={e => setShopField("description", e.target.value)}
                     rows={3} className={`${settingsInput} resize-none`}
                     placeholder="Présente ta boutique en quelques lignes…" />
+                </div>
+
+                {/* Point de ramasse : d'où part la marchandise. C'est de là que
+                    se mesure la distance jusqu'au client, donc le prix de la
+                    course quand Buyticle Delivery s'en charge. */}
+                <div>
+                  <label className={settingsLabel}>Point de ramasse</label>
+                  <PositionPicker
+                    value={vendor.pickup_lat != null
+                      ? { lat: vendor.pickup_lat, lng: vendor.pickup_lng, label: vendor.pickup_label }
+                      : null}
+                    onChange={(pt) => updateVendorFields({
+                      pickup_lat:   pt?.lat ?? null,
+                      pickup_lng:   pt?.lng ?? null,
+                      pickup_label: pt?.label ?? null,
+                    })
+                      .then(() => showToast(pt ? "Point de ramasse enregistré" : "Point de ramasse retiré"))
+                      .catch(e => showToast("Erreur", e.message, "error"))}
+                    title="Où le livreur récupère les colis"
+                    hint="C'est de ce point que partent les distances, donc le prix des courses Buyticle Delivery."
+                  />
                 </div>
 
                 {shopError && (

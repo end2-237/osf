@@ -2750,6 +2750,168 @@ const PayoutsAdminTab = ({ onCountChange }) => {
   );
 };
 
+/* ═══════════════════════════════════════════════════════════════════════════
+   BUYTICLE DELIVERY — grille tarifaire
+   Une course, c'est deux trajets facturés séparément : aller chercher le colis
+   à la boutique, puis le porter au client. Chacun a sa base, ses kilomètres
+   compris et son prix au km.
+   ═══════════════════════════════════════════════════════════════════════════ */
+const RATE_FIELDS = [
+  { group: "Ramasse — notre base jusqu'à la boutique", items: [
+    { key: "pickup_base",     label: "Prise en charge (F)", hint: "Facturé dès la première course" },
+    { key: "pickup_free_km",  label: "Km compris",          hint: "Inclus dans la prise en charge", step: "0.5" },
+    { key: "pickup_per_km",   label: "Prix au km (F)",      hint: "Au-delà des km compris" },
+  ]},
+  { group: "Remise — la boutique jusqu'au client", items: [
+    { key: "dropoff_base",    label: "Prise en charge (F)", hint: "Facturé dès la première course" },
+    { key: "dropoff_free_km", label: "Km compris",          hint: "Inclus dans la prise en charge", step: "0.5" },
+    { key: "dropoff_per_km",  label: "Prix au km (F)",      hint: "Au-delà des km compris" },
+  ]},
+  { group: "Garde-fous", items: [
+    { key: "min_fee",     label: "Course minimum (F)", hint: "Plancher, quelle que soit la distance" },
+    { key: "max_km",      label: "Rayon maximum (km)", hint: "Au-delà, la course est refusée", step: "0.5" },
+    { key: "road_factor", label: "Facteur route",      hint: "Vol d'oiseau → distance réelle", step: "0.05" },
+  ]},
+];
+
+const DeliveryRatesPanel = () => {
+  const [rates,  setRates]  = useState(null);
+  const [form,   setForm]   = useState(null);
+  const [busy,   setBusy]   = useState(false);
+  const [msg,    setMsg]    = useState("");
+
+  const load = async () => {
+    const { data } = await supabase.from("delivery_rates").select("*").maybeSingle();
+    setRates(data || null);
+    setForm(data || null);
+  };
+  useEffect(() => { load(); }, []);
+
+  const set = (k, v) => { setForm(f => ({ ...f, [k]: v })); setMsg(""); };
+  const dirty = form && rates && Object.keys(form).some(k => String(form[k]) !== String(rates[k]));
+
+  const save = async () => {
+    setBusy(true); setMsg("");
+    const patch = {};
+    RATE_FIELDS.flatMap(g => g.items).forEach(f => { patch[f.key] = Number(form[f.key]) || 0; });
+    patch.hub_lat   = Number(form.hub_lat)   || 0;
+    patch.hub_lng   = Number(form.hub_lng)   || 0;
+    patch.hub_label = form.hub_label || "";
+    patch.updated_at = new Date().toISOString();
+    const { error } = await supabase.from("delivery_rates").update(patch).eq("id", true);
+    setBusy(false);
+    if (error) return setMsg(error.message);
+    setRates({ ...form, ...patch });
+    setMsg("Grille enregistrée.");
+  };
+
+  // Aperçu : ce que paierait un client à 5 km d'une boutique située à 3 km du hub.
+  const preview = (() => {
+    if (!form) return null;
+    const pk = 3, dk = 5;
+    const pf = Number(form.pickup_base)  + Math.ceil(Math.max(pk - form.pickup_free_km,  0) * form.pickup_per_km);
+    const df = Number(form.dropoff_base) + Math.ceil(Math.max(dk - form.dropoff_free_km, 0) * form.dropoff_per_km);
+    return { pf, df, total: Math.max(pf + df, Number(form.min_fee) || 0) };
+  })();
+
+  if (!form) {
+    return (
+      <div className="bg-white border border-[#D5D9D9] rounded-xl p-10 text-center text-[11px] font-bold text-[#565959]">
+        <i className="fa-solid fa-spinner fa-spin mr-2" />Chargement de la grille…
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="bg-[#131921] rounded-xl px-5 py-4 flex items-end justify-between gap-4 flex-wrap">
+        <div>
+          <p className="text-[9px] font-black uppercase tracking-widest text-[#FF9900] mb-0.5">Livraison</p>
+          <h2 className="text-white font-black text-lg leading-tight">Tarifs Buyticle Delivery</h2>
+          <p className="text-[10px] text-[#ADBAC7] mt-0.5">
+            Deux trajets facturés séparément — le prix est calculé en base, pas dans le navigateur
+          </p>
+        </div>
+        <a href="/delivery" target="_blank" rel="noreferrer"
+          className="bg-[#FF9900] hover:bg-[#e08800] text-[#131921] text-[10px] font-black uppercase tracking-wider px-4 py-2.5 rounded-lg">
+          <i className="fa-solid fa-map-location-dot mr-1.5" />Ouvrir la console
+        </a>
+      </div>
+
+      {RATE_FIELDS.map(g => (
+        <div key={g.group} className="bg-white border border-[#D5D9D9] rounded-xl p-5">
+          <p className="text-[10px] font-black uppercase tracking-widest text-[#565959] mb-3">{g.group}</p>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            {g.items.map(f => (
+              <div key={f.key}>
+                <label className="text-[9px] font-black uppercase tracking-widest text-[#565959] block mb-1.5">{f.label}</label>
+                <input type="number" min={0} step={f.step || "1"} value={form[f.key] ?? ""}
+                  onChange={e => set(f.key, e.target.value)}
+                  className="w-full bg-white border border-[#D5D9D9] rounded-lg px-3 py-2.5 text-sm outline-none focus:border-[#FF9900]" />
+                <p className="text-[9px] text-[#565959] mt-1">{f.hint}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+
+      <div className="bg-white border border-[#D5D9D9] rounded-xl p-5">
+        <p className="text-[10px] font-black uppercase tracking-widest text-[#565959] mb-3">
+          Base de départ des livreurs
+        </p>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="sm:col-span-1">
+            <label className="text-[9px] font-black uppercase tracking-widest text-[#565959] block mb-1.5">Latitude</label>
+            <input type="number" step="0.0001" value={form.hub_lat ?? ""} onChange={e => set("hub_lat", e.target.value)}
+              className="w-full bg-white border border-[#D5D9D9] rounded-lg px-3 py-2.5 text-sm outline-none focus:border-[#FF9900]" />
+          </div>
+          <div className="sm:col-span-1">
+            <label className="text-[9px] font-black uppercase tracking-widest text-[#565959] block mb-1.5">Longitude</label>
+            <input type="number" step="0.0001" value={form.hub_lng ?? ""} onChange={e => set("hub_lng", e.target.value)}
+              className="w-full bg-white border border-[#D5D9D9] rounded-lg px-3 py-2.5 text-sm outline-none focus:border-[#FF9900]" />
+          </div>
+          <div className="sm:col-span-1">
+            <label className="text-[9px] font-black uppercase tracking-widest text-[#565959] block mb-1.5">Libellé</label>
+            <input value={form.hub_label ?? ""} onChange={e => set("hub_label", e.target.value)}
+              className="w-full bg-white border border-[#D5D9D9] rounded-lg px-3 py-2.5 text-sm outline-none focus:border-[#FF9900]" />
+          </div>
+        </div>
+      </div>
+
+      {preview && (
+        <div className="bg-[#FFF8D3] border border-[#FCD200]/50 rounded-xl px-5 py-4">
+          <p className="text-[10px] font-black uppercase tracking-widest text-[#B26200] mb-1">Exemple</p>
+          <p className="text-[12px] text-[#0F1111]">
+            Boutique à 3 km de la base, client à 5 km de la boutique :
+            {" "}<strong>{preview.pf.toLocaleString("fr-FR")} F</strong> de ramasse
+            {" "}+ <strong>{preview.df.toLocaleString("fr-FR")} F</strong> de remise
+            {" "}= <strong>{preview.total.toLocaleString("fr-FR")} F</strong> facturés au client.
+          </p>
+        </div>
+      )}
+
+      {msg && (
+        <p className={`text-[11px] font-bold ${msg.includes("enregistr") ? "text-[#007600]" : "text-[#B12704]"}`}>
+          <i className={`fa-solid ${msg.includes("enregistr") ? "fa-circle-check" : "fa-circle-exclamation"} mr-1.5`} />{msg}
+        </p>
+      )}
+
+      <div className="flex gap-2">
+        <button onClick={save} disabled={busy || !dirty}
+          className="bg-[#131921] hover:bg-[#232F3E] text-white text-[10px] font-black uppercase tracking-wider px-5 py-2.5 rounded-lg disabled:opacity-40">
+          {busy ? "Enregistrement…" : "Enregistrer la grille"}
+        </button>
+        {dirty && (
+          <button onClick={() => { setForm(rates); setMsg(""); }}
+            className="text-[10px] font-black uppercase tracking-wider px-4 py-2.5 rounded-lg text-[#565959] hover:bg-[#EAEDED]">
+            Annuler
+          </button>
+        )}
+      </div>
+    </div>
+  );
+};
+
 const SuperAdmin = () => {
   const { user, isSuperAdmin } = useAuth();
   const navigate  = useNavigate();
@@ -2859,6 +3021,7 @@ const SuperAdmin = () => {
     { key: "orders",       icon: "fa-bag-shopping",   label: "Commandes",      badge: globalStats.pending    || 0 },
     { key: "fulfillment",  icon: "fa-truck-fast",     label: "Fulfillment CJ", badge: globalStats.cjPending  || 0 },
     { key: "retraits",     icon: "fa-money-bill-transfer", label: "Retraits",  badge: pendingPayouts         || 0 },
+    { key: "livraison",    icon: "fa-map-location-dot", label: "Livraison"       },
     { key: "products",     icon: "fa-boxes-stacked",  label: "Produits"        },
     { key: "cj",           icon: "fa-diagram-project",   label: "CJ Import"       },
     { key: "reviews",      icon: "fa-star",            label: "Avis",           badge: globalStats.pendingReviews || 0 },
@@ -2951,6 +3114,10 @@ const SuperAdmin = () => {
 
         {activeTab === "retraits" && (
           <PayoutsAdminTab onCountChange={setPendingPayouts} />
+        )}
+
+        {activeTab === "livraison" && (
+          <DeliveryRatesPanel />
         )}
 
         {activeTab === "products" && (
