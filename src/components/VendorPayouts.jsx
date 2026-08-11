@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { supabase } from "../lib/supabase";
+import PositionPicker from "./PositionPicker";
 
 /* ════════════════════════════════════════════════════════════════════════════
    RETRAITS & LIVRAISON
@@ -328,6 +329,34 @@ export const DeliverySection = ({ vendor, updateVendorFields, showToast, section
   const set = (k, v) => { setForm(f => ({ ...f, [k]: v })); setMsg(null); };
   const dirty = Object.keys(form).some(k => String(form[k] ?? "") !== String(vendor?.[k] ?? ""));
 
+  const hasPickup = vendor?.pickup_lat != null && vendor?.pickup_lng != null;
+
+  // Le point est enregistré à la seconde où il est posé : c'est un repère, pas
+  // un brouillon, et l'oublier dans un formulaire non validé casserait tout le
+  // reste sans que le vendeur comprenne pourquoi.
+  const savePickup = async (pt) => {
+    try {
+      await updateVendorFields({
+        pickup_lat:   pt?.lat ?? null,
+        pickup_lng:   pt?.lng ?? null,
+        pickup_label: pt?.label ?? null,
+      });
+      showToast?.(pt ? "Boutique placée sur la carte" : "Position retirée");
+    } catch (e) { showToast?.("Erreur", e.message, "error"); }
+  };
+
+  // Choisir Buyticle Delivery sans point de départ n'a pas de sens : la base
+  // refuserait de toute façon, autant l'expliquer avant le clic.
+  const [modeMsg, setModeMsg] = useState("");
+  const chooseMode = (key) => {
+    if (key === "buyticle" && !hasPickup) {
+      setModeMsg("Place d'abord ta boutique sur la carte : c'est de là que part notre livreur.");
+      return;
+    }
+    setModeMsg("");
+    set("delivery_mode", key);
+  };
+
   const save = async () => {
     const fee = form.delivery_fee === "" ? 0 : Math.round(Number(form.delivery_fee));
     const thr = form.free_delivery_threshold === "" ? null : Math.round(Number(form.free_delivery_threshold));
@@ -356,6 +385,29 @@ export const DeliverySection = ({ vendor, updateVendorFields, showToast, section
   return (
     <div id="livraison" ref={sectionRef} className="scroll-mt-24 bg-white border border-gray-200/80 rounded-2xl p-5 space-y-4">
       <div>
+        <p className="font-bold text-[15px] mb-1">D'où partent tes livraisons</p>
+        <p className="text-[13px] text-gray-500 mb-3">
+          Place ta boutique sur la carte. C'est le point de départ de chaque trajet : sans lui,
+          impossible de tracer l'itinéraire jusqu'au client ni de calculer la distance.
+        </p>
+        <PositionPicker
+          value={vendor.pickup_lat != null
+            ? { lat: vendor.pickup_lat, lng: vendor.pickup_lng, label: vendor.pickup_label }
+            : null}
+          onChange={savePickup}
+          title="Position de la boutique"
+          hint="Pose l'épingle sur ta devanture : le livreur vient là, et les distances partent de là."
+        />
+        {!hasPickup && (
+          <p className="text-[12px] text-orange-600 mt-2">
+            <i className="fa-solid fa-triangle-exclamation mr-1.5" />
+            Tant que ta boutique n'est pas placée, aucun trajet ne s'affiche et Buyticle Delivery
+            ne peut pas chiffrer les courses de tes clients.
+          </p>
+        )}
+      </div>
+
+      <div className="border-t border-gray-100 pt-4">
         <p className="font-bold text-[15px] mb-1">Qui livre tes commandes ?</p>
         <p className="text-[13px] text-gray-500">
           Ce choix décide aussi de qui encaisse l'argent des commandes payées à la livraison.
@@ -366,7 +418,7 @@ export const DeliverySection = ({ vendor, updateVendorFields, showToast, section
         {DELIVERY_MODES.map(m => {
           const on = form.delivery_mode === m.key;
           return (
-            <button key={m.key} type="button" onClick={() => set("delivery_mode", m.key)}
+            <button key={m.key} type="button" onClick={() => chooseMode(m.key)}
               className={`text-left p-4 rounded-xl border-2 transition-colors ${
                 on ? "border-gray-900 bg-gray-50" : "border-gray-200 hover:border-gray-300"
               }`}>
@@ -383,6 +435,12 @@ export const DeliverySection = ({ vendor, updateVendorFields, showToast, section
           );
         })}
       </div>
+
+      {modeMsg && (
+        <p className="text-[12px] text-red-500 -mt-1">
+          <i className="fa-solid fa-circle-exclamation mr-1.5" />{modeMsg}
+        </p>
+      )}
 
       <div className="border-t border-gray-100 pt-4">
         <p className="font-bold text-[15px] mb-1">Frais de livraison</p>

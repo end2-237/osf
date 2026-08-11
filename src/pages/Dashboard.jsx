@@ -7,7 +7,6 @@ import AddProductWizard from "../components/AddProductWizard";
 import VendorStats from "../components/VendorStats";
 import { AccountSection, CreatorProfileSection } from "../components/VendorAccountSettings";
 import { PayoutSection, DeliverySection } from "../components/VendorPayouts";
-import PositionPicker from "../components/PositionPicker";
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RTooltip } from "recharts";
 import { DISCOUNT_PRESETS, clampDiscountPercent, getVendorDiscountPercent } from "../utils/discountUtils";
 
@@ -956,6 +955,7 @@ const SettingsView = ({ user, vendor, updateVendorField, updateVendorFields, sho
   if (!vendor.logo_url)  todos.push({ id: "logo",  section: "boutique", label: "Ajouter une photo de profil" });
   if (!vendor.cover_url) todos.push({ id: "cover", section: "boutique", label: "Ajouter une photo de couverture" });
   if (!vendor.description) todos.push({ id: "desc", section: "boutique", label: "Décrire ta boutique" });
+  if (vendor.pickup_lat == null) todos.push({ id: "pickup", section: "livraison", label: "Placer ta boutique sur la carte" });
   if (!vendor.delivery_zones) todos.push({ id: "zones", section: "livraison", label: "Préciser tes zones de livraison" });
   // Le rappel des numéros d'encaissement est porté par la section Retraits,
   // seule à connaître leur état.
@@ -1078,26 +1078,6 @@ const SettingsView = ({ user, vendor, updateVendorField, updateVendorFields, sho
                     placeholder="Présente ta boutique en quelques lignes…" />
                 </div>
 
-                {/* Point de ramasse : d'où part la marchandise. C'est de là que
-                    se mesure la distance jusqu'au client, donc le prix de la
-                    course quand Buyticle Delivery s'en charge. */}
-                <div>
-                  <label className={settingsLabel}>Point de ramasse</label>
-                  <PositionPicker
-                    value={vendor.pickup_lat != null
-                      ? { lat: vendor.pickup_lat, lng: vendor.pickup_lng, label: vendor.pickup_label }
-                      : null}
-                    onChange={(pt) => updateVendorFields({
-                      pickup_lat:   pt?.lat ?? null,
-                      pickup_lng:   pt?.lng ?? null,
-                      pickup_label: pt?.label ?? null,
-                    })
-                      .then(() => showToast(pt ? "Point de ramasse enregistré" : "Point de ramasse retiré"))
-                      .catch(e => showToast("Erreur", e.message, "error"))}
-                    title="Où le livreur récupère les colis"
-                    hint="C'est de ce point que partent les distances, donc le prix des courses Buyticle Delivery."
-                  />
-                </div>
 
                 {shopError && (
                   <p className="text-[12px] text-red-500">

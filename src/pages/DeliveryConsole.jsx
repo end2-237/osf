@@ -373,9 +373,16 @@ const FleetCard = ({ total, stats, order, driver, onLocate }) => (
    ════════════════════════════════════════════════════════════════════════════ */
 const FLOW = ["confirmed", "paid", "shipped", "in_transit", "delivered"];
 
-const LatestOrderCard = ({ order, leg, onSeeAll }) => {
+const LatestOrderCard = ({ order, leg, pickupLeg, onSeeAll }) => {
   const step  = Math.max(0, FLOW.indexOf(order?.status || ""));
   const pct   = order?.status === "delivered" ? 100 : Math.round((step / (FLOW.length - 1)) * 100);
+
+  // Un trajet manquant a toujours une cause précise. La nommer évite au vendeur
+  // de croire à une panne alors qu'il lui manque une épingle.
+  const gap = !order ? null
+    : !Number.isFinite(order.pickup_lat) ? "La boutique n'a pas placé sa position sur la carte."
+    : !Number.isFinite(order.client_lat) ? "Le client n'a pas enregistré sa position."
+    : null;
 
   return (
     <div className={`${card} p-5`} style={{ borderColor: BORDER }}>
@@ -412,9 +419,20 @@ const LatestOrderCard = ({ order, leg, onSeeAll }) => {
             <i className="fa-solid fa-truck-fast absolute text-[11px] -top-[6px]"
               style={{ left: `calc(${pct}% - 8px)`, color: INK }} />
           </div>
-          <p className="text-[10px]" style={{ color: MUTED }}>
-            {leg?.km != null ? <>{formatKm(leg.km)} · {formatDuration(leg.minutes)}{leg.approximate ? " (estimé)" : ""}</> : "Trajet indisponible"}
-          </p>
+          {gap ? (
+            <p className="text-[10px] font-bold" style={{ color: "#B26200" }}>
+              <i className="fa-solid fa-triangle-exclamation mr-1" />{gap}
+            </p>
+          ) : (
+            <p className="text-[10px]" style={{ color: MUTED }}>
+              {pickupLeg?.km != null && (
+                <>ramasse {formatKm(pickupLeg.km)} · </>
+              )}
+              {leg?.km != null
+                ? <>remise {formatKm(leg.km)} · {formatDuration(leg.minutes)}{leg.approximate ? " (estimé)" : ""}</>
+                : "Trajet en cours de calcul…"}
+            </p>
+          )}
         </div>
 
         <div className="w-[110px] h-[92px] rounded-2xl overflow-hidden flex-shrink-0" style={{ background: DARK }}>
@@ -540,8 +558,10 @@ const DeliveryConsole = () => {
   const [tab,      setTab]      = useState("board");
   const [route,    setRoute]    = useState(null);
   const [leg,      setLeg]      = useState(null);
+  const [pickupLeg, setPickupLeg] = useState(null);
   const [center,   setCenter]   = useState(DEFAULT_CENTER);
   const [profile,  setProfile]  = useState(null);
+  const [hub,      setHub]      = useState(null);
 
   /* ── Chargement ───────────────────────────────────────────────────────── */
   useEffect(() => {
@@ -549,14 +569,18 @@ const DeliveryConsole = () => {
     let alive = true;
     (async () => {
       setLoading(true); setError("");
-      const [{ data, error: e }, { data: prof }] = await Promise.all([
+      const [{ data, error: e }, { data: prof }, { data: rates }] = await Promise.all([
         supabase.rpc("delivery_feed"),
         supabase.from("profiles").select("full_name, avatar_url, is_driver").eq("id", user.id).maybeSingle(),
+        supabase.from("delivery_rates").select("hub_lat, hub_lng, hub_label").maybeSingle(),
       ]);
       if (!alive) return;
       if (e) setError(e.message);
       setFeed(data || []);
       setProfile(prof || null);
+      setHub(rates?.hub_lat != null
+        ? { lat: rates.hub_lat, lng: rates.hub_lng, label: rates.hub_label }
+        : null);
       setLoading(false);
     })();
     return () => { alive = false; };
@@ -576,27 +600,40 @@ const DeliveryConsole = () => {
   );
 
   /* ── Tracé de la course choisie ───────────────────────────────────────── */
+  const byBuyticle = current?.delivery_mode === "buyticle";
+
   useEffect(() => {
     let alive = true;
     if (!current || !Number.isFinite(current.pickup_lat) || !Number.isFinite(current.client_lat)) {
-      setRoute(null); setLeg(null);
+      setRoute(null); setLeg(null); setPickupLeg(null);
       return;
     }
     (async () => {
-      const r = await routeBetween([
+      // Le trajet facturé au client : boutique → client.
+      const drop = await routeBetween([
         { lat: current.pickup_lat, lng: current.pickup_lng },
         { lat: current.client_lat, lng: current.client_lng },
       ]);
+      // Quand c'est Buyticle qui livre, la course commence avant : notre
+      // livreur part de la base pour aller chercher le colis. On trace
+      // l'itinéraire entier, celui qu'on facture en deux morceaux.
+      const pick = byBuyticle && hub
+        ? await routeBetween([hub, { lat: current.pickup_lat, lng: current.pickup_lng }])
+        : null;
       if (!alive) return;
-      setRoute(r?.coords || null);
-      setLeg(r || null);
+      setRoute([...(pick?.coords || []), ...(drop?.coords || [])]);
+      setLeg(drop || null);
+      setPickupLeg(pick || null);
     })();
     return () => { alive = false; };
-  }, [current?.id, current?.pickup_lat, current?.client_lat]);   // eslint-disable-line react-hooks/exhaustive-deps
+  }, [current?.id, current?.pickup_lat, current?.client_lat, byBuyticle, hub?.lat]);   // eslint-disable-line react-hooks/exhaustive-deps
 
   /* ── Marqueurs : la course choisie en entier, les autres en point ─────── */
   const markers = useMemo(() => {
     const out = [];
+    if (current && byBuyticle && hub && Number.isFinite(current.pickup_lat))
+      out.push({ lat: hub.lat, lng: hub.lng, color: "#4a5057",
+                 icon: "fa-warehouse", label: hub.label || "Base Buyticle" });
     if (current) {
       if (Number.isFinite(current.pickup_lat))
         out.push({ lat: current.pickup_lat, lng: current.pickup_lng, color: DARK,
@@ -613,7 +650,7 @@ const DeliveryConsole = () => {
         title: `#${o.order_number || String(o.id).slice(0, 8)} — ${o.client_name}`,
       }));
     return out;
-  }, [current, visible]);
+  }, [current, visible, byBuyticle, hub]);
 
   /* ── Indicateurs, tous tirés des commandes réelles ────────────────────── */
   const kpis = useMemo(() => {
@@ -768,7 +805,7 @@ const DeliveryConsole = () => {
 
           {/* ── colonne 3 ── */}
           <div className="space-y-3 sm:space-y-4">
-            <LatestOrderCard order={current} leg={leg} onSeeAll={() => setTab("courses")} />
+            <LatestOrderCard order={current} leg={leg} pickupLeg={pickupLeg} onSeeAll={() => setTab("courses")} />
             <RevenueCard months={kpis.months} total={kpis.totalFees} delta={kpis.delta} />
           </div>
         </div>
