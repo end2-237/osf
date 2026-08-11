@@ -1,172 +1,36 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { useParams, Link, useSearchParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import ProductCard from '../components/ProductCard';
-import ofsLogo from '../assets/buyticle.svg';
 import { getVendorDiscountPercent } from '../utils/discountUtils';
 
-/* ── SKELETON ── */
-const ProductSkeleton = () => (
-  <div className="animate-pulse">
-    <div className="aspect-[3/4] overflow-hidden bg-zinc-900 rounded-2xl mb-3 relative flex items-center justify-center">
-      <img src={ofsLogo} alt="" className="w-10 opacity-10 grayscale" />
-      <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent -translate-x-full animate-[shimmer_2s_infinite]"></div>
-    </div>
-    <div className="space-y-1.5">
-      <div className="h-2.5 bg-zinc-800 rounded w-3/4"></div>
-      <div className="flex justify-between">
-        <div className="h-2 bg-zinc-800 rounded w-1/3"></div>
-        <div className="h-2.5 bg-zinc-800 rounded w-1/4"></div>
-      </div>
-    </div>
-  </div>
-);
-const VendorMemberBadge = ({ vendor }) => {
-  if (!vendor?.member_discount_enabled) return null;
-  return (
-    <div className="flex items-center gap-2 bg-primary/10 border border-primary/30 text-primary text-[9px] font-black px-3 py-1.5 rounded-full uppercase">
-      <i className="fa-solid fa-tag text-[8px]"></i>
-      <span>Remise −{getVendorDiscountPercent(vendor)}% membres sur tout</span>
-    </div>
-  );
-};
+/* ──────────────────────────────────────────────────────────────────────────
+   Jetons de style — alignés sur la page Panier (panneaux blancs sur fond
+   gris, liens teal, prix rouge, boutons pilule jaunes) et déclinés pour le
+   thème sombre : chaque couleur a sa variante `dark:` pour que la page
+   bascule avec le reste du site.
+   ────────────────────────────────────────────────────────────────────────── */
+const PAGE_BG  = 'bg-[#E3E6E6] dark:bg-black';
+const PANEL    = 'bg-white dark:bg-zinc-900 dark:border dark:border-white/10';
+const TXT      = 'text-[#0F1111] dark:text-white';
+const MUTED    = 'text-[#565959] dark:text-zinc-400';
+const FAINT    = 'text-[#767676] dark:text-zinc-500';
+const LINK     = 'text-[#007185] hover:text-[#C7511F] dark:text-sky-400 dark:hover:text-primary transition-colors';
+const PRICE    = 'text-[#B12704] dark:text-primary';
+const OK       = 'text-[#007600] dark:text-emerald-400';
+const DIV      = 'border-[#E7E7E7] dark:border-white/10';
+const FIELD    = 'bg-white dark:bg-zinc-950 border border-[#888C8C] dark:border-white/15 focus:border-[#E77600] dark:focus:border-primary focus:outline-none focus:shadow-[0_0_0_3px_rgba(228,121,17,.25)] rounded-md text-[#0F1111] dark:text-white placeholder-[#767676] dark:placeholder-zinc-500 transition';
+const BTN_YEL  = 'bg-[#FFD814] hover:bg-[#F7CA00] border border-[#FCD200] text-[#0F1111] dark:bg-primary dark:hover:bg-[#e58a00] dark:border-primary dark:text-black rounded-full transition shadow-[0_2px_5px_rgba(213,217,217,.5)] dark:shadow-none';
+const BTN_GREY = 'bg-white hover:bg-[#F7FAFA] border border-[#D5D9D9] text-[#0F1111] dark:bg-zinc-800 dark:hover:bg-zinc-700 dark:border-white/15 dark:text-white rounded-full transition shadow-[0_2px_5px_rgba(213,217,217,.5)] dark:shadow-none';
+const SKELETON = 'bg-[#F0F2F2] dark:bg-zinc-800';
 
-/* ── VENDOR PROFILE HEADER ── */
-const VendorHeader = ({ vendor, products, loading }) => {
-  const totalRevenue = products.reduce((acc, p) => acc + Number(p.price || 0), 0);
-  const categories = [...new Set(products.map(p => p.type))];
+const fcfa = (n) => Number(n || 0).toLocaleString('fr-FR');
 
-  if (loading && !vendor) return (
-    <div className="relative h-[350px] bg-zinc-900 animate-pulse rounded-b-3xl overflow-hidden">
-      <div className="absolute bottom-0 left-0 right-0 p-8 flex items-end gap-6">
-        <div className="w-24 h-24 bg-zinc-800 rounded-2xl"></div>
-        <div className="space-y-2 flex-1">
-          <div className="h-8 bg-zinc-800 rounded w-1/3"></div>
-          <div className="h-3 bg-zinc-800 rounded w-1/4"></div>
-        </div>
-      </div>
-    </div>
-  );
-
-  return (
-    <div className="relative">
-      {/* COVER IMAGE */}
-      <div className="relative h-[280px] md:h-[360px] overflow-hidden rounded-b-3xl">
-        <img
-          src={vendor?.cover_url || `https://picsum.photos/1600/600?random=${vendor?.id || 1}`}
-          className={`w-full h-full object-cover ${vendor?.cover_url ? 'opacity-60' : 'opacity-40 grayscale'}`}
-          alt=""
-        />
-        {/* GRADIENT OVERLAYS */}
-        <div className="absolute inset-0 bg-gradient-to-t from-black via-black/60 to-transparent"></div>
-        <div className="absolute inset-0 bg-gradient-to-r from-black/40 to-transparent"></div>
-
-        {/* DECORATIVE GRID PATTERN */}
-        <div
-          className="absolute inset-0 opacity-[0.04]"
-          style={{
-            backgroundImage: 'linear-gradient(rgba(0,255,136,1) 1px, transparent 1px), linear-gradient(90deg, rgba(0,255,136,1) 1px, transparent 1px)',
-            backgroundSize: '40px 40px',
-          }}
-        />
-
-        {/* GLOW */}
-        <div className="absolute bottom-0 left-0 w-[400px] h-[200px] bg-primary/10 blur-[100px] rounded-full"></div>
-
-        {/* VENDOR INFO */}
-        <div className="absolute bottom-0 left-0 right-0 p-6 md:p-10">
-          <div className="max-w-[1400px] mx-auto flex flex-col md:flex-row items-start md:items-end gap-5 md:gap-8">
-
-            {/* AVATAR */}
-            <div className="relative flex-shrink-0">
-              <div className="w-20 h-20 md:w-24 md:h-24 rounded-2xl bg-gradient-to-br from-primary/20 to-primary/5 border-2 border-primary/40 flex items-center justify-center shadow-[0_0_30px_rgba(0,255,136,0.2)] overflow-hidden">
-                {vendor?.logo_url
-                  ? <img src={vendor.logo_url} alt={vendor.shop_name} className="w-full h-full object-cover" />
-                  : <i className="fa-solid fa-store text-primary text-3xl"></i>}
-              </div>
-              <div className="absolute -bottom-1 -right-1 bg-primary rounded-full w-5 h-5 flex items-center justify-center shadow-lg">
-                <i className="fa-solid fa-check text-black text-[8px]"></i>
-              </div>
-            </div>
-
-            {/* NAME + META */}
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-3 mb-1 flex-wrap">
-                <h1 className="text-3xl md:text-5xl font-black italic uppercase tracking-tighter text-white leading-none">
-                  {vendor?.shop_name || '...'}
-                </h1>
-                <span className="bg-primary text-black text-[8px] font-black px-3 py-1 rounded-full uppercase">Certifié Elite</span>
-              </div>
-              <div className="flex items-center gap-4 flex-wrap text-[10px] font-black uppercase text-zinc-400">
-                <span><i className="fa-solid fa-user mr-1.5 text-primary"></i>{vendor?.full_name}</span>
-                <span><i className="fa-solid fa-location-dot mr-1.5 text-primary"></i>Douala, CM 🇨🇲</span>
-                <span><i className="fa-solid fa-box mr-1.5 text-primary"></i>{products.length} produits</span>
-                {categories.length > 0 && (
-                  <span><i className="fa-solid fa-tag mr-1.5 text-primary"></i>{categories.slice(0,2).join(' · ')}</span>
-                )}
-              </div>
-              <VendorMemberBadge vendor={vendor} />
-            </div>
-
-            {/* STATS PILLS */}
-            <div className="flex gap-2 flex-wrap">
-              <div className="bg-black/60 backdrop-blur-md border border-white/10 rounded-2xl px-4 py-3 text-center min-w-[70px]">
-                <p className="text-primary font-black text-xl leading-none">{products.length}</p>
-                <p className="text-[8px] font-black uppercase text-zinc-400 mt-0.5">Items</p>
-              </div>
-              <div className="bg-black/60 backdrop-blur-md border border-white/10 rounded-2xl px-4 py-3 text-center min-w-[70px]">
-                <p className="text-yellow-400 font-black text-xl leading-none">4.8</p>
-                <p className="text-[8px] font-black uppercase text-zinc-400 mt-0.5">Rating</p>
-              </div>
-              <div className="bg-black/60 backdrop-blur-md border border-white/10 rounded-2xl px-4 py-3 text-center min-w-[80px]">
-                <p className="text-primary font-black text-xl leading-none">Fast</p>
-                <p className="text-[8px] font-black uppercase text-zinc-400 mt-0.5">Livraison</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-/* ── CATEGORY FILTER TABS ── */
-const CategoryTabs = ({ categories, active, onChange }) => (
-  <div className="flex items-center gap-2 overflow-x-auto hide-scrollbar py-1">
-    <button
-      onClick={() => onChange('Tous')}
-      className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-wider whitespace-nowrap transition-all border flex-shrink-0 ${
-        active === 'Tous'
-          ? 'bg-primary text-black border-primary shadow-[0_0_12px_rgba(0,255,136,0.3)]'
-          : 'bg-zinc-950 border-white/10 text-zinc-400 hover:border-white/20 hover:text-white'
-      }`}
-    >
-      <i className="fa-solid fa-table-cells text-xs"></i>
-      <span>Tous ({categories.total})</span>
-    </button>
-    {categories.items.map(cat => (
-      <button
-        key={cat.name}
-        onClick={() => onChange(cat.name)}
-        className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-wider whitespace-nowrap transition-all border flex-shrink-0 ${
-          active === cat.name
-            ? 'bg-primary text-black border-primary shadow-[0_0_12px_rgba(0,255,136,0.3)]'
-            : 'bg-zinc-950 border-white/10 text-zinc-400 hover:border-white/20 hover:text-white'
-        }`}
-      >
-        <i className={`fa-solid ${cat.icon} text-xs`}></i>
-        <span>{cat.name} ({cat.count})</span>
-      </button>
-    ))}
-  </div>
-);
-
-/* ── SORT DROPDOWN ── */
 const SORT_OPTIONS = [
-  { value: 'recent', label: 'Plus récents' },
-  { value: 'price-asc', label: 'Prix ↑' },
-  { value: 'price-desc', label: 'Prix ↓' },
-  { value: 'popular', label: 'Populaires' },
+  { value: 'recent',     label: 'Plus récents' },
+  { value: 'price-asc',  label: 'Prix croissant' },
+  { value: 'price-desc', label: 'Prix décroissant' },
+  { value: 'name',       label: 'Nom (A → Z)' },
 ];
 
 const TYPE_ICONS = {
@@ -175,58 +39,160 @@ const TYPE_ICONS = {
   'Clothing': 'fa-shirt',
   'Shoes': 'fa-shoe-prints',
   'Fragrance': 'fa-spray-can-sparkles',
+  'Beauté': 'fa-spray-can-sparkles',
   'Accessories': 'fa-gem',
+  'Femme': 'fa-person-dress',
+  'Maison': 'fa-house',
+  'Sport': 'fa-dumbbell',
+  'Bébé & Enfants': 'fa-baby',
+  'Auto': 'fa-car',
   'Bien-être': 'fa-spa',
   'Santé': 'fa-heart-pulse',
   'Nutrition': 'fa-apple-whole',
 };
 
-/* ── MAIN SHOPPAGE ── */
+/* ── SQUELETTES ─────────────────────────────────────────────────────────── */
+const ProductSkeleton = () => (
+  <div className="animate-pulse flex flex-col">
+    <div className={`aspect-square w-full rounded-lg mb-2 ${SKELETON}`} />
+    <div className={`h-3 rounded w-3/4 mb-1.5 ${SKELETON}`} />
+    <div className={`h-3 rounded w-1/2 mb-2 ${SKELETON}`} />
+    <div className={`h-7 rounded-full w-full ${SKELETON}`} />
+  </div>
+);
+
+/* ── EN-TÊTE BOUTIQUE ───────────────────────────────────────────────────── */
+const ShopHeader = ({ vendor, products, loading }) => {
+  const categories = [...new Set(products.map(p => p.type))].filter(Boolean);
+  const cheapest   = products.length
+    ? Math.min(...products.map(p => Number(p.price) || 0))
+    : 0;
+
+  if (loading && !vendor) return (
+    <div className={`${PANEL} p-4 md:p-6 animate-pulse`}>
+      <div className={`h-[120px] md:h-[160px] rounded-lg mb-4 ${SKELETON}`} />
+      <div className="flex items-end gap-4">
+        <div className={`w-20 h-20 rounded-lg ${SKELETON}`} />
+        <div className="flex-1 space-y-2">
+          <div className={`h-5 rounded w-1/3 ${SKELETON}`} />
+          <div className={`h-3 rounded w-1/4 ${SKELETON}`} />
+        </div>
+      </div>
+    </div>
+  );
+
+  return (
+    <div className={`${PANEL} overflow-hidden`}>
+      {/* Bandeau de couverture */}
+      <div className="relative h-[120px] md:h-[190px] bg-[#F0F2F2] dark:bg-zinc-950">
+        {vendor?.cover_url ? (
+          <img src={vendor.cover_url} alt="" className="w-full h-full object-cover" />
+        ) : (
+          <div className="w-full h-full bg-gradient-to-r from-[#232F3E] to-[#131921] flex items-center justify-center">
+            <i className="fa-solid fa-store text-[#FF9900]/25 text-5xl" />
+          </div>
+        )}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/55 to-transparent" />
+      </div>
+
+      {/* Identité */}
+      <div className="px-4 md:px-6 pb-4">
+        <div className="flex items-end gap-4 -mt-10 relative">
+          <div className="w-20 h-20 md:w-24 md:h-24 rounded-lg overflow-hidden bg-white dark:bg-zinc-800 border-4 border-white dark:border-zinc-900 flex items-center justify-center flex-shrink-0 shadow-sm">
+            {vendor?.logo_url
+              ? <img src={vendor.logo_url} alt={vendor.shop_name} className="w-full h-full object-cover" />
+              : <i className="fa-solid fa-store text-[#FF9900] text-2xl" />}
+          </div>
+          <div className="min-w-0 pb-1">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h1 className={`text-[22px] md:text-[28px] font-medium leading-tight truncate ${TXT}`}>
+                {vendor?.shop_name || '…'}
+              </h1>
+              <span className={`inline-flex items-center gap-1 text-[11px] ${OK}`}>
+                <i className="fa-solid fa-circle-check text-[10px]" />Boutique vérifiée
+              </span>
+            </div>
+            <p className={`text-[13px] ${MUTED}`}>
+              {vendor?.full_name}
+              {vendor?.city && <> · {vendor.city}</>}
+            </p>
+          </div>
+        </div>
+
+        {/* Bandeau chiffres + remise */}
+        <div className={`mt-4 pt-3 border-t ${DIV} flex flex-wrap items-center gap-x-6 gap-y-2 text-[13px]`}>
+          <span className={MUTED}>
+            <i className={`fa-solid fa-box mr-1.5 ${FAINT}`} />
+            <b className={TXT}>{products.length}</b> produit{products.length > 1 ? 's' : ''}
+          </span>
+          {categories.length > 0 && (
+            <span className={MUTED}>
+              <i className={`fa-solid fa-tag mr-1.5 ${FAINT}`} />
+              {categories.slice(0, 3).join(' · ')}
+            </span>
+          )}
+          {cheapest > 0 && (
+            <span className={MUTED}>
+              À partir de <b className={PRICE}>{fcfa(cheapest)} FCFA</b>
+            </span>
+          )}
+          <span className={MUTED}>
+            <i className="fa-solid fa-truck-fast text-[#FF9900] mr-1.5" />
+            Livraison à Douala
+          </span>
+          {vendor?.member_discount_enabled && (
+            <span className={`inline-flex items-center gap-1.5 text-[12px] px-2.5 py-1 rounded-md bg-[#E8F5E8] dark:bg-emerald-500/10 border border-[#007600]/20 dark:border-emerald-400/25 ${OK}`}>
+              <i className="fa-solid fa-tag text-[10px]" />
+              Membres : −{getVendorDiscountPercent(vendor)} % sur toute la boutique
+            </span>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+/* ── PAGE ───────────────────────────────────────────────────────────────── */
 const ShopPage = ({ openModal, addToCart }) => {
   const { shopName } = useParams();
-  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const autoModalDone = useRef(false);
 
-  const [vendor, setVendor] = useState(null);
+  const [vendor,   setVendor]   = useState(null);
   const [products, setProducts] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [loading,  setLoading]  = useState(true);
+
+  const [searchQuery,    setSearchQuery]    = useState('');
   const [activeCategory, setActiveCategory] = useState('Tous');
-  const [sortBy, setSortBy] = useState('recent');
-  const [viewMode, setViewMode] = useState('grid');
-  const [priceRange, setPriceRange] = useState([0, 500000]);
-  const [showFilters, setShowFilters] = useState(false);
+  const [sortBy,         setSortBy]         = useState('recent');
+  const [viewMode,       setViewMode]       = useState('grid');
+  const [maxBudget,      setMaxBudget]      = useState(null);
+  const [addedId,        setAddedId]        = useState(null);
 
   useEffect(() => {
     const fetchShopData = async () => {
       setLoading(true);
       try {
         const decoded = decodeURIComponent(shopName).trim();
-    
+
         const { data: allVendors, error: vError } = await supabase
           .from('vendors')
           .select('*');
-    
         if (vError) throw vError;
-    
+
         const vendorData = allVendors?.find(
           v => v.shop_name.trim().toLowerCase() === decoded.toLowerCase()
         );
-    
         if (!vendorData) throw new Error('Boutique introuvable');
-    
         setVendor(vendorData);
-    
+
         const { data: pData, error: pError } = await supabase
           .from('products')
           .select('*')
           .eq('vendor_id', vendorData.id)
           .order('created_at', { ascending: false });
-    
         if (pError) throw pError;
         setProducts(pData || []);
-    
       } catch (err) {
         console.error('Erreur boutique:', err.message);
       } finally {
@@ -250,268 +216,354 @@ const ShopPage = ({ openModal, addToCart }) => {
     }
   }, [loading, products, searchParams, openModal]);
 
-  // Catégories dynamiques
+  // Le produit courant porte les infos de remise de sa boutique.
+  const withVendor = (p) => ({ ...p, vendor });
+
+  // ─── Catégories dynamiques ───
   const categoryMap = products.reduce((acc, p) => {
-    acc[p.type] = (acc[p.type] || 0) + 1;
+    if (p.type) acc[p.type] = (acc[p.type] || 0) + 1;
     return acc;
   }, {});
-  const categories = {
-    total: products.length,
-    items: Object.entries(categoryMap).map(([name, count]) => ({
-      name,
-      count,
-      icon: TYPE_ICONS[name] || 'fa-tag',
-    })),
-  };
+  const categoryList = Object.entries(categoryMap)
+    .map(([name, count]) => ({ name, count, icon: TYPE_ICONS[name] || 'fa-tag' }))
+    .sort((a, b) => b.count - a.count);
 
-  // Filtered + sorted products
+  const maxPrice = products.length
+    ? Math.max(...products.map(p => Number(p.price) || 0))
+    : 0;
+  const budget = maxBudget ?? maxPrice;
+
   const filteredProducts = products
     .filter(p => activeCategory === 'Tous' || p.type === activeCategory)
-    .filter(p => searchQuery === '' || p.name.toLowerCase().includes(searchQuery.toLowerCase()))
-    .filter(p => Number(p.price) >= priceRange[0] && Number(p.price) <= priceRange[1])
+    .filter(p => !searchQuery || p.name?.toLowerCase().includes(searchQuery.toLowerCase()))
+    .filter(p => Number(p.price || 0) <= budget)
     .sort((a, b) => {
-      if (sortBy === 'price-asc') return Number(a.price) - Number(b.price);
+      if (sortBy === 'price-asc')  return Number(a.price) - Number(b.price);
       if (sortBy === 'price-desc') return Number(b.price) - Number(a.price);
+      if (sortBy === 'name')       return (a.name || '').localeCompare(b.name || '');
       return 0;
     });
 
-  const maxPrice = Math.max(...products.map(p => Number(p.price || 0)), 500000);
+  const hasFilters = !!searchQuery || activeCategory !== 'Tous' || (maxBudget != null && maxBudget < maxPrice);
+  const resetFilters = () => { setSearchQuery(''); setActiveCategory('Tous'); setMaxBudget(null); };
 
+  const quickAdd = (p) => {
+    addToCart({ ...withVendor(p), selectedSize: 'M', selectedColor: 'Black', quantity: 1 });
+    setAddedId(p.id);
+    setTimeout(() => setAddedId(null), 1500);
+  };
+
+  /* ── Boutique introuvable ── */
   if (!loading && !vendor) return (
-    <div className="pt-36 text-center min-h-screen bg-black">
-      <div className="text-center">
-        <i className="fa-solid fa-store-slash text-4xl text-zinc-700 mb-4"></i>
-        <p className="font-black uppercase text-zinc-500 text-lg italic">Boutique introuvable</p>
-        <Link to="/store" className="mt-4 inline-block bg-primary text-black px-8 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest">
-          Explorer le Store
-        </Link>
+    <div className={`min-h-screen ${PAGE_BG} p-3`}>
+      <div className={`max-w-[1500px] mx-auto ${PANEL} p-10 flex flex-col sm:flex-row items-center gap-10`}>
+        <div className={`w-40 h-40 rounded-full flex items-center justify-center flex-shrink-0 ${SKELETON}`}>
+          <i className="fa-solid fa-store-slash text-[#D5D9D9] dark:text-zinc-600 text-6xl" />
+        </div>
+        <div>
+          <h1 className={`text-[28px] font-bold leading-tight ${TXT}`}>Cette boutique est introuvable</h1>
+          <p className={`text-sm mt-2 ${MUTED}`}>
+            Le lien est peut-être erroné, ou la boutique n'est plus active.
+          </p>
+          <Link to="/store" className={`inline-block mt-4 text-sm font-medium px-8 py-2 ${BTN_YEL}`}>
+            Explorer le store
+          </Link>
+        </div>
       </div>
     </div>
   );
 
-  const VendorMemberBadge = ({ vendor }) => {
-    if (!vendor?.member_discount_enabled) return null;
-    return (
-      <div className="flex items-center gap-2 bg-primary/10 border border-primary/30 text-primary text-[9px] font-black px-3 py-1.5 rounded-full uppercase">
-        <i className="fa-solid fa-tag text-[8px]"></i>
-        <span>Remise −{getVendorDiscountPercent(vendor)}% membres sur tout</span>
-      </div>
-    );
-  };
-
   return (
-    <div className="min-h-screen bg-black text-white">
+    <div className={`min-h-screen ${PAGE_BG} p-2 md:p-3`}>
+      <div className="max-w-[1500px] mx-auto space-y-2 md:space-y-3">
 
-      {/* VENDOR PROFILE HEADER */}
-      <div className="pt-[116px]">
-        <VendorHeader vendor={vendor} products={products} loading={loading} />
-      </div>
+        {/* ═══ EN-TÊTE BOUTIQUE ═══ */}
+        <ShopHeader vendor={vendor} products={products} loading={loading} />
 
-      {/* ── MAIN CONTENT ── */}
-      <div className="max-w-[1400px] mx-auto px-4 md:px-8 pb-20 mt-6">
+        <div className="flex flex-col lg:flex-row gap-2 md:gap-3 items-start">
 
-        {/* SEARCH + FILTER BAR */}
-        <div className="bg-zinc-950 border border-white/5 rounded-2xl p-4 mb-5 flex flex-col md:flex-row items-stretch md:items-center gap-3">
+          {/* ═══ RAIL GAUCHE — filtres ═══ */}
+          <aside className={`w-full lg:w-[260px] flex-shrink-0 lg:sticky lg:top-[136px] ${PANEL}`}>
 
-          {/* SEARCH */}
-          <div className="flex-1 relative">
-            <input
-              type="text"
-              placeholder={`Rechercher dans ${vendor?.shop_name || 'la boutique'}...`}
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-              className="w-full bg-zinc-900 border border-white/10 rounded-xl px-4 py-3 pl-10 text-sm font-bold text-white placeholder-zinc-500 outline-none focus:border-primary transition-colors"
-            />
-            <i className="fa-solid fa-magnifying-glass absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500 text-sm"></i>
-            {searchQuery && (
-              <button
-                onClick={() => setSearchQuery('')}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-white transition-colors"
-              >
-                <i className="fa-solid fa-xmark text-sm"></i>
-              </button>
-            )}
-          </div>
-
-          <div className="flex items-center gap-2">
-            {/* SORT */}
-            <div className="relative">
-              <select
-                value={sortBy}
-                onChange={e => setSortBy(e.target.value)}
-                className="appearance-none bg-zinc-900 border border-white/10 rounded-xl px-4 py-3 pr-8 text-[10px] font-black uppercase text-zinc-300 outline-none focus:border-primary cursor-pointer transition-colors"
-              >
-                {SORT_OPTIONS.map(opt => (
-                  <option key={opt.value} value={opt.value}>{opt.label}</option>
-                ))}
-              </select>
-              <i className="fa-solid fa-chevron-down absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 text-[10px] pointer-events-none"></i>
-            </div>
-
-            {/* FILTERS TOGGLE */}
-            <button
-              onClick={() => setShowFilters(!showFilters)}
-              className={`flex items-center gap-2 px-4 py-3 rounded-xl text-[10px] font-black uppercase tracking-wider border transition-all ${
-                showFilters ? 'bg-primary text-black border-primary' : 'bg-zinc-900 border-white/10 text-zinc-300 hover:border-primary/50'
-              }`}
-            >
-              <i className="fa-solid fa-sliders text-xs"></i>
-              <span className="hidden md:inline">Filtres</span>
-            </button>
-
-            {/* VIEW MODE */}
-            <div className="flex bg-zinc-900 border border-white/10 rounded-xl overflow-hidden">
-              <button
-                onClick={() => setViewMode('grid')}
-                className={`px-3 py-3 transition-all ${viewMode === 'grid' ? 'bg-primary text-black' : 'text-zinc-400 hover:text-white'}`}
-              >
-                <i className="fa-solid fa-table-cells text-xs"></i>
-              </button>
-              <button
-                onClick={() => setViewMode('list')}
-                className={`px-3 py-3 transition-all ${viewMode === 'list' ? 'bg-primary text-black' : 'text-zinc-400 hover:text-white'}`}
-              >
-                <i className="fa-solid fa-list text-xs"></i>
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* PRICE FILTER (collapsible) */}
-        {showFilters && (
-          <div className="bg-zinc-950 border border-white/5 rounded-2xl p-5 mb-5 animate-fadeIn">
-            <div className="flex items-center justify-between mb-4">
-              <h4 className="text-[10px] font-black uppercase tracking-widest text-zinc-300">Budget Maximum</h4>
-              <span className="text-[10px] font-black text-primary">{priceRange[1].toLocaleString()} FCFA</span>
-            </div>
-            <input
-              type="range"
-              min="0"
-              max={maxPrice}
-              step="5000"
-              value={priceRange[1]}
-              onChange={e => setPriceRange([0, Number(e.target.value)])}
-              className="w-full accent-primary bg-zinc-800 h-1.5 rounded-full cursor-pointer"
-            />
-            <div className="flex justify-between mt-2 text-[9px] font-bold text-zinc-500">
-              <span>0 FCFA</span>
-              <span>{maxPrice.toLocaleString()} FCFA</span>
-            </div>
-          </div>
-        )}
-
-        {/* CATEGORY TABS */}
-        {categories.items.length > 0 && (
-          <div className="mb-5">
-            <CategoryTabs
-              categories={categories}
-              active={activeCategory}
-              onChange={setActiveCategory}
-            />
-          </div>
-        )}
-
-        {/* RESULTS COUNT + ACTIVE FILTERS */}
-        <div className="flex items-center justify-between mb-5">
-          <div className="flex items-center gap-3 flex-wrap">
-            <span className="text-[10px] font-black uppercase tracking-widest text-zinc-400">
-              <span className="text-primary">{filteredProducts.length}</span> produits
-              {activeCategory !== 'Tous' && <span className="ml-1">dans <span className="text-white">{activeCategory}</span></span>}
-            </span>
-            {(searchQuery || activeCategory !== 'Tous') && (
-              <button
-                onClick={() => { setSearchQuery(''); setActiveCategory('Tous'); }}
-                className="text-[9px] font-black uppercase text-red-400 hover:text-red-300 transition-colors border border-red-500/20 px-2 py-1 rounded-lg"
-              >
-                <i className="fa-solid fa-xmark mr-1"></i>Reset
-              </button>
-            )}
-          </div>
-        </div>
-
-        {/* PRODUCTS GRID / LIST */}
-        {loading ? (
-          <div className={`grid gap-4 ${viewMode === 'list' ? 'grid-cols-1' : 'grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5'}`}>
-            {Array.from({ length: 10 }).map((_, i) => <ProductSkeleton key={i} />)}
-          </div>
-        ) : filteredProducts.length === 0 ? (
-          <div className="py-32 text-center border-2 border-dashed border-zinc-900 rounded-3xl">
-            <i className="fa-solid fa-box-open text-4xl text-zinc-700 mb-4 block"></i>
-            <p className="font-black italic uppercase text-zinc-500 text-lg mb-2">Aucun produit trouvé</p>
-            <p className="text-zinc-600 text-sm font-bold mb-6">Essayez de changer vos filtres ou votre recherche</p>
-            <button
-              onClick={() => { setSearchQuery(''); setActiveCategory('Tous'); }}
-              className="bg-primary text-black px-8 py-3 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-white transition-colors"
-            >
-              Voir tous les produits
-            </button>
-          </div>
-        ) : viewMode === 'list' ? (
-          /* LIST VIEW */
-          <div className="space-y-3">
-            {filteredProducts.map(product => (
-              <div
-                key={product.id}
-                className="bg-zinc-950 border border-white/5 rounded-2xl p-4 flex items-center gap-4 group hover:border-primary/30 transition-all cursor-pointer"
-                onClick={() => openModal(product)}
-              >
-                <div className="w-20 h-20 rounded-xl overflow-hidden flex-shrink-0 bg-zinc-900">
-                  <img src={product.img} alt={product.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="text-[8px] font-black uppercase text-primary border border-primary/30 bg-primary/10 px-2 py-0.5 rounded-full">{product.status}</span>
-                    <span className="text-[8px] font-black uppercase text-zinc-500">{product.type}</span>
-                  </div>
-                  <h3 className="font-black uppercase italic tracking-tighter text-white truncate text-sm">{product.name}</h3>
-                  {product.features?.length > 0 && (
-                    <p className="text-[9px] text-zinc-500 font-bold truncate mt-0.5">{product.features.slice(0,2).join(' · ')}</p>
-                  )}
-                </div>
-                <div className="flex items-center gap-4 flex-shrink-0">
-                  <p className="font-black italic text-primary text-lg">{Number(product.price).toLocaleString()} <span className="text-xs">F</span></p>
-                  <button
-                    onClick={e => { e.stopPropagation(); addToCart({ ...product, selectedSize: 'M', selectedColor: 'Black', quantity: 1 }); }}
-                    className="w-10 h-10 bg-primary text-black rounded-xl flex items-center justify-center font-black hover:scale-110 transition-transform"
-                  >
-                    <i className="fa-solid fa-plus text-sm"></i>
+            {/* Recherche */}
+            <div className={`px-4 pt-4 pb-3 border-b ${DIV}`}>
+              <p className={`text-[13px] font-bold mb-2 ${TXT}`}>Rechercher</p>
+              <div className="relative">
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={e => setSearchQuery(e.target.value)}
+                  placeholder="Dans cette boutique…"
+                  className={`w-full pl-8 pr-7 py-1.5 text-[12px] ${FIELD}`}
+                />
+                <i className={`fa-solid fa-magnifying-glass absolute left-2.5 top-1/2 -translate-y-1/2 text-[11px] ${FAINT}`} />
+                {searchQuery && (
+                  <button onClick={() => setSearchQuery('')}
+                    className={`absolute right-2.5 top-1/2 -translate-y-1/2 text-[11px] ${FAINT} hover:text-[#0F1111] dark:hover:text-white`}>
+                    <i className="fa-solid fa-xmark" />
                   </button>
+                )}
+              </div>
+            </div>
+
+            {/* Catégories */}
+            {categoryList.length > 0 && (
+              <div className={`px-4 py-3 border-b ${DIV}`}>
+                <p className={`text-[13px] font-bold mb-2 ${TXT}`}>Catégories</p>
+                <ul className="space-y-1">
+                  <li>
+                    <button onClick={() => setActiveCategory('Tous')}
+                      className={`w-full flex items-center justify-between text-left text-[13px] py-0.5 ${
+                        activeCategory === 'Tous' ? `font-bold ${TXT}` : LINK
+                      }`}>
+                      <span>Tous les produits</span>
+                      <span className={`text-[11px] ${FAINT}`}>{products.length}</span>
+                    </button>
+                  </li>
+                  {categoryList.map(cat => (
+                    <li key={cat.name}>
+                      <button onClick={() => setActiveCategory(cat.name)}
+                        className={`w-full flex items-center justify-between gap-2 text-left text-[13px] py-0.5 ${
+                          activeCategory === cat.name ? `font-bold ${TXT}` : LINK
+                        }`}>
+                        <span className="truncate">
+                          <i className={`fa-solid ${cat.icon} mr-1.5 text-[10px] opacity-60`} />
+                          {cat.name}
+                        </span>
+                        <span className={`text-[11px] flex-shrink-0 ${FAINT}`}>{cat.count}</span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {/* Budget */}
+            {maxPrice > 0 && (
+              <div className={`px-4 py-3 border-b ${DIV}`}>
+                <p className={`text-[13px] font-bold mb-2 ${TXT}`}>Budget maximum</p>
+                <input
+                  type="range"
+                  min={0}
+                  max={maxPrice}
+                  step={Math.max(500, Math.round(maxPrice / 100))}
+                  value={budget}
+                  onChange={e => setMaxBudget(Number(e.target.value))}
+                  className="w-full accent-[#FF9900] cursor-pointer"
+                />
+                <div className={`flex justify-between text-[11px] mt-1 ${FAINT}`}>
+                  <span>0 F</span>
+                  <span className={`font-bold ${PRICE}`}>{fcfa(budget)} F</span>
                 </div>
               </div>
-            ))}
-          </div>
-        ) : (
-          /* GRID VIEW */
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 md:gap-5">
-            {filteredProducts.map(product => (
-              <ProductCard
-                key={product.id}
-                product={product}
-                openModal={openModal}
-                addToCart={addToCart}
-              />
-            ))}
-          </div>
-        )}
+            )}
 
-        {/* ── BACK TO MARKETPLACE ── */}
-        <div className="mt-16 text-center">
-          <Link
-            to="/store"
-            className="inline-flex items-center gap-3 bg-zinc-950 border border-white/10 hover:border-primary/40 text-zinc-300 hover:text-white px-8 py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all group"
-          >
-            <i className="fa-solid fa-store text-primary text-sm group-hover:scale-110 transition-transform"></i>
-            <span>Explorer la Marketplace</span>
-            <i className="fa-solid fa-arrow-right text-xs group-hover:translate-x-1 transition-transform"></i>
-          </Link>
+            {/* Réinitialiser */}
+            {hasFilters && (
+              <div className={`px-4 py-3 border-b ${DIV}`}>
+                <button onClick={resetFilters} className={`w-full text-[12px] py-1.5 ${BTN_GREY}`}>
+                  <i className="fa-solid fa-rotate-left mr-1.5 text-[10px]" />
+                  Réinitialiser les filtres
+                </button>
+              </div>
+            )}
+
+            {/* Réassurance */}
+            <div className={`px-4 py-3 space-y-1.5 text-[12px] ${MUTED}`}>
+              <p><i className={`fa-solid fa-shield-halved w-4 mr-1 ${OK}`} />Paiement sécurisé</p>
+              <p><i className="fa-solid fa-truck-fast w-4 mr-1 text-[#FF9900]" />Livraison express Douala</p>
+              <p><i className={`fa-solid fa-rotate-left w-4 mr-1 ${LINK}`} />Retour sous 7 jours</p>
+            </div>
+          </aside>
+
+          {/* ═══ COLONNE PRINCIPALE ═══ */}
+          <div className="flex-1 min-w-0 w-full space-y-2 md:space-y-3">
+
+            {/* Barre d'outils + résultats */}
+            <div className={`${PANEL} px-4 md:px-6 pt-4 pb-3`}>
+              <div className={`flex flex-wrap items-end justify-between gap-3 border-b ${DIV} pb-2`}>
+                <div className="min-w-0">
+                  <h2 className={`text-[22px] md:text-[26px] font-medium leading-none ${TXT}`}>
+                    {activeCategory === 'Tous' ? 'Tous les produits' : activeCategory}
+                  </h2>
+                  <p className={`text-[13px] mt-1 ${MUTED}`}>
+                    {loading
+                      ? 'Chargement…'
+                      : <><b className={TXT}>{filteredProducts.length}</b> résultat{filteredProducts.length > 1 ? 's' : ''}
+                          {searchQuery && <> pour « {searchQuery} »</>}</>}
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <label className={`text-[12px] hidden sm:inline ${MUTED}`}>Trier par</label>
+                  <select
+                    value={sortBy}
+                    onChange={e => setSortBy(e.target.value)}
+                    className={`text-[12px] px-2.5 py-1.5 cursor-pointer ${FIELD}`}
+                  >
+                    {SORT_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                  </select>
+
+                  <div className={`inline-flex rounded-md overflow-hidden border border-[#D5D9D9] dark:border-white/15`}>
+                    <button onClick={() => setViewMode('grid')} title="Grille"
+                      className={`w-8 h-[30px] text-[11px] transition ${
+                        viewMode === 'grid'
+                          ? 'bg-[#FFD814] dark:bg-primary text-[#0F1111] dark:text-black'
+                          : `bg-white dark:bg-zinc-950 ${MUTED} hover:bg-[#F7FAFA] dark:hover:bg-zinc-800`
+                      }`}>
+                      <i className="fa-solid fa-table-cells" />
+                    </button>
+                    <button onClick={() => setViewMode('list')} title="Liste"
+                      className={`w-8 h-[30px] text-[11px] border-l border-[#D5D9D9] dark:border-white/15 transition ${
+                        viewMode === 'list'
+                          ? 'bg-[#FFD814] dark:bg-primary text-[#0F1111] dark:text-black'
+                          : `bg-white dark:bg-zinc-950 ${MUTED} hover:bg-[#F7FAFA] dark:hover:bg-zinc-800`
+                      }`}>
+                      <i className="fa-solid fa-list" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Filtres actifs */}
+              {hasFilters && !loading && (
+                <div className={`flex flex-wrap items-center gap-2 py-2.5 border-b ${DIV} text-[12px]`}>
+                  <span className={MUTED}>Filtres :</span>
+                  {activeCategory !== 'Tous' && (
+                    <button onClick={() => setActiveCategory('Tous')}
+                      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-[#D5D9D9] dark:border-white/15 ${TXT}`}>
+                      {activeCategory}<i className="fa-solid fa-xmark text-[10px] opacity-60" />
+                    </button>
+                  )}
+                  {searchQuery && (
+                    <button onClick={() => setSearchQuery('')}
+                      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-[#D5D9D9] dark:border-white/15 ${TXT}`}>
+                      « {searchQuery} »<i className="fa-solid fa-xmark text-[10px] opacity-60" />
+                    </button>
+                  )}
+                  {maxBudget != null && maxBudget < maxPrice && (
+                    <button onClick={() => setMaxBudget(null)}
+                      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-[#D5D9D9] dark:border-white/15 ${TXT}`}>
+                      ≤ {fcfa(maxBudget)} F<i className="fa-solid fa-xmark text-[10px] opacity-60" />
+                    </button>
+                  )}
+                  <button onClick={resetFilters} className={`text-[12px] ${LINK}`}>Tout effacer</button>
+                </div>
+              )}
+
+              {/* Résultats */}
+              <div className="pt-4">
+                {loading ? (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 gap-4">
+                    {Array.from({ length: 10 }).map((_, i) => <ProductSkeleton key={i} />)}
+                  </div>
+                ) : filteredProducts.length === 0 ? (
+                  <div className="py-16 text-center">
+                    <i className="fa-solid fa-box-open text-5xl mb-4 block text-[#D5D9D9] dark:text-zinc-700" />
+                    <p className={`text-[17px] font-bold mb-1 ${TXT}`}>Aucun produit ne correspond</p>
+                    <p className={`text-[13px] mb-5 ${MUTED}`}>
+                      {products.length === 0
+                        ? "Cette boutique n'a pas encore publié de produit."
+                        : 'Essayez une autre catégorie, un autre mot-clé ou un budget plus large.'}
+                    </p>
+                    {products.length > 0 && (
+                      <button onClick={resetFilters} className={`text-[13px] font-medium px-6 py-1.5 ${BTN_YEL}`}>
+                        Voir tous les produits
+                      </button>
+                    )}
+                  </div>
+                ) : viewMode === 'list' ? (
+                  /* ── VUE LISTE ── */
+                  <div className={`divide-y ${DIV}`}>
+                    {filteredProducts.map(product => (
+                      <div key={product.id} className="flex gap-3 sm:gap-4 py-4">
+                        <button onClick={() => openModal(withVendor(product))}
+                          className="w-[96px] h-[96px] sm:w-[140px] sm:h-[140px] flex-shrink-0 flex items-center justify-center bg-white dark:bg-zinc-950 rounded-md overflow-hidden">
+                          <img src={product.img} alt={product.name}
+                            className="max-w-full max-h-full object-contain mix-blend-multiply dark:mix-blend-normal" />
+                        </button>
+
+                        <div className="flex-1 min-w-0 flex flex-col">
+                          <div className="flex items-start justify-between gap-3">
+                            <button onClick={() => openModal(withVendor(product))}
+                              className={`text-left text-[14px] sm:text-[16px] leading-snug line-clamp-2 ${LINK}`}>
+                              {product.name}
+                            </button>
+                            <p className={`text-[15px] sm:text-[17px] font-bold leading-none flex-shrink-0 ${PRICE}`}>
+                              {fcfa(product.price)}<span className="text-[10px] align-top ml-0.5">FCFA</span>
+                            </p>
+                          </div>
+
+                          <p className={`text-[12px] mt-1 ${MUTED}`}>{product.type}</p>
+                          {product.features?.length > 0 && (
+                            <p className={`text-[12px] truncate mt-0.5 ${FAINT}`}>
+                              {product.features.slice(0, 3).join(' · ')}
+                            </p>
+                          )}
+
+                          <div className="flex items-center gap-2.5 flex-wrap mt-1 text-[12px]">
+                            <span className={`inline-flex items-center gap-1 ${product.status === 'Épuisé' ? PRICE : OK}`}>
+                              <i className={`fa-solid ${product.status === 'Épuisé' ? 'fa-circle-xmark' : 'fa-circle-check'} text-[10px]`} />
+                              {product.status === 'Épuisé' ? 'Épuisé' : 'En stock'}
+                            </span>
+                            <span className="text-[#D5D9D9] dark:text-white/15">|</span>
+                            <span className={`inline-flex items-center gap-1 ${MUTED}`}>
+                              <i className="fa-solid fa-truck-fast text-[#FF9900] text-[10px]" />
+                              Livraison à Douala
+                            </span>
+                          </div>
+
+                          <div className="mt-2.5">
+                            <button onClick={() => quickAdd(product)}
+                              disabled={product.status === 'Épuisé'}
+                              className={`text-[12px] font-medium px-5 py-1.5 disabled:opacity-40 disabled:cursor-not-allowed ${
+                                addedId === product.id
+                                  ? 'bg-[#E8F5E8] dark:bg-emerald-500/15 border border-[#007600]/30 dark:border-emerald-400/30 text-[#007600] dark:text-emerald-400 rounded-full transition'
+                                  : BTN_YEL
+                              }`}>
+                              {addedId === product.id
+                                ? <><i className="fa-solid fa-circle-check mr-1.5 text-[11px]" />Ajouté !</>
+                                : 'Ajouter au panier'}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  /* ── VUE GRILLE ── */
+                  <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 gap-4">
+                    {filteredProducts.map(product => (
+                      <ProductCard
+                        key={product.id}
+                        product={withVendor(product)}
+                        openModal={openModal}
+                        addToCart={addToCart}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Retour marketplace */}
+            <div className={`${PANEL} px-4 md:px-6 py-5 flex flex-col sm:flex-row items-center justify-between gap-3`}>
+              <div className="text-center sm:text-left">
+                <p className={`text-[15px] font-bold ${TXT}`}>Envie de découvrir d'autres boutiques ?</p>
+                <p className={`text-[13px] ${MUTED}`}>Des centaines de vendeurs vérifiés vous attendent sur Buyticle.</p>
+              </div>
+              <div className="flex items-center gap-2 flex-shrink-0">
+                <Link to="/boutiques" className={`text-[13px] font-medium px-5 py-1.5 ${BTN_GREY}`}>
+                  Toutes les boutiques
+                </Link>
+                <Link to="/store" className={`text-[13px] font-medium px-5 py-1.5 ${BTN_YEL}`}>
+                  Explorer le store
+                </Link>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
-
-      <style>{`
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
-        .animate-fadeIn { animation: fadeIn 0.3s ease-out; }
-        @keyframes shimmer { 0% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }
-      `}</style>
     </div>
   );
 };

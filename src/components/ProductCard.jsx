@@ -42,7 +42,7 @@ const StarRating = ({ rating = 4.2, count = null }) => {
         {Array(emptyStars).fill(0).map((_, i) => <i key={`e${i}`} className="fa-regular fa-star"></i>)}
       </div>
       {count !== null && (
-        <span className="text-[11px] text-[#007185] hover:text-[#C45500] cursor-pointer">{count}</span>
+        <span className="text-[11px] text-[#007185] dark:text-sky-400 hover:text-[#C45500] cursor-pointer">{count}</span>
       )}
     </div>
   );
@@ -87,11 +87,11 @@ const ProductCard = React.memo(({ product, openModal, addToCart }) => {
   };
 
   return (
-    <div className="product-card bg-white border border-[#D5D9D9] hover:shadow-md transition-all rounded group cursor-pointer flex flex-col">
+    <div className="product-card bg-white dark:bg-zinc-900 border border-[#D5D9D9] dark:border-white/10 hover:shadow-md transition-all rounded group cursor-pointer flex flex-col">
 
       {/* IMAGE */}
       <div
-        className="relative overflow-hidden bg-white rounded-t p-1.5 aspect-square"
+        className="relative overflow-hidden bg-white dark:bg-zinc-950 rounded-t p-1.5 aspect-square"
         onClick={() => openModal(product)}
       >
         {/* BADGES */}
@@ -135,7 +135,7 @@ const ProductCard = React.memo(({ product, openModal, addToCart }) => {
           className={`absolute top-2 right-2 z-10 w-7 h-7 rounded-full flex items-center justify-center transition-all border ${
             inWishlist
               ? "bg-[#FF9900] border-[#FF9900] text-white"
-              : "bg-white border-[#D5D9D9] text-gray-400 hover:border-[#FF9900] hover:text-[#FF9900]"
+              : "bg-white dark:bg-zinc-800 border-[#D5D9D9] dark:border-white/15 text-gray-400 hover:border-[#FF9900] hover:text-[#FF9900]"
           }`}
         >
           <i className={`fa-${inWishlist ? "solid" : "regular"} fa-heart text-xs`}></i>
@@ -159,7 +159,7 @@ const ProductCard = React.memo(({ product, openModal, addToCart }) => {
             />
           ))}
           {colorSwatches.length > 5 && (
-            <span className="text-[10px] text-[#007185] font-medium">+{colorSwatches.length - 5}</span>
+            <span className="text-[10px] text-[#007185] dark:text-sky-400 font-medium">+{colorSwatches.length - 5}</span>
           )}
           <span className="text-[10px] text-[#767676] ml-0.5">
             {colorSwatches.length > 1 ? `${colorSwatches.length} couleurs` : colorSwatches[0].name}
@@ -171,12 +171,12 @@ const ProductCard = React.memo(({ product, openModal, addToCart }) => {
       <div className="px-2 pb-2 flex flex-col flex-grow" onClick={() => openModal(product)}>
 
         {/* CATEGORY + SUBCATEGORY */}
-        <p className="text-[10px] text-[#007185] font-medium mb-0.5 truncate">
+        <p className="text-[10px] text-[#007185] dark:text-sky-400 font-medium mb-0.5 truncate">
           {product.subcategory || product.type}
         </p>
 
         {/* NAME */}
-        <h3 className="text-[12px] text-[#0F1111] leading-snug line-clamp-2 mb-1 group-hover:text-[#C45500] transition-colors flex-grow">
+        <h3 className="text-[12px] text-[#0F1111] dark:text-zinc-100 leading-snug line-clamp-2 mb-1 group-hover:text-[#C45500] transition-colors flex-grow">
           {translatedName}
         </h3>
 
@@ -192,19 +192,19 @@ const ProductCard = React.memo(({ product, openModal, addToCart }) => {
               <span className="text-[#B12704] font-bold text-[13px] leading-none">
                 {memberPrice.toLocaleString()} F
               </span>
-              <span className="text-xs text-[#565959] line-through">
+              <span className="text-xs text-[#565959] dark:text-zinc-500 line-through">
                 {originalPrice.toLocaleString()} F
               </span>
               <span className="text-xs text-[#B12704]">(-{discountPct}%)</span>
             </>
           ) : (
             <>
-              <span className="text-[#0F1111] font-bold text-[13px] leading-none">
+              <span className="text-[#0F1111] dark:text-white font-bold text-[13px] leading-none">
                 {originalPrice.toLocaleString()} F
               </span>
               {vendorHasPromo && !user && (
                 <Link to="/register" onClick={(e) => e.stopPropagation()}
-                  className="text-[11px] text-[#007185] hover:underline block"
+                  className="text-[11px] text-[#007185] dark:text-sky-400 hover:underline block"
                 >
                   Prix membre: {applyVendorDiscount(originalPrice, product).toLocaleString()} F
                 </Link>
@@ -215,7 +215,7 @@ const ProductCard = React.memo(({ product, openModal, addToCart }) => {
 
         {/* Shipping estimate for CJ products */}
         {!product.vendor_id && (
-          <p className="text-[10px] text-[#007185] -mt-1 mb-1.5 flex items-center gap-1">
+          <p className="text-[10px] text-[#007185] dark:text-sky-400 -mt-1 mb-1.5 flex items-center gap-1">
             <i className="fa-solid fa-plane text-[9px]" />
             <span>
               + ~{Math.round(1015 + ((product.ship_weight_g || product.weight_g || 200) / 1000) * 10000).toLocaleString()} F livraison
@@ -236,7 +236,7 @@ const ProductCard = React.memo(({ product, openModal, addToCart }) => {
           to="/studio"
           state={{ productId: product.id }}
           onClick={(e) => e.stopPropagation()}
-          className="block text-center text-[11px] text-[#007185] hover:text-[#C45500] hover:underline mt-1.5 transition-colors"
+          className="block text-center text-[11px] text-[#007185] dark:text-sky-400 hover:text-[#C45500] hover:underline mt-1.5 transition-colors"
         >
           <i className="fa-solid fa-wand-magic-sparkles text-[9px] mr-1"></i>
           Personnaliser

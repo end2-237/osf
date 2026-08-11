@@ -4,6 +4,8 @@ import { supabase, uploadProductImage, uploadVendorAsset, deleteProductImage } f
 import { useNavigate } from "react-router-dom";
 import VendorLivePanel from "../components/VendorLivePanel";
 import AddProductWizard from "../components/AddProductWizard";
+import VendorStats from "../components/VendorStats";
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RTooltip } from "recharts";
 import { DISCOUNT_PRESETS, clampDiscountPercent, getVendorDiscountPercent } from "../utils/discountUtils";
 
 // ─── HELPERS ──────────────────────────────────────────────────────────────────
@@ -25,17 +27,24 @@ const prodStatus = (s) => s === "Épuisé"
   ? { label: "Épuisé", cls: "bg-red-50 text-red-600 border-red-200" }
   : { label: "Publié", cls: "bg-emerald-50 text-emerald-600 border-emerald-200" };
 
+// Statuts qui comptent dans le chiffre d'affaires : la commande est engagée.
+// "pending" (pas encore confirmée) et "cancelled" sont exclus.
+const COUNTED_STATUSES = ["confirmed", "paid", "shipped", "in_transit", "delivered"];
+
 const EMPTY_PRODUCT = { name: "", price: "", type: "Tech Lab", status: "In Stock", description: "" };
 const CATEGORIES = ["Audio Lab","Tech Lab","Femme","Clothing","Shoes","Beauté","Accessories","Maison","Sport","Bébé & Enfants","Auto","Bien-être","Santé","Nutrition"];
 
-// ─── MINI BAR SPARKLINE ───────────────────────────────────────────────────────
+// ─── SPARKLINE (Recharts, sans axes ni grille) ────────────────────────────────
 const MiniBars = ({ data, color }) => {
-  const max = Math.max(...data, 1);
+  if (!data?.length || Math.max(...data) <= 0) return null;   // pas de fausse tendance
+  const points = data.map((v, i) => ({ i, v }));
   return (
-    <div className="flex items-end gap-[3px] h-9">
-      {data.map((v, i) => (
-        <div key={i} className="w-1.5 rounded-full" style={{ height: `${Math.max(12, (v / max) * 100)}%`, background: color, opacity: 0.35 + 0.65 * (v / max) }} />
-      ))}
+    <div className="w-24 h-9">
+      <ResponsiveContainer width="100%" height="100%">
+        <BarChart data={points} margin={{ top: 2, right: 0, bottom: 0, left: 0 }} barCategoryGap="20%">
+          <Bar dataKey="v" fill={color} radius={[2, 2, 0, 0]} isAnimationActive={false} />
+        </BarChart>
+      </ResponsiveContainer>
     </div>
   );
 };
@@ -54,7 +63,7 @@ const StatCard = ({ label, value, delta, hint, spark, color }) => (
           </p>
         )}
       </div>
-      <MiniBars data={spark} color={color} />
+      {spark && <MiniBars data={spark} color={color} />}
     </div>
   </div>
 );
@@ -103,17 +112,36 @@ const Dashboard = () => {
   useEffect(() => { fetchAll(); }, [vendor?.id]);
 
   // ── Derived metrics ──
-  const revenue = orders.filter(o => ["delivered","paid"].includes(o.status)).reduce((s, o) => s + Number(o.total_amount || 0), 0);
-  const pendingCount = orders.filter(o => o.status === "pending").length;
-  const profit = Math.round(revenue * 0.35);
-  // Panier moyen : bien plus parlant qu'une "dépense" estimée au doigt mouillé.
-  const paidOrders  = orders.filter(o => ["delivered", "paid"].includes(o.status));
-  const avgBasket   = paidOrders.length ? Math.round(revenue / paidOrders.length) : 0;
+  // Chiffre d'affaires : toute commande engagée (confirmée → livrée). Les
+  // commandes en attente ne comptent pas, les annulées non plus.
+  const countedOrders = orders.filter(o => COUNTED_STATUSES.includes(o.status));
+  const revenue       = countedOrders.reduce((s, o) => s + Number(o.total_amount || 0), 0);
+  const pendingCount  = orders.filter(o => o.status === "pending").length;
+  const avgBasket     = countedOrders.length ? Math.round(revenue / countedOrders.length) : 0;
 
-  // monthly revenue (12)
-  const monthly = Array(12).fill(0);
-  orders.forEach(o => { if (["delivered","paid"].includes(o.status) && o.created_at) monthly[new Date(o.created_at).getMonth()] += Number(o.total_amount || 0); });
-  const sparkFrom = (arr) => { const last = arr.slice(-8); return last.some(Boolean) ? last : [3,5,4,6,5,7,6,8]; };
+  // ── 12 derniers mois glissants (année incluse : deux "Mars" ne se cumulent pas) ──
+  const now = new Date();
+  const monthly = Array.from({ length: 12 }, (_, i) => {
+    const d = new Date(now.getFullYear(), now.getMonth() - 11 + i, 1);
+    return { key: `${d.getFullYear()}-${d.getMonth()}`, label: MONTHS[d.getMonth()], year: d.getFullYear(), revenue: 0, orders: 0 };
+  });
+  const monthIndex = new Map(monthly.map((m, i) => [m.key, i]));
+  countedOrders.forEach(o => {
+    if (!o.created_at) return;
+    const d = new Date(o.created_at);
+    const i = monthIndex.get(`${d.getFullYear()}-${d.getMonth()}`);
+    if (i != null) { monthly[i].revenue += Number(o.total_amount || 0); monthly[i].orders += 1; }
+  });
+  const hasRevenue = monthly.some(m => m.revenue > 0);
+
+  // Évolution réelle mois en cours vs mois précédent (null si rien à comparer).
+  const growth = (curr, prev) => (prev > 0 ? Math.round(((curr - prev) / prev) * 100) : null);
+  const revenueDelta = growth(monthly[11].revenue, monthly[10].revenue);
+  const ordersDelta  = growth(monthly[11].orders,  monthly[10].orders);
+
+  // Mini-courbes : 8 derniers mois. Aucune donnée inventée — si tout est à
+  // zéro on ne dessine rien plutôt que d'afficher une fausse tendance.
+  const sparkFrom = (key) => monthly.slice(-8).map(m => m[key]);
 
   // top product (by qty sold)
   const soldMap = {};
@@ -152,6 +180,7 @@ const Dashboard = () => {
     { key: "dashboard", label: "Tableau de bord", icon: "fa-gauge-high" },
     { key: "products",  label: "Produits",        icon: "fa-box" },
     { key: "orders",    label: "Commandes",       icon: "fa-cart-shopping", badge: pendingCount },
+    { key: "stats",     label: "Statistiques",    icon: "fa-chart-line" },
     { key: "live",      label: "Passer en live",  icon: "fa-video" },
     { key: "customers", label: "Clients",         icon: "fa-users" },
     { key: "settings",  label: "Réglages",        icon: "fa-gear" },
@@ -232,7 +261,7 @@ const Dashboard = () => {
           ) : (
             <>
               {section === "dashboard" && (
-                <Overview {...{ revenue, orders, profit, avgBasket, paidOrders, monthly, sparkFrom, topProduct, topSold, topCats, customers, products }} />
+                <Overview {...{ revenue, orders, countedOrders, pendingCount, avgBasket, monthly, hasRevenue, revenueDelta, ordersDelta, sparkFrom, topProduct, topSold, topCats, customers, products }} />
               )}
               {section === "products" && (
                 <ProductsView products={products} onDelete={deleteProduct} onAdd={() => setShowAdd(true)} />
@@ -242,6 +271,7 @@ const Dashboard = () => {
                   ? <OrderDetail order={selectedOrder} onBack={() => setSelectedOrder(null)} onStatus={updateOrderStatus} vendor={vendor} />
                   : <OrdersView orders={orders} onOpen={setSelectedOrder} />
               )}
+              {section === "stats" && <VendorStats orders={orders} products={products} />}
               {section === "live" && <VendorLivePanel vendor={vendor} onToast={showToast} />}
               {section === "customers" && <CustomersView customers={customers} />}
               {section === "settings" && <SettingsView vendor={vendor} updateVendorField={updateVendorField} showToast={showToast} />}
@@ -257,8 +287,8 @@ const Dashboard = () => {
 };
 
 // ─── OVERVIEW ─────────────────────────────────────────────────────────────────
-const Overview = ({ revenue, orders, profit, avgBasket, paidOrders, monthly, sparkFrom, topProduct, topSold, topCats, customers }) => {
-  const maxM = Math.max(...monthly, 1);
+const Overview = ({ revenue, orders, countedOrders, pendingCount, avgBasket, monthly, hasRevenue, revenueDelta, ordersDelta, sparkFrom, topProduct, topSold, topCats, customers }) => {
+  const maxM = Math.max(...monthly.map(m => m.revenue), 0);
   return (
     <div className="space-y-4">
       <div>
@@ -266,12 +296,16 @@ const Overview = ({ revenue, orders, profit, avgBasket, paidOrders, monthly, spa
         <p className="text-[13px] text-gray-500">Voici l'activité de ta boutique.</p>
       </div>
 
-      {/* KPI */}
+      {/* KPI — que des chiffres réellement calculés sur tes commandes */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-        <StatCard label="Revenu"    value={money(revenue)}       delta={10} spark={sparkFrom(monthly)} color="#3b82f6" />
-        <StatCard label="Commandes" value={orders.length}        delta={8}  spark={sparkFrom(orders.map((_, i) => (i % 5) + 1))} color="#f97316" />
-        <StatCard label="Bénéfice"  value={money(profit)}        delta={6}  spark={sparkFrom(monthly.map(v => v * 0.35))} color="#10b981" />
-        <StatCard label="Panier moyen" value={money(avgBasket)} hint={`sur ${paidOrders.length} commande${paidOrders.length > 1 ? "s" : ""} payée${paidOrders.length > 1 ? "s" : ""}`} spark={sparkFrom(monthly)} color="#8b5cf6" />
+        <StatCard label="Chiffre d'affaires" value={money(revenue)} delta={revenueDelta}
+          hint="commandes confirmées à livrées" spark={sparkFrom("revenue")} color="#3b82f6" />
+        <StatCard label="Commandes" value={orders.length} delta={ordersDelta}
+          hint={`dont ${countedOrders.length} validée${countedOrders.length > 1 ? "s" : ""}`} spark={sparkFrom("orders")} color="#f97316" />
+        <StatCard label="À traiter" value={pendingCount}
+          hint={pendingCount > 0 ? "commandes en attente de confirmation" : "tout est à jour 👍"} color="#f59e0b" />
+        <StatCard label="Panier moyen" value={money(avgBasket)}
+          hint={countedOrders.length ? `sur ${countedOrders.length} commande${countedOrders.length > 1 ? "s" : ""}` : "aucune commande validée"} color="#8b5cf6" />
       </div>
 
       {/* Top product + statistic */}
@@ -301,22 +335,55 @@ const Overview = ({ revenue, orders, profit, avgBasket, paidOrders, monthly, spa
           ) : <p className="text-white/50 text-sm">Aucune vente encore.</p>}
         </div>
 
-        {/* Statistic chart */}
+        {/* Chiffre d'affaires mensuel */}
         <div className="lg:col-span-2 bg-white border border-gray-200/80 rounded-2xl p-5">
-          <div className="flex items-center justify-between mb-4">
-            <div><p className="font-bold text-[15px]">Statistiques</p><p className="text-[12px] text-gray-400">Revenu par mois</p></div>
-            <span className="text-[11px] font-semibold text-gray-500 bg-gray-100 px-3 py-1.5 rounded-lg">Cette année</span>
+          <div className="flex items-center justify-between gap-3 mb-4">
+            <div>
+              <p className="font-bold text-[15px]">Chiffre d'affaires</p>
+              <p className="text-[12px] text-gray-400">Par mois · commandes confirmées à livrées</p>
+            </div>
+            <span className="text-[11px] font-semibold text-gray-500 bg-gray-100 px-3 py-1.5 rounded-lg whitespace-nowrap">12 derniers mois</span>
           </div>
-          <div className="flex items-end gap-2 h-52">
-            {monthly.map((v, i) => (
-              <div key={i} className="flex-1 flex flex-col items-center gap-2 group">
-                <div className="w-full flex items-end justify-center" style={{ height: "100%" }}>
-                  <div className="w-full max-w-[22px] rounded-t-lg bg-gradient-to-t from-orange-500 to-orange-400 group-hover:from-gray-900 group-hover:to-gray-700 transition-colors" style={{ height: `${Math.max(4, (v / maxM) * 100)}%` }} title={money(v)} />
-                </div>
-                <span className="text-[10px] text-gray-400">{MONTHS[i]}</span>
+
+          {!hasRevenue ? (
+            <div className="h-64 flex flex-col items-center justify-center text-center px-6">
+              <i className="fa-solid fa-chart-column text-gray-200 text-4xl mb-3" />
+              <p className="text-[14px] font-bold text-gray-700">Pas encore de chiffre d'affaires</p>
+              <p className="text-[12px] text-gray-400 mt-1 max-w-sm">
+                Le graphique se remplit dès qu'une commande passe au statut confirmée, payée,
+                expédiée ou livrée. Les commandes en attente n'y figurent pas.
+              </p>
+            </div>
+          ) : (
+            <>
+              <ResponsiveContainer width="100%" height={230}>
+                <BarChart data={monthly} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
+                  <CartesianGrid stroke="#e1e0d9" strokeDasharray="0" vertical={false} />
+                  <XAxis dataKey="label" stroke="#c3c2b7" tickLine={false} axisLine={false}
+                    tick={{ fill: "#898781", fontSize: 11 }} />
+                  <YAxis stroke="#c3c2b7" tickLine={false} axisLine={false} width={48}
+                    tick={{ fill: "#898781", fontSize: 11 }}
+                    tickFormatter={(v) => (v >= 1000 ? `${Math.round(v / 1000)} k` : v)} />
+                  <RTooltip
+                    cursor={{ fill: "rgba(11,11,11,0.04)" }}
+                    content={({ active, payload }) => active && payload?.length ? (
+                      <div className="bg-gray-900 text-white rounded-xl px-3 py-2 shadow-lg">
+                        <p className="text-[10px] text-white/60 mb-0.5">
+                          {payload[0].payload.label} {payload[0].payload.year}
+                        </p>
+                        <p className="text-[13px] font-bold">{money(payload[0].value)}</p>
+                      </div>
+                    ) : null}
+                  />
+                  <Bar dataKey="revenue" fill="#2a78d6" radius={[4, 4, 0, 0]} maxBarSize={24} />
+                </BarChart>
+              </ResponsiveContainer>
+              <div className="flex items-center justify-between border-t border-gray-100 mt-3 pt-3 text-[12px]">
+                <span className="text-gray-400">Meilleur mois : <b className="text-gray-700">{money(maxM)}</b></span>
+                <span className="text-gray-400">Ce mois-ci : <b className="text-gray-700">{money(monthly[11].revenue)}</b></span>
               </div>
-            ))}
-          </div>
+            </>
+          )}
         </div>
       </div>
 
@@ -326,7 +393,9 @@ const Overview = ({ revenue, orders, profit, avgBasket, paidOrders, monthly, spa
           <p className="font-bold text-[15px] mb-1">Clients</p>
           <p className="text-[12px] text-gray-400 mb-3">Total acheteurs</p>
           <p className="text-3xl font-bold">{customers.length}</p>
-          <p className="text-[12px] text-emerald-600 font-semibold mt-1"><i className="fa-solid fa-arrow-trend-up mr-1" />croissance</p>
+          <p className="text-[12px] text-gray-400 mt-1">
+            {customers.filter(c => c.orders > 1).length} client(s) revenus commander
+          </p>
         </div>
         <div className="bg-white border border-gray-200/80 rounded-2xl p-5">
           <p className="font-bold text-[15px] mb-3">Top clients</p>
