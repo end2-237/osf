@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../context/AuthContext";
 import CJImportTab from "../components/CJImportTab";
+import CourierManager from "../components/CourierManager";
 import { fetchSiteSettings, saveSiteSettings } from "../components/WhatsAppButton";
 
 // ─── STATUS CONFIG ────────────────────────────────────────────────────────────
@@ -2837,6 +2838,9 @@ const DeliveryRatesPanel = () => {
           <i className="fa-solid fa-map-location-dot mr-1.5" />Ouvrir la console
         </a>
       </div>
+
+      {/* Les livreurs Buyticle, attribuables depuis la console. */}
+      <CourierManager vendorId={null} theme="admin" />
 
       {RATE_FIELDS.map(g => (
         <div key={g.group} className="bg-white border border-[#D5D9D9] rounded-xl p-5">

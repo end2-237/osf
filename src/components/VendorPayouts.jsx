@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { supabase } from "../lib/supabase";
 import PositionPicker from "./PositionPicker";
+import CourierManager from "./CourierManager";
 
 /* ════════════════════════════════════════════════════════════════════════════
    RETRAITS & LIVRAISON
@@ -440,6 +441,14 @@ export const DeliverySection = ({ vendor, updateVendorFields, showToast, section
         <p className="text-[12px] text-red-500 -mt-1">
           <i className="fa-solid fa-circle-exclamation mr-1.5" />{modeMsg}
         </p>
+      )}
+
+      {/* Le carnet ne sert que si la boutique livre : une course confiée à
+          Buyticle revient à un livreur Buyticle. */}
+      {form.delivery_mode === "self" && (
+        <div className="border-t border-gray-100 pt-4">
+          <CourierManager vendorId={vendor?.id} nested />
+        </div>
       )}
 
       <div className="border-t border-gray-100 pt-4">

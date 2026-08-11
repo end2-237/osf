@@ -48,7 +48,7 @@ const DeliveryMap = ({
   route    = null,        // [[lat, lng], …]
   center   = null,
   zoom     = 13,
-  theme    = "dark",
+  theme    = "light",
   routeColor = "#FF9900",
   onPick   = null,        // (lat, lng) → clic sur la carte
   onReady  = null,        // (map) → pour piloter le zoom depuis l'extérieur
@@ -69,7 +69,7 @@ const DeliveryMap = ({
   // Création : une seule fois. Leaflet n'aime pas être recréé à chaque rendu.
   useEffect(() => {
     if (!host.current || mapRef.current) return;
-    const t = TILES[theme] || TILES.dark;
+    const t = TILES[theme] || TILES.light;
     const map = L.map(host.current, {
       zoomControl: false,
       attributionControl: interactive,

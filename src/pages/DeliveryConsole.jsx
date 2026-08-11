@@ -7,7 +7,7 @@ import { supabase } from "../lib/supabase";
 import { useAuth } from "../context/AuthContext";
 import { LOGO_URL } from "../lib/brand";
 import DeliveryMap from "../components/DeliveryMap";
-import { routeBetween, searchAddress, formatKm, formatDuration, DEFAULT_CENTER } from "../lib/geo";
+import { routeBetween, searchAddress, formatKm, formatDuration, currentPosition, DEFAULT_CENTER } from "../lib/geo";
 
 /* ════════════════════════════════════════════════════════════════════════════
    BUYTICLE DELIVERY — console de suivi
@@ -160,10 +160,10 @@ const MapPanel = ({ markers, route, center, filter, onFilter, onPickPlace, order
   }), [orders]);
 
   return (
-    <div className={`relative rounded-[24px] overflow-hidden ${full ? "fixed inset-3 z-[1200]" : "h-[280px] sm:h-[330px]"}`}
-      style={{ background: DARK }}>
+    <div className={`relative rounded-[24px] overflow-hidden border ${full ? "fixed inset-3 z-[1200]" : "h-[280px] sm:h-[330px]"}`}
+      style={{ background: "#EDEFEF", borderColor: BORDER }}>
       <DeliveryMap
-        markers={markers} route={route} center={center} theme="dark"
+        markers={markers} route={route} center={center} theme="light"
         routeColor={ACCENT} className="w-full h-full"
         onReady={(m) => { mapApi.current = m; }}
       />
@@ -301,9 +301,120 @@ const MiniCard = ({ label, value, spark, badge, kind }) => (
 );
 
 /* ════════════════════════════════════════════════════════════════════════════
+   LIVREURS — voir qui est disponible, attribuer, ou prendre la course
+
+   La liste vient de `assignable_couriers` : côté Buyticle pour les commandes
+   qu'on nous confie, côté boutique pour celles qu'elle livre elle-même. On ne
+   filtre pas dans l'écran, c'est la base qui répond.
+   ════════════════════════════════════════════════════════════════════════════ */
+const CourierPicker = ({ order, open, onClose, onAssign, onTake, busy }) => {
+  const [list, setList]     = useState([]);
+  const [loading, setLoad]  = useState(false);
+  const [err, setErr]       = useState("");
+
+  useEffect(() => {
+    if (!open || !order?.id) return;
+    let alive = true;
+    (async () => {
+      setLoad(true); setErr("");
+      const { data, error } = await supabase.rpc("assignable_couriers", { p_order_id: order.id });
+      if (!alive) return;
+      if (error) setErr(error.message);
+      setList(data || []);
+      setLoad(false);
+    })();
+    return () => { alive = false; };
+  }, [open, order?.id]);
+
+  if (!open) return null;
+
+  return (
+    <div className="fixed inset-0 z-[1300] flex items-end sm:items-center justify-center p-3"
+      style={{ background: "rgba(15,17,17,.45)" }} onClick={onClose}>
+      <div className={`${card} w-full max-w-md max-h-[80vh] flex flex-col`}
+        style={{ borderColor: BORDER }} onClick={e => e.stopPropagation()}>
+        <div className="px-5 py-4 border-b flex items-center justify-between" style={{ borderColor: BORDER }}>
+          <div>
+            <p className="font-bold text-[14px]" style={{ color: INK }}>Qui fait cette course ?</p>
+            <p className="text-[11px]" style={{ color: MUTED }}>
+              {order?.delivery_mode === "buyticle" ? "Livreurs Buyticle" : "Livreurs de la boutique"}
+            </p>
+          </div>
+          <button onClick={onClose} className="w-8 h-8 rounded-full flex items-center justify-center"
+            style={{ color: MUTED }}><i className="fa-solid fa-xmark" /></button>
+        </div>
+
+        <div className="p-3 border-b" style={{ borderColor: BORDER }}>
+          <button onClick={onTake} disabled={busy}
+            className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-white disabled:opacity-50"
+            style={{ background: DARK }}>
+            <div className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0"
+              style={{ background: ACCENT }}>
+              <i className="fa-solid fa-person-walking text-[13px] text-white" />
+            </div>
+            <span className="flex-1 text-left">
+              <span className="block font-bold text-[13px]">Je démarre moi-même</span>
+              <span className="block text-[11px] opacity-60">La course m'est attribuée tout de suite</span>
+            </span>
+            <i className="fa-solid fa-chevron-right text-[11px] opacity-60" />
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto">
+          {err && (
+            <p className="px-5 py-4 text-[12px] font-bold" style={{ color: "#B12704" }}>
+              <i className="fa-solid fa-circle-exclamation mr-1.5" />{err}
+            </p>
+          )}
+          {loading ? (
+            <p className="px-5 py-8 text-center text-[12px] font-bold" style={{ color: MUTED }}>
+              <i className="fa-solid fa-spinner fa-spin mr-2" />Chargement des livreurs…
+            </p>
+          ) : list.length === 0 ? (
+            <div className="px-5 py-10 text-center">
+              <i className="fa-solid fa-id-badge text-3xl mb-3 block" style={{ color: GHOST }} />
+              <p className="text-[12px] font-bold" style={{ color: MUTED }}>Aucun livreur enregistré</p>
+              <p className="text-[11px] mt-1" style={{ color: MUTED }}>
+                {order?.delivery_mode === "buyticle"
+                  ? "Ajoute des livreurs dans Super Admin → Livraison."
+                  : "Ajoute tes livreurs dans Réglages → Livraison."}
+              </p>
+            </div>
+          ) : list.map(c => (
+            <button key={c.id} onClick={() => onAssign(c.id)} disabled={busy}
+              className="w-full text-left px-5 py-3.5 flex items-center gap-3 hover:bg-gray-50 border-b last:border-0 disabled:opacity-50"
+              style={{ borderColor: BORDER,
+                       background: order?.courier_id === c.id ? "#FFF8EF" : undefined }}>
+              <div className="w-9 h-9 rounded-full overflow-hidden flex items-center justify-center flex-shrink-0"
+                style={{ background: "#EDEFEF" }}>
+                {c.avatar_url
+                  ? <img src={c.avatar_url} alt="" className="w-full h-full object-cover" />
+                  : <i className="fa-solid fa-user text-[12px]" style={{ color: MUTED }} />}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="font-bold text-[13px] truncate" style={{ color: INK }}>
+                  {c.full_name}{c.is_me && <span className="ml-1.5 text-[10px]" style={{ color: ACCENT }}>(moi)</span>}
+                </p>
+                <p className="text-[11px]" style={{ color: MUTED }}>
+                  {c.phone || "Sans téléphone"} · {c.active_runs} course{c.active_runs > 1 ? "s" : ""} en cours
+                </p>
+              </div>
+              {order?.courier_id === c.id
+                ? <i className="fa-solid fa-circle-check text-[14px]" style={{ color: ACCENT }} />
+                : <i className="fa-solid fa-chevron-right text-[11px]" style={{ color: GHOST }} />}
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+/* ════════════════════════════════════════════════════════════════════════════
    COLONNE 2 — la course sélectionnée et qui la porte
    ════════════════════════════════════════════════════════════════════════════ */
-const FleetCard = ({ total, stats, order, driver, onLocate }) => (
+const FleetCard = ({ total, stats, order, driver, onLocate, canManage,
+                    onOpenPicker, onStart, onLocateMe, busy, started }) => (
   <div className={`${card} p-5 flex flex-col h-full`} style={{ borderColor: BORDER }}>
     <div className="flex items-center justify-between mb-4">
       <div className="flex items-center gap-2">
@@ -329,12 +440,37 @@ const FleetCard = ({ total, stats, order, driver, onLocate }) => (
       <i className="fa-solid fa-truck-front text-[42px]" style={{ color: "#EDEFEF" }} />
     </div>
 
-    <p className="text-center text-[11px] font-bold mb-4" style={{ color: MUTED }}>
+    <p className="text-center text-[11px] font-bold mb-3" style={{ color: MUTED }}>
       {order ? <>#{order.order_number || String(order.id).slice(0, 6)} · </> : null}
       <span style={{ color: order && IN_TRANSIT.includes(order.status) ? ACCENT : MUTED }}>
         {order ? (STATUS_LABEL[order.status] || order.status) : "Aucune course sélectionnée"}
       </span>
+      {started && <> · partie {new Date(started).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}</>}
     </p>
+
+    {/* Attribuer, ou prendre la course. Réservé à ceux qui en ont la charge :
+        un livreur voit son affectation, il ne se la donne pas. */}
+    {order && canManage && (
+      <div className="flex gap-2 mb-4">
+        <button onClick={onOpenPicker} disabled={busy}
+          className="flex-1 h-10 rounded-xl border text-[12px] font-bold flex items-center justify-center gap-2 disabled:opacity-50"
+          style={{ borderColor: BORDER, color: INK }}>
+          <i className="fa-solid fa-id-badge text-[11px]" />
+          {order.courier_id ? "Changer de livreur" : "Attribuer"}
+        </button>
+        <button onClick={onLocateMe} disabled={busy} title="Partir de ma position"
+          className="w-10 h-10 rounded-xl border flex items-center justify-center disabled:opacity-50"
+          style={{ borderColor: BORDER, color: MUTED }}>
+          <i className="fa-solid fa-crosshairs text-[11px]" />
+        </button>
+        <button onClick={onStart} disabled={busy || !!started}
+          className="flex-1 h-10 rounded-xl text-[12px] font-bold text-white flex items-center justify-center gap-2 disabled:opacity-50"
+          style={{ background: started ? "#007600" : ACCENT }}>
+          <i className={`fa-solid ${busy ? "fa-spinner fa-spin" : started ? "fa-check" : "fa-play"} text-[11px]`} />
+          {started ? "En route" : "Démarrer"}
+        </button>
+      </div>
+    )}
 
     <div className="flex items-center gap-3 pt-4 border-t mt-auto" style={{ borderColor: BORDER }}>
       <div className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0"
@@ -435,17 +571,18 @@ const LatestOrderCard = ({ order, leg, pickupLeg, onSeeAll }) => {
           )}
         </div>
 
-        <div className="w-[110px] h-[92px] rounded-2xl overflow-hidden flex-shrink-0" style={{ background: DARK }}>
+        <div className="w-[110px] h-[92px] rounded-2xl overflow-hidden flex-shrink-0 border"
+          style={{ background: "#EDEFEF", borderColor: BORDER }}>
           {order && Number.isFinite(order.client_lat) ? (
             <DeliveryMap
-              theme="dark" interactive={false} zoom={14}
+              theme="light" interactive={false} zoom={14}
               center={{ lat: order.client_lat, lng: order.client_lng }}
               markers={[{ lat: order.client_lat, lng: order.client_lng, color: ACCENT, icon: "fa-location-dot" }]}
               className="w-full h-full"
             />
           ) : (
             <div className="w-full h-full flex items-center justify-center">
-              <i className="fa-solid fa-location-crosshairs text-[18px]" style={{ color: "#3a3f45" }} />
+              <i className="fa-solid fa-location-crosshairs text-[18px]" style={{ color: GHOST }} />
             </div>
           )}
         </div>
@@ -562,6 +699,12 @@ const DeliveryConsole = () => {
   const [center,   setCenter]   = useState(DEFAULT_CENTER);
   const [profile,  setProfile]  = useState(null);
   const [hub,      setHub]      = useState(null);
+  // Là où se trouve celui qui regarde. Demandé sur clic, jamais au chargement :
+  // une console qui réclame le GPS à l'ouverture se fait refuser une fois pour
+  // toutes par le navigateur.
+  const [myPos,    setMyPos]    = useState(null);
+  const [picker,   setPicker]   = useState(false);
+  const [acting,   setActing]   = useState(false);
 
   /* ── Chargement ───────────────────────────────────────────────────────── */
   useEffect(() => {
@@ -586,6 +729,48 @@ const DeliveryConsole = () => {
     return () => { alive = false; };
   }, [user]);
 
+  const reload = async () => {
+    const { data } = await supabase.rpc("delivery_feed");
+    setFeed(data || []);
+  };
+
+  /* ── Attribution et démarrage ─────────────────────────────────────────── */
+  const assign = async (courierId) => {
+    setActing(true); setError("");
+    const { error: e } = await supabase.rpc("assign_courier", {
+      p_order_id: current.id, p_courier_id: courierId,
+    });
+    if (e) setError(e.message); else { setPicker(false); await reload(); }
+    setActing(false);
+  };
+
+  const take = async () => {
+    setActing(true); setError("");
+    const { error: e } = await supabase.rpc("take_course", { p_order_id: current.id });
+    if (e) setError(e.message); else { setPicker(false); await reload(); }
+    setActing(false);
+  };
+
+  // La position est un plus, pas une condition : un livreur qui refuse le GPS
+  // doit quand même pouvoir démarrer. La base retient alors le siège.
+  const locateMe = async () => {
+    setError("");
+    try { setMyPos(await currentPosition()); }
+    catch (e) { setError(e.message); }
+  };
+
+  const start = async () => {
+    if (!current) return;
+    setActing(true); setError("");
+    let pos = myPos;
+    if (!pos) { try { pos = await currentPosition(); setMyPos(pos); } catch { pos = null; } }
+    const { error: e } = await supabase.rpc("start_course", {
+      p_order_id: current.id, p_lat: pos?.lat ?? null, p_lng: pos?.lng ?? null,
+    });
+    if (e) setError(e.message); else await reload();
+    setActing(false);
+  };
+
   /* ── Filtrage ─────────────────────────────────────────────────────────── */
   const visible = useMemo(() => {
     if (filter === "all")       return feed;
@@ -602,42 +787,54 @@ const DeliveryConsole = () => {
   /* ── Tracé de la course choisie ───────────────────────────────────────── */
   const byBuyticle = current?.delivery_mode === "buyticle";
 
+  /* D'où part la course. Une course ne commence pas à la boutique : le livreur
+     doit d'abord y aller. Par ordre de vérité décroissante :
+       1. ma position, si je l'ai partagée — c'est le vrai « où je suis » ;
+       2. le point figé au démarrage, pour qui regarde après coup ;
+       3. le siège Buyticle, quand c'est nous qui livrons.
+     Une boutique qui livre elle-même et n'a rien démarré part de sa devanture :
+     deux points suffisent alors. */
+  const origin = useMemo(() => {
+    if (myPos) return { ...myPos, label: "Ma position", live: true };
+    if (Number.isFinite(current?.origin_lat))
+      return { lat: current.origin_lat, lng: current.origin_lng, label: "Départ" };
+    if (byBuyticle && hub) return { ...hub, label: hub.label || "Base Buyticle" };
+    return null;
+  }, [myPos, current?.origin_lat, current?.origin_lng, byBuyticle, hub]);
+
   useEffect(() => {
     let alive = true;
     if (!current || !Number.isFinite(current.pickup_lat) || !Number.isFinite(current.client_lat)) {
       setRoute(null); setLeg(null); setPickupLeg(null);
       return;
     }
+    const pickup = { lat: current.pickup_lat, lng: current.pickup_lng };
     (async () => {
-      // Le trajet facturé au client : boutique → client.
-      const drop = await routeBetween([
-        { lat: current.pickup_lat, lng: current.pickup_lng },
-        { lat: current.client_lat, lng: current.client_lng },
-      ]);
-      // Quand c'est Buyticle qui livre, la course commence avant : notre
-      // livreur part de la base pour aller chercher le colis. On trace
-      // l'itinéraire entier, celui qu'on facture en deux morceaux.
-      const pick = byBuyticle && hub
-        ? await routeBetween([hub, { lat: current.pickup_lat, lng: current.pickup_lng }])
-        : null;
+      // Trajet 2, celui qu'on facture au client : boutique → client.
+      const drop = await routeBetween([pickup, { lat: current.client_lat, lng: current.client_lng }]);
+      // Trajet 1 : d'où je suis jusqu'au colis.
+      const pick = origin ? await routeBetween([origin, pickup]) : null;
       if (!alive) return;
       setRoute([...(pick?.coords || []), ...(drop?.coords || [])]);
       setLeg(drop || null);
       setPickupLeg(pick || null);
     })();
     return () => { alive = false; };
-  }, [current?.id, current?.pickup_lat, current?.client_lat, byBuyticle, hub?.lat]);   // eslint-disable-line react-hooks/exhaustive-deps
+  }, [current?.id, current?.pickup_lat, current?.client_lat, origin?.lat, origin?.lng]);   // eslint-disable-line react-hooks/exhaustive-deps
 
   /* ── Marqueurs : la course choisie en entier, les autres en point ─────── */
   const markers = useMemo(() => {
     const out = [];
-    if (current && byBuyticle && hub && Number.isFinite(current.pickup_lat))
-      out.push({ lat: hub.lat, lng: hub.lng, color: "#4a5057",
-                 icon: "fa-warehouse", label: hub.label || "Base Buyticle" });
     if (current) {
+      // 1 · où je suis
+      if (origin && Number.isFinite(current.pickup_lat))
+        out.push({ lat: origin.lat, lng: origin.lng, color: "#4a5057",
+                   icon: origin.live ? "fa-person-biking" : "fa-warehouse", label: origin.label });
+      // 2 · où je vais chercher le produit
       if (Number.isFinite(current.pickup_lat))
         out.push({ lat: current.pickup_lat, lng: current.pickup_lng, color: DARK,
                    icon: "fa-store", label: current.shop_name || "Boutique" });
+      // 3 · où je le livre
       if (Number.isFinite(current.client_lat))
         out.push({ lat: current.client_lat, lng: current.client_lng, color: ACCENT,
                    icon: "fa-location-dot", label: current.client_name });
@@ -650,7 +847,7 @@ const DeliveryConsole = () => {
         title: `#${o.order_number || String(o.id).slice(0, 8)} — ${o.client_name}`,
       }));
     return out;
-  }, [current, visible, byBuyticle, hub]);
+  }, [current, visible, origin]);
 
   /* ── Indicateurs, tous tirés des commandes réelles ────────────────────── */
   const kpis = useMemo(() => {
@@ -748,8 +945,9 @@ const DeliveryConsole = () => {
   );
 
   const role = isSuperAdmin ? "Administrateur" : isDriver ? "Livreur" : "Vendeur";
-  const driver = current?.driver_name
-    ? { name: current.driver_name, phone: current.driver_phone, role: "Livreur Buyticle" }
+  const driver = current?.courier_name
+    ? { name: current.courier_name, phone: current.courier_phone,
+        role: current.delivery_mode === "buyticle" ? "Livreur Buyticle" : "Livreur de la boutique" }
     : null;
 
   return (
@@ -771,6 +969,11 @@ const DeliveryConsole = () => {
         markers={markers} route={route} center={center} orders={feed}
         filter={filter} onFilter={setFilter}
         onPickPlace={(h) => setCenter({ lat: h.lat, lng: h.lng })}
+      />
+
+      <CourierPicker
+        order={current} open={picker} busy={acting}
+        onClose={() => setPicker(false)} onAssign={assign} onTake={take}
       />
 
       {tab === "courses" ? (
@@ -800,6 +1003,12 @@ const DeliveryConsole = () => {
               { value: nfmt(kpis.km),        label: "Distance (km)" },
             ]}
             order={current} driver={driver}
+            canManage={!!current?.can_manage}
+            started={current?.course_started_at}
+            busy={acting}
+            onOpenPicker={() => setPicker(true)}
+            onStart={start}
+            onLocateMe={locateMe}
             onLocate={() => current && setCenter({ lat: current.client_lat, lng: current.client_lng })}
           />
 
