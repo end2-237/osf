@@ -410,6 +410,13 @@ CREATE POLICY "orders update allowed" ON public.orders
     (user_id IS NOT NULL AND user_id = auth.uid())
     OR public.owns_vendor(vendor_id)
     OR public.is_super_admin()
+  )
+  -- Sans WITH CHECK, un vendeur pourrait réattribuer une commande à une autre
+  -- boutique, ou un acheteur se l'approprier.
+  WITH CHECK (
+    (user_id IS NOT NULL AND user_id = auth.uid())
+    OR public.owns_vendor(vendor_id)
+    OR public.is_super_admin()
   );
 
 -- ─── order_items : suivent l'accès de leur commande ───
