@@ -752,20 +752,20 @@ const normalizePhone = (v) => String(v || "").replace(/\D/g, "");
 const isValidPhone   = (v) => /^[0-9]{8,15}$/.test(normalizePhone(v));
 
 // Sections des réglages : servent d'ancres au rail de droite.
+// Sous-pages des réglages. Une seule s'affiche à la fois : tout empiler
+// rendait la page interminable.
 const SETTINGS_SECTIONS = [
-  { id: "identite", label: "Identité visuelle",   icon: "fa-image" },
-  { id: "boutique", label: "Infos de la boutique", icon: "fa-store" },
-  { id: "createur", label: "Profil créateur",      icon: "fa-user-astronaut" },
-  { id: "remise",    label: "Remise membre",       icon: "fa-tag" },
-  { id: "livraison", label: "Livraison",           icon: "fa-truck-fast" },
-  { id: "paiement",  label: "Moyens de paiement",  icon: "fa-mobile-screen-button" },
-  { id: "retraits",  label: "Retraits",            icon: "fa-money-bill-transfer" },
-  { id: "compte",    label: "Compte & connexion",  icon: "fa-key" },
+  { id: "boutique",  label: "Ma boutique",       icon: "fa-store",                sub: "Nom, visuels, description" },
+  { id: "livraison", label: "Livraison",         icon: "fa-truck-fast",           sub: "Qui livre, frais, zones" },
+  { id: "paiement",  label: "Paiements & remise",icon: "fa-mobile-screen-button", sub: "Moyens acceptés, remise membre" },
+  { id: "retraits",  label: "Retraits",          icon: "fa-money-bill-transfer",  sub: "Solde et versements" },
+  { id: "createur",  label: "Profil créateur",   icon: "fa-user-astronaut",       sub: "Bio, réseaux, lives" },
+  { id: "compte",    label: "Compte",            icon: "fa-key",                  sub: "E-mail et mot de passe" },
 ];
 
-// ─── RAIL DES RÉGLAGES (colonne de droite, collante) ──────────────────────────
-const SettingsRail = ({ vendor, active, onJump, todos }) => (
-  <aside className="w-full lg:w-[240px] flex-shrink-0 order-first lg:order-none lg:sticky lg:top-[88px] space-y-3">
+// ─── MENU DES RÉGLAGES (colonne de droite, collante) ─────────────────────────
+const SettingsRail = ({ vendor, active, onSelect, todos }) => (
+  <aside className="w-full lg:w-[248px] flex-shrink-0 order-first lg:order-none lg:sticky lg:top-[88px] lg:max-h-[calc(100vh-104px)] lg:overflow-y-auto space-y-3">
     {/* Carte boutique */}
     <div className="bg-white border border-gray-200/80 rounded-2xl p-4 text-center">
       <div className="w-14 h-14 mx-auto rounded-xl bg-gray-100 overflow-hidden flex items-center justify-center mb-2">
@@ -781,15 +781,20 @@ const SettingsRail = ({ vendor, active, onJump, todos }) => (
       </a>
     </div>
 
-    {/* Sommaire */}
+    {/* Sous-pages */}
     <nav className="bg-white border border-gray-200/80 rounded-2xl p-2">
       {SETTINGS_SECTIONS.map(sec => (
-        <button key={sec.id} onClick={() => onJump(sec.id)}
-          className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-[13px] font-semibold text-left transition-colors ${
+        <button key={sec.id} onClick={() => onSelect(sec.id)}
+          className={`w-full flex items-start gap-2.5 px-3 py-2.5 rounded-xl text-left transition-colors ${
             active === sec.id ? "bg-gray-900 text-white" : "text-gray-600 hover:bg-gray-100"
           }`}>
-          <i className={`fa-solid ${sec.icon} w-4 text-center text-[11px]`} />
-          <span className="flex-1 truncate">{sec.label}</span>
+          <i className={`fa-solid ${sec.icon} w-4 text-center text-[11px] mt-0.5`} />
+          <span className="flex-1 min-w-0">
+            <span className="block text-[13px] font-semibold truncate">{sec.label}</span>
+            <span className={`block text-[11px] truncate ${active === sec.id ? "text-white/50" : "text-gray-400"}`}>
+              {sec.sub}
+            </span>
+          </span>
         </button>
       ))}
     </nav>
@@ -801,7 +806,7 @@ const SettingsRail = ({ vendor, active, onJump, todos }) => (
         <ul className="space-y-2">
           {todos.map(t => (
             <li key={t.id}>
-              <button onClick={() => onJump(t.section)}
+              <button onClick={() => onSelect(t.section)}
                 className="text-[12px] text-left text-orange-600 hover:underline flex items-start gap-1.5">
                 <i className="fa-solid fa-circle-exclamation text-[10px] mt-0.5 flex-shrink-0" />
                 <span>{t.label}</span>
@@ -811,10 +816,6 @@ const SettingsRail = ({ vendor, active, onJump, todos }) => (
         </ul>
       </div>
     )}
-
-    <p className="text-[11px] text-gray-400 px-1 hidden lg:block">
-      Chaque bloc s'enregistre séparément.
-    </p>
   </aside>
 );
 
@@ -923,40 +924,21 @@ const SettingsView = ({ user, vendor, updateVendorField, updateVendorFields, sho
 
   const removeImage = (kind) => save(kind === "logo" ? "logo_url" : "cover_url", null, "Image retirée");
 
-  // ── Sommaire : surligne la section à l'écran et saute à l'ancre ──
+  // ── Sous-page affichée. On n'empile plus tout : le rail sert de menu. ──
   const [activeSection, setActiveSection] = useState(SETTINGS_SECTIONS[0].id);
-  const sectionRefs = useRef({});
+  const current = SETTINGS_SECTIONS.find(s => s.id === activeSection) || SETTINGS_SECTIONS[0];
 
-  useEffect(() => {
-    const obs = new IntersectionObserver(
-      entries => {
-        const visible = entries
-          .filter(e => e.isIntersecting)
-          .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)[0];
-        if (visible) setActiveSection(visible.target.id);
-      },
-      // La bande active commence sous l'en-tête collant.
-      { rootMargin: "-96px 0px -55% 0px", threshold: 0 }
-    );
-    SETTINGS_SECTIONS.forEach(sec => {
-      const el = sectionRefs.current[sec.id];
-      if (el) obs.observe(el);
-    });
-    return () => obs.disconnect();
-  }, []);
-
-  const jumpTo = (id) => {
-    const el = sectionRefs.current[id];
-    if (!el) return;
-    const top = el.getBoundingClientRect().top + window.scrollY - 88;
-    window.scrollTo({ top, behavior: "smooth" });
+  // Changer de sous-page remet en haut : sinon on arrive au milieu d'un écran
+  // plus court que le précédent.
+  const goTo = (id) => {
     setActiveSection(id);
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   // Ce qu'il reste à renseigner — repris dans le rail de droite.
   const todos = [];
-  if (!vendor.logo_url)  todos.push({ id: "logo",  section: "identite", label: "Ajouter une photo de profil" });
-  if (!vendor.cover_url) todos.push({ id: "cover", section: "identite", label: "Ajouter une photo de couverture" });
+  if (!vendor.logo_url)  todos.push({ id: "logo",  section: "boutique", label: "Ajouter une photo de profil" });
+  if (!vendor.cover_url) todos.push({ id: "cover", section: "boutique", label: "Ajouter une photo de couverture" });
   if (!vendor.description) todos.push({ id: "desc", section: "boutique", label: "Décrire ta boutique" });
   if (!vendor.delivery_zones) todos.push({ id: "zones", section: "livraison", label: "Préciser tes zones de livraison" });
   // Le rappel des numéros d'encaissement est porté par la section Retraits,
@@ -966,233 +948,243 @@ const SettingsView = ({ user, vendor, updateVendorField, updateVendorFields, sho
     <div className="flex flex-col lg:flex-row gap-4 items-start">
       {/* ═══ COLONNE PRINCIPALE ═══ */}
       <div className="flex-1 min-w-0 w-full max-w-2xl space-y-4">
-      <h1 className="text-2xl font-bold tracking-tight">Réglages</h1>
-
-      {/* ── IDENTITÉ VISUELLE ── */}
-      <div id="identite" ref={el => (sectionRefs.current.identite = el)} className="scroll-mt-24 bg-white border border-gray-200/80 rounded-2xl overflow-hidden">
-        <div className="relative h-36 bg-gray-100">
-          {vendor.cover_url
-            ? <img src={vendor.cover_url} alt="" className="w-full h-full object-cover" />
-            : <div className="w-full h-full flex items-center justify-center text-gray-300"><i className="fa-solid fa-image text-3xl" /></div>}
-          <label className="absolute bottom-3 right-3 bg-white/95 hover:bg-white text-gray-900 text-[11px] font-bold px-3 py-2 rounded-xl cursor-pointer shadow-sm">
-            <i className="fa-solid fa-camera mr-1.5" />{uploading === "cover" ? "Envoi…" : "Photo de couverture"}
-            <input type="file" accept="image/*" className="hidden" onChange={e => pickImage(e, "cover")} disabled={!!uploading} />
-          </label>
-          {vendor.cover_url && (
-            <button onClick={() => removeImage("cover")} disabled={busy}
-              className="absolute top-3 right-3 w-8 h-8 rounded-lg bg-white/90 hover:bg-white text-gray-500 hover:text-red-500 text-xs">
-              <i className="fa-solid fa-trash" />
-            </button>
-          )}
-        </div>
-        <div className="p-5 flex items-start gap-4 -mt-12">
-          <div className="relative flex-shrink-0">
-            <div className="w-20 h-20 rounded-2xl bg-gray-100 border-4 border-white overflow-hidden flex items-center justify-center">
-              {vendor.logo_url
-                ? <img src={vendor.logo_url} alt="" className="w-full h-full object-cover" />
-                : <i className="fa-solid fa-store text-gray-300 text-2xl" />}
-            </div>
-            <label className="absolute -bottom-1 -right-1 w-8 h-8 rounded-full bg-gray-900 hover:bg-gray-800 text-white flex items-center justify-center cursor-pointer text-[11px]">
-              <i className={`fa-solid ${uploading === "logo" ? "fa-spinner fa-spin" : "fa-camera"}`} />
-              <input type="file" accept="image/*" className="hidden" onChange={e => pickImage(e, "logo")} disabled={!!uploading} />
-            </label>
-          </div>
-          <div className="flex-1 min-w-0 pt-12">
-            <p className="font-bold text-[15px] truncate">{vendor.shop_name}</p>
-            <p className="text-[13px] text-gray-500 truncate mb-3">{vendor.email}</p>
-            <p className="text-[12px] text-gray-400 mb-3">
-              Ta photo de profil s'affiche sur ta boutique, dans le lien de ta boutique et partout où
-              elle apparaît sur Buyticle.
-            </p>
-            <div className="flex items-center gap-2 flex-wrap">
-              <a href={`/shop/${vendor.shop_name}`} className="inline-flex items-center gap-2 bg-gray-100 hover:bg-gray-200 text-gray-900 text-[12px] font-bold px-4 py-2.5 rounded-xl"><i className="fa-solid fa-arrow-up-right-from-square" />Voir ma boutique</a>
-              {vendor.logo_url && (
-                <button onClick={() => removeImage("logo")} disabled={busy}
-                  className="inline-flex items-center gap-2 text-[12px] font-bold px-4 py-2.5 rounded-xl text-red-500 hover:bg-red-50">
-                  <i className="fa-solid fa-trash" />Retirer la photo
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* ── INFOS DE LA BOUTIQUE ── */}
-      <div id="boutique" ref={el => (sectionRefs.current.boutique = el)} className="scroll-mt-24 bg-white border border-gray-200/80 rounded-2xl p-5">
-        <p className="font-bold text-[15px] mb-1">Informations de la boutique</p>
-        <p className="text-[13px] text-gray-500 mb-4">Ce que voient tes clients sur ta page boutique.</p>
-
-        <div className="space-y-3">
-          <div>
-            <label className={settingsLabel}>Nom de la boutique *</label>
-            <input value={shop.shop_name} onChange={e => setShopField("shop_name", e.target.value)}
-              className={settingsInput} placeholder="Ex : Douala Wellness" />
-            <p className="text-[11px] text-gray-400 mt-1.5">
-              Adresse de ta boutique :{" "}
-              <span className="font-mono text-gray-600">/shop/{(shop.shop_name || "…").trim()}</span>
-            </p>
-            {nameChanged && (
-              <p className="text-[11px] text-orange-600 mt-1">
-                <i className="fa-solid fa-triangle-exclamation mr-1" />
-                Changer le nom change l'adresse : les anciens liens partagés ne fonctionneront plus.
-              </p>
-            )}
-          </div>
-
-          <div className="grid sm:grid-cols-2 gap-3">
-            <div>
-              <label className={settingsLabel}>Gérant *</label>
-              <input value={shop.full_name} onChange={e => setShopField("full_name", e.target.value)}
-                className={settingsInput} placeholder="Nom et prénom" />
-            </div>
-            <div>
-              <label className={settingsLabel}>Téléphone</label>
-              <input value={shop.phone} onChange={e => setShopField("phone", e.target.value)}
-                className={settingsInput} placeholder="237 6 XX XX XX XX" inputMode="tel" />
-            </div>
-          </div>
-
-          <div className="grid sm:grid-cols-2 gap-3">
-            <div>
-              <label className={settingsLabel}>Ville</label>
-              <input value={shop.city} onChange={e => setShopField("city", e.target.value)}
-                className={settingsInput} placeholder="Douala" />
-            </div>
-            <div>
-              <label className={settingsLabel}>Catégorie principale</label>
-              <select value={shop.category} onChange={e => setShopField("category", e.target.value)}
-                className={settingsInput}>
-                <option value="">—</option>
-                {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-              </select>
-            </div>
-          </div>
-
-          <div>
-            <label className={settingsLabel}>Description</label>
-            <textarea value={shop.description} onChange={e => setShopField("description", e.target.value)}
-              rows={3} className={`${settingsInput} resize-none`}
-              placeholder="Présente ta boutique en quelques lignes…" />
-          </div>
-
-          {shopError && (
-            <p className="text-[12px] text-red-500">
-              <i className="fa-solid fa-circle-exclamation mr-1.5" />{shopError}
-            </p>
-          )}
-
-          <div className="flex items-center gap-2">
-            <button onClick={saveShop} disabled={busy || !shopDirty}
-              className="bg-gray-900 text-white text-[12px] font-bold px-5 py-2.5 rounded-xl hover:bg-gray-800 disabled:opacity-40">
-              {busy ? "Enregistrement…" : "Enregistrer"}
-            </button>
-            {shopDirty && (
-              <button onClick={() => { setShop(emptyShopForm(vendor)); setShopError(""); }} disabled={busy}
-                className="text-[12px] font-bold px-4 py-2.5 rounded-xl text-gray-500 hover:bg-gray-100">
-                Annuler
-              </button>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* ── PROFIL CRÉATEUR ── */}
-      <CreatorProfileSection
-        user={user} vendor={vendor} showToast={showToast}
-        sectionRef={el => (sectionRefs.current.createur = el)}
-      />
-
-      {/* ── REMISE MEMBRE ── */}
-      <div id="remise" ref={el => (sectionRefs.current.remise = el)} className="scroll-mt-24 bg-white border border-gray-200/80 rounded-2xl p-5 space-y-4">
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <p className="font-bold text-[15px]">Remise membre</p>
-            <p className="text-[13px] text-gray-500">Réservée aux membres Buyticle sur ta boutique.</p>
-          </div>
-          <Switch on={!!vendor.member_discount_enabled} onClick={toggleDiscount} disabled={busy} />
+        <div>
+          <p className="text-[11px] font-bold uppercase tracking-wide text-gray-400 mb-1">Réglages</p>
+          <h1 className="text-2xl font-bold tracking-tight">{current.label}</h1>
+          <p className="text-[13px] text-gray-500">{current.sub}</p>
         </div>
 
-        {vendor.member_discount_enabled && (
-          <div className="border-t border-gray-100 pt-4">
-            <p className="text-[12px] font-bold uppercase tracking-wide text-gray-400 mb-2">Ton pourcentage</p>
-            <div className="flex flex-wrap gap-2 mb-3">
-              {DISCOUNT_PRESETS.map(p => (
-                <button key={p} onClick={() => setRate(p)}
-                  className={`px-3.5 py-2 rounded-xl text-[12px] font-bold border transition-colors ${rate === p ? "bg-gray-900 text-white border-gray-900" : "bg-white text-gray-600 border-gray-200 hover:border-gray-900"}`}>
-                  −{p}%
-                </button>
-              ))}
-            </div>
-            <div className="flex items-center gap-3">
-              <input type="range" min={0} max={70} step={1} value={rate}
-                onChange={e => setRate(Number(e.target.value))} className="flex-1 accent-gray-900" />
-              <div className="flex items-center gap-1 bg-gray-50 border border-gray-200 rounded-xl px-3 py-2">
-                <input type="number" min={0} max={70} value={rate}
-                  onChange={e => setRate(clampDiscountPercent(e.target.value))}
-                  className="w-12 bg-transparent text-sm font-bold outline-none text-right" />
-                <span className="text-sm font-bold text-gray-400">%</span>
+        {activeSection === "boutique" && (
+          <>
+            <div id="identite" className="bg-white border border-gray-200/80 rounded-2xl overflow-hidden">
+              <div className="relative h-36 bg-gray-100">
+                {vendor.cover_url
+                  ? <img src={vendor.cover_url} alt="" className="w-full h-full object-cover" />
+                  : <div className="w-full h-full flex items-center justify-center text-gray-300"><i className="fa-solid fa-image text-3xl" /></div>}
+                <label className="absolute bottom-3 right-3 bg-white/95 hover:bg-white text-gray-900 text-[11px] font-bold px-3 py-2 rounded-xl cursor-pointer shadow-sm">
+                  <i className="fa-solid fa-camera mr-1.5" />{uploading === "cover" ? "Envoi…" : "Photo de couverture"}
+                  <input type="file" accept="image/*" className="hidden" onChange={e => pickImage(e, "cover")} disabled={!!uploading} />
+                </label>
+                {vendor.cover_url && (
+                  <button onClick={() => removeImage("cover")} disabled={busy}
+                    className="absolute top-3 right-3 w-8 h-8 rounded-lg bg-white/90 hover:bg-white text-gray-500 hover:text-red-500 text-xs">
+                    <i className="fa-solid fa-trash" />
+                  </button>
+                )}
               </div>
-              <button onClick={saveRate} disabled={busy || rate === getVendorDiscountPercent(vendor)}
-                className="bg-gray-900 text-white text-[12px] font-bold px-4 py-2.5 rounded-xl hover:bg-gray-800 disabled:opacity-40">
-                Enregistrer
-              </button>
+              <div className="p-5 flex items-start gap-4 -mt-12">
+                <div className="relative flex-shrink-0">
+                  <div className="w-20 h-20 rounded-2xl bg-gray-100 border-4 border-white overflow-hidden flex items-center justify-center">
+                    {vendor.logo_url
+                      ? <img src={vendor.logo_url} alt="" className="w-full h-full object-cover" />
+                      : <i className="fa-solid fa-store text-gray-300 text-2xl" />}
+                  </div>
+                  <label className="absolute -bottom-1 -right-1 w-8 h-8 rounded-full bg-gray-900 hover:bg-gray-800 text-white flex items-center justify-center cursor-pointer text-[11px]">
+                    <i className={`fa-solid ${uploading === "logo" ? "fa-spinner fa-spin" : "fa-camera"}`} />
+                    <input type="file" accept="image/*" className="hidden" onChange={e => pickImage(e, "logo")} disabled={!!uploading} />
+                  </label>
+                </div>
+                <div className="flex-1 min-w-0 pt-12">
+                  <p className="font-bold text-[15px] truncate">{vendor.shop_name}</p>
+                  <p className="text-[13px] text-gray-500 truncate mb-3">{vendor.email}</p>
+                  <p className="text-[12px] text-gray-400 mb-3">
+                    Ta photo de profil s'affiche sur ta boutique, dans le lien de ta boutique et partout où
+                    elle apparaît sur Buyticle.
+                  </p>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <a href={`/shop/${vendor.shop_name}`} className="inline-flex items-center gap-2 bg-gray-100 hover:bg-gray-200 text-gray-900 text-[12px] font-bold px-4 py-2.5 rounded-xl"><i className="fa-solid fa-arrow-up-right-from-square" />Voir ma boutique</a>
+                    {vendor.logo_url && (
+                      <button onClick={() => removeImage("logo")} disabled={busy}
+                        className="inline-flex items-center gap-2 text-[12px] font-bold px-4 py-2.5 rounded-xl text-red-500 hover:bg-red-50">
+                        <i className="fa-solid fa-trash" />Retirer la photo
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
             </div>
-            <p className="text-[12px] text-gray-400 mt-2">
-              Exemple : un article à 10 000 F est affiché {money(Math.round(10000 * (1 - clampDiscountPercent(rate) / 100)))} aux membres. Maximum 70 %.
-            </p>
-          </div>
-        )}
-      </div>
 
-      {/* ── LIVRAISON ── */}
-      <DeliverySection
-        vendor={vendor} updateVendorFields={updateVendorFields} showToast={showToast}
-        sectionRef={el => (sectionRefs.current.livraison = el)}
-      />
+            {/* ── INFOS DE LA BOUTIQUE ── */}
+            <div id="boutique" className="bg-white border border-gray-200/80 rounded-2xl p-5">
+              <p className="font-bold text-[15px] mb-1">Informations de la boutique</p>
+              <p className="text-[13px] text-gray-500 mb-4">Ce que voient tes clients sur ta page boutique.</p>
 
-      {/* ── MOYENS DE PAIEMENT ── */}
-      <div id="paiement" ref={el => (sectionRefs.current.paiement = el)} className="scroll-mt-24 bg-white border border-gray-200/80 rounded-2xl p-5">
-        <p className="font-bold text-[15px] mb-1">Moyens de paiement acceptés</p>
-        <p className="text-[13px] text-gray-500 mb-4">Seuls les moyens activés ici sont proposés à tes clients au moment de payer.</p>
-        <div className="space-y-2">
-          {PAYMENT_OPTIONS.map(o => {
-            const on = acceptedPayments.includes(o.key);
-            return (
-              <div key={o.key} className="border border-gray-100 rounded-xl overflow-hidden">
-                <div className="flex items-center gap-3 px-4 py-3">
-                  <div className="w-10 h-10 rounded-lg bg-gray-50 flex items-center justify-center flex-shrink-0">
-                    <i className={`fa-solid ${o.icon} ${o.color}`} />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-bold text-[13px]">{o.label}</p>
-                    <p className="text-[11px] text-gray-400">{o.sub}</p>
-                  </div>
-                  <Switch on={on} onClick={() => togglePayment(o.key)} disabled={busy} />
+              <div className="space-y-3">
+                <div>
+                  <label className={settingsLabel}>Nom de la boutique *</label>
+                  <input value={shop.shop_name} onChange={e => setShopField("shop_name", e.target.value)}
+                    className={settingsInput} placeholder="Ex : Douala Wellness" />
+                  <p className="text-[11px] text-gray-400 mt-1.5">
+                    Adresse de ta boutique :{" "}
+                    <span className="font-mono text-gray-600">/shop/{(shop.shop_name || "…").trim()}</span>
+                  </p>
+                  {nameChanged && (
+                    <p className="text-[11px] text-orange-600 mt-1">
+                      <i className="fa-solid fa-triangle-exclamation mr-1" />
+                      Changer le nom change l'adresse : les anciens liens partagés ne fonctionneront plus.
+                    </p>
+                  )}
                 </div>
 
+                <div className="grid sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className={settingsLabel}>Gérant *</label>
+                    <input value={shop.full_name} onChange={e => setShopField("full_name", e.target.value)}
+                      className={settingsInput} placeholder="Nom et prénom" />
+                  </div>
+                  <div>
+                    <label className={settingsLabel}>Téléphone</label>
+                    <input value={shop.phone} onChange={e => setShopField("phone", e.target.value)}
+                      className={settingsInput} placeholder="237 6 XX XX XX XX" inputMode="tel" />
+                  </div>
+                </div>
+
+                <div className="grid sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className={settingsLabel}>Ville</label>
+                    <input value={shop.city} onChange={e => setShopField("city", e.target.value)}
+                      className={settingsInput} placeholder="Douala" />
+                  </div>
+                  <div>
+                    <label className={settingsLabel}>Catégorie principale</label>
+                    <select value={shop.category} onChange={e => setShopField("category", e.target.value)}
+                      className={settingsInput}>
+                      <option value="">—</option>
+                      {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label className={settingsLabel}>Description</label>
+                  <textarea value={shop.description} onChange={e => setShopField("description", e.target.value)}
+                    rows={3} className={`${settingsInput} resize-none`}
+                    placeholder="Présente ta boutique en quelques lignes…" />
+                </div>
+
+                {shopError && (
+                  <p className="text-[12px] text-red-500">
+                    <i className="fa-solid fa-circle-exclamation mr-1.5" />{shopError}
+                  </p>
+                )}
+
+                <div className="flex items-center gap-2">
+                  <button onClick={saveShop} disabled={busy || !shopDirty}
+                    className="bg-gray-900 text-white text-[12px] font-bold px-5 py-2.5 rounded-xl hover:bg-gray-800 disabled:opacity-40">
+                    {busy ? "Enregistrement…" : "Enregistrer"}
+                  </button>
+                  {shopDirty && (
+                    <button onClick={() => { setShop(emptyShopForm(vendor)); setShopError(""); }} disabled={busy}
+                      className="text-[12px] font-bold px-4 py-2.5 rounded-xl text-gray-500 hover:bg-gray-100">
+                      Annuler
+                    </button>
+                  )}
+                </div>
               </div>
-            );
-          })}
-        </div>
+            </div>
+          </>
+        )}
 
-        <p className="text-[12px] text-gray-400 mt-3">
-          <i className="fa-solid fa-circle-info mr-1.5" />
-          Les numéros sur lesquels tu reçois l'argent se règlent dans « Retraits ».
-        </p>
-      </div>
+        {activeSection === "livraison" && (
+          <DeliverySection
+            vendor={vendor} updateVendorFields={updateVendorFields} showToast={showToast}
+          />
+        )}
 
-      {/* ── RETRAITS ── */}
-      <PayoutSection
-        vendor={vendor} showToast={showToast}
-        sectionRef={el => (sectionRefs.current.retraits = el)}
-      />
+        {activeSection === "paiement" && (
+          <>
+            {/* ── REMISE MEMBRE ── */}
+            <div id="remise" className="bg-white border border-gray-200/80 rounded-2xl p-5 space-y-4">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="font-bold text-[15px]">Remise membre</p>
+                  <p className="text-[13px] text-gray-500">Réservée aux membres Buyticle sur ta boutique.</p>
+                </div>
+                <Switch on={!!vendor.member_discount_enabled} onClick={toggleDiscount} disabled={busy} />
+              </div>
 
-      {/* ── COMPTE & CONNEXION ── */}
-      <AccountSection user={user} sectionRef={el => (sectionRefs.current.compte = el)} />
+              {vendor.member_discount_enabled && (
+                <div className="border-t border-gray-100 pt-4">
+                  <p className="text-[12px] font-bold uppercase tracking-wide text-gray-400 mb-2">Ton pourcentage</p>
+                  <div className="flex flex-wrap gap-2 mb-3">
+                    {DISCOUNT_PRESETS.map(p => (
+                      <button key={p} onClick={() => setRate(p)}
+                        className={`px-3.5 py-2 rounded-xl text-[12px] font-bold border transition-colors ${rate === p ? "bg-gray-900 text-white border-gray-900" : "bg-white text-gray-600 border-gray-200 hover:border-gray-900"}`}>
+                        −{p}%
+                      </button>
+                    ))}
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <input type="range" min={0} max={70} step={1} value={rate}
+                      onChange={e => setRate(Number(e.target.value))} className="flex-1 accent-gray-900" />
+                    <div className="flex items-center gap-1 bg-gray-50 border border-gray-200 rounded-xl px-3 py-2">
+                      <input type="number" min={0} max={70} value={rate}
+                        onChange={e => setRate(clampDiscountPercent(e.target.value))}
+                        className="w-12 bg-transparent text-sm font-bold outline-none text-right" />
+                      <span className="text-sm font-bold text-gray-400">%</span>
+                    </div>
+                    <button onClick={saveRate} disabled={busy || rate === getVendorDiscountPercent(vendor)}
+                      className="bg-gray-900 text-white text-[12px] font-bold px-4 py-2.5 rounded-xl hover:bg-gray-800 disabled:opacity-40">
+                      Enregistrer
+                    </button>
+                  </div>
+                  <p className="text-[12px] text-gray-400 mt-2">
+                    Exemple : un article à 10 000 F est affiché {money(Math.round(10000 * (1 - clampDiscountPercent(rate) / 100)))} aux membres. Maximum 70 %.
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* ── MOYENS DE PAIEMENT ── */}
+            <div id="paiement" className="bg-white border border-gray-200/80 rounded-2xl p-5">
+              <p className="font-bold text-[15px] mb-1">Moyens de paiement acceptés</p>
+              <p className="text-[13px] text-gray-500 mb-4">Seuls les moyens activés ici sont proposés à tes clients au moment de payer.</p>
+              <div className="space-y-2">
+                {PAYMENT_OPTIONS.map(o => {
+                  const on = acceptedPayments.includes(o.key);
+                  return (
+                    <div key={o.key} className="border border-gray-100 rounded-xl overflow-hidden">
+                      <div className="flex items-center gap-3 px-4 py-3">
+                        <div className="w-10 h-10 rounded-lg bg-gray-50 flex items-center justify-center flex-shrink-0">
+                          <i className={`fa-solid ${o.icon} ${o.color}`} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-bold text-[13px]">{o.label}</p>
+                          <p className="text-[11px] text-gray-400">{o.sub}</p>
+                        </div>
+                        <Switch on={on} onClick={() => togglePayment(o.key)} disabled={busy} />
+                      </div>
+
+                    </div>
+                  );
+                })}
+              </div>
+
+              <p className="text-[12px] text-gray-400 mt-3">
+                <i className="fa-solid fa-circle-info mr-1.5" />
+                Les numéros sur lesquels tu reçois l'argent se règlent dans « Retraits ».
+              </p>
+            </div>
+          </>
+        )}
+
+        {activeSection === "retraits" && (
+          <PayoutSection
+            vendor={vendor} showToast={showToast}
+          />
+        )}
+
+        {activeSection === "createur" && (
+          <CreatorProfileSection
+            user={user} vendor={vendor} showToast={showToast}
+          />
+        )}
+
+        {activeSection === "compte" && <AccountSection user={user} />}
       </div>
 
       {/* ═══ RAIL DE DROITE ═══ */}
-      <SettingsRail vendor={vendor} active={activeSection} onJump={jumpTo} todos={todos} />
+      <SettingsRail vendor={vendor} active={activeSection} onSelect={goTo} todos={todos} />
     </div>
   );
 };

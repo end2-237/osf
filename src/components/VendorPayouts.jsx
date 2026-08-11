@@ -4,9 +4,10 @@ import { supabase } from "../lib/supabase";
 /* ════════════════════════════════════════════════════════════════════════════
    RETRAITS & LIVRAISON
 
-   Le solde ne compte que les commandes encaissées EN LIGNE : le paiement à la
-   livraison est collecté directement par le vendeur, la plateforme ne lui doit
-   rien dessus. Le montant demandé est revalidé côté base par `request_payout`.
+   Le solde suit ce que la plateforme a réellement encaissé pour la boutique :
+   toujours le mobile money, et le paiement à la livraison uniquement quand
+   c'est Buyticle Delivery qui livre (choix fait dans « Livraison » ci-dessous).
+   Le montant demandé est revalidé côté base par `request_payout`.
    ════════════════════════════════════════════════════════════════════════════ */
 
 const input = "w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-gray-900 transition-colors";
@@ -119,7 +120,7 @@ export const PayoutSection = ({ vendor, showToast, sectionRef }) => {
   return (
     <div id="retraits" ref={sectionRef} className="scroll-mt-24 bg-white border border-gray-200/80 rounded-2xl p-5 space-y-4">
       <div>
-        <p className="font-bold text-[15px] mb-1">Retraits</p>
+        <p className="font-bold text-[15px] mb-1">Ton solde</p>
         <p className="text-[13px] text-gray-500">
           Ce que la plateforme a encaissé pour toi et qu'il te reste à récupérer.
         </p>
@@ -146,8 +147,11 @@ export const PayoutSection = ({ vendor, showToast, sectionRef }) => {
 
           <p className="text-[11px] text-gray-400">
             <i className="fa-solid fa-circle-info mr-1" />
-            Seules les commandes payées en ligne (Orange Money, MTN MoMo) alimentent ce solde.
-            Les paiements à la livraison sont encaissés directement par toi.
+            {vendor?.delivery_mode === "buyticle"
+              ? <>Les commandes payées en ligne (Orange Money, MTN MoMo) alimentent ce solde, ainsi que
+                  celles payées à la livraison une fois livrées — c'est notre livreur qui encaisse pour toi.</>
+              : <>Seules les commandes payées en ligne (Orange Money, MTN MoMo) alimentent ce solde.
+                  Comme tu livres toi-même, tu encaisses directement les paiements à la livraison.</>}
           </p>
 
           {/* Numéros d'encaissement */}
@@ -243,7 +247,8 @@ export const PayoutSection = ({ vendor, showToast, sectionRef }) => {
                     {payouts.map(p => {
                       const st = PAYOUT_STATUS[p.status] || PAYOUT_STATUS.pending;
                       return (
-                        <tr key={p.id} className="border-b border-gray-50">
+                        <React.Fragment key={p.id}>
+                        <tr className={p.note || p.reference ? "" : "border-b border-gray-50"}>
                           <td className="py-2.5 text-gray-500">
                             {p.requested_at ? new Date(p.requested_at).toLocaleDateString("fr-FR",
                               { day: "2-digit", month: "short", year: "numeric" }) : "—"}
@@ -259,6 +264,19 @@ export const PayoutSection = ({ vendor, showToast, sectionRef }) => {
                             </span>
                           </td>
                         </tr>
+                        {(p.note || p.reference) && (
+                          <tr className="border-b border-gray-50">
+                            <td colSpan={4} className="pb-2.5 text-[12px] text-gray-500">
+                              {p.note && <span className="block">{p.note}</span>}
+                              {p.reference && (
+                                <span className="block text-gray-400">
+                                  Référence <span className="font-mono">{p.reference}</span>
+                                </span>
+                              )}
+                            </td>
+                          </tr>
+                        )}
+                        </React.Fragment>
                       );
                     })}
                   </tbody>
@@ -274,11 +292,26 @@ export const PayoutSection = ({ vendor, showToast, sectionRef }) => {
 
 /* ── LIVRAISON ────────────────────────────────────────────────────────────── */
 const emptyDelivery = (v) => ({
+  delivery_mode:           v?.delivery_mode || "self",
   delivery_fee:            v?.delivery_fee ?? "",
   free_delivery_threshold: v?.free_delivery_threshold ?? "",
   delivery_zones:          v?.delivery_zones || "",
   delivery_delay:          v?.delivery_delay || "",
 });
+
+// Qui livre — et donc qui encaisse l'argent du paiement à la livraison.
+const DELIVERY_MODES = [
+  {
+    key: "self", icon: "fa-person-biking", label: "Je livre moi-même",
+    sub: "Ton livreur ou toi. Tu encaisses directement l'argent des commandes payées à la livraison.",
+    note: "Seuls les paiements mobile money passent par Buyticle et alimentent ton solde.",
+  },
+  {
+    key: "buyticle", icon: "fa-truck-fast", label: "Buyticle Delivery",
+    sub: "Notre livreur récupère la commande et la remet au client.",
+    note: "Nous encaissons le cash pour toi : il vient s'ajouter à ton solde une fois la commande livrée.",
+  },
+];
 
 export const DeliverySection = ({ vendor, updateVendorFields, showToast, sectionRef }) => {
   const [form, setForm] = useState(() => emptyDelivery(vendor));
@@ -299,6 +332,7 @@ export const DeliverySection = ({ vendor, updateVendorFields, showToast, section
     setBusy(true); setMsg(null);
     try {
       await updateVendorFields({
+        delivery_mode:           form.delivery_mode,
         delivery_fee:            fee,
         free_delivery_threshold: thr,
         delivery_zones:          form.delivery_zones.trim() || null,
@@ -317,9 +351,38 @@ export const DeliverySection = ({ vendor, updateVendorFields, showToast, section
   return (
     <div id="livraison" ref={sectionRef} className="scroll-mt-24 bg-white border border-gray-200/80 rounded-2xl p-5 space-y-4">
       <div>
-        <p className="font-bold text-[15px] mb-1">Livraison</p>
+        <p className="font-bold text-[15px] mb-1">Qui livre tes commandes ?</p>
         <p className="text-[13px] text-gray-500">
-          Frais appliqués aux commandes de ta boutique. Laisse à 0 pour livrer gratuitement.
+          Ce choix décide aussi de qui encaisse l'argent des commandes payées à la livraison.
+        </p>
+      </div>
+
+      <div className="grid sm:grid-cols-2 gap-3">
+        {DELIVERY_MODES.map(m => {
+          const on = form.delivery_mode === m.key;
+          return (
+            <button key={m.key} type="button" onClick={() => set("delivery_mode", m.key)}
+              className={`text-left p-4 rounded-xl border-2 transition-colors ${
+                on ? "border-gray-900 bg-gray-50" : "border-gray-200 hover:border-gray-300"
+              }`}>
+              <div className="flex items-center gap-2.5 mb-2">
+                <div className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${on ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-400"}`}>
+                  <i className={`fa-solid ${m.icon} text-[13px]`} />
+                </div>
+                <p className="font-bold text-[13px] flex-1">{m.label}</p>
+                <i className={`fa-solid ${on ? "fa-circle-check text-gray-900" : "fa-circle text-gray-200"} text-[14px]`} />
+              </div>
+              <p className="text-[12px] text-gray-500 leading-snug mb-1.5">{m.sub}</p>
+              <p className="text-[11px] text-gray-400 leading-snug">{m.note}</p>
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="border-t border-gray-100 pt-4">
+        <p className="font-bold text-[15px] mb-1">Frais de livraison</p>
+        <p className="text-[13px] text-gray-500 mb-3">
+          Appliqués aux commandes de ta boutique. Laisse à 0 pour livrer gratuitement.
         </p>
       </div>
 
@@ -357,6 +420,14 @@ export const DeliverySection = ({ vendor, updateVendorFields, showToast, section
             ? `Actuellement : ${money(fee)} de livraison, offerte dès ${money(thr)} d'achat.`
             : `Actuellement : ${money(fee)} de livraison sur chaque commande.`}
       </p>
+
+      {form.delivery_mode === "buyticle" && (
+        <p className="text-[12px] text-emerald-700 bg-emerald-50 border border-emerald-100 rounded-xl px-3.5 py-2.5">
+          <i className="fa-solid fa-circle-info mr-1.5" />
+          Avec Buyticle Delivery, l'argent des commandes payées à la livraison arrive dans ton solde
+          dès que la commande est marquée livrée. Tu le récupères depuis « Retraits ».
+        </p>
+      )}
 
       <Feedback msg={msg} />
 

@@ -2501,6 +2501,255 @@ const VendorApplicationsTab = () => {
   );
 };
 
+/* ═══════════════════════════════════════════════════════════════════════════
+   RETRAITS VENDEURS
+   Les boutiques demandent le versement de ce que Buyticle a encaissé pour
+   elles. Tout passe par `admin_payouts` / `process_payout` : la table des
+   versements n'est jamais lue ni écrite directement depuis le navigateur.
+   ═══════════════════════════════════════════════════════════════════════════ */
+const PAYOUT_ADMIN_STATUS = {
+  pending:    { label: "En attente", color: "text-[#FF9900]", bg: "bg-[#FFF8D3]", border: "border-[#FCD200]/40" },
+  processing: { label: "En cours",   color: "text-[#007185]", bg: "bg-[#E6F3F5]", border: "border-[#007185]/30" },
+  paid:       { label: "Versé",      color: "text-[#007600]", bg: "bg-[#E8F5E8]", border: "border-[#007600]/30" },
+  rejected:   { label: "Refusé",     color: "text-[#B12704]", bg: "bg-[#FEE7E5]", border: "border-[#B12704]/30" },
+};
+
+const PAYOUT_METHOD_LABEL = {
+  orange_money: "Orange Money",
+  mtn_momo:     "MTN MoMo",
+};
+
+const fmtFcfa = (n) => `${Math.round(Number(n) || 0).toLocaleString("fr-FR")} F`;
+
+const PayoutsAdminTab = ({ onCountChange }) => {
+  const [rows,    setRows]    = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [filter,  setFilter]  = useState("pending"); // pending | processing | paid | rejected | all
+  const [error,   setError]   = useState("");
+  const [acting,  setActing]  = useState("");        // id en cours de traitement
+  const [openId,  setOpenId]  = useState(null);      // demande dont le formulaire est ouvert
+  const [ref,     setRef]     = useState("");
+  const [note,    setNote]    = useState("");
+
+  const load = async () => {
+    setLoading(true); setError("");
+    const { data, error: e } = await supabase.rpc("admin_payouts", {
+      p_status: filter === "all" ? null : filter,
+    });
+    if (e) setError(e.message);
+    setRows(data || []);
+    setLoading(false);
+  };
+
+  useEffect(() => { load(); }, [filter]);
+
+  // Le compteur de l'onglet suit les demandes non traitées, quel que soit le filtre affiché.
+  const refreshBadge = async () => {
+    const { data } = await supabase.rpc("admin_payouts", { p_status: "pending" });
+    onCountChange?.((data || []).length);
+  };
+  useEffect(() => { refreshBadge(); }, []);
+
+  const openForm = (row, status) => {
+    setOpenId(`${row.id}:${status}`);
+    setRef(row.reference || "");
+    setNote(row.note || "");
+    setError("");
+  };
+
+  const process = async (id, status) => {
+    setActing(id); setError("");
+    const { error: e } = await supabase.rpc("process_payout", {
+      p_payout_id: id,
+      p_status:    status,
+      p_reference: status === "paid"     ? ref.trim()  : null,
+      p_note:      status === "rejected" ? note.trim() : null,
+    });
+    setActing("");
+    if (e) { setError(e.message); return; }
+    setOpenId(null); setRef(""); setNote("");
+    await load();
+    await refreshBadge();
+  };
+
+  const total = rows.reduce((s, r) => s + Number(r.amount || 0), 0);
+
+  return (
+    <div className="space-y-5">
+      <div className="bg-[#131921] rounded-xl px-5 py-4 flex items-end justify-between gap-4 flex-wrap">
+        <div>
+          <p className="text-[9px] font-black uppercase tracking-widest text-[#FF9900] mb-0.5">Argent</p>
+          <h2 className="text-white font-black text-lg leading-tight">Retraits des vendeurs</h2>
+          <p className="text-[10px] text-[#ADBAC7] mt-0.5">
+            Valider les demandes de versement, puis envoyer l'argent sur le numéro indiqué
+          </p>
+        </div>
+        <div className="text-right">
+          <p className="text-[9px] font-black uppercase tracking-widest text-[#565959]">Total affiché</p>
+          <p className="text-[#FF9900] font-black text-xl leading-tight">{fmtFcfa(total)}</p>
+        </div>
+      </div>
+
+      <div className="flex gap-2 flex-wrap">
+        {[
+          { key: "pending",    label: "En attente" },
+          { key: "processing", label: "En cours"   },
+          { key: "paid",       label: "Versés"     },
+          { key: "rejected",   label: "Refusés"    },
+          { key: "all",        label: "Tous"       },
+        ].map(opt => (
+          <button key={opt.key} onClick={() => setFilter(opt.key)}
+            className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-wider border transition-all ${
+              filter === opt.key
+                ? "bg-[#131921] text-[#FF9900] border-[#131921]"
+                : "bg-white text-[#565959] border-[#D5D9D9] hover:border-[#565959]"
+            }`}>
+            {opt.label}
+          </button>
+        ))}
+      </div>
+
+      {error && (
+        <div className="bg-[#FEE7E5] border border-[#B12704]/30 rounded-lg px-4 py-3 text-[11px] text-[#B12704] font-bold">
+          <i className="fa-solid fa-circle-exclamation mr-2" />{error}
+        </div>
+      )}
+
+      {loading ? (
+        <div className="bg-white border border-[#D5D9D9] rounded-xl p-10 text-center text-[#565959] text-[11px] font-bold">
+          <i className="fa-solid fa-spinner fa-spin mr-2" />Chargement…
+        </div>
+      ) : rows.length === 0 ? (
+        <div className="bg-white border border-[#D5D9D9] rounded-xl p-10 text-center">
+          <i className="fa-solid fa-money-bill-transfer text-[#D5D9D9] text-3xl mb-3" />
+          <p className="text-[#565959] text-[12px] font-bold">Aucune demande dans cette liste</p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {rows.map(r => {
+            const st   = PAYOUT_ADMIN_STATUS[r.status] || PAYOUT_ADMIN_STATUS.pending;
+            const open = r.status === "pending" || r.status === "processing";
+            const busy = acting === r.id;
+            return (
+              <div key={r.id} className="bg-white border border-[#D5D9D9] rounded-xl overflow-hidden">
+                <div className="p-4 flex items-start gap-4 flex-wrap">
+                  <div className="flex-1 min-w-[220px]">
+                    <div className="flex items-center gap-2 mb-1 flex-wrap">
+                      <p className="font-black text-[13px] text-[#0F1111]">{r.shop_name}</p>
+                      <span className={`text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full border ${st.bg} ${st.color} ${st.border}`}>
+                        {st.label}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-[#565959]">{r.vendor_email}</p>
+                    <p className="text-[10px] text-[#565959] mt-1">
+                      Demandé le {fmtDate(r.requested_at)} à {fmtTime(r.requested_at)}
+                      {r.processed_at && <> · traité le {fmtDate(r.processed_at)}</>}
+                    </p>
+                  </div>
+
+                  <div className="min-w-[170px]">
+                    <p className="text-[9px] font-black uppercase tracking-widest text-[#565959] mb-0.5">Verser sur</p>
+                    <p className="font-black text-[13px] text-[#0F1111]">{r.phone}</p>
+                    <p className="text-[11px] text-[#565959]">{PAYOUT_METHOD_LABEL[r.method] || r.method}</p>
+                  </div>
+
+                  <div className="text-right min-w-[110px]">
+                    <p className="text-[9px] font-black uppercase tracking-widest text-[#565959] mb-0.5">Montant</p>
+                    <p className="font-black text-lg text-[#B12704] leading-tight">{fmtFcfa(r.amount)}</p>
+                  </div>
+                </div>
+
+                {(r.reference || r.note) && (
+                  <div className="px-4 pb-3 space-y-1">
+                    {r.reference && (
+                      <p className="text-[11px] text-[#565959]">
+                        <span className="font-black uppercase tracking-wider text-[9px] mr-1.5">Référence</span>
+                        <span className="font-mono text-[#0F1111]">{r.reference}</span>
+                      </p>
+                    )}
+                    {r.note && (
+                      <p className="text-[11px] text-[#565959]">
+                        <span className="font-black uppercase tracking-wider text-[9px] mr-1.5">Note</span>
+                        {r.note}
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {open && (
+                  <div className="border-t border-[#EAEDED] bg-[#FAFAFA] px-4 py-3 space-y-3">
+                    {openId === `${r.id}:paid` ? (
+                      <div className="space-y-2">
+                        <label className="text-[9px] font-black uppercase tracking-widest text-[#565959] block">
+                          Référence du transfert (facultatif)
+                        </label>
+                        <input value={ref} onChange={e => setRef(e.target.value)}
+                          placeholder="Ex : MP250811.1432.A12345"
+                          className="w-full bg-white border border-[#D5D9D9] rounded-lg px-3 py-2 text-[12px] outline-none focus:border-[#FF9900]" />
+                        <div className="flex gap-2">
+                          <button onClick={() => process(r.id, "paid")} disabled={busy}
+                            className="bg-[#007600] hover:bg-[#005c00] text-white text-[10px] font-black uppercase tracking-wider px-4 py-2 rounded-lg disabled:opacity-50">
+                            {busy ? "Enregistrement…" : "Confirmer le versement"}
+                          </button>
+                          <button onClick={() => setOpenId(null)} disabled={busy}
+                            className="text-[10px] font-black uppercase tracking-wider px-4 py-2 rounded-lg text-[#565959] hover:bg-[#EAEDED]">
+                            Annuler
+                          </button>
+                        </div>
+                      </div>
+                    ) : openId === `${r.id}:rejected` ? (
+                      <div className="space-y-2">
+                        <label className="text-[9px] font-black uppercase tracking-widest text-[#565959] block">
+                          Motif du refus — le vendeur le verra
+                        </label>
+                        <input value={note} onChange={e => setNote(e.target.value)}
+                          placeholder="Ex : numéro mobile money incorrect"
+                          className="w-full bg-white border border-[#D5D9D9] rounded-lg px-3 py-2 text-[12px] outline-none focus:border-[#FF9900]" />
+                        <div className="flex gap-2">
+                          <button onClick={() => process(r.id, "rejected")} disabled={busy || !note.trim()}
+                            className="bg-[#B12704] hover:bg-[#8c1f03] text-white text-[10px] font-black uppercase tracking-wider px-4 py-2 rounded-lg disabled:opacity-50">
+                            {busy ? "Enregistrement…" : "Confirmer le refus"}
+                          </button>
+                          <button onClick={() => setOpenId(null)} disabled={busy}
+                            className="text-[10px] font-black uppercase tracking-wider px-4 py-2 rounded-lg text-[#565959] hover:bg-[#EAEDED]">
+                            Annuler
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex gap-2 flex-wrap">
+                        {r.status === "pending" && (
+                          <button onClick={() => process(r.id, "processing")} disabled={busy}
+                            className="bg-[#131921] hover:bg-[#232F3E] text-white text-[10px] font-black uppercase tracking-wider px-4 py-2 rounded-lg disabled:opacity-50">
+                            <i className="fa-solid fa-hand mr-1.5" />Prendre en charge
+                          </button>
+                        )}
+                        <button onClick={() => openForm(r, "paid")} disabled={busy}
+                          className="bg-[#007600] hover:bg-[#005c00] text-white text-[10px] font-black uppercase tracking-wider px-4 py-2 rounded-lg disabled:opacity-50">
+                          <i className="fa-solid fa-check mr-1.5" />Marquer comme versé
+                        </button>
+                        <button onClick={() => openForm(r, "rejected")} disabled={busy}
+                          className="bg-white border border-[#B12704]/40 text-[#B12704] hover:bg-[#FEE7E5] text-[10px] font-black uppercase tracking-wider px-4 py-2 rounded-lg disabled:opacity-50">
+                          <i className="fa-solid fa-xmark mr-1.5" />Refuser
+                        </button>
+                      </div>
+                    )}
+                    <p className="text-[10px] text-[#565959]">
+                      <i className="fa-solid fa-circle-info mr-1.5" />
+                      Envoie d'abord l'argent sur le numéro ci-dessus, puis marque la demande comme versée.
+                      Une demande versée ou refusée ne peut plus être rouverte.
+                    </p>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+};
+
 const SuperAdmin = () => {
   const { user, isSuperAdmin } = useAuth();
   const navigate  = useNavigate();
@@ -2511,6 +2760,7 @@ const SuperAdmin = () => {
   const [allOrders,    setAllOrders]    = useState([]);
   const [globalStats,  setGlobalStats]  = useState({});
   const [loading,      setLoading]      = useState(true);
+  const [pendingPayouts, setPendingPayouts] = useState(0);
 
   // ── Auth guard ──────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -2570,6 +2820,10 @@ const SuperAdmin = () => {
           .from("vendor_applications").select("id", { count: "exact", head: true })
           .eq("status", "pending");
 
+        // Demandes de retrait en attente : la table n'est lisible que via la RPC.
+        const { data: payoutsPending } = await supabase.rpc("admin_payouts", { p_status: "pending" });
+        setPendingPayouts((payoutsPending || []).length);
+
         setGlobalStats({
           revenue:          totalRevenue,
           orders:           os.length,
@@ -2604,6 +2858,7 @@ const SuperAdmin = () => {
     { key: "boutiques",    icon: "fa-store",          label: "Boutiques"       },
     { key: "orders",       icon: "fa-bag-shopping",   label: "Commandes",      badge: globalStats.pending    || 0 },
     { key: "fulfillment",  icon: "fa-truck-fast",     label: "Fulfillment CJ", badge: globalStats.cjPending  || 0 },
+    { key: "retraits",     icon: "fa-money-bill-transfer", label: "Retraits",  badge: pendingPayouts         || 0 },
     { key: "products",     icon: "fa-boxes-stacked",  label: "Produits"        },
     { key: "cj",           icon: "fa-diagram-project",   label: "CJ Import"       },
     { key: "reviews",      icon: "fa-star",            label: "Avis",           badge: globalStats.pendingReviews || 0 },
@@ -2692,6 +2947,10 @@ const SuperAdmin = () => {
 
         {activeTab === "fulfillment" && (
           <CJFulfillmentTab />
+        )}
+
+        {activeTab === "retraits" && (
+          <PayoutsAdminTab onCountChange={setPendingPayouts} />
         )}
 
         {activeTab === "products" && (

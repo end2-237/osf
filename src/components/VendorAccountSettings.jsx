@@ -81,7 +81,7 @@ export const AccountSection = ({ user, sectionRef }) => {
   return (
     <div id="compte" ref={sectionRef} className="scroll-mt-24 bg-white border border-gray-200/80 rounded-2xl p-5 space-y-5">
       <div>
-        <p className="font-bold text-[15px] mb-1">Compte & connexion</p>
+        <p className="font-bold text-[15px] mb-1">E-mail et mot de passe</p>
         <p className="text-[13px] text-gray-500">Identifiants utilisés pour accéder à ton espace vendeur.</p>
       </div>
 
@@ -234,7 +234,7 @@ export const CreatorProfileSection = ({ user, vendor, showToast, sectionRef }) =
     <div id="createur" ref={sectionRef} className="scroll-mt-24 bg-white border border-gray-200/80 rounded-2xl p-5 space-y-4">
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div>
-          <p className="font-bold text-[15px] mb-1">Profil créateur</p>
+          <p className="font-bold text-[15px] mb-1">Ta présence de créateur</p>
           <p className="text-[13px] text-gray-500">
             Ce que voient les spectateurs de tes lives et les visiteurs de ta page créateur.
           </p>
