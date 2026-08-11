@@ -80,7 +80,7 @@ const Toast = ({ toast }) => !toast ? null : (
 //   DASHBOARD
 // ═══════════════════════════════════════════════════════════════
 const Dashboard = () => {
-  const { vendor, signOut, updateVendorField } = useAuth();
+  const { vendor, signOut, updateVendorField, updateVendorFields } = useAuth();
   const navigate = useNavigate();
 
   const initialSection = (() => {
@@ -94,6 +94,7 @@ const Dashboard = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [showAdd, setShowAdd]   = useState(false);
+  const [editProduct, setEditProduct] = useState(null);
 
   const showToast = (title, body, type = "success") => { setToast({ title, body, type }); setTimeout(() => setToast(null), 3000); };
 
@@ -264,7 +265,7 @@ const Dashboard = () => {
                 <Overview {...{ revenue, orders, countedOrders, pendingCount, avgBasket, monthly, hasRevenue, revenueDelta, ordersDelta, sparkFrom, topProduct, topSold, topCats, customers, products }} />
               )}
               {section === "products" && (
-                <ProductsView products={products} onDelete={deleteProduct} onAdd={() => setShowAdd(true)} />
+                <ProductsView products={products} onDelete={deleteProduct} onAdd={() => setShowAdd(true)} onEdit={setEditProduct} />
               )}
               {section === "orders" && (
                 selectedOrder
@@ -274,13 +275,22 @@ const Dashboard = () => {
               {section === "stats" && <VendorStats orders={orders} products={products} />}
               {section === "live" && <VendorLivePanel vendor={vendor} onToast={showToast} />}
               {section === "customers" && <CustomersView customers={customers} />}
-              {section === "settings" && <SettingsView vendor={vendor} updateVendorField={updateVendorField} showToast={showToast} />}
+              {section === "settings" && <SettingsView vendor={vendor} updateVendorField={updateVendorField} updateVendorFields={updateVendorFields} showToast={showToast} />}
             </>
           )}
         </main>
       </div>
 
       {showAdd && <AddProductWizard vendor={vendor} onClose={() => setShowAdd(false)} onDone={() => { setShowAdd(false); fetchAll(); showToast("Produit publié !"); }} showToast={showToast} />}
+      {editProduct && (
+        <AddProductWizard
+          vendor={vendor}
+          product={editProduct}
+          onClose={() => setEditProduct(null)}
+          onDone={() => { setEditProduct(null); fetchAll(); showToast("Produit mis à jour"); }}
+          showToast={showToast}
+        />
+      )}
       <Toast toast={toast} />
     </div>
   );
@@ -427,7 +437,7 @@ const Overview = ({ revenue, orders, countedOrders, pendingCount, avgBasket, mon
 };
 
 // ─── PRODUCTS ─────────────────────────────────────────────────────────────────
-const ProductsView = ({ products, onDelete, onAdd }) => {
+const ProductsView = ({ products, onDelete, onAdd, onEdit }) => {
   const [q, setQ] = useState("");
   const [menu, setMenu] = useState(null);
   const list = q ? products.filter(p => p.name?.toLowerCase().includes(q.toLowerCase())) : products;
@@ -464,10 +474,10 @@ const ProductsView = ({ products, onDelete, onAdd }) => {
                   <tr key={p.id} className="border-b border-gray-50 hover:bg-gray-50/60">
                     <td className="px-4 py-3 text-gray-400 font-mono text-[11px]">{String(p.id).slice(0, 6)}</td>
                     <td className="px-4 py-3">
-                      <div className="flex items-center gap-3">
+                      <button onClick={() => onEdit(p)} className="flex items-center gap-3 text-left group/name">
                         <div className="w-9 h-9 rounded-lg bg-gray-100 overflow-hidden flex-shrink-0">{p.img && <img src={p.img} alt="" className="w-full h-full object-cover" />}</div>
-                        <span className="font-semibold text-gray-900 truncate max-w-[160px]">{p.name}</span>
-                      </div>
+                        <span className="font-semibold text-gray-900 truncate max-w-[160px] group-hover/name:underline">{p.name}</span>
+                      </button>
                     </td>
                     <td className="px-4 py-3 text-gray-500 hidden sm:table-cell">{p.type}</td>
                     <td className="px-4 py-3 font-semibold">{money(p.price)}</td>
@@ -476,7 +486,8 @@ const ProductsView = ({ products, onDelete, onAdd }) => {
                     <td className="px-4 py-3 text-right relative">
                       <button onClick={() => setMenu(menu === p.id ? null : p.id)} className="w-8 h-8 rounded-lg hover:bg-gray-100 text-gray-400"><i className="fa-solid fa-ellipsis-vertical" /></button>
                       {menu === p.id && (
-                        <div className="absolute right-4 top-11 z-10 bg-white border border-gray-200 rounded-xl shadow-lg py-1 w-32" onMouseLeave={() => setMenu(null)}>
+                        <div className="absolute right-4 top-11 z-10 bg-white border border-gray-200 rounded-xl shadow-lg py-1 w-36" onMouseLeave={() => setMenu(null)}>
+                          <button onClick={() => { setMenu(null); onEdit(p); }} className="w-full text-left px-3 py-2 text-[12px] text-gray-700 hover:bg-gray-50"><i className="fa-solid fa-pen mr-2" />Modifier</button>
                           <button onClick={() => { setMenu(null); onDelete(p); }} className="w-full text-left px-3 py-2 text-[12px] text-red-500 hover:bg-red-50"><i className="fa-solid fa-trash mr-2" />Supprimer</button>
                         </div>
                       )}
@@ -724,18 +735,54 @@ const PAYMENT_OPTIONS = [
 ];
 const ALL_PAYMENT_KEYS = PAYMENT_OPTIONS.map(o => o.key);
 
+// Numéro d'encaissement rattaché à chaque opérateur mobile.
+const MOMO_FIELDS = {
+  orange_money: { field: "momo_orange_number", label: "Numéro Orange Money", placeholder: "237 6 9X XX XX XX", hint: "Numéro sur lequel tu reçois les paiements Orange Money." },
+  mtn_momo:     { field: "momo_mtn_number",    label: "Numéro MTN MoMo",     placeholder: "237 6 7X XX XX XX", hint: "Numéro sur lequel tu reçois les paiements MTN MoMo." },
+};
+
+// Chiffres uniquement : c'est le format attendu par la base et les opérateurs.
+const normalizePhone = (v) => String(v || "").replace(/\D/g, "");
+const isValidPhone   = (v) => /^[0-9]{8,15}$/.test(normalizePhone(v));
+
+const settingsInput = "w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-gray-900 transition-colors";
+const settingsLabel = "text-[11px] font-bold uppercase tracking-wide text-gray-400 block mb-1.5";
+
 const Switch = ({ on, onClick, disabled }) => (
   <button onClick={onClick} disabled={disabled} className={`w-14 h-8 rounded-full transition-colors relative flex-shrink-0 disabled:opacity-50 ${on ? "bg-emerald-500" : "bg-gray-300"}`}>
     <span className={`absolute top-1 w-6 h-6 bg-white rounded-full transition-all ${on ? "left-7" : "left-1"}`} />
   </button>
 );
 
-const SettingsView = ({ vendor, updateVendorField, showToast }) => {
+const emptyShopForm = (v) => ({
+  shop_name:   v?.shop_name   || "",
+  full_name:   v?.full_name   || "",
+  phone:       v?.phone       || "",
+  city:        v?.city        || "",
+  category:    v?.category    || "",
+  description: v?.description || "",
+});
+
+const SettingsView = ({ vendor, updateVendorField, updateVendorFields, showToast }) => {
   const [busy, setBusy]   = useState(false);
   const [rate, setRate]   = useState(getVendorDiscountPercent(vendor));
   const [uploading, setUploading] = useState("");
+  const [shop, setShop]   = useState(() => emptyShopForm(vendor));
+  const [shopError, setShopError] = useState("");
+  const [momo, setMomo]   = useState({
+    orange_money: vendor?.momo_orange_number || "",
+    mtn_momo:     vendor?.momo_mtn_number    || "",
+  });
 
   useEffect(() => { setRate(getVendorDiscountPercent(vendor)); }, [vendor?.id, vendor?.member_discount_rate]);
+  useEffect(() => { setShop(emptyShopForm(vendor)); setShopError(""); }, [vendor?.id]);
+  useEffect(() => {
+    setMomo({ orange_money: vendor?.momo_orange_number || "", mtn_momo: vendor?.momo_mtn_number || "" });
+  }, [vendor?.id, vendor?.momo_orange_number, vendor?.momo_mtn_number]);
+
+  const setShopField = (k, v) => { setShop(f => ({ ...f, [k]: v })); setShopError(""); };
+  const shopDirty = Object.keys(shop).some(k => (shop[k] || "") !== (vendor?.[k] || ""));
+  const nameChanged = shop.shop_name.trim() !== (vendor?.shop_name || "").trim();
 
   const acceptedPayments = Array.isArray(vendor.payment_methods) && vendor.payment_methods.length
     ? vendor.payment_methods
@@ -751,6 +798,47 @@ const SettingsView = ({ vendor, updateVendorField, showToast }) => {
   const toggleDiscount = () => save("member_discount_enabled", !vendor.member_discount_enabled);
 
   const saveRate = () => save("member_discount_rate", clampDiscountPercent(rate), `Remise fixée à ${clampDiscountPercent(rate)} %`);
+
+  const saveShop = async () => {
+    const name = shop.shop_name.trim();
+    if (!name)               return setShopError("Le nom de la boutique est obligatoire.");
+    if (name.length < 3)     return setShopError("Le nom doit faire au moins 3 caractères.");
+    if (/[/?#]/.test(name))  return setShopError("Le nom ne peut pas contenir « / », « ? » ou « # » : il sert d'adresse à ta boutique.");
+    if (!shop.full_name.trim()) return setShopError("Le nom du gérant est obligatoire.");
+    if (shop.phone && !isValidPhone(shop.phone)) return setShopError("Le téléphone doit contenir 8 à 15 chiffres.");
+
+    setBusy(true);
+    try {
+      // Le nom sert d'adresse publique : on vérifie qu'aucune autre boutique
+      // ne le porte déjà (comparaison insensible à la casse).
+      if (nameChanged) {
+        const { data: clash } = await supabase
+          .from("vendors").select("id, shop_name").neq("id", vendor.id);
+        const taken = (clash || []).some(v => v.shop_name?.trim().toLowerCase() === name.toLowerCase());
+        if (taken) { setShopError("Ce nom de boutique est déjà pris."); setBusy(false); return; }
+      }
+
+      await updateVendorFields({
+        shop_name:   name,
+        full_name:   shop.full_name.trim(),
+        phone:       shop.phone ? normalizePhone(shop.phone) : null,
+        city:        shop.city.trim() || null,
+        category:    shop.category || null,
+        description: shop.description.trim() || null,
+      });
+      showToast("Boutique mise à jour", nameChanged ? "L'adresse de ta boutique a changé." : "");
+    } catch (e) {
+      setShopError(e.message);
+      showToast("Erreur", e.message, "error");
+    } finally { setBusy(false); }
+  };
+
+  const saveMomo = async (key) => {
+    const cfg = MOMO_FIELDS[key];
+    const raw = momo[key];
+    if (raw && !isValidPhone(raw)) return showToast("Numéro invalide", "8 à 15 chiffres attendus.", "error");
+    save(cfg.field, raw ? normalizePhone(raw) : null, raw ? "Numéro enregistré" : "Numéro retiré");
+  };
 
   const togglePayment = (key) => {
     const next = acceptedPayments.includes(key)
@@ -829,6 +917,85 @@ const SettingsView = ({ vendor, updateVendorField, showToast }) => {
         </div>
       </div>
 
+      {/* ── INFOS DE LA BOUTIQUE ── */}
+      <div className="bg-white border border-gray-200/80 rounded-2xl p-5">
+        <p className="font-bold text-[15px] mb-1">Informations de la boutique</p>
+        <p className="text-[13px] text-gray-500 mb-4">Ce que voient tes clients sur ta page boutique.</p>
+
+        <div className="space-y-3">
+          <div>
+            <label className={settingsLabel}>Nom de la boutique *</label>
+            <input value={shop.shop_name} onChange={e => setShopField("shop_name", e.target.value)}
+              className={settingsInput} placeholder="Ex : Douala Wellness" />
+            <p className="text-[11px] text-gray-400 mt-1.5">
+              Adresse de ta boutique :{" "}
+              <span className="font-mono text-gray-600">/shop/{(shop.shop_name || "…").trim()}</span>
+            </p>
+            {nameChanged && (
+              <p className="text-[11px] text-orange-600 mt-1">
+                <i className="fa-solid fa-triangle-exclamation mr-1" />
+                Changer le nom change l'adresse : les anciens liens partagés ne fonctionneront plus.
+              </p>
+            )}
+          </div>
+
+          <div className="grid sm:grid-cols-2 gap-3">
+            <div>
+              <label className={settingsLabel}>Gérant *</label>
+              <input value={shop.full_name} onChange={e => setShopField("full_name", e.target.value)}
+                className={settingsInput} placeholder="Nom et prénom" />
+            </div>
+            <div>
+              <label className={settingsLabel}>Téléphone</label>
+              <input value={shop.phone} onChange={e => setShopField("phone", e.target.value)}
+                className={settingsInput} placeholder="237 6 XX XX XX XX" inputMode="tel" />
+            </div>
+          </div>
+
+          <div className="grid sm:grid-cols-2 gap-3">
+            <div>
+              <label className={settingsLabel}>Ville</label>
+              <input value={shop.city} onChange={e => setShopField("city", e.target.value)}
+                className={settingsInput} placeholder="Douala" />
+            </div>
+            <div>
+              <label className={settingsLabel}>Catégorie principale</label>
+              <select value={shop.category} onChange={e => setShopField("category", e.target.value)}
+                className={settingsInput}>
+                <option value="">—</option>
+                {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label className={settingsLabel}>Description</label>
+            <textarea value={shop.description} onChange={e => setShopField("description", e.target.value)}
+              rows={3} className={`${settingsInput} resize-none`}
+              placeholder="Présente ta boutique en quelques lignes…" />
+          </div>
+
+          {shopError && (
+            <p className="text-[12px] text-red-500">
+              <i className="fa-solid fa-circle-exclamation mr-1.5" />{shopError}
+            </p>
+          )}
+
+          <div className="flex items-center gap-2">
+            <button onClick={saveShop} disabled={busy || !shopDirty}
+              className="bg-gray-900 text-white text-[12px] font-bold px-5 py-2.5 rounded-xl hover:bg-gray-800 disabled:opacity-40">
+              {busy ? "Enregistrement…" : "Enregistrer"}
+            </button>
+            {shopDirty && (
+              <button onClick={() => { setShop(emptyShopForm(vendor)); setShopError(""); }} disabled={busy}
+                className="text-[12px] font-bold px-4 py-2.5 rounded-xl text-gray-500 hover:bg-gray-100">
+                Annuler
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+
       {/* ── REMISE MEMBRE ── */}
       <div className="bg-white border border-gray-200/80 rounded-2xl p-5 space-y-4">
         <div className="flex items-center justify-between gap-3">
@@ -877,21 +1044,58 @@ const SettingsView = ({ vendor, updateVendorField, showToast }) => {
         <p className="text-[13px] text-gray-500 mb-4">Seuls les moyens activés ici sont proposés à tes clients au moment de payer.</p>
         <div className="space-y-2">
           {PAYMENT_OPTIONS.map(o => {
-            const on = acceptedPayments.includes(o.key);
+            const on  = acceptedPayments.includes(o.key);
+            const cfg = MOMO_FIELDS[o.key];
+            const saved = vendor[cfg?.field] || "";
+            const dirty = cfg ? normalizePhone(momo[o.key]) !== saved : false;
             return (
-              <div key={o.key} className="flex items-center gap-3 border border-gray-100 rounded-xl px-4 py-3">
-                <div className="w-10 h-10 rounded-lg bg-gray-50 flex items-center justify-center flex-shrink-0">
-                  <i className={`fa-solid ${o.icon} ${o.color}`} />
+              <div key={o.key} className="border border-gray-100 rounded-xl overflow-hidden">
+                <div className="flex items-center gap-3 px-4 py-3">
+                  <div className="w-10 h-10 rounded-lg bg-gray-50 flex items-center justify-center flex-shrink-0">
+                    <i className={`fa-solid ${o.icon} ${o.color}`} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-bold text-[13px]">{o.label}</p>
+                    <p className="text-[11px] text-gray-400">{o.sub}</p>
+                  </div>
+                  <Switch on={on} onClick={() => togglePayment(o.key)} disabled={busy} />
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className="font-bold text-[13px]">{o.label}</p>
-                  <p className="text-[11px] text-gray-400">{o.sub}</p>
-                </div>
-                <Switch on={on} onClick={() => togglePayment(o.key)} disabled={busy} />
+
+                {/* Numéro d'encaissement, uniquement pour les opérateurs mobiles activés */}
+                {on && cfg && (
+                  <div className="border-t border-gray-100 bg-gray-50/60 px-4 py-3">
+                    <label className={settingsLabel}>{cfg.label}</label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        value={momo[o.key]}
+                        onChange={e => setMomo(m => ({ ...m, [o.key]: e.target.value }))}
+                        placeholder={cfg.placeholder}
+                        inputMode="tel"
+                        className={`${settingsInput} bg-white`}
+                      />
+                      <button onClick={() => saveMomo(o.key)} disabled={busy || !dirty}
+                        className="bg-gray-900 text-white text-[12px] font-bold px-4 py-2.5 rounded-xl hover:bg-gray-800 disabled:opacity-40 flex-shrink-0">
+                        Enregistrer
+                      </button>
+                    </div>
+                    <p className="text-[11px] text-gray-400 mt-1.5">
+                      {saved
+                        ? <><i className="fa-solid fa-circle-check text-emerald-500 mr-1" />Enregistré : {saved}</>
+                        : <><i className="fa-solid fa-circle-info mr-1" />{cfg.hint}</>}
+                    </p>
+                  </div>
+                )}
               </div>
             );
           })}
         </div>
+
+        {acceptedPayments.some(k => MOMO_FIELDS[k] && !vendor[MOMO_FIELDS[k].field]) && (
+          <p className="text-[12px] text-orange-600 mt-3">
+            <i className="fa-solid fa-triangle-exclamation mr-1.5" />
+            Renseigne le numéro de chaque opérateur activé pour recevoir tes paiements.
+          </p>
+        )}
       </div>
     </div>
   );

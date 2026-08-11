@@ -35,35 +35,54 @@ const label = "text-[11px] font-bold uppercase tracking-wide text-gray-400 block
 
 const STEPS = ["Infos", "Photos", "Variations", "Livraison", "Résumé"];
 
-const AddProductWizard = ({ vendor, onClose, onDone, showToast }) => {
+// `product` renseigné → le formulaire modifie ce produit ; sinon il en crée un.
+const AddProductWizard = ({ vendor, product = null, onClose, onDone, showToast }) => {
+  const isEdit = !!product;
   const [step, setStep] = useState(0);
   const [saving, setSaving] = useState(false);
-  const [f, setF] = useState({
-    name: "", type: "Tech Lab", subcategory: "", price: "", compareAt: "",
-    status: "In Stock", description: "",
-    colors: [], sizes: [], features: [],
-    ship_weight_g: "", pack_l_cm: "", pack_w_cm: "", pack_h_cm: "",
+  const [f, setF] = useState(() => ({
+    name:          product?.name || "",
+    type:          product?.type || "Tech Lab",
+    subcategory:   product?.subcategory || "",
+    price:         product?.price ?? "",
+    compareAt:     product?.compare_at_price ?? "",
+    status:        product?.status || "In Stock",
+    description:   product?.description || "",
+    colors:        product?.colors   || [],
+    sizes:         product?.sizes    || [],
+    features:      product?.features || [],
+    ship_weight_g: product?.ship_weight_g ?? "",
+    pack_l_cm:     product?.pack_l_cm ?? "",
+    pack_w_cm:     product?.pack_w_cm ?? "",
+    pack_h_cm:     product?.pack_h_cm ?? "",
+  }));
+
+  // Les photos mélangent des URL déjà en ligne et de nouveaux fichiers : on les
+  // garde dans une seule liste ordonnée pour que « la 1ʳᵉ est la principale »
+  // reste vrai après un retrait ou un ajout.
+  const [media, setMedia] = useState(() => {
+    if (!product) return [];
+    const urls = product.images?.length ? product.images : (product.img ? [product.img] : []);
+    return urls.filter(Boolean).map(url => ({ kind: "url", url, preview: url }));
   });
-  const [files, setFiles] = useState([]);      // File[]
-  const [previews, setPreviews] = useState([]); // string[]
   const [featInput, setFeatInput] = useState("");
   const [colorInput, setColorInput] = useState("");
   const [sizeInput, setSizeInput] = useState("");
   const set = (k, v) => setF(p => ({ ...p, [k]: v }));
 
   const addImages = (list) => {
-    const arr = Array.from(list).slice(0, 6 - files.length);
-    setFiles(prev => [...prev, ...arr]);
-    setPreviews(prev => [...prev, ...arr.map(x => URL.createObjectURL(x))]);
+    const arr = Array.from(list).slice(0, 6 - media.length);
+    setMedia(prev => [...prev, ...arr.map(file => ({ kind: "file", file, preview: URL.createObjectURL(file) }))]);
   };
-  const removeImage = (i) => { setFiles(p => p.filter((_, x) => x !== i)); setPreviews(p => p.filter((_, x) => x !== i)); };
+  const removeImage = (i) => setMedia(p => p.filter((_, x) => x !== i));
+  const previews = media.map(m => m.preview);
 
   const toggleArr = (key, val) => set(key, f[key].includes(val) ? f[key].filter(x => x !== val) : [...f[key], val]);
   const addChip = (key, val, reset) => { const v = val.trim(); if (v && !f[key].includes(v)) set(key, [...f[key], v]); reset(""); };
 
   const valid = [
     !!(f.name.trim() && f.price && f.type),   // infos
-    files.length > 0,                          // photos
+    media.length > 0,                          // photos
     true,                                      // variations (optionnel)
     true,                                      // livraison (optionnel)
     true,                                      // résumé
@@ -72,9 +91,14 @@ const AddProductWizard = ({ vendor, onClose, onDone, showToast }) => {
   const publish = async () => {
     setSaving(true);
     try {
+      // On n'envoie que les nouveaux fichiers ; les photos déjà en ligne
+      // gardent leur URL, dans l'ordre choisi par le vendeur.
       const urls = [];
-      for (const file of files) urls.push(await uploadProductImage(file, vendor.id));
-      const { error } = await supabase.from("products").insert({
+      for (const m of media) {
+        urls.push(m.kind === "url" ? m.url : await uploadProductImage(m.file, vendor.id));
+      }
+
+      const payload = {
         name: f.name.trim(),
         price: Number(f.price),
         type: f.type,
@@ -86,12 +110,15 @@ const AddProductWizard = ({ vendor, onClose, onDone, showToast }) => {
         sizes: f.sizes,
         features: f.features,
         description: f.description || null,
-        vendor_id: vendor.id,
         ship_weight_g: f.ship_weight_g ? Number(f.ship_weight_g) : null,
         pack_l_cm: f.pack_l_cm ? Number(f.pack_l_cm) : null,
         pack_w_cm: f.pack_w_cm ? Number(f.pack_w_cm) : null,
         pack_h_cm: f.pack_h_cm ? Number(f.pack_h_cm) : null,
-      });
+      };
+
+      const { error } = isEdit
+        ? await supabase.from("products").update(payload).eq("id", product.id).eq("vendor_id", vendor.id)
+        : await supabase.from("products").insert({ ...payload, vendor_id: vendor.id });
       if (error) throw error;
       onDone();
     } catch (e) { showToast("Erreur", e.message, "error"); setSaving(false); }
@@ -106,7 +133,7 @@ const AddProductWizard = ({ vendor, onClose, onDone, showToast }) => {
         {/* header + stepper */}
         <div className="px-5 pt-4 pb-3 border-b border-gray-100">
           <div className="flex items-center justify-between mb-3">
-            <h3 className="text-lg font-bold">Nouveau produit</h3>
+            <h3 className="text-lg font-bold">{isEdit ? "Modifier le produit" : "Nouveau produit"}</h3>
             <button onClick={onClose} className="w-9 h-9 rounded-lg hover:bg-gray-100 flex items-center justify-center"><i className="fa-solid fa-xmark" /></button>
           </div>
           <div className="flex items-center gap-1.5">
@@ -174,14 +201,14 @@ const AddProductWizard = ({ vendor, onClose, onDone, showToast }) => {
                     <button onClick={() => removeImage(i)} className="absolute top-1 right-1 w-6 h-6 bg-black/60 text-white rounded-full text-[10px] opacity-0 group-hover:opacity-100"><i className="fa-solid fa-xmark" /></button>
                   </div>
                 ))}
-                {files.length < 6 && (
+                {media.length < 6 && (
                   <label className="aspect-square rounded-xl border-2 border-dashed border-gray-200 hover:border-gray-900 cursor-pointer flex flex-col items-center justify-center text-gray-400">
                     <i className="fa-solid fa-plus text-xl mb-1" /><span className="text-[10px] font-semibold">Ajouter</span>
                     <input type="file" accept="image/*" multiple className="hidden" onChange={e => e.target.files && addImages(e.target.files)} />
                   </label>
                 )}
               </div>
-              {files.length === 0 && <p className="text-[12px] text-orange-500 mt-2">Ajoute au moins une photo pour continuer.</p>}
+              {media.length === 0 && <p className="text-[12px] text-orange-500 mt-2">Ajoute au moins une photo pour continuer.</p>}
             </div>
           )}
 
@@ -250,7 +277,7 @@ const AddProductWizard = ({ vendor, onClose, onDone, showToast }) => {
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3 text-[12px]">
-                <div className="bg-gray-50 rounded-xl p-3"><p className="text-gray-400 font-semibold mb-1">Photos</p>{files.length}</div>
+                <div className="bg-gray-50 rounded-xl p-3"><p className="text-gray-400 font-semibold mb-1">Photos</p>{media.length}</div>
                 <div className="bg-gray-50 rounded-xl p-3"><p className="text-gray-400 font-semibold mb-1">Couleurs</p>{f.colors.length ? f.colors.join(", ") : "—"}</div>
                 <div className="bg-gray-50 rounded-xl p-3"><p className="text-gray-400 font-semibold mb-1">Tailles</p>{f.sizes.length ? f.sizes.join(", ") : "—"}</div>
                 <div className="bg-gray-50 rounded-xl p-3"><p className="text-gray-400 font-semibold mb-1">Poids</p>{f.ship_weight_g ? `${f.ship_weight_g} g` : "—"}</div>
@@ -265,14 +292,22 @@ const AddProductWizard = ({ vendor, onClose, onDone, showToast }) => {
             {step === 0 ? "Annuler" : "Retour"}
           </button>
           {step < STEPS.length - 1 ? (
-            <button onClick={() => valid[step] && setStep(s => s + 1)} disabled={!valid[step]}
-              className="px-6 py-2.5 rounded-xl text-[12px] font-bold bg-gray-900 text-white hover:bg-gray-800 disabled:opacity-40">
-              Continuer
-            </button>
+            <div className="flex items-center gap-2">
+              {isEdit && (
+                <button onClick={publish} disabled={saving || !valid[0] || !valid[1]}
+                  className="px-4 py-2.5 rounded-xl text-[12px] font-bold text-emerald-600 hover:bg-emerald-50 disabled:opacity-40">
+                  {saving ? "Enregistrement…" : "Enregistrer"}
+                </button>
+              )}
+              <button onClick={() => valid[step] && setStep(s => s + 1)} disabled={!valid[step]}
+                className="px-6 py-2.5 rounded-xl text-[12px] font-bold bg-gray-900 text-white hover:bg-gray-800 disabled:opacity-40">
+                Continuer
+              </button>
+            </div>
           ) : (
             <button onClick={publish} disabled={saving}
               className="px-6 py-2.5 rounded-xl text-[12px] font-bold bg-emerald-500 text-white hover:bg-emerald-600 disabled:opacity-50">
-              {saving ? "Publication…" : "Publier le produit"}
+              {saving ? "Enregistrement…" : isEdit ? "Enregistrer les modifications" : "Publier le produit"}
             </button>
           )}
         </div>

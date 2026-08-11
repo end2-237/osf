@@ -195,6 +195,19 @@ export const AuthProvider = ({ children }) => {
     setVendor(prev => ({ ...prev, [field]: value }));
   };
 
+  /* ─── UPDATE PLUSIEURS CHAMPS (formulaire de réglages boutique) ───
+     Un seul aller-retour : le formulaire reste cohérent même si une
+     contrainte rejette la mise à jour. */
+  const updateVendorFields = async (patch) => {
+    if (!vendor?.id) return;
+    const { error } = await supabase
+      .from('vendors')
+      .update(patch)
+      .eq('id', vendor.id);
+    if (error) throw new Error(error.message);
+    setVendor(prev => ({ ...prev, ...patch }));
+  };
+
   /* ─── FLAGS dérivés ─── */
   // isVendor : a un profil vendeur
   const isVendor = !!vendor;
@@ -215,6 +228,7 @@ export const AuthProvider = ({ children }) => {
       signUpVendor,
       signOut,
       updateVendorField,
+      updateVendorFields,
     }}>
       {children}
     </AuthContext.Provider>
