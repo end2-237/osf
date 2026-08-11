@@ -413,8 +413,28 @@ const CourierPicker = ({ order, open, onClose, onAssign, onTake, busy }) => {
 /* ════════════════════════════════════════════════════════════════════════════
    COLONNE 2 — la course sélectionnée et qui la porte
    ════════════════════════════════════════════════════════════════════════════ */
+/* Les trois moments d'une course. L'écran n'en déduit pas l'ordre : il lit
+   les horodatages posés par la base et propose le pas suivant. */
+const COURSE_STEPS = [
+  { key: "start",  icon: "fa-play",         label: "Départ" },
+  { key: "pickup", icon: "fa-box-open",     label: "Colis récupéré" },
+  { key: "finish", icon: "fa-flag-checkered", label: "Livré" },
+];
+
+const nextCourseStep = (order) => {
+  if (!order) return { key: null, label: "—", icon: "fa-minus", color: GHOST };
+  if (order.status === "delivered")
+    return { key: null, label: "Course terminée", icon: "fa-flag-checkered", color: "#007600" };
+  if (!order.course_started_at)
+    return { key: "start",  label: "Démarrer",         icon: "fa-play",           color: ACCENT };
+  if (!order.picked_up_at)
+    return { key: "pickup", label: "Colis récupéré",   icon: "fa-box-open",       color: ACCENT };
+  return   { key: "finish", label: "Terminer la course", icon: "fa-flag-checkered", color: "#007600" };
+};
+
 const FleetCard = ({ total, stats, order, driver, onLocate, canManage,
-                    onOpenPicker, onStart, onLocateMe, busy, started }) => (
+                    onOpenPicker, onAdvance, onLocateMe, busy, started,
+                    stepIndex, nextStep, finished }) => (
   <div className={`${card} p-5 flex flex-col h-full`} style={{ borderColor: BORDER }}>
     <div className="flex items-center justify-between mb-4">
       <div className="flex items-center gap-2">
@@ -448,27 +468,60 @@ const FleetCard = ({ total, stats, order, driver, onLocate, canManage,
       {started && <> · partie {new Date(started).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}</>}
     </p>
 
-    {/* Attribuer, ou prendre la course. Réservé à ceux qui en ont la charge :
-        un livreur voit son affectation, il ne se la donne pas. */}
+    {/* Le fil de la course. Un seul bouton d'action à la fois : celui du pas
+        qui vient. Le reste ne sert qu'à rappeler où l'on en est. */}
     {order && canManage && (
-      <div className="flex gap-2 mb-4">
-        <button onClick={onOpenPicker} disabled={busy}
-          className="flex-1 h-10 rounded-xl border text-[12px] font-bold flex items-center justify-center gap-2 disabled:opacity-50"
-          style={{ borderColor: BORDER, color: INK }}>
-          <i className="fa-solid fa-id-badge text-[11px]" />
-          {order.courier_id ? "Changer de livreur" : "Attribuer"}
-        </button>
-        <button onClick={onLocateMe} disabled={busy} title="Partir de ma position"
-          className="w-10 h-10 rounded-xl border flex items-center justify-center disabled:opacity-50"
-          style={{ borderColor: BORDER, color: MUTED }}>
-          <i className="fa-solid fa-crosshairs text-[11px]" />
-        </button>
-        <button onClick={onStart} disabled={busy || !!started}
-          className="flex-1 h-10 rounded-xl text-[12px] font-bold text-white flex items-center justify-center gap-2 disabled:opacity-50"
-          style={{ background: started ? "#007600" : ACCENT }}>
-          <i className={`fa-solid ${busy ? "fa-spinner fa-spin" : started ? "fa-check" : "fa-play"} text-[11px]`} />
-          {started ? "En route" : "Démarrer"}
-        </button>
+      <div className="mb-4 space-y-2">
+        <div className="flex items-center gap-1.5">
+          {COURSE_STEPS.map((st, i) => {
+            const done = i < stepIndex, now = i === stepIndex;
+            return (
+              <React.Fragment key={st.key}>
+                {i > 0 && <span className="flex-1 h-[2px] rounded-full"
+                  style={{ background: done || now ? ACCENT : "#EDEFEF" }} />}
+                <span className="w-6 h-6 rounded-full flex items-center justify-center text-[9px] flex-shrink-0"
+                  title={st.label}
+                  style={{ background: done ? ACCENT : now ? "#FFF3E0" : "#EDEFEF",
+                           color: done ? "#fff" : now ? "#B26200" : GHOST }}>
+                  <i className={`fa-solid ${done ? "fa-check" : st.icon}`} />
+                </span>
+              </React.Fragment>
+            );
+          })}
+        </div>
+
+        <div className="flex gap-2">
+          <button onClick={onOpenPicker} disabled={busy || finished}
+            className="h-10 px-3 rounded-xl border text-[12px] font-bold flex items-center justify-center gap-2 disabled:opacity-40"
+            style={{ borderColor: BORDER, color: INK }}
+            title={order.courier_id ? "Changer de livreur" : "Attribuer un livreur"}>
+            <i className="fa-solid fa-id-badge text-[11px]" />
+            <span className="hidden sm:inline">{order.courier_id ? "Changer" : "Attribuer"}</span>
+          </button>
+
+          {!started && (
+            <button onClick={onLocateMe} disabled={busy} title="Partir de ma position"
+              className="w-10 h-10 rounded-xl border flex items-center justify-center disabled:opacity-50"
+              style={{ borderColor: BORDER, color: MUTED }}>
+              <i className="fa-solid fa-crosshairs text-[11px]" />
+            </button>
+          )}
+
+          <button onClick={() => onAdvance(nextStep.key)}
+            disabled={busy || !nextStep.key || !order.courier_id}
+            className="flex-1 h-10 rounded-xl text-[12px] font-bold text-white flex items-center justify-center gap-2 disabled:opacity-40"
+            style={{ background: nextStep.key ? nextStep.color : "#007600" }}>
+            <i className={`fa-solid ${busy ? "fa-spinner fa-spin" : nextStep.icon} text-[11px]`} />
+            {nextStep.label}
+          </button>
+        </div>
+
+        {!order.courier_id && (
+          <p className="text-[10px]" style={{ color: MUTED }}>
+            <i className="fa-solid fa-circle-info mr-1" />
+            Attribue la course — ou prends-la — avant de pouvoir la démarrer.
+          </p>
+        )}
       </div>
     )}
 
@@ -759,13 +812,20 @@ const DeliveryConsole = () => {
     catch (e) { setError(e.message); }
   };
 
-  const start = async () => {
-    if (!current) return;
+  // Un seul chemin pour les trois pas : la base vérifie l'ordre, l'écran se
+  // contente de proposer le suivant. La position n'est demandée qu'au départ,
+  // et son refus ne bloque rien — la base retient alors le siège.
+  const advance = async (step) => {
+    if (!current || !step) return;
     setActing(true); setError("");
     let pos = myPos;
-    if (!pos) { try { pos = await currentPosition(); setMyPos(pos); } catch { pos = null; } }
-    const { error: e } = await supabase.rpc("start_course", {
-      p_order_id: current.id, p_lat: pos?.lat ?? null, p_lng: pos?.lng ?? null,
+    if (step === "start" && !pos) {
+      try { pos = await currentPosition(); setMyPos(pos); } catch { pos = null; }
+    }
+    const { error: e } = await supabase.rpc("advance_course", {
+      p_order_id: current.id, p_step: step,
+      p_lat: step === "start" ? (pos?.lat ?? null) : null,
+      p_lng: step === "start" ? (pos?.lng ?? null) : null,
     });
     if (e) setError(e.message); else await reload();
     setActing(false);
@@ -812,22 +872,24 @@ const DeliveryConsole = () => {
     (async () => {
       // Trajet 2, celui qu'on facture au client : boutique → client.
       const drop = await routeBetween([pickup, { lat: current.client_lat, lng: current.client_lng }]);
-      // Trajet 1 : d'où je suis jusqu'au colis.
-      const pick = origin ? await routeBetween([origin, pickup]) : null;
+      // Trajet 1 : d'où je suis jusqu'au colis. Il disparaît dès que le colis
+      // est récupéré — le montrer encore ferait croire qu'il reste à faire.
+      const pick = origin && !current.picked_up_at
+        ? await routeBetween([origin, pickup]) : null;
       if (!alive) return;
       setRoute([...(pick?.coords || []), ...(drop?.coords || [])]);
       setLeg(drop || null);
       setPickupLeg(pick || null);
     })();
     return () => { alive = false; };
-  }, [current?.id, current?.pickup_lat, current?.client_lat, origin?.lat, origin?.lng]);   // eslint-disable-line react-hooks/exhaustive-deps
+  }, [current?.id, current?.pickup_lat, current?.client_lat, current?.picked_up_at, origin?.lat, origin?.lng]);   // eslint-disable-line react-hooks/exhaustive-deps
 
   /* ── Marqueurs : la course choisie en entier, les autres en point ─────── */
   const markers = useMemo(() => {
     const out = [];
     if (current) {
-      // 1 · où je suis
-      if (origin && Number.isFinite(current.pickup_lat))
+      // 1 · où je suis — tant que le colis reste à prendre
+      if (origin && !current.picked_up_at && Number.isFinite(current.pickup_lat))
         out.push({ lat: origin.lat, lng: origin.lng, color: "#4a5057",
                    icon: origin.live ? "fa-person-biking" : "fa-warehouse", label: origin.label });
       // 2 · où je vais chercher le produit
@@ -1005,9 +1067,14 @@ const DeliveryConsole = () => {
             order={current} driver={driver}
             canManage={!!current?.can_manage}
             started={current?.course_started_at}
+            finished={current?.status === "delivered"}
+            stepIndex={current?.status === "delivered" ? 3
+                       : current?.picked_up_at ? 2
+                       : current?.course_started_at ? 1 : 0}
+            nextStep={nextCourseStep(current)}
             busy={acting}
             onOpenPicker={() => setPicker(true)}
-            onStart={start}
+            onAdvance={advance}
             onLocateMe={locateMe}
             onLocate={() => current && setCenter({ lat: current.client_lat, lng: current.client_lng })}
           />
