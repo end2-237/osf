@@ -200,7 +200,9 @@ const Dashboard = () => {
   return (
     <div className="min-h-screen bg-gray-50 flex text-gray-900">
       {/* ═══ SIDEBAR ═══ */}
-      <aside className={`fixed lg:static z-40 inset-y-0 left-0 w-64 bg-white border-r border-gray-200 flex flex-col transition-transform duration-300 ${sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}`}>
+      {/* Collante et haute d'un écran : elle ne s'étire plus avec la longueur
+          de la page, seule sa navigation défile si elle déborde. */}
+      <aside className={`fixed lg:sticky lg:top-0 lg:bottom-auto z-40 inset-y-0 left-0 lg:h-screen w-64 flex-shrink-0 bg-white border-r border-gray-200 flex flex-col transition-transform duration-300 ${sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}`}>
         <div className="h-16 flex items-center gap-2.5 px-5 border-b border-gray-100">
           <div className="w-8 h-8 rounded-lg bg-orange-500 overflow-hidden flex items-center justify-center text-white flex-shrink-0">
             {vendor.logo_url
@@ -254,7 +256,7 @@ const Dashboard = () => {
         </header>
 
         {/* CONTENT */}
-        <main className="flex-1 p-4 md:p-6 overflow-x-hidden">
+        <main className="flex-1 p-4 md:p-6 overflow-x-clip">
           {loading ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
               {[...Array(4)].map((_, i) => <div key={i} className="h-32 bg-white border border-gray-200 rounded-2xl animate-pulse" />)}
@@ -745,6 +747,69 @@ const MOMO_FIELDS = {
 const normalizePhone = (v) => String(v || "").replace(/\D/g, "");
 const isValidPhone   = (v) => /^[0-9]{8,15}$/.test(normalizePhone(v));
 
+// Sections des réglages : servent d'ancres au rail de droite.
+const SETTINGS_SECTIONS = [
+  { id: "identite", label: "Identité visuelle",   icon: "fa-image" },
+  { id: "boutique", label: "Infos de la boutique", icon: "fa-store" },
+  { id: "remise",   label: "Remise membre",        icon: "fa-tag" },
+  { id: "paiement", label: "Moyens de paiement",   icon: "fa-mobile-screen-button" },
+];
+
+// ─── RAIL DES RÉGLAGES (colonne de droite, collante) ──────────────────────────
+const SettingsRail = ({ vendor, active, onJump, todos }) => (
+  <aside className="w-full lg:w-[240px] flex-shrink-0 order-first lg:order-none lg:sticky lg:top-[88px] space-y-3">
+    {/* Carte boutique */}
+    <div className="bg-white border border-gray-200/80 rounded-2xl p-4 text-center">
+      <div className="w-14 h-14 mx-auto rounded-xl bg-gray-100 overflow-hidden flex items-center justify-center mb-2">
+        {vendor.logo_url
+          ? <img src={vendor.logo_url} alt="" className="w-full h-full object-cover" />
+          : <i className="fa-solid fa-store text-gray-300 text-xl" />}
+      </div>
+      <p className="font-bold text-[14px] truncate">{vendor.shop_name}</p>
+      <p className="text-[11px] text-gray-400 truncate">{vendor.email}</p>
+      <a href={`/shop/${vendor.shop_name}`}
+        className="mt-3 block w-full bg-gray-100 hover:bg-gray-200 text-gray-900 text-[12px] font-bold py-2 rounded-xl transition-colors">
+        <i className="fa-solid fa-arrow-up-right-from-square mr-1.5 text-[10px]" />Voir ma boutique
+      </a>
+    </div>
+
+    {/* Sommaire */}
+    <nav className="bg-white border border-gray-200/80 rounded-2xl p-2">
+      {SETTINGS_SECTIONS.map(sec => (
+        <button key={sec.id} onClick={() => onJump(sec.id)}
+          className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-[13px] font-semibold text-left transition-colors ${
+            active === sec.id ? "bg-gray-900 text-white" : "text-gray-600 hover:bg-gray-100"
+          }`}>
+          <i className={`fa-solid ${sec.icon} w-4 text-center text-[11px]`} />
+          <span className="flex-1 truncate">{sec.label}</span>
+        </button>
+      ))}
+    </nav>
+
+    {/* À compléter */}
+    {todos.length > 0 && (
+      <div className="bg-white border border-gray-200/80 rounded-2xl p-4">
+        <p className="text-[12px] font-bold uppercase tracking-wide text-gray-400 mb-2">À compléter</p>
+        <ul className="space-y-2">
+          {todos.map(t => (
+            <li key={t.id}>
+              <button onClick={() => onJump(t.section)}
+                className="text-[12px] text-left text-orange-600 hover:underline flex items-start gap-1.5">
+                <i className="fa-solid fa-circle-exclamation text-[10px] mt-0.5 flex-shrink-0" />
+                <span>{t.label}</span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      </div>
+    )}
+
+    <p className="text-[11px] text-gray-400 px-1 hidden lg:block">
+      Chaque bloc s'enregistre séparément.
+    </p>
+  </aside>
+);
+
 const settingsInput = "w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-gray-900 transition-colors";
 const settingsLabel = "text-[11px] font-bold uppercase tracking-wide text-gray-400 block mb-1.5";
 
@@ -864,12 +929,55 @@ const SettingsView = ({ vendor, updateVendorField, updateVendorFields, showToast
 
   const removeImage = (kind) => save(kind === "logo" ? "logo_url" : "cover_url", null, "Image retirée");
 
+  // ── Sommaire : surligne la section à l'écran et saute à l'ancre ──
+  const [activeSection, setActiveSection] = useState(SETTINGS_SECTIONS[0].id);
+  const sectionRefs = useRef({});
+
+  useEffect(() => {
+    const obs = new IntersectionObserver(
+      entries => {
+        const visible = entries
+          .filter(e => e.isIntersecting)
+          .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)[0];
+        if (visible) setActiveSection(visible.target.id);
+      },
+      // La bande active commence sous l'en-tête collant.
+      { rootMargin: "-96px 0px -55% 0px", threshold: 0 }
+    );
+    SETTINGS_SECTIONS.forEach(sec => {
+      const el = sectionRefs.current[sec.id];
+      if (el) obs.observe(el);
+    });
+    return () => obs.disconnect();
+  }, []);
+
+  const jumpTo = (id) => {
+    const el = sectionRefs.current[id];
+    if (!el) return;
+    const top = el.getBoundingClientRect().top + window.scrollY - 88;
+    window.scrollTo({ top, behavior: "smooth" });
+    setActiveSection(id);
+  };
+
+  // Ce qu'il reste à renseigner — repris dans le rail de droite.
+  const todos = [];
+  if (!vendor.logo_url)  todos.push({ id: "logo",  section: "identite", label: "Ajouter une photo de profil" });
+  if (!vendor.cover_url) todos.push({ id: "cover", section: "identite", label: "Ajouter une photo de couverture" });
+  if (!vendor.description) todos.push({ id: "desc", section: "boutique", label: "Décrire ta boutique" });
+  acceptedPayments.forEach(k => {
+    if (MOMO_FIELDS[k] && !vendor[MOMO_FIELDS[k].field]) {
+      todos.push({ id: k, section: "paiement", label: `Renseigner ton ${MOMO_FIELDS[k].label.replace("Numéro ", "numéro ")}` });
+    }
+  });
+
   return (
-    <div className="space-y-4 max-w-2xl">
+    <div className="flex flex-col lg:flex-row gap-4 items-start">
+      {/* ═══ COLONNE PRINCIPALE ═══ */}
+      <div className="flex-1 min-w-0 w-full max-w-2xl space-y-4">
       <h1 className="text-2xl font-bold tracking-tight">Réglages</h1>
 
       {/* ── IDENTITÉ VISUELLE ── */}
-      <div className="bg-white border border-gray-200/80 rounded-2xl overflow-hidden">
+      <div id="identite" ref={el => (sectionRefs.current.identite = el)} className="scroll-mt-24 bg-white border border-gray-200/80 rounded-2xl overflow-hidden">
         <div className="relative h-36 bg-gray-100">
           {vendor.cover_url
             ? <img src={vendor.cover_url} alt="" className="w-full h-full object-cover" />
@@ -918,7 +1026,7 @@ const SettingsView = ({ vendor, updateVendorField, updateVendorFields, showToast
       </div>
 
       {/* ── INFOS DE LA BOUTIQUE ── */}
-      <div className="bg-white border border-gray-200/80 rounded-2xl p-5">
+      <div id="boutique" ref={el => (sectionRefs.current.boutique = el)} className="scroll-mt-24 bg-white border border-gray-200/80 rounded-2xl p-5">
         <p className="font-bold text-[15px] mb-1">Informations de la boutique</p>
         <p className="text-[13px] text-gray-500 mb-4">Ce que voient tes clients sur ta page boutique.</p>
 
@@ -997,7 +1105,7 @@ const SettingsView = ({ vendor, updateVendorField, updateVendorFields, showToast
       </div>
 
       {/* ── REMISE MEMBRE ── */}
-      <div className="bg-white border border-gray-200/80 rounded-2xl p-5 space-y-4">
+      <div id="remise" ref={el => (sectionRefs.current.remise = el)} className="scroll-mt-24 bg-white border border-gray-200/80 rounded-2xl p-5 space-y-4">
         <div className="flex items-center justify-between gap-3">
           <div>
             <p className="font-bold text-[15px]">Remise membre</p>
@@ -1039,7 +1147,7 @@ const SettingsView = ({ vendor, updateVendorField, updateVendorFields, showToast
       </div>
 
       {/* ── MOYENS DE PAIEMENT ── */}
-      <div className="bg-white border border-gray-200/80 rounded-2xl p-5">
+      <div id="paiement" ref={el => (sectionRefs.current.paiement = el)} className="scroll-mt-24 bg-white border border-gray-200/80 rounded-2xl p-5">
         <p className="font-bold text-[15px] mb-1">Moyens de paiement acceptés</p>
         <p className="text-[13px] text-gray-500 mb-4">Seuls les moyens activés ici sont proposés à tes clients au moment de payer.</p>
         <div className="space-y-2">
@@ -1097,6 +1205,10 @@ const SettingsView = ({ vendor, updateVendorField, updateVendorFields, showToast
           </p>
         )}
       </div>
+      </div>
+
+      {/* ═══ RAIL DE DROITE ═══ */}
+      <SettingsRail vendor={vendor} active={activeSection} onJump={jumpTo} todos={todos} />
     </div>
   );
 };
