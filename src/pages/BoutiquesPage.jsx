@@ -5,7 +5,7 @@ import { useAuth } from "../context/AuthContext";
 import { getVendorDiscountPercent } from "../utils/discountUtils";
 
 // ─── CONSTANTES ───────────────────────────────────────────────────────────────
-const CATS = ["Toutes", "Audio Lab", "Mode Femme", "Sneakers", "Parfums", "Tech Lab", "Streetwear", "Accessories", "Bien-être", "Santé", "Nutrition"];
+const CATS = ["Toutes", "Audio Lab", "Mode Femme", "Sneakers", "Parfums", "Tech Lab", "Streetwear", "Accessories", "Bien-être", "Santé", "Nutrition", "Alimentation", "Restauration"];
 const SORT_OPTIONS = [
   { value: "score",  label: "Classement Buyticle" },
   { value: "rating", label: "Meilleure note" },

@@ -80,6 +80,22 @@ const CATS = [
     isNew:  true,
   },
   {
+    name:   "Fast-food",
+    catKey: "Restauration",
+    icon:   "fa-burger",
+    img:    "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?q=80&w=400",
+    count:  "60+",
+    isNew:  true,
+  },
+  {
+    name:   "Alimentation",
+    catKey: "Alimentation",
+    icon:   "fa-basket-shopping",
+    img:    "https://images.unsplash.com/photo-1542838132-92c53300491e?q=80&w=400",
+    count:  "80+",
+    isNew:  true,
+  },
+  {
     name:   "Flash Deals",
     catKey: null,
     icon:   "fa-bolt",

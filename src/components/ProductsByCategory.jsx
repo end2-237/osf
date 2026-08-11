@@ -11,6 +11,7 @@ const SECTIONS = [
   { key: 'Bien-être', label: 'Bien-être', icon: 'fa-spa', color: 'text-emerald-400', accent: '#22c55e' },
   { key: 'Santé', label: 'Santé', icon: 'fa-heart-pulse', color: 'text-red-400', accent: '#ef4444' },
   { key: 'Nutrition', label: 'Nutrition', icon: 'fa-apple-whole', color: 'text-lime-400', accent: '#84cc16' },
+  { key: 'Restauration', label: 'Fast-food', icon: 'fa-burger', color: 'text-orange-400', accent: '#ea580c' },
 ];
 
 const SkeletonCard = () => (

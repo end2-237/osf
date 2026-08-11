@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, useNavigate, useLocation } from
 import { AuthProvider } from './context/AuthContext';
 import { LangProvider } from './context/LangContext';
 import { useAuth } from './context/AuthContext';
+import { lazyWithRetry, RouteErrorBoundary } from './lib/lazyLoading.jsx';
 
 // Components always needed — not lazy
 import Navbar from './components/Navbar';
@@ -14,7 +15,7 @@ import PrivateRoute from './routes/PrivateRoute';
 import SuperAdminRoute from './routes/SuperAdminRoute';
 
 // Heavy modal — lazy
-const VisualSearchModal = lazy(() => import('./components/VisualSearchModal'));
+const VisualSearchModal = lazyWithRetry(() => import('./components/VisualSearchModal'));
 
 // Critical path pages — eager
 import Home from './pages/Home';
@@ -22,26 +23,26 @@ import Login from './pages/Login.jsx';
 import Register from './pages/Register';
 
 // All other pages — lazy (separate JS chunk per page)
-const Store          = lazy(() => import('./pages/Store'));
-const Studio         = lazy(() => import('./pages/Studio'));
-const Dashboard      = lazy(() => import('./pages/Dashboard'));
-const ShopPage       = lazy(() => import('./pages/ShopPage.jsx'));
-const ProductDetail  = lazy(() => import('./pages/ProductDetail.jsx'));
-const WishlistPage   = lazy(() => import('./pages/WishlistPage.jsx'));
-const BoutiquesPage  = lazy(() => import('./pages/BoutiquesPage.jsx'));
-const ProfilePage    = lazy(() => import('./pages/ProfilePage.jsx'));
-const OFSRewardsPage = lazy(() => import('./pages/OFSRewardsPage.jsx'));
-const SearchPage     = lazy(() => import('./pages/SearchPage.jsx'));
-const TrackingPage   = lazy(() => import('./pages/TrackingPage.jsx'));
-const SuperAdmin     = lazy(() => import('./pages/SuperAdmin.jsx'));
-const AffiliateRedirect = lazy(() => import('./pages/AffiliateRedirect.jsx'));
-const CartPage       = lazy(() => import('./pages/CartPage.jsx'));
-const NotFound       = lazy(() => import('./pages/NotFound.jsx'));
-const CGVPage        = lazy(() => import('./pages/CGVPage.jsx'));
-const AboutPage      = lazy(() => import('./pages/AboutPage.jsx'));
-const LivePage       = lazy(() => import('./pages/LivePage.jsx'));
-const LiveStream     = lazy(() => import('./pages/LiveStream.jsx'));
-const CreatorProfile = lazy(() => import('./pages/CreatorProfile.jsx'));
+const Store          = lazyWithRetry(() => import('./pages/Store'));
+const Studio         = lazyWithRetry(() => import('./pages/Studio'));
+const Dashboard      = lazyWithRetry(() => import('./pages/Dashboard'));
+const ShopPage       = lazyWithRetry(() => import('./pages/ShopPage.jsx'));
+const ProductDetail  = lazyWithRetry(() => import('./pages/ProductDetail.jsx'));
+const WishlistPage   = lazyWithRetry(() => import('./pages/WishlistPage.jsx'));
+const BoutiquesPage  = lazyWithRetry(() => import('./pages/BoutiquesPage.jsx'));
+const ProfilePage    = lazyWithRetry(() => import('./pages/ProfilePage.jsx'));
+const OFSRewardsPage = lazyWithRetry(() => import('./pages/OFSRewardsPage.jsx'));
+const SearchPage     = lazyWithRetry(() => import('./pages/SearchPage.jsx'));
+const TrackingPage   = lazyWithRetry(() => import('./pages/TrackingPage.jsx'));
+const SuperAdmin     = lazyWithRetry(() => import('./pages/SuperAdmin.jsx'));
+const AffiliateRedirect = lazyWithRetry(() => import('./pages/AffiliateRedirect.jsx'));
+const CartPage       = lazyWithRetry(() => import('./pages/CartPage.jsx'));
+const NotFound       = lazyWithRetry(() => import('./pages/NotFound.jsx'));
+const CGVPage        = lazyWithRetry(() => import('./pages/CGVPage.jsx'));
+const AboutPage      = lazyWithRetry(() => import('./pages/AboutPage.jsx'));
+const LivePage       = lazyWithRetry(() => import('./pages/LivePage.jsx'));
+const LiveStream     = lazyWithRetry(() => import('./pages/LiveStream.jsx'));
+const CreatorProfile = lazyWithRetry(() => import('./pages/CreatorProfile.jsx'));
 
 const PageLoader = () => (
   <div className="flex items-center justify-center min-h-[60vh]">
@@ -195,6 +196,7 @@ function AppContent() {
 
       {/* ZONE DE CONTENU PRINCIPALE */}
       <main className="flex-grow">
+        <RouteErrorBoundary>
         <Suspense fallback={<PageLoader />}>
           <Routes>
             <Route path="/" element={<Home openModal={openModal} addToCart={addToCart} />} />
@@ -232,6 +234,7 @@ function AppContent() {
             <Route path="*" element={<NotFound />} />
           </Routes>
         </Suspense>
+        </RouteErrorBoundary>
       </main>
 
       {/* FOOTER : Masqué sur Login/Register */}

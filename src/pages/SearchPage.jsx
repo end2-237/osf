@@ -22,6 +22,8 @@ const CATEGORIES = [
   { key: "Bien-être",   label: "Bien-être",   icon: "fa-spa",                 color: "#22c55e" },
   { key: "Santé",       label: "Santé",       icon: "fa-heart-pulse",         color: "#ef4444" },
   { key: "Nutrition",   label: "Nutrition",   icon: "fa-apple-whole",         color: "#84cc16" },
+  { key: "Alimentation",label: "Alimentation",icon: "fa-basket-shopping",     color: "#65a30d" },
+  { key: "Restauration",label: "Fast-food",   icon: "fa-burger",              color: "#ea580c" },
 ];
 
 const TRENDING = [

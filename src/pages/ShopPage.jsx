@@ -49,6 +49,8 @@ const TYPE_ICONS = {
   'Bien-être': 'fa-spa',
   'Santé': 'fa-heart-pulse',
   'Nutrition': 'fa-apple-whole',
+  'Alimentation': 'fa-basket-shopping',
+  'Restauration': 'fa-burger',
 };
 
 /* ── SQUELETTES ─────────────────────────────────────────────────────────── */

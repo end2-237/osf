@@ -17,6 +17,8 @@ const SUBCATEGORIES = {
   "Bien-être":       ["Massage & Relaxation", "Aromathérapie", "Yoga & Méditation", "Spa & Hammam", "Sommeil"],
   "Santé":           ["Parapharmacie", "Premiers Secours", "Matériel Médical", "Hygiène", "Santé Connectée", "Orthopédie"],
   "Nutrition":       ["Compléments Alimentaires", "Protéines & Sport", "Vitamines & Minéraux", "Superaliments", "Tisanes & Infusions", "Minceur"],
+  "Alimentation":    ["Épicerie", "Produits frais", "Boissons", "Snacks & Biscuits", "Céréales & Féculents", "Épices & Condiments", "Surgelés"],
+  "Restauration":    ["Fast-food", "Plats cuisinés", "Grillades & Braisés", "Boulangerie & Pâtisserie", "Petit-déjeuner", "Jus & Boissons fraîches", "Desserts"],
 };
 const CATEGORIES = Object.keys(SUBCATEGORIES);
 const SIZE_PRESETS = {

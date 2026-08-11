@@ -9,7 +9,7 @@ const GROQ_MODEL = 'llama-3.1-8b-instant';
 const OFS_CATEGORIES = [
   "Audio Lab", "Tech Lab", "Clothing", "Shoes", "Femme", "Beauté",
   "Accessories", "Maison", "Sport", "Bébé & Enfants", "Auto",
-  "Bien-être", "Santé", "Nutrition",
+  "Bien-être", "Santé", "Nutrition", "Alimentation", "Restauration",
 ];
 
 const SYSTEM_PROMPT = `Tu es l'assistant shopping Buyticle, une marketplace camerounaise.

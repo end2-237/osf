@@ -23,6 +23,8 @@ const CATEGORIES = [
   { name: "Bien-être",   catKey: "Bien-être",       icon: "fa-spa",                isNew: true  },
   { name: "Santé",       catKey: "Santé",           icon: "fa-heart-pulse",        isNew: true  },
   { name: "Nutrition",   catKey: "Nutrition",       icon: "fa-apple-whole",        isNew: true  },
+  { name: "Alimentation",catKey: "Alimentation",    icon: "fa-basket-shopping",    isNew: true  },
+  { name: "Fast-food",   catKey: "Restauration",    icon: "fa-burger",             isNew: true  },
   { name: "Flash Deals", catKey: null,              icon: "fa-bolt",               isNew: false },
 ];
 

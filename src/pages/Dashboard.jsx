@@ -32,7 +32,7 @@ const prodStatus = (s) => s === "Épuisé"
 const COUNTED_STATUSES = ["confirmed", "paid", "shipped", "in_transit", "delivered"];
 
 const EMPTY_PRODUCT = { name: "", price: "", type: "Tech Lab", status: "In Stock", description: "" };
-const CATEGORIES = ["Audio Lab","Tech Lab","Femme","Clothing","Shoes","Beauté","Accessories","Maison","Sport","Bébé & Enfants","Auto","Bien-être","Santé","Nutrition"];
+const CATEGORIES = ["Audio Lab","Tech Lab","Femme","Clothing","Shoes","Beauté","Accessories","Maison","Sport","Bébé & Enfants","Auto","Bien-être","Santé","Nutrition","Alimentation","Restauration"];
 
 // ─── SPARKLINE (Recharts, sans axes ni grille) ────────────────────────────────
 const MiniBars = ({ data, color }) => {

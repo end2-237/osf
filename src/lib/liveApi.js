@@ -20,6 +20,8 @@ export const LIVE_CATEGORIES = [
   { key: "Bien-être",      label: "Bien-être",   icon: "fa-spa"                },
   { key: "Santé",          label: "Santé",       icon: "fa-heart-pulse"        },
   { key: "Nutrition",      label: "Nutrition",   icon: "fa-apple-whole"        },
+  { key: "Alimentation",   label: "Alimentation",icon: "fa-basket-shopping"    },
+  { key: "Restauration",   label: "Restauration",icon: "fa-burger"             },
 ];
 
 // ─── Formatters ───
