@@ -4,10 +4,12 @@ import { supabase } from "../lib/supabase";
 /* ════════════════════════════════════════════════════════════════════════════
    RETRAITS & LIVRAISON
 
-   Le solde suit ce que la plateforme a réellement encaissé pour la boutique :
-   toujours le mobile money, et le paiement à la livraison uniquement quand
-   c'est Buyticle Delivery qui livre (choix fait dans « Livraison » ci-dessous).
-   Le montant demandé est revalidé côté base par `request_payout`.
+   Buyticle ne prélève aucune commission. Le solde suit donc ce que la
+   plateforme a encaissé pour la boutique : toujours le mobile money, et le
+   paiement à la livraison uniquement quand c'est Buyticle Delivery qui livre.
+   Les frais de livraison suivent celui qui livre — au vendeur s'il livre
+   lui-même, à Buyticle sinon. Tout est recalculé côté base par
+   `vendor_balance` ; `request_payout` revalide le montant demandé.
    ════════════════════════════════════════════════════════════════════════════ */
 
 const input = "w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-gray-900 transition-colors";
@@ -147,11 +149,14 @@ export const PayoutSection = ({ vendor, showToast, sectionRef }) => {
 
           <p className="text-[11px] text-gray-400">
             <i className="fa-solid fa-circle-info mr-1" />
+            Buyticle ne prend aucune commission : le prix de tes articles te revient en entier.{" "}
             {vendor?.delivery_mode === "buyticle"
-              ? <>Les commandes payées en ligne (Orange Money, MTN MoMo) alimentent ce solde, ainsi que
-                  celles payées à la livraison une fois livrées — c'est notre livreur qui encaisse pour toi.</>
-              : <>Seules les commandes payées en ligne (Orange Money, MTN MoMo) alimentent ce solde.
-                  Comme tu livres toi-même, tu encaisses directement les paiements à la livraison.</>}
+              ? <>Les commandes payées en ligne alimentent ce solde, ainsi que celles payées à la
+                  livraison une fois livrées — notre livreur encaisse pour toi. Les frais de livraison,
+                  eux, restent à Buyticle puisque c'est nous qui livrons.</>
+              : <>Seules les commandes payées en ligne (Orange Money, MTN MoMo) alimentent ce solde,
+                  frais de livraison compris puisque tu livres toi-même. Les paiements à la livraison,
+                  tu les encaisses directement.</>}
           </p>
 
           {/* Numéros d'encaissement */}
@@ -304,12 +309,12 @@ const DELIVERY_MODES = [
   {
     key: "self", icon: "fa-person-biking", label: "Je livre moi-même",
     sub: "Ton livreur ou toi. Tu encaisses directement l'argent des commandes payées à la livraison.",
-    note: "Seuls les paiements mobile money passent par Buyticle et alimentent ton solde.",
+    note: "Les frais de livraison te reviennent : sur les paiements en ligne, on te les reverse avec la vente.",
   },
   {
     key: "buyticle", icon: "fa-truck-fast", label: "Buyticle Delivery",
     sub: "Notre livreur récupère la commande et la remet au client.",
-    note: "Nous encaissons le cash pour toi : il vient s'ajouter à ton solde une fois la commande livrée.",
+    note: "Les frais de livraison couvrent notre service et nous reviennent. Le prix des articles, lui, t'est reversé en entier.",
   },
 ];
 
@@ -382,7 +387,10 @@ export const DeliverySection = ({ vendor, updateVendorFields, showToast, section
       <div className="border-t border-gray-100 pt-4">
         <p className="font-bold text-[15px] mb-1">Frais de livraison</p>
         <p className="text-[13px] text-gray-500 mb-3">
-          Appliqués aux commandes de ta boutique. Laisse à 0 pour livrer gratuitement.
+          Appliqués aux commandes de ta boutique. Laisse à 0 pour livrer gratuitement.{" "}
+          {form.delivery_mode === "buyticle"
+            ? "Ils rémunèrent notre livreur et reviennent à Buyticle."
+            : "Ils te reviennent, puisque tu livres."}
         </p>
       </div>
 
@@ -424,8 +432,9 @@ export const DeliverySection = ({ vendor, updateVendorFields, showToast, section
       {form.delivery_mode === "buyticle" && (
         <p className="text-[12px] text-emerald-700 bg-emerald-50 border border-emerald-100 rounded-xl px-3.5 py-2.5">
           <i className="fa-solid fa-circle-info mr-1.5" />
-          Avec Buyticle Delivery, l'argent des commandes payées à la livraison arrive dans ton solde
-          dès que la commande est marquée livrée. Tu le récupères depuis « Retraits ».
+          Avec Buyticle Delivery, le prix des articles des commandes payées à la livraison arrive dans
+          ton solde dès que la commande est marquée livrée — hors frais de livraison, qui rémunèrent
+          notre livreur. Tu récupères ton solde depuis « Retraits ».
         </p>
       )}
 
