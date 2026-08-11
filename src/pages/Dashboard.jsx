@@ -5,6 +5,7 @@ import { useNavigate } from "react-router-dom";
 import VendorLivePanel from "../components/VendorLivePanel";
 import AddProductWizard from "../components/AddProductWizard";
 import VendorStats from "../components/VendorStats";
+import { AccountSection, CreatorProfileSection } from "../components/VendorAccountSettings";
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RTooltip } from "recharts";
 import { DISCOUNT_PRESETS, clampDiscountPercent, getVendorDiscountPercent } from "../utils/discountUtils";
 
@@ -80,7 +81,7 @@ const Toast = ({ toast }) => !toast ? null : (
 //   DASHBOARD
 // ═══════════════════════════════════════════════════════════════
 const Dashboard = () => {
-  const { vendor, signOut, updateVendorField, updateVendorFields } = useAuth();
+  const { user, vendor, signOut, updateVendorField, updateVendorFields } = useAuth();
   const navigate = useNavigate();
 
   const initialSection = (() => {
@@ -277,7 +278,7 @@ const Dashboard = () => {
               {section === "stats" && <VendorStats orders={orders} products={products} />}
               {section === "live" && <VendorLivePanel vendor={vendor} onToast={showToast} />}
               {section === "customers" && <CustomersView customers={customers} />}
-              {section === "settings" && <SettingsView vendor={vendor} updateVendorField={updateVendorField} updateVendorFields={updateVendorFields} showToast={showToast} />}
+              {section === "settings" && <SettingsView user={user} vendor={vendor} updateVendorField={updateVendorField} updateVendorFields={updateVendorFields} showToast={showToast} />}
             </>
           )}
         </main>
@@ -751,8 +752,10 @@ const isValidPhone   = (v) => /^[0-9]{8,15}$/.test(normalizePhone(v));
 const SETTINGS_SECTIONS = [
   { id: "identite", label: "Identité visuelle",   icon: "fa-image" },
   { id: "boutique", label: "Infos de la boutique", icon: "fa-store" },
+  { id: "createur", label: "Profil créateur",      icon: "fa-user-astronaut" },
   { id: "remise",   label: "Remise membre",        icon: "fa-tag" },
   { id: "paiement", label: "Moyens de paiement",   icon: "fa-mobile-screen-button" },
+  { id: "compte",   label: "Compte & connexion",   icon: "fa-key" },
 ];
 
 // ─── RAIL DES RÉGLAGES (colonne de droite, collante) ──────────────────────────
@@ -828,7 +831,7 @@ const emptyShopForm = (v) => ({
   description: v?.description || "",
 });
 
-const SettingsView = ({ vendor, updateVendorField, updateVendorFields, showToast }) => {
+const SettingsView = ({ user, vendor, updateVendorField, updateVendorFields, showToast }) => {
   const [busy, setBusy]   = useState(false);
   const [rate, setRate]   = useState(getVendorDiscountPercent(vendor));
   const [uploading, setUploading] = useState("");
@@ -1104,6 +1107,12 @@ const SettingsView = ({ vendor, updateVendorField, updateVendorFields, showToast
         </div>
       </div>
 
+      {/* ── PROFIL CRÉATEUR ── */}
+      <CreatorProfileSection
+        user={user} vendor={vendor} showToast={showToast}
+        sectionRef={el => (sectionRefs.current.createur = el)}
+      />
+
       {/* ── REMISE MEMBRE ── */}
       <div id="remise" ref={el => (sectionRefs.current.remise = el)} className="scroll-mt-24 bg-white border border-gray-200/80 rounded-2xl p-5 space-y-4">
         <div className="flex items-center justify-between gap-3">
@@ -1205,6 +1214,9 @@ const SettingsView = ({ vendor, updateVendorField, updateVendorFields, showToast
           </p>
         )}
       </div>
+
+      {/* ── COMPTE & CONNEXION ── */}
+      <AccountSection user={user} sectionRef={el => (sectionRefs.current.compte = el)} />
       </div>
 
       {/* ═══ RAIL DE DROITE ═══ */}

@@ -154,6 +154,122 @@ const ShopHeader = ({ vendor, products, loading }) => {
   );
 };
 
+/* ── CRÉATEUR & LIVES ───────────────────────────────────────────────────── */
+const socialLinks = (c) => {
+  if (!c) return [];
+  const clean = (v) => String(v || '').trim().replace(/^@/, '');
+  return [
+    c.instagram && { key: 'ig', label: `@${clean(c.instagram)}`, icon: 'fa-brands fa-instagram',
+      href: `https://instagram.com/${clean(c.instagram)}` },
+    c.tiktok && { key: 'tt', label: `@${clean(c.tiktok)}`, icon: 'fa-brands fa-tiktok',
+      href: `https://tiktok.com/@${clean(c.tiktok)}` },
+    c.whatsapp && { key: 'wa', label: 'WhatsApp', icon: 'fa-brands fa-whatsapp',
+      href: `https://wa.me/${String(c.whatsapp).replace(/[^0-9]/g, '')}` },
+    c.website && { key: 'web', label: 'Site web', icon: 'fa-solid fa-globe',
+      href: /^https?:\/\//i.test(c.website) ? c.website : `https://${c.website}` },
+  ].filter(Boolean);
+};
+
+const CreatorPanel = ({ vendor, creator, shows }) => {
+  const liveNow  = shows.find(s => s.status === 'live');
+  const upcoming = shows.filter(s => s.status === 'scheduled');
+  const links    = socialLinks(creator);
+  const handle   = encodeURIComponent(vendor?.shop_name || '');
+  const avatar   = vendor?.logo_url || creator?.avatar_url;
+  const name     = vendor?.full_name || creator?.full_name || 'Le créateur';
+
+  // Rien à montrer : ni live, ni bio, ni réseau — on n'affiche pas un bloc vide.
+  if (!liveNow && upcoming.length === 0 && !creator?.bio && links.length === 0) return null;
+
+  return (
+    <div className={`${PANEL} px-4 md:px-6 py-5`}>
+      <div className="flex flex-col sm:flex-row items-start gap-5">
+        {/* Identité */}
+        <div className="flex items-center gap-3 flex-shrink-0">
+          <div className="relative">
+            <div className={`w-16 h-16 rounded-full overflow-hidden flex items-center justify-center flex-shrink-0 ${
+              liveNow ? 'ring-2 ring-[#CC0C39] ring-offset-2 ring-offset-white dark:ring-offset-zinc-900' : ''
+            } bg-[#F0F2F2] dark:bg-zinc-800`}>
+              {avatar
+                ? <img src={avatar} alt={name} className="w-full h-full object-cover" />
+                : <i className="fa-solid fa-user text-[#FF9900] text-xl" />}
+            </div>
+            {liveNow && (
+              <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 bg-[#CC0C39] text-white text-[8px] font-black uppercase px-2 py-0.5 rounded-full tracking-wider">
+                Live
+              </span>
+            )}
+          </div>
+          <div className="min-w-0 sm:hidden">
+            <p className={`text-[15px] font-bold truncate ${TXT}`}>{name}</p>
+            <p className={`text-[12px] ${MUTED}`}>Créateur de {vendor?.shop_name}</p>
+          </div>
+        </div>
+
+        {/* Bio + réseaux */}
+        <div className="flex-1 min-w-0">
+          <div className="hidden sm:block mb-1">
+            <p className={`text-[15px] font-bold ${TXT}`}>{name}</p>
+            <p className={`text-[12px] ${MUTED}`}>Créateur de {vendor?.shop_name}</p>
+          </div>
+
+          {creator?.bio && (
+            <p className={`text-[13px] leading-relaxed mb-2 ${MUTED}`}>{creator.bio}</p>
+          )}
+
+          {links.length > 0 && (
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 mb-3">
+              {links.map(l => (
+                <a key={l.key} href={l.href} target="_blank" rel="noreferrer noopener"
+                  className={`text-[12px] inline-flex items-center gap-1.5 ${LINK}`}>
+                  <i className={`${l.icon} text-[12px]`} />{l.label}
+                </a>
+              ))}
+            </div>
+          )}
+
+          <div className="flex flex-wrap items-center gap-2">
+            {liveNow ? (
+              <Link to={`/live/${liveNow.id}`}
+                className="inline-flex items-center gap-2 bg-[#CC0C39] hover:bg-[#a30a2e] text-white text-[13px] font-medium px-5 py-1.5 rounded-full transition">
+                <span className="w-1.5 h-1.5 bg-white rounded-full animate-pulse" />
+                Rejoindre le live
+              </Link>
+            ) : upcoming.length > 0 ? (
+              <Link to={`/creator/${handle}`}
+                className={`inline-flex items-center gap-2 text-[13px] font-medium px-5 py-1.5 ${BTN_YEL}`}>
+                <i className="fa-solid fa-calendar-day text-[11px]" />
+                {upcoming.length} live{upcoming.length > 1 ? 's' : ''} programmé{upcoming.length > 1 ? 's' : ''}
+              </Link>
+            ) : null}
+
+            <Link to={`/creator/${handle}`}
+              className={`inline-flex items-center gap-2 text-[13px] font-medium px-5 py-1.5 ${BTN_GREY}`}>
+              <i className="fa-solid fa-tower-broadcast text-[11px]" />Profil créateur & lives
+            </Link>
+          </div>
+        </div>
+
+        {/* Aperçu du live en cours */}
+        {liveNow && (
+          <Link to={`/live/${liveNow.id}`}
+            className="w-full sm:w-40 flex-shrink-0 group">
+            <div className="relative aspect-video rounded-lg overflow-hidden bg-[#F0F2F2] dark:bg-zinc-800">
+              {liveNow.cover_url
+                ? <img src={liveNow.cover_url} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                : <div className="w-full h-full flex items-center justify-center"><i className="fa-solid fa-video text-[#FF9900]/40 text-2xl" /></div>}
+              <span className="absolute top-1.5 left-1.5 flex items-center gap-1 bg-[#CC0C39] text-white text-[8px] font-black uppercase px-1.5 py-0.5 rounded">
+                <span className="w-1 h-1 bg-white rounded-full animate-pulse" />En direct
+              </span>
+            </div>
+            <p className={`text-[12px] mt-1.5 line-clamp-2 ${LINK}`}>{liveNow.title}</p>
+          </Link>
+        )}
+      </div>
+    </div>
+  );
+};
+
 /* ── PAGE ───────────────────────────────────────────────────────────────── */
 const ShopPage = ({ openModal, addToCart }) => {
   const { shopName } = useParams();
@@ -163,6 +279,8 @@ const ShopPage = ({ openModal, addToCart }) => {
   const [vendor,   setVendor]   = useState(null);
   const [products, setProducts] = useState([]);
   const [loading,  setLoading]  = useState(true);
+  const [creator,  setCreator]  = useState(null);   // profil public du gérant
+  const [shows,    setShows]    = useState([]);     // lives de la boutique
 
   const [searchQuery,    setSearchQuery]    = useState('');
   const [activeCategory, setActiveCategory] = useState('Tous');
@@ -195,6 +313,25 @@ const ShopPage = ({ openModal, addToCart }) => {
           .order('created_at', { ascending: false });
         if (pError) throw pError;
         setProducts(pData || []);
+
+        // Profil créateur + lives — secondaires : un échec ne doit pas
+        // empêcher la boutique de s'afficher.
+        const [{ data: prof }, { data: liveShows }] = await Promise.all([
+          vendorData.user_id
+            ? supabase.from('profiles')
+                .select('id, full_name, avatar_url, bio, city, instagram, tiktok, whatsapp, website')
+                .eq('id', vendorData.user_id).maybeSingle()
+            : Promise.resolve({ data: null }),
+          supabase.from('live_shows')
+            .select('id, title, status, cover_url, started_at, created_at, viewer_count')
+            .eq('vendor_id', vendorData.id)
+            .in('status', ['live', 'scheduled'])
+            .order('status', { ascending: true })
+            .order('created_at', { ascending: false })
+            .limit(4),
+        ]);
+        setCreator(prof || null);
+        setShows(liveShows || []);
       } catch (err) {
         console.error('Erreur boutique:', err.message);
       } finally {
@@ -281,6 +418,9 @@ const ShopPage = ({ openModal, addToCart }) => {
 
         {/* ═══ EN-TÊTE BOUTIQUE ═══ */}
         <ShopHeader vendor={vendor} products={products} loading={loading} />
+
+        {/* ═══ CRÉATEUR & LIVES ═══ */}
+        {!loading && vendor && <CreatorPanel vendor={vendor} creator={creator} shows={shows} />}
 
         <div className="flex flex-col lg:flex-row gap-2 md:gap-3 items-start">
 
