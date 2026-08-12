@@ -41,7 +41,8 @@ BEGIN
      WHERE n.nspname = 'public'
        AND p.proname IN ('delivery_feed', 'delivery_view', 'geo_km', 'quote_delivery', 'stamp_delivered_at')
   LOOP
-    EXECUTE 'DROP FUNCTION IF EXISTS ' || r.sig;
+    -- CASCADE : ces fonctions portent des triggers, que le fichier recrée plus bas.
+    EXECUTE 'DROP FUNCTION IF EXISTS ' || r.sig || ' CASCADE';
   END LOOP;
 END
 $reset$;

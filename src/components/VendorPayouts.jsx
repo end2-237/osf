@@ -329,7 +329,7 @@ const DELIVERY_MODES = [
   },
 ];
 
-export const DeliverySection = ({ vendor, updateVendorFields, showToast, sectionRef }) => {
+export const DeliverySection = ({ vendor, updateVendorFields, showToast, sectionRef, plan }) => {
   const [form, setForm] = useState(() => emptyDelivery(vendor));
   const [busy, setBusy] = useState(false);
   const [msg, setMsg]   = useState(null);
@@ -358,7 +358,14 @@ export const DeliverySection = ({ vendor, updateVendorFields, showToast, section
   // Choisir Buyticle Delivery sans point de départ n'a pas de sens : la base
   // refuserait de toute façon, autant l'expliquer avant le clic.
   const [modeMsg, setModeMsg] = useState("");
+  // Buyticle Delivery est un privilège de forfait : sur le gratuit, le vendeur
+  // livre lui-même — ce qui reste possible, toujours.
+  const canBuyticle = !plan || plan.allows_delivery !== false;
   const chooseMode = (key) => {
+    if (key === "buyticle" && !canBuyticle) {
+      setModeMsg("Buyticle Delivery s'ouvre avec le forfait Pro. En attendant, tu peux livrer toi-même.");
+      return;
+    }
     if (key === "buyticle" && !hasPickup) {
       setModeMsg("Place d'abord ta boutique sur la carte : c'est de là que part notre livreur.");
       return;
@@ -427,17 +434,22 @@ export const DeliverySection = ({ vendor, updateVendorFields, showToast, section
       <div className="grid sm:grid-cols-2 gap-3">
         {DELIVERY_MODES.map(m => {
           const on = form.delivery_mode === m.key;
+          const shut = m.key === "buyticle" && !canBuyticle;
           return (
             <button key={m.key} type="button" onClick={() => chooseMode(m.key)}
               className={`text-left p-4 rounded-xl border-2 transition-colors ${
-                on ? "border-gray-900 bg-gray-50" : "border-gray-200 hover:border-gray-300"
+                on ? "border-gray-900 bg-gray-50"
+                   : shut ? "border-gray-200 bg-gray-50/60 opacity-70"
+                          : "border-gray-200 hover:border-gray-300"
               }`}>
               <div className="flex items-center gap-2.5 mb-2">
                 <div className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${on ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-400"}`}>
                   <i className={`fa-solid ${m.icon} text-[13px]`} />
                 </div>
                 <p className="font-bold text-[13px] flex-1">{m.label}</p>
-                <i className={`fa-solid ${on ? "fa-circle-check text-gray-900" : "fa-circle text-gray-200"} text-[14px]`} />
+                {shut
+                  ? <span className="text-[9.5px] font-black uppercase tracking-wider bg-orange-100 text-orange-600 px-2 py-1 rounded-md">Pro</span>
+                  : <i className={`fa-solid ${on ? "fa-circle-check text-gray-900" : "fa-circle text-gray-200"} text-[14px]`} />}
               </div>
               <p className="text-[12px] text-gray-500 leading-snug mb-1.5">{m.sub}</p>
               <p className="text-[11px] text-gray-400 leading-snug">{m.note}</p>

@@ -200,6 +200,62 @@ déjà ouverts**, et **combien ont été jugés infondés**.
 
 ---
 
+## 8 · Les limites de forfait
+
+### Le plafond de vitrine
+
+Compte vendeur → **Dashboard → Produits**. La barre du haut annonce combien de
+places sont occupées.
+
+Sur le gratuit (20 places), crée un 21ᵉ produit.
+
+> **Attendu** : il est publié, mais **en réserve** — badge gris sur la carte,
+> et la ligne « 1 produit en réserve — modifiable, mais invisible pour les
+> clients ». Le vendeur garde son travail ; c'est la vitrine qui est pleine.
+
+Ouvre le menu **⋯** d'un produit en réserve → **Mettre en vitrine**.
+
+> **Attendu** : refusé, avec le nombre de places du forfait. Retire d'abord un
+> autre produit (**⋯ → Retirer de la vitrine**), puis réessaie : ça passe.
+> C'est le vendeur qui arbitre, pas un tri automatique.
+
+### Les autres plafonds
+
+| Ce qu'on tente | Attendu sur le gratuit |
+|---|---|
+| Ajouter une 4ᵉ photo à un produit | Le bouton « Ajouter » disparaît à 3 |
+| Enregistrer un 2ᵉ livreur | Refusé, message donnant la limite |
+| Ouvrir **Statistiques** ou **Passer en live** | Page verrouillée, renvoi vers les forfaits |
+| Activer la **remise membre** (Réglages → Paiements) | Badge « Pro », interrupteur retiré |
+| Choisir **Buyticle Delivery** (Réglages → Livraison) | Badge « Pro » ; « Je livre moi-même » reste ouvert |
+
+### L'échéance qui passe
+
+Dans Supabase, recule l'échéance d'une boutique Pro :
+
+```sql
+UPDATE public.vendors
+   SET plan_expires_at = NOW() - INTERVAL '1 day'
+ WHERE shop_name = 'Ta Boutique';
+```
+
+Recharge le dashboard vendeur.
+
+> **Attendu** : le tableau de bord s'ouvre directement sur **Abonnement**, et
+> toutes les autres pages affichent « Ton abonnement a expiré » avec deux
+> issues — **renouveler** ou **passer au forfait gratuit**. En parallèle,
+> ouvre la page publique de la boutique en navigation privée : elle et ses
+> produits ont disparu du site. Rien n'est supprimé — le vendeur, lui, voit
+> toujours son catalogue entier.
+
+Clique **Passer au forfait gratuit**.
+
+> **Attendu** : la boutique est en ligne à la seconde. Si le catalogue dépasse
+> les 20 places, les produits les moins vendus passent en réserve — et le
+> vendeur peut aussitôt échanger l'un contre l'autre depuis la page Produits.
+
+---
+
 ## Les pièges, résumés
 
 | Symptôme | Cause |
@@ -210,3 +266,5 @@ déjà ouverts**, et **combien ont été jugés infondés**.
 | Le panier refuse de continuer | Boutique non placée sur la carte, ou client sans position |
 | Trajet non tracé | Boutique ou client sans position — l'écran nomme lequel |
 | `/delivery` affiche « Accès réservé » | Compte ni vendeur, ni livreur validé, ni admin |
+| Un produit publié n'apparaît pas en boutique | Vitrine pleine : il est en réserve |
+| La boutique a disparu du site | Abonnement échu — renouveler, ou repasser au gratuit |

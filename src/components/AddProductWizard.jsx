@@ -38,7 +38,7 @@ const label = "text-[11px] font-bold uppercase tracking-wide text-gray-400 block
 const STEPS = ["Infos", "Photos", "Variations", "Livraison", "Résumé"];
 
 // `product` renseigné → le formulaire modifie ce produit ; sinon il en crée un.
-const AddProductWizard = ({ vendor, product = null, onClose, onDone, showToast }) => {
+const AddProductWizard = ({ vendor, product = null, plan = null, onClose, onDone, showToast }) => {
   const isEdit = !!product;
   const [step, setStep] = useState(0);
   const [saving, setSaving] = useState(false);
@@ -72,8 +72,12 @@ const AddProductWizard = ({ vendor, product = null, onClose, onDone, showToast }
   const [sizeInput, setSizeInput] = useState("");
   const set = (k, v) => setF(p => ({ ...p, [k]: v }));
 
+  // Le nombre de photos dépend du forfait — la base refuserait de toute façon
+  // au-delà, autant ne pas laisser le vendeur charger pour rien.
+  const maxPhotos = plan?.max_photos_per_product ?? 6;
+
   const addImages = (list) => {
-    const arr = Array.from(list).slice(0, 6 - media.length);
+    const arr = Array.from(list).slice(0, maxPhotos - media.length);
     setMedia(prev => [...prev, ...arr.map(file => ({ kind: "file", file, preview: URL.createObjectURL(file) }))]);
   };
   const removeImage = (i) => setMedia(p => p.filter((_, x) => x !== i));
@@ -194,7 +198,7 @@ const AddProductWizard = ({ vendor, product = null, onClose, onDone, showToast }
           {/* STEP 1 — PHOTOS */}
           {step === 1 && (
             <div>
-              <label className={label}>Photos du produit (max 6) — la 1ʳᵉ est la principale</label>
+              <label className={label}>Photos du produit (max {maxPhotos}) — la 1ʳᵉ est la principale</label>
               <div className="grid grid-cols-3 gap-3">
                 {previews.map((src, i) => (
                   <div key={i} className="relative aspect-square rounded-xl overflow-hidden border border-gray-200 group">
@@ -203,7 +207,7 @@ const AddProductWizard = ({ vendor, product = null, onClose, onDone, showToast }
                     <button onClick={() => removeImage(i)} className="absolute top-1 right-1 w-6 h-6 bg-black/60 text-white rounded-full text-[10px] opacity-0 group-hover:opacity-100"><i className="fa-solid fa-xmark" /></button>
                   </div>
                 ))}
-                {media.length < 6 && (
+                {media.length < maxPhotos && (
                   <label className="aspect-square rounded-xl border-2 border-dashed border-gray-200 hover:border-gray-900 cursor-pointer flex flex-col items-center justify-center text-gray-400">
                     <i className="fa-solid fa-plus text-xl mb-1" /><span className="text-[10px] font-semibold">Ajouter</span>
                     <input type="file" accept="image/*" multiple className="hidden" onChange={e => e.target.files && addImages(e.target.files)} />

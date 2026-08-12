@@ -42,7 +42,7 @@ const OPERATORS = [
   { key: "mtn",    label: "MTN MoMo",     color: "text-yellow-500" },
 ];
 
-const VendorSubscription = ({ vendor, showToast }) => {
+const VendorSubscription = ({ vendor, showToast, onPlanChange }) => {
   const [plans,   setPlans]   = useState([]);
   const [sub,     setSub]     = useState(null);
   const [loading, setLoading] = useState(true);
@@ -86,7 +86,7 @@ const VendorSubscription = ({ vendor, showToast }) => {
       // Le gratuit s'applique sans caisse : la base a déjà tout fait.
       if (!order || order.amount === 0) {
         showToast?.("Forfait mis à jour");
-        setPicked(null); await load();
+        setPicked(null); await load(); onPlanChange?.();
         return;
       }
 

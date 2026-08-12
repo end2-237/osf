@@ -20,7 +20,8 @@ BEGIN
      WHERE n.nspname = 'public'
        AND p.proname IN ('decrement_stock_on_order_item', 'restock_on_order_cancel')
   LOOP
-    EXECUTE 'DROP FUNCTION IF EXISTS ' || r.sig;
+    -- CASCADE : ces fonctions portent des triggers, que le fichier recrée plus bas.
+    EXECUTE 'DROP FUNCTION IF EXISTS ' || r.sig || ' CASCADE';
   END LOOP;
 END
 $reset$;

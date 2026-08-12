@@ -1,9 +1,10 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useAuth } from "../context/AuthContext";
 import { supabase, uploadProductImage, uploadVendorAsset, deleteProductImage } from "../lib/supabase";
 import { useNavigate } from "react-router-dom";
 import VendorLivePanel from "../components/VendorLivePanel";
 import AddProductWizard from "../components/AddProductWizard";
+import VendorProducts from "../components/VendorProducts";
 import VendorStats from "../components/VendorStats";
 import { AccountSection, CreatorProfileSection } from "../components/VendorAccountSettings";
 import { PayoutSection, DeliverySection } from "../components/VendorPayouts";
@@ -95,6 +96,7 @@ const Dashboard = () => {
   const [loading, setLoading]   = useState(true);
   const [toast, setToast]       = useState(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [navQuery, setNavQuery]       = useState("");
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [showAdd, setShowAdd]   = useState(false);
   const [editProduct, setEditProduct] = useState(null);
@@ -114,6 +116,17 @@ const Dashboard = () => {
     setLoading(false);
   };
   useEffect(() => { fetchAll(); }, [vendor?.id]);
+
+  // ── Le forfait : ce qu'il ouvre, ce qu'il ferme ──
+  // Une seule source de vérité, celle de la base. L'écran n'en déduit rien
+  // qu'elle n'ait déjà tranché.
+  const [plan, setPlan] = useState(null);
+  const loadPlan = useCallback(async () => {
+    if (!vendor?.id) return;
+    const { data } = await supabase.rpc("vendor_plan_state", { p_vendor_id: vendor.id });
+    setPlan(Array.isArray(data) ? data[0] : data);
+  }, [vendor?.id]);
+  useEffect(() => { loadPlan(); }, [loadPlan]);
 
   // ── Derived metrics ──
   // Chiffre d'affaires : toute commande engagée (confirmée → livrée). Les
@@ -180,18 +193,57 @@ const Dashboard = () => {
     showToast("Produit supprimé");
   };
 
-  const NAV = [
-    { key: "dashboard", label: "Tableau de bord", icon: "fa-gauge-high" },
-    { key: "products",  label: "Produits",        icon: "fa-box" },
-    { key: "orders",    label: "Commandes",       icon: "fa-cart-shopping", badge: pendingCount },
-    { key: "stats",     label: "Statistiques",    icon: "fa-chart-line" },
-    { key: "live",      label: "Passer en live",  icon: "fa-video" },
-    { key: "customers", label: "Clients",         icon: "fa-users" },
-    { key: "abonnement", label: "Abonnement",     icon: "fa-crown" },
-    { key: "settings",  label: "Réglages",        icon: "fa-gear" },
+  // La navigation est groupée : on ne cherche pas « Clients » dans la même
+  // liste que « Réglages ». `needs` dit quel privilège du forfait la section
+  // réclame — sans forfait qui l'ouvre, elle reste visible mais verrouillée,
+  // parce qu'une entrée qui disparaît laisse croire à un bug.
+  const NAV_GROUPS = [
+    { title: "Général", items: [
+      { key: "dashboard", label: "Tableau de bord", icon: "fa-gauge-high" },
+      { key: "stats",     label: "Statistiques",    icon: "fa-chart-line", needs: "allows_stats" },
+    ]},
+    { title: "Ma boutique", items: [
+      { key: "products",  label: "Produits",       icon: "fa-box" },
+      { key: "orders",    label: "Commandes",      icon: "fa-cart-shopping", badge: pendingCount },
+      { key: "customers", label: "Clients",        icon: "fa-users" },
+      { key: "live",      label: "Passer en live", icon: "fa-video", needs: "allows_live" },
+    ]},
+    { title: "Mon compte", items: [
+      { key: "abonnement", label: "Abonnement", icon: "fa-crown" },
+      { key: "settings",   label: "Réglages",   icon: "fa-gear" },
+    ]},
   ];
+  const NAV = NAV_GROUPS.flatMap(g => g.items);
+
+  // Échéance passée : la boutique est hors ligne et le tableau de bord se
+  // referme, sauf la page d'abonnement — c'est là qu'on en sort, soit en
+  // renouvelant, soit en redescendant au gratuit.
+  const expired  = !!plan?.expired;
+  const locked   = (k) => {
+    if (k === "abonnement") return null;
+    if (expired) return "expired";
+    const need = NAV.find(n => n.key === k)?.needs;
+    if (need && plan && plan[need] === false) return need;
+    return null;
+  };
 
   const go = (k) => { setSection(k); setSelectedOrder(null); setSidebarOpen(false); };
+
+  // Repli automatique : arriver sur ?tab=live avec un forfait expiré ne doit
+  // pas afficher un panneau à moitié utilisable.
+  useEffect(() => {
+    if (expired && section !== "abonnement") setSection("abonnement");
+  }, [expired]);   // eslint-disable-line react-hooks/exhaustive-deps
+
+  const backToFree = async () => {
+    const { error } = await supabase.rpc("request_subscription", {
+      p_vendor_id: vendor.id, p_plan: "starter", p_method: "agency", p_months: 1,
+    });
+    if (error) return showToast("Impossible", error.message, "error");
+    showToast("Te voilà au forfait gratuit", "Ta boutique est de nouveau en ligne.");
+    await loadPlan();
+    await fetchAll();
+  };
 
   if (!vendor) return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -206,30 +258,119 @@ const Dashboard = () => {
       {/* ═══ SIDEBAR ═══ */}
       {/* Collante et haute d'un écran : elle ne s'étire plus avec la longueur
           de la page, seule sa navigation défile si elle déborde. */}
-      <aside className={`fixed lg:sticky lg:top-0 lg:bottom-auto z-40 inset-y-0 left-0 lg:h-screen w-64 flex-shrink-0 bg-white border-r border-gray-200 flex flex-col transition-transform duration-300 ${sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}`}>
-        <div className="h-16 flex items-center gap-2.5 px-5 border-b border-gray-100">
-          <div className="w-8 h-8 rounded-lg bg-orange-500 overflow-hidden flex items-center justify-center text-white flex-shrink-0">
+      <aside className={`fixed lg:sticky lg:top-0 lg:bottom-auto z-40 inset-y-0 left-0 lg:h-screen w-[264px] flex-shrink-0 bg-white border-r border-gray-200 flex flex-col transition-transform duration-300 ${sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}`}>
+        {/* L'identité de la boutique, pas un logo de plateforme : le vendeur
+            doit reconnaître son espace au premier coup d'œil. */}
+        <div className="px-4 pt-4 pb-3 flex items-center gap-2.5">
+          <div className="w-9 h-9 rounded-xl bg-orange-500 overflow-hidden flex items-center justify-center text-white flex-shrink-0">
             {vendor.logo_url
               ? <img src={vendor.logo_url} alt="" className="w-full h-full object-cover" />
               : <i className="fa-solid fa-store text-sm" />}
           </div>
-          <div className="min-w-0">
-            <p className="font-bold text-[14px] truncate">{vendor.shop_name}</p>
-            <p className="text-[10px] text-gray-400">Espace vendeur</p>
+          <div className="min-w-0 flex-1">
+            <p className="font-bold text-[14px] truncate leading-tight">{vendor.shop_name}</p>
+            <p className="text-[10.5px] text-gray-400 truncate">
+              Forfait {plan?.plan_name || "Gratuit"}
+              {expired && <span className="text-red-500 font-bold"> · expiré</span>}
+            </p>
+          </div>
+          <button onClick={() => setSidebarOpen(false)} className="lg:hidden w-8 h-8 rounded-lg hover:bg-gray-100 text-gray-400 flex-shrink-0">
+            <i className="fa-solid fa-xmark" />
+          </button>
+        </div>
+
+        <div className="px-4 pb-3">
+          <div className="relative">
+            <i className="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-[11px]" />
+            <input value={navQuery} onChange={e => setNavQuery(e.target.value)}
+              placeholder="Rechercher une page…"
+              className="w-full bg-gray-100 rounded-xl pl-8 pr-3 py-2 text-[12px] outline-none focus:ring-2 focus:ring-orange-500/20" />
           </div>
         </div>
-        <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
-          {NAV.map(n => (
-            <button key={n.key} onClick={() => go(n.key)}
-              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-semibold transition-colors ${section === n.key ? "bg-gray-900 text-white" : "text-gray-600 hover:bg-gray-100"}`}>
-              <i className={`fa-solid ${n.icon} w-4 text-center`} />
-              <span className="flex-1 text-left">{n.label}</span>
-              {n.badge > 0 && <span className="bg-orange-500 text-white text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center">{n.badge}</span>}
-            </button>
-          ))}
+
+        <nav className="flex-1 px-3 pb-2 overflow-y-auto">
+          {NAV_GROUPS.map(group => {
+            const items = group.items.filter(n =>
+              !navQuery || n.label.toLowerCase().includes(navQuery.toLowerCase()));
+            if (!items.length) return null;
+            return (
+              <div key={group.title} className="mb-4 last:mb-0">
+                <p className="px-3 mb-1.5 text-[10px] font-bold uppercase tracking-[0.12em] text-gray-400">
+                  {group.title}
+                </p>
+                <div className="space-y-0.5">
+                  {items.map(n => {
+                    const lock   = locked(n.key);
+                    const active = section === n.key;
+                    return (
+                      <button key={n.key} onClick={() => go(n.key)}
+                        className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-semibold transition-colors ${
+                          active ? "bg-orange-500 text-white shadow-sm shadow-orange-500/25"
+                                 : lock ? "text-gray-400 hover:bg-gray-50"
+                                        : "text-gray-600 hover:bg-gray-100"}`}>
+                        <i className={`fa-solid ${n.icon} w-4 text-center ${active ? "" : lock ? "text-gray-300" : "text-gray-400"}`} />
+                        <span className="flex-1 text-left truncate">{n.label}</span>
+                        {lock
+                          ? <i className={`fa-solid fa-lock text-[10px] ${active ? "text-white/70" : "text-gray-300"}`} />
+                          : n.badge > 0 && (
+                            <span className={`text-[10px] font-bold min-w-[20px] h-5 px-1.5 rounded-full flex items-center justify-center ${active ? "bg-white/25 text-white" : "bg-orange-500 text-white"}`}>
+                              {n.badge}
+                            </span>
+                          )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
         </nav>
-        <div className="p-3 border-t border-gray-100 space-y-1">
-          <a href={`/shop/${vendor.shop_name}`} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-semibold text-gray-600 hover:bg-gray-100"><i className="fa-solid fa-arrow-up-right-from-square w-4 text-center" />Ma boutique</a>
+
+        {/* La carte du bas : elle ne vend rien tant qu'il n'y a rien à vendre.
+            Sur un forfait déjà complet, elle dit simplement où on en est. */}
+        <div className="px-3 pb-2">
+          {expired ? (
+            <div className="rounded-2xl bg-red-50 border border-red-100 p-3.5">
+              <p className="text-[12px] font-bold text-red-700">Abonnement expiré</p>
+              <p className="text-[11px] text-red-600/80 mt-1 leading-snug">
+                Ta boutique n'est plus visible sur Buyticle.
+              </p>
+              <button onClick={() => go("abonnement")}
+                className="mt-2.5 w-full bg-red-600 text-white text-[11.5px] font-bold py-2 rounded-xl hover:bg-red-700">
+                Renouveler
+              </button>
+            </div>
+          ) : plan?.allows_sponsored ? (
+            <div className="rounded-2xl bg-gray-900 text-white p-3.5">
+              <p className="text-[12px] font-bold">Forfait {plan.plan_name}</p>
+              <p className="text-[11px] text-white/60 mt-1 leading-snug">
+                Tout est ouvert. {plan.days_left != null ? `${plan.days_left} jour${plan.days_left > 1 ? "s" : ""} restants.` : "Sans échéance."}
+              </p>
+            </div>
+          ) : (
+            <div className="rounded-2xl bg-gray-900 text-white p-3.5 relative overflow-hidden">
+              <div className="absolute -right-6 -top-6 w-20 h-20 rounded-full bg-orange-500/30 blur-xl" />
+              <div className="relative">
+                <div className="w-8 h-8 rounded-xl bg-orange-500 flex items-center justify-center mb-2">
+                  <i className="fa-solid fa-bolt text-[13px]" />
+                </div>
+                <p className="text-[12.5px] font-bold leading-tight">Passe au forfait supérieur</p>
+                <p className="text-[11px] text-white/60 mt-1 leading-snug">
+                  {plan?.max_products != null
+                    ? `${plan.products_listed}/${plan.max_products} places de vitrine · plus de produits, lives et statistiques.`
+                    : "Lives, statistiques détaillées et Buyticle Delivery."}
+                </p>
+                <button onClick={() => go("abonnement")}
+                  className="mt-2.5 w-full bg-orange-500 text-white text-[11.5px] font-bold py-2 rounded-xl hover:bg-orange-600">
+                  Voir les forfaits
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="p-3 pt-2 border-t border-gray-100 space-y-0.5">
+          <a href={`/shop/${vendor.shop_name}`} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-semibold text-gray-600 hover:bg-gray-100"><i className="fa-solid fa-arrow-up-right-from-square w-4 text-center text-gray-400" />Ma boutique</a>
           <button onClick={() => { signOut(); navigate("/"); }} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-semibold text-red-500 hover:bg-red-50"><i className="fa-solid fa-right-from-bracket w-4 text-center" />Déconnexion</button>
         </div>
       </aside>
@@ -251,7 +392,7 @@ const Dashboard = () => {
           </div>
           <div className="flex items-center gap-2 ml-auto">
             <button className="w-9 h-9 rounded-lg hover:bg-gray-100 flex items-center justify-center text-gray-500"><i className="fa-regular fa-bell" /></button>
-            {section === "products" && (
+            {section === "products" && !locked("products") && (
               <button onClick={() => setShowAdd(true)} className="flex items-center gap-2 bg-gray-900 text-white text-[12px] font-bold px-3.5 py-2 rounded-xl hover:bg-gray-800">
                 <i className="fa-solid fa-plus" /><span className="hidden sm:inline">Ajouter</span>
               </button>
@@ -265,13 +406,18 @@ const Dashboard = () => {
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
               {[...Array(4)].map((_, i) => <div key={i} className="h-32 bg-white border border-gray-200 rounded-2xl animate-pulse" />)}
             </div>
+          ) : locked(section) ? (
+            <PlanLocked reason={locked(section)} plan={plan} section={sectionTitle}
+              onSubscribe={() => go("abonnement")} onBackToFree={backToFree} />
           ) : (
             <>
               {section === "dashboard" && (
                 <Overview {...{ revenue, orders, countedOrders, pendingCount, avgBasket, monthly, hasRevenue, revenueDelta, ordersDelta, sparkFrom, topProduct, topSold, topCats, customers, products }} />
               )}
               {section === "products" && (
-                <ProductsView products={products} onDelete={deleteProduct} onAdd={() => setShowAdd(true)} onEdit={setEditProduct} />
+                <VendorProducts vendor={vendor} products={products} orders={orders}
+                  onAdd={() => setShowAdd(true)} onEdit={setEditProduct} onDelete={deleteProduct}
+                  onRefresh={fetchAll} showToast={showToast} />
               )}
               {section === "orders" && (
                 selectedOrder
@@ -281,17 +427,21 @@ const Dashboard = () => {
               {section === "stats" && <VendorStats orders={orders} products={products} />}
               {section === "live" && <VendorLivePanel vendor={vendor} onToast={showToast} />}
               {section === "customers" && <CustomersView customers={customers} />}
-              {section === "abonnement" && <VendorSubscription vendor={vendor} showToast={showToast} />}
-              {section === "settings" && <SettingsView user={user} vendor={vendor} updateVendorField={updateVendorField} updateVendorFields={updateVendorFields} showToast={showToast} />}
+              {section === "abonnement" && (
+                <VendorSubscription vendor={vendor} showToast={showToast}
+                  onPlanChange={() => { loadPlan(); fetchAll(); }} />
+              )}
+              {section === "settings" && <SettingsView user={user} vendor={vendor} plan={plan} updateVendorField={updateVendorField} updateVendorFields={updateVendorFields} showToast={showToast} />}
             </>
           )}
         </main>
       </div>
 
-      {showAdd && <AddProductWizard vendor={vendor} onClose={() => setShowAdd(false)} onDone={() => { setShowAdd(false); fetchAll(); showToast("Produit publié !"); }} showToast={showToast} />}
+      {showAdd && <AddProductWizard vendor={vendor} plan={plan} onClose={() => setShowAdd(false)} onDone={() => { setShowAdd(false); fetchAll(); loadPlan(); showToast("Produit publié !"); }} showToast={showToast} />}
       {editProduct && (
         <AddProductWizard
           vendor={vendor}
+          plan={plan}
           product={editProduct}
           onClose={() => setEditProduct(null)}
           onDone={() => { setEditProduct(null); fetchAll(); showToast("Produit mis à jour"); }}
@@ -443,70 +593,99 @@ const Overview = ({ revenue, orders, countedOrders, pendingCount, avgBasket, mon
   );
 };
 
-// ─── PRODUCTS ─────────────────────────────────────────────────────────────────
-const ProductsView = ({ products, onDelete, onAdd, onEdit }) => {
-  const [q, setQ] = useState("");
-  const [menu, setMenu] = useState(null);
-  const list = q ? products.filter(p => p.name?.toLowerCase().includes(q.toLowerCase())) : products;
-  return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between gap-3 flex-wrap">
-        <h1 className="text-2xl font-bold tracking-tight">Produits</h1>
-        <button onClick={onAdd} className="flex items-center gap-2 bg-gray-900 text-white text-[12px] font-bold px-4 py-2.5 rounded-xl hover:bg-gray-800"><i className="fa-solid fa-plus" />Ajouter</button>
-      </div>
-      <div className="bg-white border border-gray-200/80 rounded-2xl overflow-hidden">
-        <div className="p-4 border-b border-gray-100">
-          <div className="relative max-w-xs">
-            <i className="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 text-sm" />
-            <input value={q} onChange={e => setQ(e.target.value)} placeholder="Rechercher…" className="w-full bg-gray-100 rounded-xl pl-10 pr-4 py-2 text-[13px] outline-none" />
+// ─── FORFAIT : CE QUI EST FERMÉ, ET COMMENT ROUVRIR ──────────────────────────
+// Un écran vide et un message « accès refusé » laisseraient le vendeur sans
+// issue. Ici on dit ce qui manque, ce qu'il perd, et les deux façons d'en
+// sortir — renouveler, ou redescendre au gratuit, qui reste toujours ouvert.
+const LOCK_COPY = {
+  allows_stats: {
+    icon: "fa-chart-line",
+    title: "Les statistiques font partie des forfaits payants",
+    body: "Chiffre d'affaires par période, produits qui portent, clients qui reviennent : c'est inclus dès le forfait Pro.",
+  },
+  allows_live: {
+    icon: "fa-video",
+    title: "Les lives font partie des forfaits payants",
+    body: "Vendre en direct depuis ta boutique demande un forfait Pro ou Elite.",
+  },
+  allows_delivery: {
+    icon: "fa-truck-fast",
+    title: "Buyticle Delivery fait partie des forfaits payants",
+    body: "Confier tes courses à nos livreurs demande un forfait Pro ou Elite.",
+  },
+};
+
+const PlanLocked = ({ reason, plan, section, onSubscribe, onBackToFree }) => {
+  const [busy, setBusy] = useState(false);
+
+  if (reason === "expired") {
+    const since = plan?.plan_expires_at
+      ? new Date(plan.plan_expires_at).toLocaleDateString("fr-FR", { day: "2-digit", month: "long", year: "numeric" })
+      : null;
+    return (
+      <div className="max-w-2xl mx-auto py-6">
+        <div className="bg-white border border-gray-200/80 rounded-2xl p-6 sm:p-8">
+          <div className="w-12 h-12 rounded-2xl bg-red-50 text-red-600 flex items-center justify-center mb-4">
+            <i className="fa-solid fa-circle-exclamation text-xl" />
+          </div>
+          <h1 className="text-2xl font-bold tracking-tight">Ton abonnement a expiré</h1>
+          <p className="text-[13.5px] text-gray-500 mt-2 leading-relaxed">
+            {since ? <>Le forfait <b className="text-gray-700">{plan?.plan_name}</b> s'est terminé le {since}. </> : null}
+            Ta boutique et tes produits ne sont plus visibles sur Buyticle, et le tableau
+            de bord reste fermé — sauf cette page. Rien n'est supprimé : tout revient
+            intact dès que tu reprends un forfait.
+          </p>
+
+          <div className="mt-5 grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <button onClick={onSubscribe}
+              className="bg-gray-900 text-white text-[13px] font-bold px-4 py-3.5 rounded-xl hover:bg-gray-800">
+              <i className="fa-solid fa-crown mr-2" />Renouveler mon forfait
+            </button>
+            <button onClick={async () => { setBusy(true); await onBackToFree(); setBusy(false); }}
+              disabled={busy}
+              className="border border-gray-200 text-gray-700 text-[13px] font-bold px-4 py-3.5 rounded-xl hover:bg-gray-50 disabled:opacity-50">
+              {busy ? "Un instant…" : "Passer au forfait gratuit"}
+            </button>
+          </div>
+
+          <div className="mt-5 pt-5 border-t border-gray-100">
+            <p className="text-[12px] font-bold text-gray-700 mb-1.5">
+              <i className="fa-solid fa-circle-info mr-1.5 text-gray-400" />
+              Si tu repasses au gratuit
+            </p>
+            <p className="text-[12px] text-gray-500 leading-relaxed">
+              Ta boutique redevient visible tout de suite, mais avec les limites du
+              gratuit : {plan?.products_total != null && <>tu as <b className="text-gray-700">{plan.products_total} produits</b> au catalogue et </>}
+              seules 20 places de vitrine. C'est <b className="text-gray-700">toi</b> qui
+              choisis lesquels restent exposés, depuis la page Produits — le reste passe
+              en réserve, modifiable, mais invisible pour les clients.
+            </p>
           </div>
         </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-[13px]">
-            <thead>
-              <tr className="text-gray-400 text-[11px] font-semibold uppercase tracking-wide border-b border-gray-100">
-                <th className="text-left px-4 py-3">SKU</th>
-                <th className="text-left px-4 py-3">Produit</th>
-                <th className="text-left px-4 py-3 hidden sm:table-cell">Catégorie</th>
-                <th className="text-left px-4 py-3">Prix</th>
-                <th className="text-left px-4 py-3 hidden md:table-cell">Statut</th>
-                <th className="text-left px-4 py-3 hidden lg:table-cell">Ajouté</th>
-                <th className="px-4 py-3"></th>
-              </tr>
-            </thead>
-            <tbody>
-              {list.map(p => {
-                const st = prodStatus(p.status);
-                return (
-                  <tr key={p.id} className="border-b border-gray-50 hover:bg-gray-50/60">
-                    <td className="px-4 py-3 text-gray-400 font-mono text-[11px]">{String(p.id).slice(0, 6)}</td>
-                    <td className="px-4 py-3">
-                      <button onClick={() => onEdit(p)} className="flex items-center gap-3 text-left group/name">
-                        <div className="w-9 h-9 rounded-lg bg-gray-100 overflow-hidden flex-shrink-0">{p.img && <img src={p.img} alt="" className="w-full h-full object-cover" />}</div>
-                        <span className="font-semibold text-gray-900 truncate max-w-[160px] group-hover/name:underline">{p.name}</span>
-                      </button>
-                    </td>
-                    <td className="px-4 py-3 text-gray-500 hidden sm:table-cell">{p.type}</td>
-                    <td className="px-4 py-3 font-semibold">{money(p.price)}</td>
-                    <td className="px-4 py-3 hidden md:table-cell"><span className={`text-[11px] font-semibold px-2.5 py-1 rounded-full border ${st.cls}`}>{st.label}</span></td>
-                    <td className="px-4 py-3 text-gray-400 hidden lg:table-cell">{shortDate(p.created_at)}</td>
-                    <td className="px-4 py-3 text-right relative">
-                      <button onClick={() => setMenu(menu === p.id ? null : p.id)} className="w-8 h-8 rounded-lg hover:bg-gray-100 text-gray-400"><i className="fa-solid fa-ellipsis-vertical" /></button>
-                      {menu === p.id && (
-                        <div className="absolute right-4 top-11 z-10 bg-white border border-gray-200 rounded-xl shadow-lg py-1 w-36" onMouseLeave={() => setMenu(null)}>
-                          <button onClick={() => { setMenu(null); onEdit(p); }} className="w-full text-left px-3 py-2 text-[12px] text-gray-700 hover:bg-gray-50"><i className="fa-solid fa-pen mr-2" />Modifier</button>
-                          <button onClick={() => { setMenu(null); onDelete(p); }} className="w-full text-left px-3 py-2 text-[12px] text-red-500 hover:bg-red-50"><i className="fa-solid fa-trash mr-2" />Supprimer</button>
-                        </div>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-          {list.length === 0 && <div className="p-10 text-center text-gray-400 text-sm">Aucun produit. Clique « Ajouter » pour commencer.</div>}
-        </div>
       </div>
+    );
+  }
+
+  const copy = LOCK_COPY[reason] || {
+    icon: "fa-lock",
+    title: `${section} fait partie des forfaits payants`,
+    body: "Cette page s'ouvre avec un forfait supérieur.",
+  };
+
+  return (
+    <div className="max-w-xl mx-auto py-10 text-center">
+      <div className="w-14 h-14 rounded-2xl bg-orange-50 text-orange-500 flex items-center justify-center mx-auto mb-4">
+        <i className={`fa-solid ${copy.icon} text-2xl`} />
+      </div>
+      <h1 className="text-xl font-bold tracking-tight">{copy.title}</h1>
+      <p className="text-[13px] text-gray-500 mt-2 max-w-md mx-auto leading-relaxed">{copy.body}</p>
+      <p className="text-[12px] text-gray-400 mt-3">
+        Tu es actuellement sur le forfait <b className="text-gray-600">{plan?.plan_name || "Gratuit"}</b>.
+      </p>
+      <button onClick={onSubscribe}
+        className="mt-5 bg-gray-900 text-white text-[13px] font-bold px-5 py-3 rounded-xl hover:bg-gray-800">
+        <i className="fa-solid fa-crown mr-2" />Voir les forfaits
+      </button>
     </div>
   );
 };
@@ -855,12 +1034,16 @@ const emptyShopForm = (v) => ({
   description: v?.description || "",
 });
 
-const SettingsView = ({ user, vendor, updateVendorField, updateVendorFields, showToast }) => {
+const SettingsView = ({ user, vendor, plan, updateVendorField, updateVendorFields, showToast }) => {
   const [busy, setBusy]   = useState(false);
   const [rate, setRate]   = useState(getVendorDiscountPercent(vendor));
   const [uploading, setUploading] = useState("");
   const [shop, setShop]   = useState(() => emptyShopForm(vendor));
   const [shopError, setShopError] = useState("");
+
+  // Tant que le forfait n'est pas chargé, on ne verrouille rien : mieux vaut
+  // laisser passer une seconde que griser un réglage qui est en fait ouvert.
+  const canDiscount = !plan || plan.allows_member_discount !== false;
 
   useEffect(() => { setRate(getVendorDiscountPercent(vendor)); }, [vendor?.id, vendor?.member_discount_rate]);
   useEffect(() => { setShop(emptyShopForm(vendor)); setShopError(""); }, [vendor?.id]);
@@ -1107,7 +1290,7 @@ const SettingsView = ({ user, vendor, updateVendorField, updateVendorFields, sho
 
         {activeSection === "livraison" && (
           <DeliverySection
-            vendor={vendor} updateVendorFields={updateVendorFields} showToast={showToast}
+            vendor={vendor} plan={plan} updateVendorFields={updateVendorFields} showToast={showToast}
           />
         )}
 
@@ -1120,10 +1303,21 @@ const SettingsView = ({ user, vendor, updateVendorField, updateVendorFields, sho
                   <p className="font-bold text-[15px]">Remise membre</p>
                   <p className="text-[13px] text-gray-500">Réservée aux membres Buyticle sur ta boutique.</p>
                 </div>
-                <Switch on={!!vendor.member_discount_enabled} onClick={toggleDiscount} disabled={busy} />
+                {canDiscount
+                  ? <Switch on={!!vendor.member_discount_enabled} onClick={toggleDiscount} disabled={busy} />
+                  : <span className="text-[10px] font-black uppercase tracking-wider bg-orange-100 text-orange-600 px-2.5 py-1.5 rounded-lg flex-shrink-0">
+                      <i className="fa-solid fa-lock mr-1.5" />Pro
+                    </span>}
               </div>
 
-              {vendor.member_discount_enabled && (
+              {!canDiscount && (
+                <p className="text-[12px] text-gray-500 border-t border-gray-100 pt-3 leading-relaxed">
+                  Fixer ta propre remise pour les membres Buyticle fait partie du forfait Pro.
+                  Sur le gratuit, tes prix restent les mêmes pour tout le monde.
+                </p>
+              )}
+
+              {canDiscount && vendor.member_discount_enabled && (
                 <div className="border-t border-gray-100 pt-4">
                   <p className="text-[12px] font-bold uppercase tracking-wide text-gray-400 mb-2">Ton pourcentage</p>
                   <div className="flex flex-wrap gap-2 mb-3">
