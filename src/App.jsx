@@ -46,6 +46,7 @@ const CreatorProfile = lazyWithRetry(() => import('./pages/CreatorProfile.jsx'))
 // Module Buyticle Delivery : carte + tracés, c'est lourd. Chunk à part, avec
 // son propre écran de chargement.
 const DeliveryConsole = lazyWithRetry(() => import('./pages/DeliveryConsole.jsx'));
+const CourierSignup   = lazyWithRetry(() => import('./pages/CourierSignup.jsx'));
 // Fenêtre d'avis : elle s'ouvre d'elle-même après une livraison, quelle que
 // soit la page. Chargée à part pour ne pas peser sur le premier écran.
 const ReviewPrompt = lazyWithRetry(() => import('./components/OrderFollowUp')
@@ -78,6 +79,8 @@ function AppContent() {
     || location.pathname.startsWith('/super-admin')
     || location.pathname.startsWith('/live/')
     || location.pathname.startsWith('/delivery')
+    || location.pathname.startsWith('/livreur')
+    || location.pathname === '/devenir-livreur'
     || location.pathname === '/track';
 
   // Listen for CartPage "checkout" event and open cart sidebar
@@ -242,6 +245,9 @@ function AppContent() {
             {/* Buyticle Delivery — la console vérifie elle-même la session et
                 le rôle : elle sait afficher « connexion requise » sans rejeter
                 vers une page de login qui ferait perdre la commande visée. */}
+            {/* Candidature livreur : ouverte à tous, avec ou sans compte. */}
+            <Route path="/livreur" element={<CourierSignup />} />
+            <Route path="/devenir-livreur" element={<CourierSignup />} />
             <Route path="/delivery" element={<DeliveryConsole />} />
             <Route path="/delivery/:orderId" element={<DeliveryConsole />} />
             <Route path="*" element={<NotFound />} />

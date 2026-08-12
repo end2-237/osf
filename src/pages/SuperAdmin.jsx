@@ -3118,6 +3118,302 @@ const ReturnsAdminTab = ({ onCountChange }) => {
   );
 };
 
+/* ═══════════════════════════════════════════════════════════════════════════
+   DOSSIERS LIVREUR & REMISES À VALIDER
+   Deux files distinctes, réunies ici parce qu'elles répondent à la même
+   question : à qui fait-on confiance, et sur quelles pièces.
+   ═══════════════════════════════════════════════════════════════════════════ */
+const VEHICLE_LABEL = { moto:"Moto", tricycle:"Tricycle", voiture:"Voiture", velo:"Vélo", pieds:"À pied" };
+
+const Doc = ({ label, url }) => !url ? (
+  <div className="rounded-lg border border-dashed border-[#D5D9D9] h-24 flex items-center justify-center">
+    <span className="text-[9px] font-bold text-[#ADBAC7] uppercase">{label} — absent</span>
+  </div>
+) : (
+  <a href={url} target="_blank" rel="noreferrer" className="block rounded-lg overflow-hidden border border-[#D5D9D9]">
+    <img src={url} alt={label} className="w-full h-24 object-cover" />
+    <span className="block text-[9px] font-black uppercase text-center py-1 bg-[#F7F8F8] text-[#565959]">{label}</span>
+  </a>
+);
+
+const CourierApplicationsTab = ({ onCountChange }) => {
+  const [rows,   setRows]   = useState([]);
+  const [filter, setFilter] = useState("pending");
+  const [load2,  setLoad2]  = useState(true);
+  const [error,  setError]  = useState("");
+  const [note,   setNote]   = useState("");
+  const [openId, setOpenId] = useState(null);
+  const [acting, setActing] = useState("");
+
+  const load = async () => {
+    setLoad2(true); setError("");
+    const { data, error: e } = await supabase.rpc("admin_courier_applications",
+      { p_status: filter === "all" ? null : filter });
+    if (e) setError(e.message);
+    setRows(data || []);
+    setLoad2(false);
+  };
+  useEffect(() => { load(); }, [filter]);
+  useEffect(() => {
+    supabase.rpc("admin_courier_applications", { p_status: "pending" })
+      .then(({ data }) => onCountChange?.((data || []).length));
+  }, []);
+
+  const decide = async (id, ok) => {
+    if (!ok && note.trim().length < 5) return setError("Explique le motif du refus : le candidat le lira.");
+    setActing(id); setError("");
+    const { error: e } = ok
+      ? await supabase.rpc("approve_courier_application", { p_app_id: id, p_note: note.trim() || null })
+      : await supabase.rpc("reject_courier_application",  { p_app_id: id, p_note: note.trim() });
+    setActing("");
+    if (e) return setError(e.message);
+    setOpenId(null); setNote("");
+    await load();
+    const { data } = await supabase.rpc("admin_courier_applications", { p_status: "pending" });
+    onCountChange?.((data || []).length);
+  };
+
+  return (
+    <div className="space-y-5">
+      <div className="bg-[#131921] rounded-xl px-5 py-4">
+        <p className="text-[9px] font-black uppercase tracking-widest text-[#FF9900] mb-0.5">Confiance</p>
+        <h2 className="text-white font-black text-lg leading-tight">Dossiers livreur</h2>
+        <p className="text-[10px] text-[#ADBAC7] mt-0.5">
+          Vérifie l'identité avant d'ouvrir l'accès aux courses et au cash
+        </p>
+      </div>
+
+      <div className="flex gap-2 flex-wrap">
+        {[["pending","À examiner"],["approved","Validés"],["rejected","Refusés"],["all","Tous"]].map(([k,l]) => (
+          <button key={k} onClick={() => setFilter(k)}
+            className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-wider border transition-all ${
+              filter === k ? "bg-[#131921] text-[#FF9900] border-[#131921]"
+                           : "bg-white text-[#565959] border-[#D5D9D9] hover:border-[#565959]"}`}>{l}</button>
+        ))}
+      </div>
+
+      {error && (
+        <div className="bg-[#FEE7E5] border border-[#B12704]/30 rounded-lg px-4 py-3 text-[11px] text-[#B12704] font-bold">
+          <i className="fa-solid fa-circle-exclamation mr-2" />{error}
+        </div>
+      )}
+
+      {load2 ? (
+        <div className="bg-white border border-[#D5D9D9] rounded-xl p-10 text-center text-[11px] font-bold text-[#565959]">
+          <i className="fa-solid fa-spinner fa-spin mr-2" />Chargement…
+        </div>
+      ) : rows.length === 0 ? (
+        <div className="bg-white border border-[#D5D9D9] rounded-xl p-10 text-center">
+          <i className="fa-solid fa-id-card text-[#D5D9D9] text-3xl mb-3" />
+          <p className="text-[#565959] text-[12px] font-bold">Aucun dossier dans cette liste</p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {rows.map(a => (
+            <div key={a.id} className="bg-white border border-[#D5D9D9] rounded-xl overflow-hidden">
+              <div className="p-4 flex items-start gap-4 flex-wrap">
+                <div className="flex-1 min-w-[220px]">
+                  <div className="flex items-center gap-2 mb-1 flex-wrap">
+                    <p className="font-black text-[13px] text-[#0F1111]">{a.full_name}</p>
+                    <span className="text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full border bg-[#EAEDED] text-[#565959] border-[#D5D9D9]">
+                      {VEHICLE_LABEL[a.vehicle_type] || a.vehicle_type}
+                      {a.vehicle_plate ? ` · ${a.vehicle_plate}` : ""}
+                    </span>
+                    {a.vendor_id && (
+                      <span className="text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full border bg-[#FFF8D3] text-[#B26200] border-[#FCD200]/50">
+                        Livreur de boutique
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-[11px] text-[#565959]">
+                    {a.phone}{a.email ? ` · ${a.email}` : ""} · {a.city}
+                  </p>
+                  <p className="text-[11px] text-[#565959] mt-1">
+                    {(a.id_type || "cni").toUpperCase()} n° <strong className="text-[#0F1111]">{a.id_number || "—"}</strong>
+                  </p>
+                  {a.review_note && (
+                    <p className="text-[11px] text-[#565959] mt-1 italic">« {a.review_note} »</p>
+                  )}
+                </div>
+                <p className="text-[10px] text-[#565959]">
+                  Déposé le {fmtDate(a.submitted_at)}
+                </p>
+              </div>
+
+              <div className="px-4 pb-4 grid grid-cols-2 sm:grid-cols-4 gap-2">
+                <Doc label="Recto"  url={a.id_front_url} />
+                <Doc label="Verso"  url={a.id_back_url} />
+                <Doc label="Visage" url={a.selfie_url} />
+                <Doc label="Permis" url={a.licence_url} />
+              </div>
+
+              {a.status === "pending" && (
+                <div className="border-t border-[#EAEDED] bg-[#FAFAFA] px-4 py-3 space-y-2">
+                  {openId === a.id ? (
+                    <>
+                      <input value={note} onChange={e => setNote(e.target.value)}
+                        placeholder="Note — obligatoire pour un refus"
+                        className="w-full bg-white border border-[#D5D9D9] rounded-lg px-3 py-2 text-[12px] outline-none focus:border-[#FF9900]" />
+                      <div className="flex gap-2 flex-wrap">
+                        <button onClick={() => decide(a.id, true)} disabled={acting === a.id}
+                          className="bg-[#007600] hover:bg-[#005c00] text-white text-[10px] font-black uppercase tracking-wider px-4 py-2 rounded-lg disabled:opacity-50">
+                          <i className="fa-solid fa-check mr-1.5" />Valider ce livreur
+                        </button>
+                        <button onClick={() => decide(a.id, false)} disabled={acting === a.id}
+                          className="bg-[#B12704] hover:bg-[#8c1f03] text-white text-[10px] font-black uppercase tracking-wider px-4 py-2 rounded-lg disabled:opacity-50">
+                          <i className="fa-solid fa-xmark mr-1.5" />Refuser
+                        </button>
+                        <button onClick={() => { setOpenId(null); setNote(""); }}
+                          className="text-[10px] font-black uppercase tracking-wider px-4 py-2 rounded-lg text-[#565959] hover:bg-[#EAEDED]">
+                          Annuler
+                        </button>
+                      </div>
+                    </>
+                  ) : (
+                    <button onClick={() => { setOpenId(a.id); setNote(""); setError(""); }}
+                      className="bg-[#131921] hover:bg-[#232F3E] text-white text-[10px] font-black uppercase tracking-wider px-4 py-2 rounded-lg">
+                      <i className="fa-solid fa-gavel mr-1.5" />Examiner
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
+/* ── Remises en attente : valider la preuve libère l'argent avant les 48 h ── */
+const PROOF_BADGE = {
+  code: { label: "Code saisi par le client", cls: "bg-[#E8F5E8] text-[#007600] border-[#007600]/30", icon: "fa-key" },
+  slip: { label: "Fiche de remise signée",   cls: "bg-[#E6F3F5] text-[#007185] border-[#007185]/30", icon: "fa-file-signature" },
+  none: { label: "Aucune preuve",            cls: "bg-[#FFF8D3] text-[#B26200] border-[#FCD200]/50", icon: "fa-question" },
+};
+
+const PendingProofsPanel = () => {
+  const [rows,   setRows]   = useState([]);
+  const [load3,  setLoad3]  = useState(true);
+  const [error,  setError]  = useState("");
+  const [acting, setActing] = useState("");
+
+  const load = async () => {
+    setLoad3(true); setError("");
+    const { data, error: e } = await supabase.rpc("admin_pending_proofs");
+    if (e) setError(e.message);
+    setRows(data || []);
+    setLoad3(false);
+  };
+  useEffect(() => { load(); }, []);
+
+  const release = async (id) => {
+    setActing(id); setError("");
+    const { error: e } = await supabase.rpc("admin_release_funds",
+      { p_order_id: id, p_note: "Preuve de remise validée par Buyticle" });
+    setActing("");
+    if (e) return setError(e.message);
+    load();
+  };
+
+  if (load3) return (
+    <div className="bg-white border border-[#D5D9D9] rounded-xl p-10 text-center text-[11px] font-bold text-[#565959]">
+      <i className="fa-solid fa-spinner fa-spin mr-2" />Chargement…
+    </div>
+  );
+
+  return (
+    <div className="space-y-3">
+      <div className="bg-[#131921] rounded-xl px-5 py-4">
+        <p className="text-[9px] font-black uppercase tracking-widest text-[#FF9900] mb-0.5">Argent retenu</p>
+        <h2 className="text-white font-black text-lg leading-tight">Remises à valider</h2>
+        <p className="text-[10px] text-[#ADBAC7] mt-0.5">
+          Valider une preuve verse la boutique tout de suite, sans attendre la fin des 48 h
+        </p>
+      </div>
+
+      {error && (
+        <div className="bg-[#FEE7E5] border border-[#B12704]/30 rounded-lg px-4 py-3 text-[11px] text-[#B12704] font-bold">
+          <i className="fa-solid fa-circle-exclamation mr-2" />{error}
+        </div>
+      )}
+
+      {rows.length === 0 ? (
+        <div className="bg-white border border-[#D5D9D9] rounded-xl p-10 text-center">
+          <i className="fa-solid fa-hourglass-end text-[#D5D9D9] text-3xl mb-3" />
+          <p className="text-[#565959] text-[12px] font-bold">Aucune remise en attente</p>
+        </div>
+      ) : rows.map(r => {
+        const badge = PROOF_BADGE[r.delivery_proof] || PROOF_BADGE.none;
+        const slip = r.slip;
+        return (
+          <div key={r.id} className="bg-white border border-[#D5D9D9] rounded-xl overflow-hidden">
+            <div className="p-4 flex items-start gap-4 flex-wrap">
+              <div className="flex-1 min-w-[220px]">
+                <div className="flex items-center gap-2 mb-1 flex-wrap">
+                  <p className="font-black text-[13px] text-[#0F1111]">
+                    #{r.order_number || String(r.id).slice(0, 8)}
+                  </p>
+                  <span className={`text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full border ${badge.cls}`}>
+                    <i className={`fa-solid ${badge.icon} mr-1`} />{badge.label}
+                  </span>
+                </div>
+                <p className="text-[11px] text-[#565959]">
+                  {r.shop_name} · client {r.client_name}
+                  {r.courier_name ? ` · livré par ${r.courier_name}` : ""}
+                </p>
+                <p className="text-[10px] text-[#565959] mt-1">
+                  Libération automatique dans <strong className="text-[#0F1111]">{r.hours_left} h</strong>
+                </p>
+              </div>
+              <p className="font-black text-lg text-[#0F1111]">
+                {Math.round(Number(r.total_amount) || 0).toLocaleString("fr-FR")} F
+              </p>
+            </div>
+
+            {slip && (
+              <div className="px-4 pb-3">
+                <div className="rounded-lg border border-[#D5D9D9] bg-[#F7F8F8] p-3">
+                  <p className="text-[9px] font-black uppercase tracking-widest text-[#565959] mb-1.5">
+                    Fiche de remise
+                  </p>
+                  <p className="text-[12px] text-[#0F1111]">
+                    Reçu par <strong>{slip.recipient_name}</strong>
+                    {slip.is_third_party && slip.relationship ? ` (${slip.relationship})` : ""}
+                    {" · "}{(slip.recipient_id_type || "cni").toUpperCase()} n° {slip.recipient_id_number}
+                    {slip.recipient_phone ? ` · ${slip.recipient_phone}` : ""}
+                  </p>
+                  {slip.note && <p className="text-[11px] text-[#565959] mt-1 italic">« {slip.note} »</p>}
+                  <p className="text-[10px] text-[#565959] mt-1.5">
+                    <i className="fa-solid fa-paperclip mr-1" />
+                    {[slip.signature_url && "signature", slip.parcel_photo_url && "photo du colis",
+                      slip.paper_slip_url && "fiche papier"].filter(Boolean).join(", ") || "aucune pièce"}
+                    {slip.lat ? ` · position ${Number(slip.lat).toFixed(4)}, ${Number(slip.lng).toFixed(4)}` : ""}
+                  </p>
+                </div>
+              </div>
+            )}
+
+            <div className="border-t border-[#EAEDED] bg-[#FAFAFA] px-4 py-3">
+              <button onClick={() => release(r.id)} disabled={acting === r.id}
+                className="bg-[#007600] hover:bg-[#005c00] text-white text-[10px] font-black uppercase tracking-wider px-4 py-2 rounded-lg disabled:opacity-50">
+                <i className="fa-solid fa-lock-open mr-1.5" />
+                {acting === r.id ? "Libération…" : "Valider la remise et verser"}
+              </button>
+              <p className="text-[10px] text-[#565959] mt-2">
+                <i className="fa-solid fa-circle-info mr-1.5" />
+                {r.delivery_proof === "none"
+                  ? "Aucune preuve n'a été fournie : mieux vaut laisser courir les 48 h."
+                  : "Les pièces sont au dossier : valider verse la boutique immédiatement."}
+              </p>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+};
+
 const SuperAdmin = () => {
   const { user, isSuperAdmin } = useAuth();
   const navigate  = useNavigate();
@@ -3130,6 +3426,7 @@ const SuperAdmin = () => {
   const [loading,      setLoading]      = useState(true);
   const [pendingPayouts, setPendingPayouts] = useState(0);
   const [pendingReturns, setPendingReturns] = useState(0);
+  const [pendingCouriers, setPendingCouriers] = useState(0);
 
   // ── Auth guard ──────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -3196,6 +3493,9 @@ const SuperAdmin = () => {
         const { data: returnsPending } = await supabase.rpc("admin_returns", { p_status: "requested" });
         setPendingReturns((returnsPending || []).length);
 
+        const { data: couriersPending } = await supabase.rpc("admin_courier_applications", { p_status: "pending" });
+        setPendingCouriers((couriersPending || []).length);
+
         setGlobalStats({
           revenue:          totalRevenue,
           orders:           os.length,
@@ -3233,6 +3533,7 @@ const SuperAdmin = () => {
     { key: "retraits",     icon: "fa-money-bill-transfer", label: "Retraits",  badge: pendingPayouts         || 0 },
     { key: "livraison",    icon: "fa-map-location-dot", label: "Livraison"       },
     { key: "litiges",      icon: "fa-scale-balanced", label: "Litiges", badge: pendingReturns || 0 },
+    { key: "livreurs",     icon: "fa-id-card", label: "Livreurs", badge: pendingCouriers || 0 },
     { key: "products",     icon: "fa-boxes-stacked",  label: "Produits"        },
     { key: "cj",           icon: "fa-diagram-project",   label: "CJ Import"       },
     { key: "reviews",      icon: "fa-star",            label: "Avis",           badge: globalStats.pendingReviews || 0 },
@@ -3332,7 +3633,14 @@ const SuperAdmin = () => {
         )}
 
         {activeTab === "litiges" && (
-          <ReturnsAdminTab onCountChange={setPendingReturns} />
+          <div className="space-y-8">
+            <ReturnsAdminTab onCountChange={setPendingReturns} />
+            <PendingProofsPanel />
+          </div>
+        )}
+
+        {activeTab === "livreurs" && (
+          <CourierApplicationsTab onCountChange={setPendingCouriers} />
         )}
 
         {activeTab === "products" && (

@@ -26,6 +26,12 @@
 SET lock_timeout = '5s';
 
 -- ════════════════════════════════════════════════════════════════════════════
+--  `vendor_balance` gagne une colonne (`held`). PostgreSQL refuse de changer
+--  le type de retour d'une fonction existante : on la supprime d'abord.
+-- ════════════════════════════════════════════════════════════════════════════
+DROP FUNCTION IF EXISTS public.vendor_balance(UUID);
+
+-- ════════════════════════════════════════════════════════════════════════════
 --  1. LES DÉLAIS, EN UN SEUL ENDROIT
 -- ════════════════════════════════════════════════════════════════════════════
 CREATE TABLE IF NOT EXISTS public.platform_policy (

@@ -7,6 +7,7 @@ import { supabase } from "../lib/supabase";
 import { useAuth } from "../context/AuthContext";
 import { LOGO_URL } from "../lib/brand";
 import DeliveryMap from "../components/DeliveryMap";
+import DeliverySlipForm from "../components/DeliverySlipForm";
 import { routeBetween, searchAddress, formatKm, formatDuration, currentPosition, DEFAULT_CENTER } from "../lib/geo";
 
 /* ════════════════════════════════════════════════════════════════════════════
@@ -434,7 +435,7 @@ const nextCourseStep = (order) => {
 
 const FleetCard = ({ total, stats, order, driver, onLocate, canManage,
                     onOpenPicker, onAdvance, onLocateMe, busy, started,
-                    stepIndex, nextStep, finished, code, onCode }) => (
+                    stepIndex, nextStep, finished, code, onCode, onOpenSlip }) => (
   <div className={`${card} p-5 flex flex-col h-full`} style={{ borderColor: BORDER }}>
     <div className="flex items-center justify-between mb-4">
       <div className="flex items-center gap-2">
@@ -531,17 +532,26 @@ const FleetCard = ({ total, stats, order, driver, onLocate, canManage,
           )}
         </div>
 
-        {/* Le code est la preuve de remise. Sans lui la course se clôt quand
-            même — le client peut être injoignable — mais en cas de litige
-            « je n'ai rien reçu », rien ne contredira le client. */}
+        {/* Le code est la preuve la plus simple. Quand le client ne peut pas le
+            donner, la fiche de remise prend le relais et vaut autant. Clore
+            sans l'un ni l'autre reste possible, mais le doute profitera au
+            client en cas de litige — on le dit avant, pas après. */}
         {nextStep.key === "finish" && (
-          <p className="text-[10px] leading-snug" style={{ color: MUTED }}>
-            <i className="fa-solid fa-key mr-1" />
-            Demande au client les 4 chiffres affichés dans son suivi.
-            {code.length === 4
-              ? " Remise prouvée."
-              : " Sans code, la remise n'est pas prouvée et le doute profitera au client."}
-          </p>
+          <>
+            <p className="text-[10px] leading-snug" style={{ color: MUTED }}>
+              <i className="fa-solid fa-key mr-1" />
+              Demande au client les 4 chiffres affichés dans son suivi.
+              {code.length === 4
+                ? " Remise prouvée."
+                : " Sans code ni fiche, la remise n'est pas prouvée."}
+            </p>
+            <button onClick={onOpenSlip} disabled={busy}
+              className="w-full h-9 rounded-xl border text-[11px] font-bold flex items-center justify-center gap-2 disabled:opacity-50"
+              style={{ borderColor: BORDER, color: INK }}>
+              <i className="fa-solid fa-file-signature text-[11px]" />
+              Le client ne peut pas donner son code
+            </button>
+          </>
         )}
 
         {!order.courier_id && (
@@ -787,6 +797,7 @@ const DeliveryConsole = () => {
   const [picker,   setPicker]   = useState(false);
   const [acting,   setActing]   = useState(false);
   const [code,     setCode]     = useState("");
+  const [slipFor,  setSlipFor]  = useState(null);
 
   /* ── Chargement ───────────────────────────────────────────────────────── */
   useEffect(() => {
@@ -1063,6 +1074,14 @@ const DeliveryConsole = () => {
         onPickPlace={(h) => setCenter({ lat: h.lat, lng: h.lng })}
       />
 
+      {slipFor && (
+        <DeliverySlipForm
+          order={slipFor}
+          onClose={() => setSlipFor(null)}
+          onDone={async () => { setSlipFor(null); setCode(""); await reload(); }}
+        />
+      )}
+
       <CourierPicker
         order={current} open={picker} busy={acting}
         onClose={() => setPicker(false)} onAssign={assign} onTake={take}
@@ -1103,6 +1122,7 @@ const DeliveryConsole = () => {
                        : current?.course_started_at ? 1 : 0}
             nextStep={nextCourseStep(current)}
             code={code} onCode={setCode}
+            onOpenSlip={() => setSlipFor(current)}
             busy={acting}
             onOpenPicker={() => setPicker(true)}
             onAdvance={advance}
