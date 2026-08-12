@@ -13,6 +13,30 @@
 
 SET lock_timeout = '5s';
 
+-- ════════════════════════════════════════════════════════════════════════════
+--  REJOUABLE DANS N'IMPORTE QUEL ORDRE
+--
+--  PostgreSQL refuse un CREATE OR REPLACE qui change la forme du retour, et
+--  deux signatures d'une même fonction rendraient chaque appel ambigu. On
+--  efface donc d'abord toutes les signatures des fonctions que ce fichier
+--  redéfinit — quel que soit l'état de la base, et quel que soit l'ordre dans
+--  lequel les fichiers ont été appliqués.
+-- ════════════════════════════════════════════════════════════════════════════
+DO $reset$
+DECLARE r RECORD;
+BEGIN
+  FOR r IN
+    SELECT p.oid::regprocedure AS sig
+      FROM pg_proc p
+      JOIN pg_namespace n ON n.oid = p.pronamespace
+     WHERE n.nspname = 'public'
+       AND p.proname IN ('quote_delivery')
+  LOOP
+    EXECUTE 'DROP FUNCTION IF EXISTS ' || r.sig;
+  END LOOP;
+END
+$reset$;
+
 CREATE OR REPLACE FUNCTION public.quote_delivery(
   p_vendor_id UUID,
   p_lat       DOUBLE PRECISION,

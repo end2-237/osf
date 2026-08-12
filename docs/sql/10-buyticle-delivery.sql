@@ -23,6 +23,30 @@
 SET lock_timeout = '5s';
 
 -- ════════════════════════════════════════════════════════════════════════════
+--  REJOUABLE DANS N'IMPORTE QUEL ORDRE
+--
+--  PostgreSQL refuse un CREATE OR REPLACE qui change la forme du retour, et
+--  deux signatures d'une même fonction rendraient chaque appel ambigu. On
+--  efface donc d'abord toutes les signatures des fonctions que ce fichier
+--  redéfinit — quel que soit l'état de la base, et quel que soit l'ordre dans
+--  lequel les fichiers ont été appliqués.
+-- ════════════════════════════════════════════════════════════════════════════
+DO $reset$
+DECLARE r RECORD;
+BEGIN
+  FOR r IN
+    SELECT p.oid::regprocedure AS sig
+      FROM pg_proc p
+      JOIN pg_namespace n ON n.oid = p.pronamespace
+     WHERE n.nspname = 'public'
+       AND p.proname IN ('delivery_feed', 'delivery_view', 'geo_km', 'quote_delivery', 'stamp_delivered_at')
+  LOOP
+    EXECUTE 'DROP FUNCTION IF EXISTS ' || r.sig;
+  END LOOP;
+END
+$reset$;
+
+-- ════════════════════════════════════════════════════════════════════════════
 --  1. POSITIONS
 -- ════════════════════════════════════════════════════════════════════════════
 
@@ -257,17 +281,18 @@ STABLE
 SECURITY DEFINER
 SET search_path = public
 AS $$
-DECLARE v_role TEXT; v_vendor UUID; v_driver UUID;
+DECLARE v_role TEXT; v_vendor UUID; v_driver UUID; v_exists BOOLEAN;
 BEGIN
   IF auth.uid() IS NULL THEN
     RAISE EXCEPTION 'Connexion requise';
   END IF;
 
-  SELECT o.vendor_id, o.driver_id INTO v_vendor, v_driver
+  -- `id` est un nom de sortie : toute lecture de colonne doit être préfixée,
+  -- sinon PostgreSQL ne sait pas si l'on parle de la variable ou de la table.
+  SELECT TRUE, o.vendor_id, o.driver_id INTO v_exists, v_vendor, v_driver
   FROM public.orders o WHERE o.id = p_order_id;
 
-  IF v_vendor IS NULL AND v_driver IS NULL
-     AND NOT EXISTS (SELECT 1 FROM public.orders WHERE id = p_order_id) THEN
+  IF NOT COALESCE(v_exists, FALSE) THEN
     RAISE EXCEPTION 'Commande introuvable';
   END IF;
 

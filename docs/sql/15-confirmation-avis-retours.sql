@@ -26,10 +26,29 @@
 SET lock_timeout = '5s';
 
 -- ════════════════════════════════════════════════════════════════════════════
---  `vendor_balance` gagne une colonne (`held`). PostgreSQL refuse de changer
---  le type de retour d'une fonction existante : on la supprime d'abord.
+--  REJOUABLE DANS N'IMPORTE QUEL ORDRE
+--
+--  PostgreSQL refuse un CREATE OR REPLACE qui change la forme du retour, et
+--  deux signatures d'une même fonction rendraient chaque appel ambigu. On
+--  efface donc d'abord toutes les signatures des fonctions que ce fichier
+--  redéfinit — quel que soit l'état de la base, et quel que soit l'ordre dans
+--  lequel les fichiers ont été appliqués.
 -- ════════════════════════════════════════════════════════════════════════════
-DROP FUNCTION IF EXISTS public.vendor_balance(UUID);
+DO $reset$
+DECLARE r RECORD;
+BEGIN
+  FOR r IN
+    SELECT p.oid::regprocedure AS sig
+      FROM pg_proc p
+      JOIN pg_namespace n ON n.oid = p.pronamespace
+     WHERE n.nspname = 'public'
+       AND p.proname IN ('admin_returns', 'confirm_delivery', 'my_delivered_orders', 'order_funds_state', 'request_return', 'resolve_return', 'submit_order_reviews', 'vendor_balance')
+  LOOP
+    EXECUTE 'DROP FUNCTION IF EXISTS ' || r.sig;
+  END LOOP;
+END
+$reset$;
+
 
 -- ════════════════════════════════════════════════════════════════════════════
 --  1. LES DÉLAIS, EN UN SEUL ENDROIT

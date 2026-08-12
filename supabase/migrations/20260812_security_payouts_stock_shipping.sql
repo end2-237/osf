@@ -10,6 +10,33 @@
 --  Idempotent : rejouable sans dommage.
 -- ════════════════════════════════════════════════════════════════════════════
 
+SET lock_timeout = '5s';
+
+-- ════════════════════════════════════════════════════════════════════════════
+--  REJOUABLE DANS N'IMPORTE QUEL ORDRE
+--
+--  PostgreSQL refuse un CREATE OR REPLACE qui change la forme du retour, et
+--  deux signatures d'une même fonction rendraient chaque appel ambigu. On
+--  efface donc d'abord toutes les signatures des fonctions que ce fichier
+--  redéfinit — quel que soit l'état de la base, et quel que soit l'ordre dans
+--  lequel les fichiers ont été appliqués.
+-- ════════════════════════════════════════════════════════════════════════════
+DO $reset$
+DECLARE r RECORD;
+BEGIN
+  FOR r IN
+    SELECT p.oid::regprocedure AS sig
+      FROM pg_proc p
+      JOIN pg_namespace n ON n.oid = p.pronamespace
+     WHERE n.nspname = 'public'
+       AND p.proname IN ('decrement_stock_on_order_item', 'orders_status', 'request_payout', 'restock_on_order_cancel', 'track_order', 'vendor_balance', 'vendor_sales_counts')
+  LOOP
+    EXECUTE 'DROP FUNCTION IF EXISTS ' || r.sig;
+  END LOOP;
+END
+$reset$;
+
+
 -- ════════════════════════════════════════════════════════════════════════════
 --  1. RÉGLAGES DE REVERSEMENT — table séparée, lisible par le seul vendeur
 --     `vendors` doit rester lisible publiquement (pages boutique) : les

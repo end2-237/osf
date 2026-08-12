@@ -21,6 +21,30 @@
 SET lock_timeout = '5s';
 
 -- ════════════════════════════════════════════════════════════════════════════
+--  REJOUABLE DANS N'IMPORTE QUEL ORDRE
+--
+--  PostgreSQL refuse un CREATE OR REPLACE qui change la forme du retour, et
+--  deux signatures d'une même fonction rendraient chaque appel ambigu. On
+--  efface donc d'abord toutes les signatures des fonctions que ce fichier
+--  redéfinit — quel que soit l'état de la base, et quel que soit l'ordre dans
+--  lequel les fichiers ont été appliqués.
+-- ════════════════════════════════════════════════════════════════════════════
+DO $reset$
+DECLARE r RECORD;
+BEGIN
+  FOR r IN
+    SELECT p.oid::regprocedure AS sig
+      FROM pg_proc p
+      JOIN pg_namespace n ON n.oid = p.pronamespace
+     WHERE n.nspname = 'public'
+       AND p.proname IN ('assign_courier', 'assignable_couriers', 'delivery_feed', 'start_course', 'take_course')
+  LOOP
+    EXECUTE 'DROP FUNCTION IF EXISTS ' || r.sig;
+  END LOOP;
+END
+$reset$;
+
+-- ════════════════════════════════════════════════════════════════════════════
 --  1. LES LIVREURS
 -- ════════════════════════════════════════════════════════════════════════════
 CREATE TABLE IF NOT EXISTS public.couriers (
@@ -181,9 +205,9 @@ BEGIN
 
   -- Retrait d'attribution
   IF p_courier_id IS NULL THEN
-    UPDATE public.orders
+    UPDATE public.orders o
        SET courier_id = NULL, driver_id = NULL, assigned_at = NULL
-     WHERE id = p_order_id;
+     WHERE o.id = p_order_id;
     RETURN QUERY SELECT NULL::UUID, NULL::TEXT, NULL::TIMESTAMPTZ;
     RETURN;
   END IF;
@@ -208,11 +232,11 @@ BEGIN
     END IF;
   END IF;
 
-  UPDATE public.orders
+  UPDATE public.orders o
      SET courier_id  = p_courier_id,
          driver_id   = v_cuser,          -- donne l'accès console au livreur
          assigned_at = NOW()
-   WHERE id = p_order_id;
+   WHERE o.id = p_order_id;
 
   RETURN QUERY SELECT p_courier_id, v_cname::TEXT, NOW();
 END;
@@ -266,17 +290,20 @@ BEGIN
   v_lat := COALESCE(p_lat, r.hub_lat);
   v_lng := COALESCE(p_lng, r.hub_lng);
 
-  UPDATE public.orders
-     SET course_started_at = COALESCE(course_started_at, NOW()),
-         origin_lat        = COALESCE(origin_lat, v_lat),
-         origin_lng        = COALESCE(origin_lng, v_lng),
-         status            = CASE WHEN status IN ('delivered', 'cancelled', 'payment_failed')
-                                  THEN status ELSE 'in_transit' END
-   WHERE id = p_order_id;
+  -- `origin_lat`, `origin_lng` et `status` sont des noms de sortie. L'alias
+  -- `o` lève l'ambiguïté : à droite du signe égal, seule la colonne est
+  -- désignable. Les cibles de SET, elles, sont toujours des colonnes.
+  UPDATE public.orders o
+     SET course_started_at = COALESCE(o.course_started_at, NOW()),
+         origin_lat        = COALESCE(o.origin_lat, v_lat),
+         origin_lng        = COALESCE(o.origin_lng, v_lng),
+         status            = CASE WHEN o.status IN ('delivered', 'cancelled', 'payment_failed')
+                                  THEN o.status ELSE 'in_transit' END
+   WHERE o.id = p_order_id;
 
   RETURN QUERY
-  SELECT o.course_started_at, o.origin_lat, o.origin_lng, o.status::TEXT
-  FROM public.orders o WHERE o.id = p_order_id;
+  SELECT o2.course_started_at, o2.origin_lat, o2.origin_lng, o2.status::TEXT
+  FROM public.orders o2 WHERE o2.id = p_order_id;
 END;
 $$;
 
@@ -286,7 +313,6 @@ GRANT EXECUTE ON FUNCTION public.start_course(UUID, DOUBLE PRECISION, DOUBLE PRE
 -- ════════════════════════════════════════════════════════════════════════════
 --  6. LES VUES DE LA CONSOLE — livreur, départ, démarrage
 -- ════════════════════════════════════════════════════════════════════════════
-DROP FUNCTION IF EXISTS public.delivery_feed();
 
 CREATE OR REPLACE FUNCTION public.delivery_feed()
 RETURNS TABLE (
@@ -409,16 +435,17 @@ BEGIN
     SELECT COALESCE(NULLIF(BTRIM(p.full_name), ''), 'Moi')
       INTO v_name FROM public.profiles p WHERE p.id = auth.uid();
 
-    INSERT INTO public.couriers (vendor_id, user_id, full_name, created_by)
+    INSERT INTO public.couriers AS c (vendor_id, user_id, full_name, created_by)
     VALUES (v_scope, auth.uid(), COALESCE(v_name, 'Moi'), auth.uid())
-    RETURNING id, full_name INTO v_id, v_name;
-  ELSIF NOT EXISTS (SELECT 1 FROM public.couriers WHERE id = v_id AND is_active) THEN
-    UPDATE public.couriers SET is_active = TRUE WHERE id = v_id;
+    RETURNING c.id, c.full_name INTO v_id, v_name;
+  ELSE
+    UPDATE public.couriers c SET is_active = TRUE
+     WHERE c.id = v_id AND NOT c.is_active;
   END IF;
 
-  UPDATE public.orders
+  UPDATE public.orders o
      SET courier_id = v_id, driver_id = auth.uid(), assigned_at = NOW()
-   WHERE id = p_order_id;
+   WHERE o.id = p_order_id;
 
   RETURN QUERY SELECT v_id, v_name::TEXT;
 END;

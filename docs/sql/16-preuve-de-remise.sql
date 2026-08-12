@@ -25,14 +25,29 @@
 SET lock_timeout = '5s';
 
 -- ════════════════════════════════════════════════════════════════════════════
---  Les anciennes signatures partent d'abord. PostgreSQL refuse de changer le
---  type de retour d'une fonction existante, et laisser cohabiter deux
---  `advance_course` rendrait chaque appel ambigu.
+--  REJOUABLE DANS N'IMPORTE QUEL ORDRE
+--
+--  PostgreSQL refuse un CREATE OR REPLACE qui change la forme du retour, et
+--  deux signatures d'une même fonction rendraient chaque appel ambigu. On
+--  efface donc d'abord toutes les signatures des fonctions que ce fichier
+--  redéfinit — quel que soit l'état de la base, et quel que soit l'ordre dans
+--  lequel les fichiers ont été appliqués.
 -- ════════════════════════════════════════════════════════════════════════════
-DROP FUNCTION IF EXISTS public.advance_course(UUID, TEXT, DOUBLE PRECISION, DOUBLE PRECISION);
-DROP FUNCTION IF EXISTS public.request_return(UUID, TEXT);
-DROP FUNCTION IF EXISTS public.admin_returns(TEXT);
-DROP FUNCTION IF EXISTS public.my_delivered_orders();
+DO $reset$
+DECLARE r RECORD;
+BEGIN
+  FOR r IN
+    SELECT p.oid::regprocedure AS sig
+      FROM pg_proc p
+      JOIN pg_namespace n ON n.oid = p.pronamespace
+     WHERE n.nspname = 'public'
+       AND p.proname IN ('admin_returns', 'advance_course', 'ensure_delivery_code', 'my_active_deliveries', 'my_delivered_orders', 'request_return')
+  LOOP
+    EXECUTE 'DROP FUNCTION IF EXISTS ' || r.sig;
+  END LOOP;
+END
+$reset$;
+
 
 ALTER TABLE public.orders
   ADD COLUMN IF NOT EXISTS delivery_code    TEXT,

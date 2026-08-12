@@ -1,10 +1,12 @@
 -- ════════════════════════════════════════════════════════════════════════════
 --  BUYTICLE — SQL À APPLIQUER
 --
---  Regroupe les migrations en attente, dans l'ordre. À coller d'un seul
---  bloc dans Supabase → SQL Editor → Run.
+--  Toutes les migrations en attente, dans l'ordre. À coller d'un seul bloc
+--  dans Supabase → SQL Editor → Run.
 --
---  Le script est idempotent : le rejouer ne casse rien.
+--  Chaque bloc est idempotent ET rejouable dans n'importe quel ordre : les
+--  fonctions qu'il redéfinit sont d'abord effacées, toutes signatures
+--  confondues. Rejouer le fichier entier ne casse rien.
 -- ════════════════════════════════════════════════════════════════════════════
 
 
@@ -61,6 +63,7 @@ DROP POLICY IF EXISTS "Vendor assets delete authentifie" ON storage.objects;
 CREATE POLICY "Vendor assets delete authentifie" ON storage.objects
   FOR DELETE USING (bucket_id = 'vendor-assets' AND auth.role() = 'authenticated');
 
+
 -- ═══════════════════════════════════════════════════════════════════════
 --  20260811_vendor_payout_numbers
 -- ═══════════════════════════════════════════════════════════════════════
@@ -115,6 +118,7 @@ BEGIN
   END IF;
 END $$;
 
+
 -- ═══════════════════════════════════════════════════════════════════════
 --  20260812_security_payouts_stock_shipping
 -- ═══════════════════════════════════════════════════════════════════════
@@ -130,6 +134,33 @@ END $$;
 --
 --  Idempotent : rejouable sans dommage.
 -- ════════════════════════════════════════════════════════════════════════════
+
+SET lock_timeout = '5s';
+
+-- ════════════════════════════════════════════════════════════════════════════
+--  REJOUABLE DANS N'IMPORTE QUEL ORDRE
+--
+--  PostgreSQL refuse un CREATE OR REPLACE qui change la forme du retour, et
+--  deux signatures d'une même fonction rendraient chaque appel ambigu. On
+--  efface donc d'abord toutes les signatures des fonctions que ce fichier
+--  redéfinit — quel que soit l'état de la base, et quel que soit l'ordre dans
+--  lequel les fichiers ont été appliqués.
+-- ════════════════════════════════════════════════════════════════════════════
+DO $reset$
+DECLARE r RECORD;
+BEGIN
+  FOR r IN
+    SELECT p.oid::regprocedure AS sig
+      FROM pg_proc p
+      JOIN pg_namespace n ON n.oid = p.pronamespace
+     WHERE n.nspname = 'public'
+       AND p.proname IN ('decrement_stock_on_order_item', 'orders_status', 'request_payout', 'restock_on_order_cancel', 'track_order', 'vendor_balance', 'vendor_sales_counts')
+  LOOP
+    EXECUTE 'DROP FUNCTION IF EXISTS ' || r.sig;
+  END LOOP;
+END
+$reset$;
+
 
 -- ════════════════════════════════════════════════════════════════════════════
 --  1. RÉGLAGES DE REVERSEMENT — table séparée, lisible par le seul vendeur
@@ -585,6 +616,30 @@ CREATE POLICY "order_items insert via order" ON public.order_items
 SET lock_timeout = '5s';
 
 -- ════════════════════════════════════════════════════════════════════════════
+--  REJOUABLE DANS N'IMPORTE QUEL ORDRE
+--
+--  PostgreSQL refuse un CREATE OR REPLACE qui change la forme du retour, et
+--  deux signatures d'une même fonction rendraient chaque appel ambigu. On
+--  efface donc d'abord toutes les signatures des fonctions que ce fichier
+--  redéfinit — quel que soit l'état de la base, et quel que soit l'ordre dans
+--  lequel les fichiers ont été appliqués.
+-- ════════════════════════════════════════════════════════════════════════════
+DO $reset$
+DECLARE r RECORD;
+BEGIN
+  FOR r IN
+    SELECT p.oid::regprocedure AS sig
+      FROM pg_proc p
+      JOIN pg_namespace n ON n.oid = p.pronamespace
+     WHERE n.nspname = 'public'
+       AND p.proname IN ('admin_payouts', 'process_payout', 'vendor_balance')
+  LOOP
+    EXECUTE 'DROP FUNCTION IF EXISTS ' || r.sig;
+  END LOOP;
+END
+$reset$;
+
+-- ════════════════════════════════════════════════════════════════════════════
 --  1. MODE DE LIVRAISON
 -- ════════════════════════════════════════════════════════════════════════════
 ALTER TABLE public.vendors
@@ -771,6 +826,30 @@ GRANT EXECUTE ON FUNCTION public.process_payout(UUID, TEXT, TEXT, TEXT) TO authe
 
 SET lock_timeout = '5s';
 
+-- ════════════════════════════════════════════════════════════════════════════
+--  REJOUABLE DANS N'IMPORTE QUEL ORDRE
+--
+--  PostgreSQL refuse un CREATE OR REPLACE qui change la forme du retour, et
+--  deux signatures d'une même fonction rendraient chaque appel ambigu. On
+--  efface donc d'abord toutes les signatures des fonctions que ce fichier
+--  redéfinit — quel que soit l'état de la base, et quel que soit l'ordre dans
+--  lequel les fichiers ont été appliqués.
+-- ════════════════════════════════════════════════════════════════════════════
+DO $reset$
+DECLARE r RECORD;
+BEGIN
+  FOR r IN
+    SELECT p.oid::regprocedure AS sig
+      FROM pg_proc p
+      JOIN pg_namespace n ON n.oid = p.pronamespace
+     WHERE n.nspname = 'public'
+       AND p.proname IN ('vendor_balance')
+  LOOP
+    EXECUTE 'DROP FUNCTION IF EXISTS ' || r.sig;
+  END LOOP;
+END
+$reset$;
+
 CREATE OR REPLACE FUNCTION public.vendor_balance(p_vendor_id UUID)
 RETURNS TABLE (collected BIGINT, withdrawn BIGINT, pending BIGINT, available BIGINT)
 LANGUAGE plpgsql
@@ -859,6 +938,30 @@ COMMENT ON FUNCTION public.vendor_balance(UUID) IS
 -- ════════════════════════════════════════════════════════════════════════════
 
 SET lock_timeout = '5s';
+
+-- ════════════════════════════════════════════════════════════════════════════
+--  REJOUABLE DANS N'IMPORTE QUEL ORDRE
+--
+--  PostgreSQL refuse un CREATE OR REPLACE qui change la forme du retour, et
+--  deux signatures d'une même fonction rendraient chaque appel ambigu. On
+--  efface donc d'abord toutes les signatures des fonctions que ce fichier
+--  redéfinit — quel que soit l'état de la base, et quel que soit l'ordre dans
+--  lequel les fichiers ont été appliqués.
+-- ════════════════════════════════════════════════════════════════════════════
+DO $reset$
+DECLARE r RECORD;
+BEGIN
+  FOR r IN
+    SELECT p.oid::regprocedure AS sig
+      FROM pg_proc p
+      JOIN pg_namespace n ON n.oid = p.pronamespace
+     WHERE n.nspname = 'public'
+       AND p.proname IN ('delivery_feed', 'delivery_view', 'geo_km', 'quote_delivery', 'stamp_delivered_at')
+  LOOP
+    EXECUTE 'DROP FUNCTION IF EXISTS ' || r.sig;
+  END LOOP;
+END
+$reset$;
 
 -- ════════════════════════════════════════════════════════════════════════════
 --  1. POSITIONS
@@ -1239,6 +1342,30 @@ GRANT EXECUTE ON FUNCTION public.delivery_feed() TO authenticated;
 
 SET lock_timeout = '5s';
 
+-- ════════════════════════════════════════════════════════════════════════════
+--  REJOUABLE DANS N'IMPORTE QUEL ORDRE
+--
+--  PostgreSQL refuse un CREATE OR REPLACE qui change la forme du retour, et
+--  deux signatures d'une même fonction rendraient chaque appel ambigu. On
+--  efface donc d'abord toutes les signatures des fonctions que ce fichier
+--  redéfinit — quel que soit l'état de la base, et quel que soit l'ordre dans
+--  lequel les fichiers ont été appliqués.
+-- ════════════════════════════════════════════════════════════════════════════
+DO $reset$
+DECLARE r RECORD;
+BEGIN
+  FOR r IN
+    SELECT p.oid::regprocedure AS sig
+      FROM pg_proc p
+      JOIN pg_namespace n ON n.oid = p.pronamespace
+     WHERE n.nspname = 'public'
+       AND p.proname IN ('quote_delivery')
+  LOOP
+    EXECUTE 'DROP FUNCTION IF EXISTS ' || r.sig;
+  END LOOP;
+END
+$reset$;
+
 CREATE OR REPLACE FUNCTION public.quote_delivery(
   p_vendor_id UUID,
   p_lat       DOUBLE PRECISION,
@@ -1355,6 +1482,30 @@ COMMENT ON CONSTRAINT vendors_buyticle_needs_pickup ON public.vendors IS
 -- ════════════════════════════════════════════════════════════════════════════
 
 SET lock_timeout = '5s';
+
+-- ════════════════════════════════════════════════════════════════════════════
+--  REJOUABLE DANS N'IMPORTE QUEL ORDRE
+--
+--  PostgreSQL refuse un CREATE OR REPLACE qui change la forme du retour, et
+--  deux signatures d'une même fonction rendraient chaque appel ambigu. On
+--  efface donc d'abord toutes les signatures des fonctions que ce fichier
+--  redéfinit — quel que soit l'état de la base, et quel que soit l'ordre dans
+--  lequel les fichiers ont été appliqués.
+-- ════════════════════════════════════════════════════════════════════════════
+DO $reset$
+DECLARE r RECORD;
+BEGIN
+  FOR r IN
+    SELECT p.oid::regprocedure AS sig
+      FROM pg_proc p
+      JOIN pg_namespace n ON n.oid = p.pronamespace
+     WHERE n.nspname = 'public'
+       AND p.proname IN ('assign_courier', 'assignable_couriers', 'delivery_feed', 'start_course', 'take_course')
+  LOOP
+    EXECUTE 'DROP FUNCTION IF EXISTS ' || r.sig;
+  END LOOP;
+END
+$reset$;
 
 -- ════════════════════════════════════════════════════════════════════════════
 --  1. LES LIVREURS
@@ -1625,7 +1776,6 @@ GRANT EXECUTE ON FUNCTION public.start_course(UUID, DOUBLE PRECISION, DOUBLE PRE
 -- ════════════════════════════════════════════════════════════════════════════
 --  6. LES VUES DE LA CONSOLE — livreur, départ, démarrage
 -- ════════════════════════════════════════════════════════════════════════════
-DROP FUNCTION IF EXISTS public.delivery_feed();
 
 CREATE OR REPLACE FUNCTION public.delivery_feed()
 RETURNS TABLE (
@@ -1798,6 +1948,30 @@ GRANT EXECUTE ON FUNCTION public.take_course(UUID) TO authenticated;
 -- ════════════════════════════════════════════════════════════════════════════
 
 SET lock_timeout = '5s';
+
+-- ════════════════════════════════════════════════════════════════════════════
+--  REJOUABLE DANS N'IMPORTE QUEL ORDRE
+--
+--  PostgreSQL refuse un CREATE OR REPLACE qui change la forme du retour, et
+--  deux signatures d'une même fonction rendraient chaque appel ambigu. On
+--  efface donc d'abord toutes les signatures des fonctions que ce fichier
+--  redéfinit — quel que soit l'état de la base, et quel que soit l'ordre dans
+--  lequel les fichiers ont été appliqués.
+-- ════════════════════════════════════════════════════════════════════════════
+DO $reset$
+DECLARE r RECORD;
+BEGIN
+  FOR r IN
+    SELECT p.oid::regprocedure AS sig
+      FROM pg_proc p
+      JOIN pg_namespace n ON n.oid = p.pronamespace
+     WHERE n.nspname = 'public'
+       AND p.proname IN ('assign_courier', 'delivery_view', 'start_course', 'take_course')
+  LOOP
+    EXECUTE 'DROP FUNCTION IF EXISTS ' || r.sig;
+  END LOOP;
+END
+$reset$;
 
 -- ════════════════════════════════════════════════════════════════════════════
 --  1. DÉMARRER UNE COURSE
@@ -2106,6 +2280,30 @@ GRANT EXECUTE ON FUNCTION public.delivery_view(UUID) TO authenticated;
 
 SET lock_timeout = '5s';
 
+-- ════════════════════════════════════════════════════════════════════════════
+--  REJOUABLE DANS N'IMPORTE QUEL ORDRE
+--
+--  PostgreSQL refuse un CREATE OR REPLACE qui change la forme du retour, et
+--  deux signatures d'une même fonction rendraient chaque appel ambigu. On
+--  efface donc d'abord toutes les signatures des fonctions que ce fichier
+--  redéfinit — quel que soit l'état de la base, et quel que soit l'ordre dans
+--  lequel les fichiers ont été appliqués.
+-- ════════════════════════════════════════════════════════════════════════════
+DO $reset$
+DECLARE r RECORD;
+BEGIN
+  FOR r IN
+    SELECT p.oid::regprocedure AS sig
+      FROM pg_proc p
+      JOIN pg_namespace n ON n.oid = p.pronamespace
+     WHERE n.nspname = 'public'
+       AND p.proname IN ('advance_course', 'delivery_feed')
+  LOOP
+    EXECUTE 'DROP FUNCTION IF EXISTS ' || r.sig;
+  END LOOP;
+END
+$reset$;
+
 ALTER TABLE public.orders
   ADD COLUMN IF NOT EXISTS picked_up_at TIMESTAMPTZ;
 
@@ -2219,7 +2417,6 @@ GRANT EXECUTE ON FUNCTION public.advance_course(UUID, TEXT, DOUBLE PRECISION, DO
 -- ════════════════════════════════════════════════════════════════════════════
 --  LE FLUX EXPOSE L'ÉTAPE DE RAMASSE
 -- ════════════════════════════════════════════════════════════════════════════
-DROP FUNCTION IF EXISTS public.delivery_feed();
 
 CREATE OR REPLACE FUNCTION public.delivery_feed()
 RETURNS TABLE (
@@ -2324,10 +2521,29 @@ GRANT EXECUTE ON FUNCTION public.delivery_feed() TO authenticated;
 SET lock_timeout = '5s';
 
 -- ════════════════════════════════════════════════════════════════════════════
---  `vendor_balance` gagne une colonne (`held`). PostgreSQL refuse de changer
---  le type de retour d'une fonction existante : on la supprime d'abord.
+--  REJOUABLE DANS N'IMPORTE QUEL ORDRE
+--
+--  PostgreSQL refuse un CREATE OR REPLACE qui change la forme du retour, et
+--  deux signatures d'une même fonction rendraient chaque appel ambigu. On
+--  efface donc d'abord toutes les signatures des fonctions que ce fichier
+--  redéfinit — quel que soit l'état de la base, et quel que soit l'ordre dans
+--  lequel les fichiers ont été appliqués.
 -- ════════════════════════════════════════════════════════════════════════════
-DROP FUNCTION IF EXISTS public.vendor_balance(UUID);
+DO $reset$
+DECLARE r RECORD;
+BEGIN
+  FOR r IN
+    SELECT p.oid::regprocedure AS sig
+      FROM pg_proc p
+      JOIN pg_namespace n ON n.oid = p.pronamespace
+     WHERE n.nspname = 'public'
+       AND p.proname IN ('admin_returns', 'confirm_delivery', 'my_delivered_orders', 'order_funds_state', 'request_return', 'resolve_return', 'submit_order_reviews', 'vendor_balance')
+  LOOP
+    EXECUTE 'DROP FUNCTION IF EXISTS ' || r.sig;
+  END LOOP;
+END
+$reset$;
+
 
 -- ════════════════════════════════════════════════════════════════════════════
 --  1. LES DÉLAIS, EN UN SEUL ENDROIT
@@ -2881,14 +3097,29 @@ GRANT EXECUTE ON FUNCTION public.admin_returns(TEXT) TO authenticated;
 SET lock_timeout = '5s';
 
 -- ════════════════════════════════════════════════════════════════════════════
---  Les anciennes signatures partent d'abord. PostgreSQL refuse de changer le
---  type de retour d'une fonction existante, et laisser cohabiter deux
---  `advance_course` rendrait chaque appel ambigu.
+--  REJOUABLE DANS N'IMPORTE QUEL ORDRE
+--
+--  PostgreSQL refuse un CREATE OR REPLACE qui change la forme du retour, et
+--  deux signatures d'une même fonction rendraient chaque appel ambigu. On
+--  efface donc d'abord toutes les signatures des fonctions que ce fichier
+--  redéfinit — quel que soit l'état de la base, et quel que soit l'ordre dans
+--  lequel les fichiers ont été appliqués.
 -- ════════════════════════════════════════════════════════════════════════════
-DROP FUNCTION IF EXISTS public.advance_course(UUID, TEXT, DOUBLE PRECISION, DOUBLE PRECISION);
-DROP FUNCTION IF EXISTS public.request_return(UUID, TEXT);
-DROP FUNCTION IF EXISTS public.admin_returns(TEXT);
-DROP FUNCTION IF EXISTS public.my_delivered_orders();
+DO $reset$
+DECLARE r RECORD;
+BEGIN
+  FOR r IN
+    SELECT p.oid::regprocedure AS sig
+      FROM pg_proc p
+      JOIN pg_namespace n ON n.oid = p.pronamespace
+     WHERE n.nspname = 'public'
+       AND p.proname IN ('admin_returns', 'advance_course', 'ensure_delivery_code', 'my_active_deliveries', 'my_delivered_orders', 'request_return')
+  LOOP
+    EXECUTE 'DROP FUNCTION IF EXISTS ' || r.sig;
+  END LOOP;
+END
+$reset$;
+
 
 ALTER TABLE public.orders
   ADD COLUMN IF NOT EXISTS delivery_code    TEXT,
@@ -3310,8 +3541,30 @@ GRANT EXECUTE ON FUNCTION public.my_delivered_orders() TO authenticated;
 
 SET lock_timeout = '5s';
 
-DROP FUNCTION IF EXISTS public.advance_course(UUID, TEXT, DOUBLE PRECISION, DOUBLE PRECISION, TEXT);
-DROP FUNCTION IF EXISTS public.admin_returns(TEXT);
+-- ════════════════════════════════════════════════════════════════════════════
+--  REJOUABLE DANS N'IMPORTE QUEL ORDRE
+--
+--  PostgreSQL refuse un CREATE OR REPLACE qui change la forme du retour, et
+--  deux signatures d'une même fonction rendraient chaque appel ambigu. On
+--  efface donc d'abord toutes les signatures des fonctions que ce fichier
+--  redéfinit — quel que soit l'état de la base, et quel que soit l'ordre dans
+--  lequel les fichiers ont été appliqués.
+-- ════════════════════════════════════════════════════════════════════════════
+DO $reset$
+DECLARE r RECORD;
+BEGIN
+  FOR r IN
+    SELECT p.oid::regprocedure AS sig
+      FROM pg_proc p
+      JOIN pg_namespace n ON n.oid = p.pronamespace
+     WHERE n.nspname = 'public'
+       AND p.proname IN ('admin_courier_applications', 'admin_pending_proofs', 'admin_release_funds', 'admin_returns', 'advance_course', 'approve_courier_application', 'reject_courier_application', 'request_return')
+  LOOP
+    EXECUTE 'DROP FUNCTION IF EXISTS ' || r.sig;
+  END LOOP;
+END
+$reset$;
+
 
 -- ════════════════════════════════════════════════════════════════════════════
 --  1. DOSSIER DE CANDIDATURE LIVREUR

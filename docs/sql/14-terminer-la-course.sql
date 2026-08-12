@@ -16,6 +16,30 @@
 
 SET lock_timeout = '5s';
 
+-- ════════════════════════════════════════════════════════════════════════════
+--  REJOUABLE DANS N'IMPORTE QUEL ORDRE
+--
+--  PostgreSQL refuse un CREATE OR REPLACE qui change la forme du retour, et
+--  deux signatures d'une même fonction rendraient chaque appel ambigu. On
+--  efface donc d'abord toutes les signatures des fonctions que ce fichier
+--  redéfinit — quel que soit l'état de la base, et quel que soit l'ordre dans
+--  lequel les fichiers ont été appliqués.
+-- ════════════════════════════════════════════════════════════════════════════
+DO $reset$
+DECLARE r RECORD;
+BEGIN
+  FOR r IN
+    SELECT p.oid::regprocedure AS sig
+      FROM pg_proc p
+      JOIN pg_namespace n ON n.oid = p.pronamespace
+     WHERE n.nspname = 'public'
+       AND p.proname IN ('advance_course', 'delivery_feed')
+  LOOP
+    EXECUTE 'DROP FUNCTION IF EXISTS ' || r.sig;
+  END LOOP;
+END
+$reset$;
+
 ALTER TABLE public.orders
   ADD COLUMN IF NOT EXISTS picked_up_at TIMESTAMPTZ;
 
@@ -129,7 +153,6 @@ GRANT EXECUTE ON FUNCTION public.advance_course(UUID, TEXT, DOUBLE PRECISION, DO
 -- ════════════════════════════════════════════════════════════════════════════
 --  LE FLUX EXPOSE L'ÉTAPE DE RAMASSE
 -- ════════════════════════════════════════════════════════════════════════════
-DROP FUNCTION IF EXISTS public.delivery_feed();
 
 CREATE OR REPLACE FUNCTION public.delivery_feed()
 RETURNS TABLE (
