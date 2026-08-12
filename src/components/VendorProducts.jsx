@@ -202,7 +202,11 @@ const VendorProducts = ({ vendor, products, orders = [], onAdd, onEdit, onDelete
 
   /* ── Les quatre indicateurs ────────────────────────────────────────────── */
   const kpi = useMemo(() => {
-    const stockValue = products.reduce((s, p) => s + Number(p.price || 0) * Number(p.stock_qty ?? 0), 0);
+    // Un stock négatif arrive quand on a vendu plus qu'on n'avait déclaré. Il
+    // vaut zéro en valeur : afficher « −2 500 F » de marchandise ne veut rien
+    // dire, et fait douter du reste du tableau.
+    const stockValue = products.reduce(
+      (s, p) => s + Number(p.price || 0) * Math.max(Number(p.stock_qty ?? 0), 0), 0);
     const low = products.filter(p => Number(p.stock_qty ?? 99) <= 5).length;
 
     const byCat = {};
