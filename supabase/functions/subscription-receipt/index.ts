@@ -24,6 +24,11 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 
 const BUYFACT_URL  = (Deno.env.get("BUYFACT_URL") || "https://buyfacturation-jdbf.vercel.app").replace(/\/+$/, "");
 const BUYFACT_KEY  = Deno.env.get("BUYFACT_API_KEY") || "";
+// Le logo qui habille le reçu — en-tête et filigrane. Même image que partout
+// ailleurs sur Buyticle (voir src/lib/brand.js) ; se change ici sans toucher au
+// service de facturation.
+const LOGO_URL     = Deno.env.get("BUYTICLE_LOGO_URL") ||
+  "https://alrbokstfwwlvbvghrqr.supabase.co/storage/v1/object/public/vendor-assets/buylogo.png";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
 const SRV_KEY      = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
 
@@ -68,15 +73,42 @@ serve(async (req: Request) => {
     const date = new Date(sub.settled_at || Date.now());
     const number = `BT-ABO-${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, "0")}-${String(sub.id).slice(0, 6).toUpperCase()}`;
 
+    // La période couverte, telle qu'elle apparaîtra sur le reçu.
+    const months = Math.max(Number(sub.months) || 1, 1);
+    const fin = new Date(date);
+    fin.setMonth(fin.getMonth() + months);
+    const jour = (d: Date) => d.toISOString().slice(0, 10);
+
+    const REGLEMENT: Record<string, string> = {
+      agency:   "Paiement en agence",
+      monetbil: "Mobile money",
+    };
+
+    // Le total du reçu est calculé par le service de facturation à partir de la
+    // ligne : quantité × prix unitaire. On ne détaille par mois que si ça
+    // retombe exactement sur la somme réglée — un reçu dont le total diffère du
+    // versement est pire qu'un reçu peu détaillé.
+    const total    = Math.round(Number(sub.amount) || 0);
+    const unitaire = Math.round(total / months);
+    const detaille = months > 1 && unitaire * months === total;
+
     const payload = {
       type: "abonnement",
       number,
-      date: date.toISOString().slice(0, 10),
+      date: jour(date),
       external_ref: `buyticle-sub-${sub.id}`,
 
       platform:     "Buyticle",
       platform_url: "https://buyticle.store",
-      statut:       `Forfait ${sub.to_plan}`,
+      // L'API insère ce corps tel quel dans sa table : chaque clé doit être une
+      // colonne existante. Le mode de règlement n'en est pas une, il se loge
+      // donc dans le statut, qui est justement là pour ça.
+      statut: `Forfait ${sub.to_plan}`
+              + (REGLEMENT[sub.method] ? ` · ${REGLEMENT[sub.method]}` : ""),
+
+      // Période couverte : un abonnement se lit d'abord par ses dates.
+      trial_start: jour(date),
+      trial_end:   jour(fin),
 
       client_name:    v.shop_name || v.full_name || "Boutique Buyticle",
       client_address: v.city || null,
@@ -85,10 +117,22 @@ serve(async (req: Request) => {
 
       items: [{
         description: `Abonnement Buyticle — forfait ${sub.to_plan}` +
-                     (sub.months > 1 ? ` (${sub.months} mois)` : " (1 mois)"),
-        quantity: 1,
-        price: sub.amount,
+                     (months > 1 ? ` (${months} mois)` : " (1 mois)"),
+        quantity: detaille ? months : 1,
+        price:    detaille ? unitaire : total,
       }],
+
+      // L'émetteur, c'est nous — avec notre logo en en-tête et en filigrane.
+      seller: {
+        name:     "BUYTICLE ETS",
+        tagline:  "Entreprise Individuelle (ETS)",
+        address:  "Bonamoussadi, Douala — Cameroun",
+        phone:    "(+237) 696 99 58 79",
+        rccm:     "CM-DLA-01-2025-A10-01482",
+        niu:      "P070418499910G",
+        logo_url: LOGO_URL,
+      },
+      style: { watermark_url: LOGO_URL },
 
       status: "paid",
     };
