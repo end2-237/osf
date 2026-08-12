@@ -25,23 +25,52 @@ serve(async (req: Request) => {
     const rawText = await req.text();
     if (!rawText?.trim()) return json({ error: "Corps de requête vide" }, 400);
 
-    let parsed: { order_ids?: string[]; amount?: number; phone?: string; operator?: string };
+    let parsed: {
+      order_ids?: string[]; subscription_id?: string;
+      amount?: number; phone?: string; operator?: string;
+    };
     try { parsed = JSON.parse(rawText); }
     catch { return json({ error: "JSON invalide" }, 400); }
 
-    const { order_ids, amount, phone, operator } = parsed;
-    if (!order_ids?.length || !amount || !phone || !operator)
+    const { order_ids, subscription_id, amount, phone, operator } = parsed;
+    if (!amount || !phone || !operator)
       return json({ error: "Paramètres manquants" }, 400);
+    if (!order_ids?.length && !subscription_id)
+      return json({ error: "Rien à payer : ni commande ni abonnement" }, 400);
 
     const rand = Math.random().toString(36).slice(2, 7).toUpperCase();
-    const payment_ref = `OFS-${Date.now()}-${rand}`;
-
     const supabase = createClient(SUPABASE_URL, SUPABASE_SRVKEY);
-    const { error: updateErr } = await supabase
-      .from("orders")
-      .update({ payment_reference: payment_ref })
-      .in("id", order_ids);
-    if (updateErr) throw new Error(updateErr.message);
+
+    // Le préfixe dit au webhook quoi régler. Deux flux distincts, une seule
+    // porte de paiement.
+    const payment_ref = subscription_id
+      ? `ABO-${Date.now()}-${rand}`
+      : `OFS-${Date.now()}-${rand}`;
+
+    if (subscription_id) {
+      // Le montant vient de la base, pas de la page : on ne laisse pas le
+      // navigateur décider de ce qu'il paie.
+      const { data: sub, error: subErr } = await supabase
+        .from("subscription_orders")
+        .select("id, amount, status")
+        .eq("id", subscription_id).maybeSingle();
+      if (subErr) throw new Error(subErr.message);
+      if (!sub)   return json({ error: "Demande d'abonnement introuvable" }, 404);
+      if (sub.status !== "pending") return json({ error: "Cette demande est déjà réglée" }, 409);
+      if (Math.round(sub.amount) !== Math.round(amount))
+        return json({ error: "Montant incohérent avec la demande" }, 400);
+
+      const { error: e } = await supabase
+        .from("subscription_orders")
+        .update({ payment_ref }).eq("id", subscription_id);
+      if (e) throw new Error(e.message);
+    } else {
+      const { error: updateErr } = await supabase
+        .from("orders")
+        .update({ payment_reference: payment_ref })
+        .in("id", order_ids!);
+      if (updateErr) throw new Error(updateErr.message);
+    }
 
     // Widget API v2.1 — service_key in URL path, not in body
     const body = new URLSearchParams({

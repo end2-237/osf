@@ -3414,6 +3414,213 @@ const PendingProofsPanel = () => {
   );
 };
 
+/* ═══════════════════════════════════════════════════════════════════════════
+   ABONNEMENTS — encaissement en agence
+   Le mobile money se règle tout seul par le webhook. Ce qui atterrit ici,
+   c'est l'argent déposé au comptoir : quelqu'un doit dire qu'il l'a reçu.
+   ═══════════════════════════════════════════════════════════════════════════ */
+const SUB_STATE = {
+  pending:  { label: "À encaisser", color: "text-[#FF9900]", bg: "bg-[#FFF8D3]", border: "border-[#FCD200]/40" },
+  paid:     { label: "Payé",        color: "text-[#007600]", bg: "bg-[#E8F5E8]", border: "border-[#007600]/30" },
+  rejected: { label: "Refusé",      color: "text-[#B12704]", bg: "bg-[#FEE7E5]", border: "border-[#B12704]/30" },
+};
+
+const SubscriptionsTab = ({ onCountChange }) => {
+  const [rows,   setRows]   = useState([]);
+  const [filter, setFilter] = useState("pending");
+  const [load4,  setLoad4]  = useState(true);
+  const [error,  setError]  = useState("");
+  const [openId, setOpenId] = useState(null);
+  const [ref,    setRef]    = useState("");
+  const [note,   setNote]   = useState("");
+  const [acting, setActing] = useState("");
+
+  const load = async () => {
+    setLoad4(true); setError("");
+    const { data, error: e } = await supabase.rpc("admin_subscriptions",
+      { p_status: filter === "all" ? null : filter });
+    if (e) setError(e.message);
+    setRows(data || []);
+    setLoad4(false);
+  };
+  useEffect(() => { load(); }, [filter]);
+  useEffect(() => {
+    supabase.rpc("admin_subscriptions", { p_status: "pending" })
+      .then(({ data }) => onCountChange?.((data || []).length));
+  }, []);
+
+  const refresh = async () => {
+    await load();
+    const { data } = await supabase.rpc("admin_subscriptions", { p_status: "pending" });
+    onCountChange?.((data || []).length);
+  };
+
+  const decide = async (id, ok) => {
+    if (!ok && note.trim().length < 5) return setError("Explique le motif : la boutique le lira.");
+    setActing(id); setError("");
+    const { error: e } = ok
+      ? await supabase.rpc("validate_subscription", { p_id: id, p_reference: ref.trim() || null, p_note: note.trim() || null })
+      : await supabase.rpc("reject_subscription",   { p_id: id, p_note: note.trim() });
+    setActing("");
+    if (e) return setError(e.message);
+    setOpenId(null); setRef(""); setNote("");
+    await refresh();
+  };
+
+  // Le reçu s'émet à la demande : la fonction edge porte la clé d'API.
+  const receipt = async (row) => {
+    if (row.invoice_url) { window.open(row.invoice_url, "_blank", "noopener"); return; }
+    setActing(row.id); setError("");
+    try {
+      const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/subscription-receipt`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+          apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
+        },
+        body: JSON.stringify({ subscription_id: row.id }),
+      });
+      const out = await res.json().catch(() => ({}));
+      if (!res.ok || !out?.url) throw new Error(out?.error || "Reçu indisponible.");
+      await load();
+      window.open(out.url, "_blank", "noopener");
+    } catch (e) { setError(e.message); }
+    finally { setActing(""); }
+  };
+
+  return (
+    <div className="space-y-5">
+      <div className="bg-[#131921] rounded-xl px-5 py-4">
+        <p className="text-[9px] font-black uppercase tracking-widest text-[#FF9900] mb-0.5">Revenus</p>
+        <h2 className="text-white font-black text-lg leading-tight">Abonnements</h2>
+        <p className="text-[10px] text-[#ADBAC7] mt-0.5">
+          Encaisser les versements en agence — le mobile money se règle tout seul
+        </p>
+      </div>
+
+      <div className="flex gap-2 flex-wrap">
+        {[["pending","À encaisser"],["paid","Payés"],["rejected","Refusés"],["all","Tous"]].map(([k,l]) => (
+          <button key={k} onClick={() => setFilter(k)}
+            className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-wider border transition-all ${
+              filter === k ? "bg-[#131921] text-[#FF9900] border-[#131921]"
+                           : "bg-white text-[#565959] border-[#D5D9D9] hover:border-[#565959]"}`}>{l}</button>
+        ))}
+      </div>
+
+      {error && (
+        <div className="bg-[#FEE7E5] border border-[#B12704]/30 rounded-lg px-4 py-3 text-[11px] text-[#B12704] font-bold">
+          <i className="fa-solid fa-circle-exclamation mr-2" />{error}
+        </div>
+      )}
+
+      {load4 ? (
+        <div className="bg-white border border-[#D5D9D9] rounded-xl p-10 text-center text-[11px] font-bold text-[#565959]">
+          <i className="fa-solid fa-spinner fa-spin mr-2" />Chargement…
+        </div>
+      ) : rows.length === 0 ? (
+        <div className="bg-white border border-[#D5D9D9] rounded-xl p-10 text-center">
+          <i className="fa-solid fa-crown text-[#D5D9D9] text-3xl mb-3" />
+          <p className="text-[#565959] text-[12px] font-bold">Aucune demande dans cette liste</p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {rows.map(r => {
+            const st = SUB_STATE[r.status] || SUB_STATE.pending;
+            return (
+              <div key={r.id} className="bg-white border border-[#D5D9D9] rounded-xl overflow-hidden">
+                <div className="p-4 flex items-start gap-4 flex-wrap">
+                  <div className="flex-1 min-w-[230px]">
+                    <div className="flex items-center gap-2 mb-1 flex-wrap">
+                      <p className="font-black text-[13px] text-[#0F1111]">{r.shop_name}</p>
+                      <span className={`text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full border ${st.bg} ${st.color} ${st.border}`}>
+                        {st.label}
+                      </span>
+                      <span className="text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full border bg-[#EAEDED] text-[#565959] border-[#D5D9D9]">
+                        <i className={`fa-solid ${r.method === "agency" ? "fa-building-columns" : "fa-mobile-screen-button"} mr-1`} />
+                        {r.method === "agency" ? "En agence" : "Mobile money"}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-[#565959]">
+                      {r.from_plan || "starter"} → <strong className="text-[#0F1111]">{r.plan_name || r.to_plan}</strong>
+                      {r.months > 1 && ` · ${r.months} mois`}
+                      {r.vendor_phone ? ` · ${r.vendor_phone}` : ""}
+                    </p>
+                    <p className="text-[10px] text-[#565959] mt-1">
+                      Référence à présenter :{" "}
+                      <span className="font-mono font-bold text-[#0F1111]">ABO-{String(r.id).slice(0,8).toUpperCase()}</span>
+                      {" · "}demandé le {fmtDate(r.requested_at)}
+                    </p>
+                    {r.payment_ref && (
+                      <p className="text-[10px] text-[#565959] mt-0.5">
+                        Reçu de caisse : <span className="font-mono">{r.payment_ref}</span>
+                      </p>
+                    )}
+                    {r.admin_note && <p className="text-[11px] text-[#565959] mt-1 italic">« {r.admin_note} »</p>}
+                  </div>
+                  <div className="text-right">
+                    <p className="text-[9px] font-black uppercase tracking-widest text-[#565959] mb-0.5">Montant</p>
+                    <p className="font-black text-lg text-[#0F1111] leading-tight">
+                      {Math.round(Number(r.amount) || 0).toLocaleString("fr-FR")} F
+                    </p>
+                  </div>
+                </div>
+
+                <div className="border-t border-[#EAEDED] bg-[#FAFAFA] px-4 py-3 space-y-2">
+                  {r.status === "pending" ? (
+                    openId === r.id ? (
+                      <>
+                        <div className="grid sm:grid-cols-2 gap-2">
+                          <input value={ref} onChange={e => setRef(e.target.value)}
+                            placeholder="N° du reçu de caisse"
+                            className="w-full bg-white border border-[#D5D9D9] rounded-lg px-3 py-2 text-[12px] outline-none focus:border-[#FF9900]" />
+                          <input value={note} onChange={e => setNote(e.target.value)}
+                            placeholder="Note — obligatoire pour un refus"
+                            className="w-full bg-white border border-[#D5D9D9] rounded-lg px-3 py-2 text-[12px] outline-none focus:border-[#FF9900]" />
+                        </div>
+                        <div className="flex gap-2 flex-wrap">
+                          <button onClick={() => decide(r.id, true)} disabled={acting === r.id}
+                            className="bg-[#007600] hover:bg-[#005c00] text-white text-[10px] font-black uppercase tracking-wider px-4 py-2 rounded-lg disabled:opacity-50">
+                            <i className="fa-solid fa-check mr-1.5" />J'ai reçu l'argent
+                          </button>
+                          <button onClick={() => decide(r.id, false)} disabled={acting === r.id}
+                            className="bg-[#B12704] hover:bg-[#8c1f03] text-white text-[10px] font-black uppercase tracking-wider px-4 py-2 rounded-lg disabled:opacity-50">
+                            <i className="fa-solid fa-xmark mr-1.5" />Refuser
+                          </button>
+                          <button onClick={() => { setOpenId(null); setRef(""); setNote(""); }}
+                            className="text-[10px] font-black uppercase tracking-wider px-4 py-2 rounded-lg text-[#565959] hover:bg-[#EAEDED]">
+                            Annuler
+                          </button>
+                        </div>
+                        <p className="text-[10px] text-[#565959]">
+                          <i className="fa-solid fa-circle-info mr-1.5" />
+                          Valider applique le forfait immédiatement et rend le reçu téléchargeable
+                          par la boutique.
+                        </p>
+                      </>
+                    ) : (
+                      <button onClick={() => { setOpenId(r.id); setRef(""); setNote(""); setError(""); }}
+                        className="bg-[#131921] hover:bg-[#232F3E] text-white text-[10px] font-black uppercase tracking-wider px-4 py-2 rounded-lg">
+                        <i className="fa-solid fa-cash-register mr-1.5" />Encaisser
+                      </button>
+                    )
+                  ) : r.status === "paid" && r.amount > 0 ? (
+                    <button onClick={() => receipt(r)} disabled={acting === r.id}
+                      className="bg-white border border-[#D5D9D9] hover:border-[#565959] text-[#0F1111] text-[10px] font-black uppercase tracking-wider px-4 py-2 rounded-lg disabled:opacity-50">
+                      <i className={`fa-solid ${acting === r.id ? "fa-spinner fa-spin" : "fa-file-arrow-down"} mr-1.5`} />
+                      {r.invoice_number ? `Reçu ${r.invoice_number}` : "Générer le reçu"}
+                    </button>
+                  ) : null}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+};
+
 const SuperAdmin = () => {
   const { user, isSuperAdmin } = useAuth();
   const navigate  = useNavigate();
@@ -3427,6 +3634,7 @@ const SuperAdmin = () => {
   const [pendingPayouts, setPendingPayouts] = useState(0);
   const [pendingReturns, setPendingReturns] = useState(0);
   const [pendingCouriers, setPendingCouriers] = useState(0);
+  const [pendingSubs, setPendingSubs] = useState(0);
 
   // ── Auth guard ──────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -3496,6 +3704,9 @@ const SuperAdmin = () => {
         const { data: couriersPending } = await supabase.rpc("admin_courier_applications", { p_status: "pending" });
         setPendingCouriers((couriersPending || []).length);
 
+        const { data: subsPending } = await supabase.rpc("admin_subscriptions", { p_status: "pending" });
+        setPendingSubs((subsPending || []).length);
+
         setGlobalStats({
           revenue:          totalRevenue,
           orders:           os.length,
@@ -3534,6 +3745,7 @@ const SuperAdmin = () => {
     { key: "livraison",    icon: "fa-map-location-dot", label: "Livraison"       },
     { key: "litiges",      icon: "fa-scale-balanced", label: "Litiges", badge: pendingReturns || 0 },
     { key: "livreurs",     icon: "fa-id-card", label: "Livreurs", badge: pendingCouriers || 0 },
+    { key: "abonnements",  icon: "fa-crown", label: "Abonnements", badge: pendingSubs || 0 },
     { key: "products",     icon: "fa-boxes-stacked",  label: "Produits"        },
     { key: "cj",           icon: "fa-diagram-project",   label: "CJ Import"       },
     { key: "reviews",      icon: "fa-star",            label: "Avis",           badge: globalStats.pendingReviews || 0 },
@@ -3641,6 +3853,10 @@ const SuperAdmin = () => {
 
         {activeTab === "livreurs" && (
           <CourierApplicationsTab onCountChange={setPendingCouriers} />
+        )}
+
+        {activeTab === "abonnements" && (
+          <SubscriptionsTab onCountChange={setPendingSubs} />
         )}
 
         {activeTab === "products" && (

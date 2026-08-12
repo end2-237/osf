@@ -7,6 +7,7 @@ import AddProductWizard from "../components/AddProductWizard";
 import VendorStats from "../components/VendorStats";
 import { AccountSection, CreatorProfileSection } from "../components/VendorAccountSettings";
 import { PayoutSection, DeliverySection } from "../components/VendorPayouts";
+import VendorSubscription from "../components/VendorSubscription";
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RTooltip } from "recharts";
 import { DISCOUNT_PRESETS, clampDiscountPercent, getVendorDiscountPercent } from "../utils/discountUtils";
 
@@ -186,6 +187,7 @@ const Dashboard = () => {
     { key: "stats",     label: "Statistiques",    icon: "fa-chart-line" },
     { key: "live",      label: "Passer en live",  icon: "fa-video" },
     { key: "customers", label: "Clients",         icon: "fa-users" },
+    { key: "abonnement", label: "Abonnement",     icon: "fa-crown" },
     { key: "settings",  label: "Réglages",        icon: "fa-gear" },
   ];
 
@@ -279,6 +281,7 @@ const Dashboard = () => {
               {section === "stats" && <VendorStats orders={orders} products={products} />}
               {section === "live" && <VendorLivePanel vendor={vendor} onToast={showToast} />}
               {section === "customers" && <CustomersView customers={customers} />}
+              {section === "abonnement" && <VendorSubscription vendor={vendor} showToast={showToast} />}
               {section === "settings" && <SettingsView user={user} vendor={vendor} updateVendorField={updateVendorField} updateVendorFields={updateVendorFields} showToast={showToast} />}
             </>
           )}

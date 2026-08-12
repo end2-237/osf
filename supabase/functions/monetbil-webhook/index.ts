@@ -74,6 +74,21 @@ serve(async (req: Request) => {
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SRVKEY);
 
+    // Un abonnement se règle autrement qu'une commande : le préfixe de la
+    // référence dit lequel des deux, et on s'arrête là.
+    if (payment_ref.startsWith("ABO-")) {
+      if (isSuccess) {
+        const { error } = await supabase.rpc("settle_subscription_by_ref", { p_reference: payment_ref });
+        if (error) console.error("[MONETBIL ABO]", error.message);
+      } else {
+        await supabase.from("subscription_orders")
+          .update({ status: isCancelled ? "cancelled" : "pending" })
+          .eq("payment_ref", payment_ref);
+      }
+      console.log("[MONETBIL WEBHOOK] abonnement", payment_ref, "→", newStatus);
+      return ok();
+    }
+
     // Fetch order IDs before update (needed for email trigger)
     const { data: matchingOrders } = await supabase
       .from("orders")
