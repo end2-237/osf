@@ -138,8 +138,8 @@ export const PayoutSection = ({ vendor, showToast, sectionRef }) => {
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {[
               { label: "Disponible", value: available,                       strong: true },
-              { label: "Encaissé",   value: Number(balance?.collected || 0)               },
-              { label: "En attente", value: Number(balance?.pending   || 0)               },
+              { label: "En attente de confirmation", value: Number(balance?.held || 0)    },
+              { label: "Retrait en cours", value: Number(balance?.pending || 0)           },
               { label: "Déjà versé", value: Number(balance?.withdrawn || 0)               },
             ].map(b => (
               <div key={b.label} className={`rounded-xl p-3 ${b.strong ? "bg-gray-900 text-white" : "bg-gray-50"}`}>
@@ -148,6 +148,15 @@ export const PayoutSection = ({ vendor, showToast, sectionRef }) => {
               </div>
             ))}
           </div>
+
+          {Number(balance?.held || 0) > 0 && (
+            <p className="text-[12px] text-orange-700 bg-orange-50 border border-orange-100 rounded-xl px-3.5 py-2.5">
+              <i className="fa-solid fa-hourglass-half mr-1.5" />
+              {money(Number(balance.held))} attendent la confirmation de tes clients. Une commande
+              livrée devient disponible dès que le client confirme, ou automatiquement 48 h après
+              la livraison. Un litige ouvert la garde gelée jusqu'à l'arbitrage de Buyticle.
+            </p>
+          )}
 
           <p className="text-[11px] text-gray-400">
             <i className="fa-solid fa-circle-info mr-1" />

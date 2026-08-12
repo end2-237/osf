@@ -46,6 +46,10 @@ const CreatorProfile = lazyWithRetry(() => import('./pages/CreatorProfile.jsx'))
 // Module Buyticle Delivery : carte + tracés, c'est lourd. Chunk à part, avec
 // son propre écran de chargement.
 const DeliveryConsole = lazyWithRetry(() => import('./pages/DeliveryConsole.jsx'));
+// Fenêtre d'avis : elle s'ouvre d'elle-même après une livraison, quelle que
+// soit la page. Chargée à part pour ne pas peser sur le premier écran.
+const ReviewPrompt = lazyWithRetry(() => import('./components/OrderFollowUp')
+  .then(m => ({ default: m.ReviewPrompt })));
 
 const PageLoader = () => (
   <div className="flex items-center justify-center min-h-[60vh]">
@@ -54,7 +58,7 @@ const PageLoader = () => (
 );
 
 function AppContent() {
-  const { vendor } = useAuth();
+  const { vendor, user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -245,6 +249,12 @@ function AppContent() {
         </Suspense>
         </RouteErrorBoundary>
       </main>
+
+      {/* AVIS APRÈS LIVRAISON : hors des écrans d'authentification et du module
+          de livraison, où le client n'a rien à faire. */}
+      {!isAuthPage && user && (
+        <Suspense fallback={null}><ReviewPrompt user={user} /></Suspense>
+      )}
 
       {/* FOOTER : Masqué sur Login/Register */}
       {!isAuthPage && <Footer />}

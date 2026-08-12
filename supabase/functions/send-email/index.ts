@@ -463,6 +463,35 @@ const buildVendorOrderEmail = (order: any, items: any[], vendor: any) => {
 };
 
 // ─── HANDLER ─────────────────────────────────────────────────────────────────
+// ─── Demande de retour : ce que le vendeur doit savoir tout de suite ───
+function buildReturnRequestEmail(order: any, vendor: any): string {
+  const ref = order.id.slice(0, 8).toUpperCase();
+  return `
+  <div style="font-family:-apple-system,Segoe UI,Roboto,sans-serif;max-width:560px;margin:0 auto;padding:24px;background:#fff">
+    <div style="background:#131921;border-radius:12px;padding:20px 24px;margin-bottom:20px">
+      <p style="margin:0 0 4px;font-size:10px;letter-spacing:.25em;text-transform:uppercase;color:#FF9900;font-weight:800">Buyticle</p>
+      <h1 style="margin:0;font-size:19px;color:#fff;font-weight:800">Demande de retour</h1>
+    </div>
+    <p style="font-size:14px;color:#0F1111;line-height:1.6;margin:0 0 16px">
+      Bonjour ${vendor.full_name || vendor.shop_name || ""},<br>
+      Le client de la commande <strong>#${ref}</strong> a demandé un retour.
+    </p>
+    <div style="border:1px solid #FCD200;background:#FFF8D3;border-radius:10px;padding:14px 16px;margin-bottom:16px">
+      <p style="margin:0 0 6px;font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:#B26200;font-weight:800">Motif invoqué</p>
+      <p style="margin:0;font-size:14px;color:#0F1111">${order.return_reason || "—"}</p>
+    </div>
+    <p style="font-size:13px;color:#565959;line-height:1.6;margin:0 0 16px">
+      Le montant de cette commande — <strong style="color:#0F1111">${fmt(order.total_amount)}</strong> —
+      est <strong style="color:#0F1111">retenu</strong> le temps de l'examen. Il ne compte pas dans ton solde
+      retirable. Contacte le client pour trouver un arrangement ; sans accord, Buyticle tranchera.
+    </p>
+    <p style="font-size:13px;color:#565959;margin:0">
+      Client : <strong style="color:#0F1111">${order.client_name || "—"}</strong>
+      ${order.client_phone ? ` · ${order.client_phone}` : ""}
+    </p>
+  </div>`;
+}
+
 serve(async (req: Request) => {
   const origin = req.headers.get("origin") || "";
   const corsHeaders = {
@@ -507,6 +536,32 @@ serve(async (req: Request) => {
         buildVendorOrderEmail(order, items || [], vendor),
       );
       console.log(`[send-email] vendor_new_order → ${vendor.email}`);
+      return new Response(JSON.stringify({ ok: true, to: vendor.email }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // ─── Demande de retour ───
+    // Le vendeur doit l'apprendre autrement qu'en consultant son tableau de
+    // bord : c'est son argent qui est gelé le temps de l'arbitrage.
+    if (type === "vendor_return_request") {
+      if (!order.vendor_id) throw new Error("Order has no vendor");
+
+      const { data: vendor } = await supabase
+        .from("vendors")
+        .select("email, shop_name, full_name")
+        .eq("id", order.vendor_id)
+        .maybeSingle();
+
+      if (!vendor?.email) throw new Error("Vendor email not found");
+
+      const ref = order.id.slice(0, 8).toUpperCase();
+      await sendResend(
+        vendor.email,
+        `Demande de retour — commande #${ref}`,
+        buildReturnRequestEmail(order, vendor),
+      );
+      console.log(`[send-email] vendor_return_request → ${vendor.email}`);
       return new Response(JSON.stringify({ ok: true, to: vendor.email }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });

@@ -434,7 +434,7 @@ const nextCourseStep = (order) => {
 
 const FleetCard = ({ total, stats, order, driver, onLocate, canManage,
                     onOpenPicker, onAdvance, onLocateMe, busy, started,
-                    stepIndex, nextStep, finished }) => (
+                    stepIndex, nextStep, finished, code, onCode }) => (
   <div className={`${card} p-5 flex flex-col h-full`} style={{ borderColor: BORDER }}>
     <div className="flex items-center justify-between mb-4">
       <div className="flex items-center gap-2">
@@ -507,14 +507,42 @@ const FleetCard = ({ total, stats, order, driver, onLocate, canManage,
             </button>
           )}
 
-          <button onClick={() => onAdvance(nextStep.key)}
-            disabled={busy || !nextStep.key || !order.courier_id}
-            className="flex-1 h-10 rounded-xl text-[12px] font-bold text-white flex items-center justify-center gap-2 disabled:opacity-40"
-            style={{ background: nextStep.key ? nextStep.color : "#007600" }}>
-            <i className={`fa-solid ${busy ? "fa-spinner fa-spin" : nextStep.icon} text-[11px]`} />
-            {nextStep.label}
-          </button>
+          {nextStep.key === "finish" ? (
+            <>
+              <input value={code} onChange={e => onCode(e.target.value.replace(/\D/g, "").slice(0, 4))}
+                placeholder="Code" inputMode="numeric" maxLength={4}
+                className="w-[74px] h-10 rounded-xl border text-center text-[15px] font-black tracking-[0.2em] outline-none"
+                style={{ borderColor: code.length === 4 ? "#007600" : BORDER, color: INK }} />
+              <button onClick={() => onAdvance("finish")} disabled={busy}
+                className="flex-1 h-10 rounded-xl text-[12px] font-bold text-white flex items-center justify-center gap-2 disabled:opacity-40"
+                style={{ background: "#007600" }}>
+                <i className={`fa-solid ${busy ? "fa-spinner fa-spin" : "fa-flag-checkered"} text-[11px]`} />
+                Terminer
+              </button>
+            </>
+          ) : (
+            <button onClick={() => onAdvance(nextStep.key)}
+              disabled={busy || !nextStep.key || !order.courier_id}
+              className="flex-1 h-10 rounded-xl text-[12px] font-bold text-white flex items-center justify-center gap-2 disabled:opacity-40"
+              style={{ background: nextStep.key ? nextStep.color : "#007600" }}>
+              <i className={`fa-solid ${busy ? "fa-spinner fa-spin" : nextStep.icon} text-[11px]`} />
+              {nextStep.label}
+            </button>
+          )}
         </div>
+
+        {/* Le code est la preuve de remise. Sans lui la course se clôt quand
+            même — le client peut être injoignable — mais en cas de litige
+            « je n'ai rien reçu », rien ne contredira le client. */}
+        {nextStep.key === "finish" && (
+          <p className="text-[10px] leading-snug" style={{ color: MUTED }}>
+            <i className="fa-solid fa-key mr-1" />
+            Demande au client les 4 chiffres affichés dans son suivi.
+            {code.length === 4
+              ? " Remise prouvée."
+              : " Sans code, la remise n'est pas prouvée et le doute profitera au client."}
+          </p>
+        )}
 
         {!order.courier_id && (
           <p className="text-[10px]" style={{ color: MUTED }}>
@@ -758,6 +786,7 @@ const DeliveryConsole = () => {
   const [myPos,    setMyPos]    = useState(null);
   const [picker,   setPicker]   = useState(false);
   const [acting,   setActing]   = useState(false);
+  const [code,     setCode]     = useState("");
 
   /* ── Chargement ───────────────────────────────────────────────────────── */
   useEffect(() => {
@@ -826,8 +855,9 @@ const DeliveryConsole = () => {
       p_order_id: current.id, p_step: step,
       p_lat: step === "start" ? (pos?.lat ?? null) : null,
       p_lng: step === "start" ? (pos?.lng ?? null) : null,
+      p_code: step === "finish" ? (code.trim() || null) : null,
     });
-    if (e) setError(e.message); else await reload();
+    if (e) setError(e.message); else { setCode(""); await reload(); }
     setActing(false);
   };
 
@@ -1072,6 +1102,7 @@ const DeliveryConsole = () => {
                        : current?.picked_up_at ? 2
                        : current?.course_started_at ? 1 : 0}
             nextStep={nextCourseStep(current)}
+            code={code} onCode={setCode}
             busy={acting}
             onOpenPicker={() => setPicker(true)}
             onAdvance={advance}

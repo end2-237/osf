@@ -2916,6 +2916,208 @@ const DeliveryRatesPanel = () => {
   );
 };
 
+/* ═══════════════════════════════════════════════════════════════════════════
+   LITIGES ET RETOURS
+   L'argent d'une commande contestée est gelé jusqu'ici. On ne tranche pas au
+   feeling : l'écran montre si le code de livraison a été saisi, et combien de
+   litiges ce client a déjà ouverts.
+   ═══════════════════════════════════════════════════════════════════════════ */
+const RETURN_KIND_LABEL = {
+  not_received: "Jamais reçu", damaged: "Produit abîmé",
+  wrong_item: "Mauvais article", other: "Autre",
+};
+const RETURN_STATE = {
+  requested: { label: "À arbitrer", color: "text-[#FF9900]", bg: "bg-[#FFF8D3]", border: "border-[#FCD200]/40" },
+  approved:  { label: "Accepté",    color: "text-[#007600]", bg: "bg-[#E8F5E8]", border: "border-[#007600]/30" },
+  rejected:  { label: "Refusé",     color: "text-[#B12704]", bg: "bg-[#FEE7E5]", border: "border-[#B12704]/30" },
+  returned:  { label: "Retourné",   color: "text-[#565959]", bg: "bg-[#EAEDED]", border: "border-[#D5D9D9]" },
+};
+
+const ReturnsAdminTab = ({ onCountChange }) => {
+  const [rows,    setRows]    = useState([]);
+  const [filter,  setFilter]  = useState("requested");
+  const [loading, setLoading] = useState(true);
+  const [error,   setError]   = useState("");
+  const [acting,  setActing]  = useState("");
+  const [openId,  setOpenId]  = useState(null);
+  const [note,    setNote]    = useState("");
+
+  const load = async () => {
+    setLoading(true); setError("");
+    const { data, error: e } = await supabase.rpc("admin_returns",
+      { p_status: filter === "all" ? null : filter });
+    if (e) setError(e.message);
+    setRows(data || []);
+    setLoading(false);
+  };
+  useEffect(() => { load(); }, [filter]);
+
+  useEffect(() => {
+    supabase.rpc("admin_returns", { p_status: "requested" })
+      .then(({ data }) => onCountChange?.((data || []).length));
+  }, []);
+
+  const decide = async (id, decision) => {
+    setActing(id); setError("");
+    const { error: e } = await supabase.rpc("resolve_return", {
+      p_order_id: id, p_decision: decision, p_note: note.trim() || null,
+    });
+    setActing("");
+    if (e) return setError(e.message);
+    setOpenId(null); setNote("");
+    await load();
+    const { data } = await supabase.rpc("admin_returns", { p_status: "requested" });
+    onCountChange?.((data || []).length);
+  };
+
+  return (
+    <div className="space-y-5">
+      <div className="bg-[#131921] rounded-xl px-5 py-4">
+        <p className="text-[9px] font-black uppercase tracking-widest text-[#FF9900] mb-0.5">Confiance</p>
+        <h2 className="text-white font-black text-lg leading-tight">Litiges et retours</h2>
+        <p className="text-[10px] text-[#ADBAC7] mt-0.5">
+          L'argent de ces commandes est gelé tant que la décision n'est pas prise
+        </p>
+      </div>
+
+      <div className="flex gap-2 flex-wrap">
+        {[
+          { key: "requested", label: "À arbitrer" },
+          { key: "approved",  label: "Acceptés"   },
+          { key: "rejected",  label: "Refusés"    },
+          { key: "all",       label: "Tous"       },
+        ].map(opt => (
+          <button key={opt.key} onClick={() => setFilter(opt.key)}
+            className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-wider border transition-all ${
+              filter === opt.key
+                ? "bg-[#131921] text-[#FF9900] border-[#131921]"
+                : "bg-white text-[#565959] border-[#D5D9D9] hover:border-[#565959]"
+            }`}>{opt.label}</button>
+        ))}
+      </div>
+
+      {error && (
+        <div className="bg-[#FEE7E5] border border-[#B12704]/30 rounded-lg px-4 py-3 text-[11px] text-[#B12704] font-bold">
+          <i className="fa-solid fa-circle-exclamation mr-2" />{error}
+        </div>
+      )}
+
+      {loading ? (
+        <div className="bg-white border border-[#D5D9D9] rounded-xl p-10 text-center text-[#565959] text-[11px] font-bold">
+          <i className="fa-solid fa-spinner fa-spin mr-2" />Chargement…
+        </div>
+      ) : rows.length === 0 ? (
+        <div className="bg-white border border-[#D5D9D9] rounded-xl p-10 text-center">
+          <i className="fa-solid fa-scale-balanced text-[#D5D9D9] text-3xl mb-3" />
+          <p className="text-[#565959] text-[12px] font-bold">Aucun litige dans cette liste</p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {rows.map(r => {
+            const st = RETURN_STATE[r.return_status] || RETURN_STATE.requested;
+            const proven = r.delivery_proof === "code";
+            const suspect = r.client_disputes >= 3 || r.client_rejected >= 1;
+            return (
+              <div key={r.id} className="bg-white border border-[#D5D9D9] rounded-xl overflow-hidden">
+                <div className="p-4 flex items-start gap-4 flex-wrap">
+                  <div className="flex-1 min-w-[240px]">
+                    <div className="flex items-center gap-2 mb-1 flex-wrap">
+                      <p className="font-black text-[13px] text-[#0F1111]">
+                        #{r.order_number || String(r.id).slice(0, 8)}
+                      </p>
+                      <span className={`text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full border ${st.bg} ${st.color} ${st.border}`}>
+                        {st.label}
+                      </span>
+                      <span className="text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full border bg-[#EAEDED] text-[#565959] border-[#D5D9D9]">
+                        {RETURN_KIND_LABEL[r.return_kind] || "Autre"}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-[#565959]">
+                      {r.shop_name} · client {r.client_name}
+                      {r.client_phone ? ` · ${r.client_phone}` : ""}
+                    </p>
+                    <p className="text-[12px] text-[#0F1111] mt-2 italic">« {r.return_reason} »</p>
+                    {r.return_note && (
+                      <p className="text-[11px] text-[#565959] mt-1">Décision : {r.return_note}</p>
+                    )}
+                  </div>
+                  <div className="text-right min-w-[110px]">
+                    <p className="text-[9px] font-black uppercase tracking-widest text-[#565959] mb-0.5">Gelé</p>
+                    <p className="font-black text-lg text-[#B12704] leading-tight">
+                      {Math.round(Number(r.total_amount) || 0).toLocaleString("fr-FR")} F
+                    </p>
+                  </div>
+                </div>
+
+                {/* Les faits, avant la décision. */}
+                <div className="px-4 pb-3 flex gap-2 flex-wrap">
+                  <span className={`text-[10px] font-bold px-2.5 py-1 rounded-lg border ${
+                    proven ? "bg-[#E8F5E8] text-[#007600] border-[#007600]/30"
+                           : "bg-[#FFF8D3] text-[#B26200] border-[#FCD200]/50"}`}>
+                    <i className={`fa-solid ${proven ? "fa-key" : "fa-question"} mr-1.5`} />
+                    {proven ? "Code saisi à la remise — réception prouvée"
+                            : "Aucun code saisi — remise non prouvée"}
+                  </span>
+                  <span className={`text-[10px] font-bold px-2.5 py-1 rounded-lg border ${
+                    suspect ? "bg-[#FEE7E5] text-[#B12704] border-[#B12704]/30"
+                            : "bg-[#EAEDED] text-[#565959] border-[#D5D9D9]"}`}>
+                    <i className="fa-solid fa-user-clock mr-1.5" />
+                    {r.client_disputes} litige{r.client_disputes > 1 ? "s" : ""} de ce client
+                    {r.client_rejected > 0 && ` · ${r.client_rejected} jugé${r.client_rejected > 1 ? "s" : ""} infondé${r.client_rejected > 1 ? "s" : ""}`}
+                  </span>
+                  <span className="text-[10px] font-bold px-2.5 py-1 rounded-lg border bg-[#EAEDED] text-[#565959] border-[#D5D9D9]">
+                    <i className="fa-solid fa-store mr-1.5" />
+                    {r.vendor_disputes} litige{r.vendor_disputes > 1 ? "s" : ""} pour cette boutique
+                  </span>
+                </div>
+
+                {r.return_status === "requested" && (
+                  <div className="border-t border-[#EAEDED] bg-[#FAFAFA] px-4 py-3 space-y-2">
+                    {openId === r.id ? (
+                      <>
+                        <label className="text-[9px] font-black uppercase tracking-widest text-[#565959] block">
+                          Motif de la décision — client et boutique le verront
+                        </label>
+                        <input value={note} onChange={e => setNote(e.target.value)}
+                          placeholder="Ex : code de livraison saisi, réception établie"
+                          className="w-full bg-white border border-[#D5D9D9] rounded-lg px-3 py-2 text-[12px] outline-none focus:border-[#FF9900]" />
+                        <div className="flex gap-2 flex-wrap">
+                          <button onClick={() => decide(r.id, "approved")} disabled={acting === r.id}
+                            className="bg-[#007600] hover:bg-[#005c00] text-white text-[10px] font-black uppercase tracking-wider px-4 py-2 rounded-lg disabled:opacity-50">
+                            <i className="fa-solid fa-check mr-1.5" />Donner raison au client
+                          </button>
+                          <button onClick={() => decide(r.id, "rejected")} disabled={acting === r.id}
+                            className="bg-[#B12704] hover:bg-[#8c1f03] text-white text-[10px] font-black uppercase tracking-wider px-4 py-2 rounded-lg disabled:opacity-50">
+                            <i className="fa-solid fa-xmark mr-1.5" />Donner raison à la boutique
+                          </button>
+                          <button onClick={() => { setOpenId(null); setNote(""); }} disabled={acting === r.id}
+                            className="text-[10px] font-black uppercase tracking-wider px-4 py-2 rounded-lg text-[#565959] hover:bg-[#EAEDED]">
+                            Annuler
+                          </button>
+                        </div>
+                      </>
+                    ) : (
+                      <button onClick={() => { setOpenId(r.id); setNote(""); }}
+                        className="bg-[#131921] hover:bg-[#232F3E] text-white text-[10px] font-black uppercase tracking-wider px-4 py-2 rounded-lg">
+                        <i className="fa-solid fa-gavel mr-1.5" />Arbitrer
+                      </button>
+                    )}
+                    <p className="text-[10px] text-[#565959]">
+                      <i className="fa-solid fa-circle-info mr-1.5" />
+                      Donner raison au client garde l'argent gelé pour remboursement.
+                      Donner raison à la boutique le libère aussitôt.
+                    </p>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+};
+
 const SuperAdmin = () => {
   const { user, isSuperAdmin } = useAuth();
   const navigate  = useNavigate();
@@ -2927,6 +3129,7 @@ const SuperAdmin = () => {
   const [globalStats,  setGlobalStats]  = useState({});
   const [loading,      setLoading]      = useState(true);
   const [pendingPayouts, setPendingPayouts] = useState(0);
+  const [pendingReturns, setPendingReturns] = useState(0);
 
   // ── Auth guard ──────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -2990,6 +3193,9 @@ const SuperAdmin = () => {
         const { data: payoutsPending } = await supabase.rpc("admin_payouts", { p_status: "pending" });
         setPendingPayouts((payoutsPending || []).length);
 
+        const { data: returnsPending } = await supabase.rpc("admin_returns", { p_status: "requested" });
+        setPendingReturns((returnsPending || []).length);
+
         setGlobalStats({
           revenue:          totalRevenue,
           orders:           os.length,
@@ -3026,6 +3232,7 @@ const SuperAdmin = () => {
     { key: "fulfillment",  icon: "fa-truck-fast",     label: "Fulfillment CJ", badge: globalStats.cjPending  || 0 },
     { key: "retraits",     icon: "fa-money-bill-transfer", label: "Retraits",  badge: pendingPayouts         || 0 },
     { key: "livraison",    icon: "fa-map-location-dot", label: "Livraison"       },
+    { key: "litiges",      icon: "fa-scale-balanced", label: "Litiges", badge: pendingReturns || 0 },
     { key: "products",     icon: "fa-boxes-stacked",  label: "Produits"        },
     { key: "cj",           icon: "fa-diagram-project",   label: "CJ Import"       },
     { key: "reviews",      icon: "fa-star",            label: "Avis",           badge: globalStats.pendingReviews || 0 },
@@ -3122,6 +3329,10 @@ const SuperAdmin = () => {
 
         {activeTab === "livraison" && (
           <DeliveryRatesPanel />
+        )}
+
+        {activeTab === "litiges" && (
+          <ReturnsAdminTab onCountChange={setPendingReturns} />
         )}
 
         {activeTab === "products" && (

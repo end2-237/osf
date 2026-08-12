@@ -4,6 +4,7 @@ import { supabase } from "../lib/supabase";
 import { useAuth } from "../context/AuthContext";
 import { fetchSavedLives, formatCount } from "../lib/liveApi";
 import PositionPicker from "../components/PositionPicker";
+import { DeliveredOrders } from "../components/OrderFollowUp";
 
 // ─── FAVORIS LIVE ───────────────────────────────────────────────────────────
 const LiveFavoritesTab = ({ userId }) => {
@@ -52,6 +53,7 @@ const TABS = [
   { key: "wishlist",      label: "Favoris",       icon: "fa-heart"          },
   { key: "favoris_live",  label: "Favoris live",  icon: "fa-tower-broadcast" },
   { key: "addresses",     label: "Adresses",      icon: "fa-location-dot"   },
+  { key: "retours",       label: "Retours",       icon: "fa-rotate-left"    },
   { key: "reviews",       label: "Mes avis",      icon: "fa-star"           },
   { key: "referral",      label: "Parrainage",    icon: "fa-user-plus"      },
   { key: "notifications", label: "Notifications", icon: "fa-bell"           },
@@ -1281,6 +1283,7 @@ const ProfilePage = ({ addToCart }) => {
   const CONTENT = {
     overview:      <Overview profile={profile} orders={orders} wishlist={wishlist} reviews={reviews} setTab={setTab} loyaltyPoints={loyaltyPoints} />,
     orders:        <Orders orders={orders} loading={loading} />,
+    retours:       <DeliveredOrders />,
     wishlist:      <WishlistTab items={wishlist} loading={loading} onRemove={removeWishlist} addToCart={addToCart} />,
     favoris_live:  <LiveFavoritesTab userId={user?.id} />,
     addresses:     <Addresses addresses={addresses} onSave={saveAddress} onDelete={deleteAddress} />,

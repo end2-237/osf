@@ -2290,3 +2290,986 @@ $$;
 
 REVOKE ALL ON FUNCTION public.delivery_feed() FROM anon;
 GRANT EXECUTE ON FUNCTION public.delivery_feed() TO authenticated;
+
+
+-- ═══════════════════════════════════════════════════════════════════════
+--  20260820_confirmation_avis_retours
+-- ═══════════════════════════════════════════════════════════════════════
+
+-- ════════════════════════════════════════════════════════════════════════════
+--  CONFIRMATION DE RÉCEPTION, AVIS VÉRIFIÉS, RETOURS
+--
+--  LE PROBLÈME : rien n'empêchait une boutique de marquer « livré » sans avoir
+--  livré. L'argent tombait dans son solde, et le client n'avait que ses yeux
+--  pour pleurer.
+--
+--  LA RÉPONSE : le clic « livré » ne libère plus rien. Il ouvre une fenêtre.
+--
+--      livré  ──┬─→ le client confirme          → libéré tout de suite
+--               ├─→ 48 h passent sans rien      → libéré automatiquement
+--               └─→ le client demande un retour → gelé jusqu'à arbitrage
+--
+--  Tant que l'argent est retenu, il apparaît au vendeur en « en attente de
+--  confirmation » : il le voit, il ne peut pas le retirer. C'est la même
+--  fenêtre de 48 h qui autorise le retour et qui retient les fonds — une seule
+--  horloge, donc pas de cas où l'une expire sans l'autre.
+--
+--  Les avis suivent la même logique : seul l'acheteur d'une commande livrée
+--  peut noter, une seule fois, le produit ET la boutique. Un avis qui ne se
+--  rattache à aucune commande n'existe pas.
+--
+--  Idempotent : rejouable sans dommage.
+-- ════════════════════════════════════════════════════════════════════════════
+
+SET lock_timeout = '5s';
+
+-- ════════════════════════════════════════════════════════════════════════════
+--  1. LES DÉLAIS, EN UN SEUL ENDROIT
+-- ════════════════════════════════════════════════════════════════════════════
+CREATE TABLE IF NOT EXISTS public.platform_policy (
+  id                  BOOLEAN PRIMARY KEY DEFAULT TRUE CHECK (id),
+  -- Fenêtre pendant laquelle le client peut demander un retour…
+  return_window_hours INTEGER NOT NULL DEFAULT 48,
+  -- …et pendant laquelle l'argent reste retenu. Les deux vont ensemble.
+  funds_hold_hours    INTEGER NOT NULL DEFAULT 48,
+  updated_at          TIMESTAMPTZ DEFAULT NOW()
+);
+
+INSERT INTO public.platform_policy (id) VALUES (TRUE) ON CONFLICT (id) DO NOTHING;
+
+ALTER TABLE public.platform_policy ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS platform_policy_read  ON public.platform_policy;
+DROP POLICY IF EXISTS platform_policy_write ON public.platform_policy;
+CREATE POLICY platform_policy_read  ON public.platform_policy FOR SELECT USING (TRUE);
+CREATE POLICY platform_policy_write ON public.platform_policy FOR ALL
+  USING (public.is_super_admin()) WITH CHECK (public.is_super_admin());
+
+-- ════════════════════════════════════════════════════════════════════════════
+--  2. CE QUE LA COMMANDE RETIENT
+-- ════════════════════════════════════════════════════════════════════════════
+ALTER TABLE public.orders
+  ADD COLUMN IF NOT EXISTS client_confirmed_at  TIMESTAMPTZ,
+  ADD COLUMN IF NOT EXISTS funds_released_at    TIMESTAMPTZ,
+  ADD COLUMN IF NOT EXISTS reviewed_at          TIMESTAMPTZ,
+  ADD COLUMN IF NOT EXISTS return_status        TEXT NOT NULL DEFAULT 'none',
+  ADD COLUMN IF NOT EXISTS return_reason        TEXT,
+  ADD COLUMN IF NOT EXISTS return_requested_at  TIMESTAMPTZ,
+  ADD COLUMN IF NOT EXISTS return_resolved_at   TIMESTAMPTZ,
+  ADD COLUMN IF NOT EXISTS return_note          TEXT;
+
+ALTER TABLE public.orders DROP CONSTRAINT IF EXISTS orders_return_status_valid;
+ALTER TABLE public.orders
+  ADD CONSTRAINT orders_return_status_valid
+  CHECK (return_status IN ('none', 'requested', 'approved', 'rejected', 'returned'));
+
+CREATE INDEX IF NOT EXISTS orders_return_open_idx ON public.orders(vendor_id)
+  WHERE return_status = 'requested';
+
+COMMENT ON COLUMN public.orders.funds_released_at IS
+  'Quand l''argent est passé de « retenu » à « dû au vendeur ». NULL tant que '
+  'le client n''a pas confirmé et que la fenêtre n''est pas écoulée.';
+
+-- ════════════════════════════════════════════════════════════════════════════
+--  3. AVIS SUR LA BOUTIQUE
+--     Les avis produit vivent déjà dans `reviews`. Ceux qui portent sur la
+--     boutique elle-même — le service, l'emballage, le délai — méritent leur
+--     table : ils ne parlent pas de la même chose.
+-- ════════════════════════════════════════════════════════════════════════════
+CREATE TABLE IF NOT EXISTS public.vendor_reviews (
+  id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  vendor_id  UUID NOT NULL REFERENCES public.vendors(id) ON DELETE CASCADE,
+  order_id   UUID NOT NULL REFERENCES public.orders(id) ON DELETE CASCADE,
+  user_id    UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+  user_name  TEXT,
+  rating     SMALLINT NOT NULL CHECK (rating BETWEEN 1 AND 5),
+  text       TEXT,
+  approved   BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  -- Une commande, un avis boutique. C'est ce qui rend l'avis vérifiable.
+  UNIQUE (order_id)
+);
+
+CREATE INDEX IF NOT EXISTS vendor_reviews_vendor_idx ON public.vendor_reviews(vendor_id);
+
+ALTER TABLE public.vendor_reviews ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS vendor_reviews_read   ON public.vendor_reviews;
+DROP POLICY IF EXISTS vendor_reviews_admin  ON public.vendor_reviews;
+
+-- Publics : c'est le but d'un avis.
+CREATE POLICY vendor_reviews_read ON public.vendor_reviews
+  FOR SELECT USING (approved OR user_id = auth.uid() OR public.is_super_admin());
+
+-- L'écriture passe uniquement par `submit_order_reviews` : personne ne dépose
+-- un avis sans commande livrée derrière.
+CREATE POLICY vendor_reviews_admin ON public.vendor_reviews
+  FOR ALL USING (public.is_super_admin()) WITH CHECK (public.is_super_admin());
+
+-- ════════════════════════════════════════════════════════════════════════════
+--  4. L'ARGENT EST-IL LIBÉRÉ ?
+--
+--  Une seule fonction répond, et tout le reste s'y réfère : le solde, l'écran
+--  vendeur, l'admin. Trois états, jamais d'ambiguïté.
+-- ════════════════════════════════════════════════════════════════════════════
+CREATE OR REPLACE FUNCTION public.order_funds_state(p_order_id UUID)
+RETURNS TEXT
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE o public.orders; v_hold INTEGER;
+BEGIN
+  SELECT * INTO o FROM public.orders WHERE id = p_order_id;
+  IF NOT FOUND THEN RETURN 'unknown'; END IF;
+  SELECT pp.funds_hold_hours INTO v_hold FROM public.platform_policy pp WHERE pp.id;
+
+  IF o.status <> 'delivered'                          THEN RETURN 'pending';  END IF;
+  IF o.return_status IN ('requested', 'approved',
+                         'returned')                  THEN RETURN 'frozen';   END IF;
+  IF o.funds_released_at IS NOT NULL
+     OR o.client_confirmed_at IS NOT NULL             THEN RETURN 'released'; END IF;
+  IF o.delivered_at IS NOT NULL
+     AND o.delivered_at + (v_hold || ' hours')::INTERVAL <= NOW()
+                                                      THEN RETURN 'released'; END IF;
+  RETURN 'held';
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.order_funds_state(UUID) TO authenticated;
+
+-- ════════════════════════════════════════════════════════════════════════════
+--  5. LE SOLDE — ne compte que ce qui est libéré
+--
+--  Changement de fond : auparavant une commande payée en ligne alimentait le
+--  solde dès l'encaissement, avant toute livraison. Ce n'est plus le cas.
+--  Rien n'est dû tant que la réception n'est pas acquise.
+-- ════════════════════════════════════════════════════════════════════════════
+CREATE OR REPLACE FUNCTION public.vendor_balance(p_vendor_id UUID)
+RETURNS TABLE (collected BIGINT, withdrawn BIGINT, pending BIGINT,
+               available BIGINT, held BIGINT)
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_collected BIGINT; v_withdrawn BIGINT; v_pending BIGINT;
+  v_held BIGINT; v_mode TEXT; v_hold INTEGER;
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM public.vendors v
+    WHERE v.id = p_vendor_id AND v.user_id = auth.uid()
+  ) AND NOT public.is_super_admin() THEN
+    RAISE EXCEPTION 'Accès refusé';
+  END IF;
+
+  SELECT COALESCE(delivery_mode, 'self') INTO v_mode
+  FROM public.vendors WHERE id = p_vendor_id;
+  SELECT pp.funds_hold_hours INTO v_hold FROM public.platform_policy pp WHERE pp.id;
+
+  -- Ce que la plateforme détient pour cette boutique, livraison comprise
+  -- quand la boutique livre elle-même et que le paiement est passé en ligne.
+  WITH dus AS (
+    SELECT o.id,
+           o.total_amount
+             + CASE WHEN v_mode = 'self' THEN COALESCE(o.delivery_fee, 0) ELSE 0 END
+             AS montant,
+           -- L'argent n'est entre nos mains que dans ces deux cas.
+           (o.payment_method IN ('orange_money', 'mtn_momo')
+            OR v_mode = 'buyticle') AS encaisse_par_nous,
+           o.status, o.return_status, o.delivered_at,
+           o.funds_released_at, o.client_confirmed_at
+    FROM public.orders o
+    WHERE o.vendor_id = p_vendor_id
+  ), etats AS (
+    SELECT montant,
+           CASE
+             WHEN NOT encaisse_par_nous              THEN 'hors'
+             WHEN status <> 'delivered'              THEN 'attente'
+             WHEN return_status IN ('requested', 'approved', 'returned') THEN 'gele'
+             WHEN funds_released_at IS NOT NULL
+               OR client_confirmed_at IS NOT NULL    THEN 'libere'
+             WHEN delivered_at IS NOT NULL
+              AND delivered_at + (v_hold || ' hours')::INTERVAL <= NOW()
+                                                     THEN 'libere'
+             ELSE 'retenu'
+           END AS etat
+    FROM dus
+  )
+  SELECT COALESCE(SUM(montant) FILTER (WHERE etat = 'libere'), 0),
+         COALESCE(SUM(montant) FILTER (WHERE etat IN ('retenu', 'gele')), 0)
+    INTO v_collected, v_held
+  FROM etats;
+
+  SELECT COALESCE(SUM(amount), 0) INTO v_withdrawn
+  FROM public.vendor_payouts
+  WHERE vendor_id = p_vendor_id AND status = 'paid';
+
+  SELECT COALESCE(SUM(amount), 0) INTO v_pending
+  FROM public.vendor_payouts
+  WHERE vendor_id = p_vendor_id AND status IN ('pending', 'processing');
+
+  RETURN QUERY SELECT v_collected, v_withdrawn, v_pending,
+                      GREATEST(v_collected - v_withdrawn - v_pending, 0),
+                      v_held;
+END;
+$$;
+
+COMMENT ON FUNCTION public.vendor_balance(UUID) IS
+  'Ne compte que l''argent libéré : commande livrée, puis confirmée par le '
+  'client ou fenêtre de rétention écoulée sans litige. Aucune commission.';
+
+-- ════════════════════════════════════════════════════════════════════════════
+--  6. LE CLIENT CONFIRME
+--     Raccourci volontaire : confirmer libère l'argent immédiatement et ferme
+--     la fenêtre de retour. On le dit clairement dans l'écran.
+-- ════════════════════════════════════════════════════════════════════════════
+CREATE OR REPLACE FUNCTION public.confirm_delivery(p_order_id UUID)
+RETURNS TABLE (confirmed_at TIMESTAMPTZ, funds_state TEXT)
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE v_user UUID; v_status TEXT;
+BEGIN
+  IF auth.uid() IS NULL THEN RAISE EXCEPTION 'Connexion requise'; END IF;
+
+  SELECT o.user_id, o.status INTO v_user, v_status
+  FROM public.orders o WHERE o.id = p_order_id;
+  IF v_status IS NULL THEN RAISE EXCEPTION 'Commande introuvable'; END IF;
+  IF v_user IS DISTINCT FROM auth.uid() THEN
+    RAISE EXCEPTION 'Cette commande n''est pas la vôtre';
+  END IF;
+  IF v_status <> 'delivered' THEN
+    RAISE EXCEPTION 'Cette commande n''est pas encore marquée livrée';
+  END IF;
+
+  UPDATE public.orders o
+     SET client_confirmed_at = COALESCE(o.client_confirmed_at, NOW()),
+         funds_released_at   = COALESCE(o.funds_released_at, NOW())
+   WHERE o.id = p_order_id;
+
+  RETURN QUERY
+  SELECT o.client_confirmed_at, public.order_funds_state(p_order_id)
+  FROM public.orders o WHERE o.id = p_order_id;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.confirm_delivery(UUID) FROM anon;
+GRANT EXECUTE ON FUNCTION public.confirm_delivery(UUID) TO authenticated;
+
+-- ════════════════════════════════════════════════════════════════════════════
+--  7. LE CLIENT DEMANDE UN RETOUR
+--     Dans la fenêtre, et une seule fois. La demande gèle l'argent : c'est
+--     précisément ce qui donne du poids à la réclamation.
+-- ════════════════════════════════════════════════════════════════════════════
+CREATE OR REPLACE FUNCTION public.request_return(p_order_id UUID, p_reason TEXT)
+RETURNS TABLE (return_status TEXT, deadline TIMESTAMPTZ)
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_user UUID; v_status TEXT; v_delivered TIMESTAMPTZ;
+  v_ret TEXT; v_window INTEGER; v_deadline TIMESTAMPTZ;
+BEGIN
+  IF auth.uid() IS NULL THEN RAISE EXCEPTION 'Connexion requise'; END IF;
+  IF COALESCE(BTRIM(p_reason), '') = '' THEN
+    RAISE EXCEPTION 'Explique la raison du retour';
+  END IF;
+
+  SELECT o.user_id, o.status, o.delivered_at, o.return_status
+    INTO v_user, v_status, v_delivered, v_ret
+  FROM public.orders o WHERE o.id = p_order_id;
+  IF v_status IS NULL THEN RAISE EXCEPTION 'Commande introuvable'; END IF;
+  IF v_user IS DISTINCT FROM auth.uid() THEN
+    RAISE EXCEPTION 'Cette commande n''est pas la vôtre';
+  END IF;
+  IF v_status <> 'delivered' THEN
+    RAISE EXCEPTION 'Le retour n''est possible qu''une fois la commande livrée';
+  END IF;
+  IF v_ret <> 'none' THEN
+    RAISE EXCEPTION 'Une demande de retour existe déjà pour cette commande';
+  END IF;
+
+  SELECT pp.return_window_hours INTO v_window FROM public.platform_policy pp WHERE pp.id;
+  v_deadline := COALESCE(v_delivered, NOW()) + (v_window || ' hours')::INTERVAL;
+
+  IF NOW() > v_deadline THEN
+    RAISE EXCEPTION 'Le délai de % h est dépassé : le retour n''est plus possible', v_window;
+  END IF;
+
+  -- Confirmer puis se raviser n'est pas possible : la confirmation vaut solde
+  -- de tout compte, et l'argent est déjà parti.
+  IF EXISTS (SELECT 1 FROM public.orders o
+              WHERE o.id = p_order_id AND o.client_confirmed_at IS NOT NULL) THEN
+    RAISE EXCEPTION 'Tu as déjà confirmé la bonne réception de cette commande';
+  END IF;
+
+  UPDATE public.orders o
+     SET return_status       = 'requested',
+         return_reason       = BTRIM(p_reason),
+         return_requested_at = NOW(),
+         funds_released_at   = NULL      -- l'argent est regelé
+   WHERE o.id = p_order_id;
+
+  RETURN QUERY SELECT 'requested'::TEXT, v_deadline;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.request_return(UUID, TEXT) FROM anon;
+GRANT EXECUTE ON FUNCTION public.request_return(UUID, TEXT) TO authenticated;
+
+-- ════════════════════════════════════════════════════════════════════════════
+--  8. L'ADMIN ARBITRE
+--     'approved'  → le client a raison : l'argent reste gelé, à rembourser.
+--     'rejected'  → la boutique a raison : l'argent est libéré.
+-- ════════════════════════════════════════════════════════════════════════════
+CREATE OR REPLACE FUNCTION public.resolve_return(
+  p_order_id UUID,
+  p_decision TEXT,
+  p_note     TEXT DEFAULT NULL
+)
+RETURNS TABLE (return_status TEXT, funds_state TEXT)
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE v_ret TEXT;
+BEGIN
+  IF NOT public.is_super_admin() THEN RAISE EXCEPTION 'Accès refusé'; END IF;
+  IF p_decision NOT IN ('approved', 'rejected', 'returned') THEN
+    RAISE EXCEPTION 'Décision invalide';
+  END IF;
+
+  SELECT o.return_status INTO v_ret FROM public.orders o WHERE o.id = p_order_id;
+  IF v_ret IS NULL THEN RAISE EXCEPTION 'Commande introuvable'; END IF;
+  IF v_ret = 'none' THEN RAISE EXCEPTION 'Aucune demande de retour sur cette commande'; END IF;
+
+  UPDATE public.orders o
+     SET return_status      = p_decision,
+         return_note        = COALESCE(NULLIF(BTRIM(p_note), ''), o.return_note),
+         return_resolved_at = NOW(),
+         -- Retour refusé : la boutique est payée. Sinon l'argent reste gelé.
+         funds_released_at  = CASE WHEN p_decision = 'rejected' THEN NOW() ELSE NULL END
+   WHERE o.id = p_order_id;
+
+  RETURN QUERY SELECT p_decision, public.order_funds_state(p_order_id);
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.resolve_return(UUID, TEXT, TEXT) FROM anon;
+GRANT EXECUTE ON FUNCTION public.resolve_return(UUID, TEXT, TEXT) TO authenticated;
+
+-- ════════════════════════════════════════════════════════════════════════════
+--  9. LES AVIS — produit ET boutique, en un seul geste
+--
+--  p_items : [{ "product_id": "…", "rating": 5, "text": "…" }, …]
+--  Seul l'acheteur d'une commande livrée écrit, et une seule fois.
+-- ════════════════════════════════════════════════════════════════════════════
+CREATE OR REPLACE FUNCTION public.submit_order_reviews(
+  p_order_id    UUID,
+  p_shop_rating SMALLINT,
+  p_shop_text   TEXT DEFAULT NULL,
+  p_items       JSONB DEFAULT '[]'::JSONB
+)
+RETURNS TABLE (product_reviews INTEGER, shop_review BOOLEAN)
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_user UUID; v_status TEXT; v_vendor UUID; v_name TEXT;
+  v_item JSONB; v_pid UUID; v_rating SMALLINT; v_count INTEGER := 0;
+BEGIN
+  IF auth.uid() IS NULL THEN RAISE EXCEPTION 'Connexion requise'; END IF;
+
+  SELECT o.user_id, o.status, o.vendor_id, o.client_name
+    INTO v_user, v_status, v_vendor, v_name
+  FROM public.orders o WHERE o.id = p_order_id;
+  IF v_status IS NULL THEN RAISE EXCEPTION 'Commande introuvable'; END IF;
+  IF v_user IS DISTINCT FROM auth.uid() THEN
+    RAISE EXCEPTION 'Cette commande n''est pas la vôtre';
+  END IF;
+  IF v_status <> 'delivered' THEN
+    RAISE EXCEPTION 'On ne note qu''une commande reçue';
+  END IF;
+  IF EXISTS (SELECT 1 FROM public.orders o
+              WHERE o.id = p_order_id AND o.reviewed_at IS NOT NULL) THEN
+    RAISE EXCEPTION 'Tu as déjà donné ton avis sur cette commande';
+  END IF;
+  IF p_shop_rating IS NULL OR p_shop_rating NOT BETWEEN 1 AND 5 THEN
+    RAISE EXCEPTION 'Note la boutique de 1 à 5';
+  END IF;
+
+  SELECT COALESCE(NULLIF(BTRIM(p.full_name), ''), v_name, 'Client')
+    INTO v_name FROM public.profiles p WHERE p.id = auth.uid();
+
+  -- Avis produit : uniquement sur ce qui a été acheté dans CETTE commande.
+  FOR v_item IN SELECT * FROM jsonb_array_elements(COALESCE(p_items, '[]'::JSONB))
+  LOOP
+    v_pid    := (v_item ->> 'product_id')::UUID;
+    v_rating := (v_item ->> 'rating')::SMALLINT;
+    CONTINUE WHEN v_pid IS NULL OR v_rating IS NULL OR v_rating NOT BETWEEN 1 AND 5;
+
+    IF NOT EXISTS (SELECT 1 FROM public.order_items oi
+                    WHERE oi.order_id = p_order_id AND oi.product_id = v_pid) THEN
+      CONTINUE;   -- pas dans la commande : on ignore plutôt que de refuser tout
+    END IF;
+
+    INSERT INTO public.reviews (product_id, user_id, user_name, rating, text, approved)
+    VALUES (v_pid, auth.uid(), v_name, v_rating,
+            NULLIF(BTRIM(v_item ->> 'text'), ''), TRUE)
+    ON CONFLICT DO NOTHING;
+    v_count := v_count + 1;
+  END LOOP;
+
+  IF v_vendor IS NOT NULL THEN
+    INSERT INTO public.vendor_reviews (vendor_id, order_id, user_id, user_name, rating, text)
+    VALUES (v_vendor, p_order_id, auth.uid(), v_name, p_shop_rating,
+            NULLIF(BTRIM(p_shop_text), ''))
+    ON CONFLICT (order_id) DO NOTHING;
+  END IF;
+
+  UPDATE public.orders o SET reviewed_at = NOW() WHERE o.id = p_order_id;
+
+  RETURN QUERY SELECT v_count, v_vendor IS NOT NULL;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.submit_order_reviews(UUID, SMALLINT, TEXT, JSONB) FROM anon;
+GRANT EXECUTE ON FUNCTION public.submit_order_reviews(UUID, SMALLINT, TEXT, JSONB) TO authenticated;
+
+-- ════════════════════════════════════════════════════════════════════════════
+--  10. CE QUI ATTEND LE CLIENT
+--      Alimente la fenêtre d'avis et les boutons de retour, sans exposer la
+--      table des commandes.
+-- ════════════════════════════════════════════════════════════════════════════
+CREATE OR REPLACE FUNCTION public.my_delivered_orders()
+RETURNS TABLE (
+  id              UUID,
+  order_number    TEXT,
+  shop_name       TEXT,
+  vendor_id       UUID,
+  total_amount    NUMERIC,
+  delivered_at    TIMESTAMPTZ,
+  reviewed_at     TIMESTAMPTZ,
+  confirmed_at    TIMESTAMPTZ,
+  return_status   TEXT,
+  return_reason   TEXT,
+  return_deadline TIMESTAMPTZ,
+  can_return      BOOLEAN,
+  items           JSONB
+)
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE v_window INTEGER;
+BEGIN
+  IF auth.uid() IS NULL THEN RAISE EXCEPTION 'Connexion requise'; END IF;
+  SELECT pp.return_window_hours INTO v_window FROM public.platform_policy pp WHERE pp.id;
+
+  RETURN QUERY
+  SELECT o.id, o.order_number::TEXT, v.shop_name::TEXT, o.vendor_id,
+         o.total_amount::NUMERIC, o.delivered_at, o.reviewed_at,
+         o.client_confirmed_at, o.return_status::TEXT, o.return_reason::TEXT,
+         COALESCE(o.delivered_at, o.created_at) + (v_window || ' hours')::INTERVAL,
+         (o.return_status = 'none'
+          AND o.client_confirmed_at IS NULL
+          AND COALESCE(o.delivered_at, o.created_at)
+              + (v_window || ' hours')::INTERVAL > NOW()),
+         COALESCE((
+           SELECT jsonb_agg(jsonb_build_object(
+                    'product_id', oi.product_id,
+                    'name',       oi.product_name,
+                    'img',        oi.product_img,
+                    'quantity',   oi.quantity))
+           FROM public.order_items oi WHERE oi.order_id = o.id
+         ), '[]'::JSONB)
+  FROM public.orders o
+  LEFT JOIN public.vendors v ON v.id = o.vendor_id
+  WHERE o.user_id = auth.uid() AND o.status = 'delivered'
+  ORDER BY o.delivered_at DESC NULLS LAST
+  LIMIT 50;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.my_delivered_orders() FROM anon;
+GRANT EXECUTE ON FUNCTION public.my_delivered_orders() TO authenticated;
+
+-- ════════════════════════════════════════════════════════════════════════════
+--  11. LES RETOURS VUS DE L'ADMIN
+-- ════════════════════════════════════════════════════════════════════════════
+CREATE OR REPLACE FUNCTION public.admin_returns(p_status TEXT DEFAULT 'requested')
+RETURNS TABLE (
+  id            UUID,
+  order_number  TEXT,
+  shop_name     TEXT,
+  vendor_id     UUID,
+  client_name   TEXT,
+  client_phone  TEXT,
+  total_amount  NUMERIC,
+  delivered_at  TIMESTAMPTZ,
+  requested_at  TIMESTAMPTZ,
+  resolved_at   TIMESTAMPTZ,
+  return_status TEXT,
+  return_reason TEXT,
+  return_note   TEXT,
+  funds_state   TEXT
+)
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  IF NOT public.is_super_admin() THEN RAISE EXCEPTION 'Accès refusé'; END IF;
+
+  RETURN QUERY
+  SELECT o.id, o.order_number::TEXT, v.shop_name::TEXT, o.vendor_id,
+         o.client_name::TEXT, o.client_phone::TEXT, o.total_amount::NUMERIC,
+         o.delivered_at, o.return_requested_at, o.return_resolved_at,
+         o.return_status::TEXT, o.return_reason::TEXT, o.return_note::TEXT,
+         public.order_funds_state(o.id)
+  FROM public.orders o
+  LEFT JOIN public.vendors v ON v.id = o.vendor_id
+  WHERE o.return_status <> 'none'
+    AND (p_status IS NULL OR o.return_status = p_status)
+  ORDER BY o.return_requested_at DESC;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.admin_returns(TEXT) FROM anon;
+GRANT EXECUTE ON FUNCTION public.admin_returns(TEXT) TO authenticated;
+
+
+-- ═══════════════════════════════════════════════════════════════════════
+--  20260821_preuve_de_remise
+-- ═══════════════════════════════════════════════════════════════════════
+
+-- ════════════════════════════════════════════════════════════════════════════
+--  PREUVE DE REMISE — le code de livraison
+--
+--  La rétention de 48 h protège le client d'un vendeur qui marque « livré »
+--  sans livrer. Elle ne protège personne dans l'autre sens : un client qui a
+--  bien reçu peut affirmer le contraire, geler l'argent, et c'est la parole de
+--  l'un contre celle de l'autre.
+--
+--  Un code règle ça. Quatre chiffres, générés au départ de la course, connus
+--  du seul client. Le livreur ne peut clore qu'en les saisissant.
+--
+--      remise AVEC code  → la réception est PROUVÉE.
+--                          « je n'ai rien reçu » devient irrecevable ;
+--                          un défaut produit reste contestable.
+--      remise SANS code  → la réception n'est pas prouvée.
+--                          En cas de litige, le doute profite au client.
+--
+--  Le code ne raccourcit pas la fenêtre de 48 h : il tranche la question
+--  « ai-je reçu ? », pas la question « le produit est-il conforme ? ». Les
+--  deux sont distinctes et méritent chacune leur réponse.
+--
+--  Idempotent : rejouable sans dommage.
+-- ════════════════════════════════════════════════════════════════════════════
+
+SET lock_timeout = '5s';
+
+-- ════════════════════════════════════════════════════════════════════════════
+--  Les anciennes signatures partent d'abord. PostgreSQL refuse de changer le
+--  type de retour d'une fonction existante, et laisser cohabiter deux
+--  `advance_course` rendrait chaque appel ambigu.
+-- ════════════════════════════════════════════════════════════════════════════
+DROP FUNCTION IF EXISTS public.advance_course(UUID, TEXT, DOUBLE PRECISION, DOUBLE PRECISION);
+DROP FUNCTION IF EXISTS public.request_return(UUID, TEXT);
+DROP FUNCTION IF EXISTS public.admin_returns(TEXT);
+DROP FUNCTION IF EXISTS public.my_delivered_orders();
+
+ALTER TABLE public.orders
+  ADD COLUMN IF NOT EXISTS delivery_code    TEXT,
+  ADD COLUMN IF NOT EXISTS code_verified_at TIMESTAMPTZ,
+  ADD COLUMN IF NOT EXISTS delivery_proof   TEXT NOT NULL DEFAULT 'none',
+  ADD COLUMN IF NOT EXISTS return_kind      TEXT;
+
+ALTER TABLE public.orders DROP CONSTRAINT IF EXISTS orders_delivery_proof_valid;
+ALTER TABLE public.orders
+  ADD CONSTRAINT orders_delivery_proof_valid
+  CHECK (delivery_proof IN ('none', 'code'));
+
+ALTER TABLE public.orders DROP CONSTRAINT IF EXISTS orders_return_kind_valid;
+ALTER TABLE public.orders
+  ADD CONSTRAINT orders_return_kind_valid
+  CHECK (return_kind IS NULL
+         OR return_kind IN ('not_received', 'damaged', 'wrong_item', 'other'));
+
+COMMENT ON COLUMN public.orders.delivery_proof IS
+  'code = le livreur a saisi le code du client, la réception est prouvée. '
+  'none = remise non prouvée, le doute profite au client en cas de litige.';
+
+-- ════════════════════════════════════════════════════════════════════════════
+--  LE CODE
+--  Quatre chiffres suffisent : il faut le deviner en une tentative, devant
+--  quelqu'un qui a le colis en main. Un tirage plus long ne se retient pas.
+-- ════════════════════════════════════════════════════════════════════════════
+CREATE OR REPLACE FUNCTION public.ensure_delivery_code(p_order_id UUID)
+RETURNS TEXT
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE v_code TEXT;
+BEGIN
+  SELECT o.delivery_code INTO v_code FROM public.orders o WHERE o.id = p_order_id;
+  IF v_code IS NOT NULL THEN RETURN v_code; END IF;
+
+  v_code := LPAD((FLOOR(RANDOM() * 10000))::INT::TEXT, 4, '0');
+  UPDATE public.orders o SET delivery_code = v_code WHERE o.id = p_order_id;
+  RETURN v_code;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.ensure_delivery_code(UUID) FROM anon, authenticated;
+
+-- ════════════════════════════════════════════════════════════════════════════
+--  LE FIL DE LA COURSE, AVEC LE CODE À L'ARRIVÉE
+-- ════════════════════════════════════════════════════════════════════════════
+CREATE OR REPLACE FUNCTION public.advance_course(
+  p_order_id UUID,
+  p_step     TEXT,
+  p_lat      DOUBLE PRECISION DEFAULT NULL,
+  p_lng      DOUBLE PRECISION DEFAULT NULL,
+  p_code     TEXT DEFAULT NULL
+)
+RETURNS TABLE (
+  status            TEXT,
+  course_started_at TIMESTAMPTZ,
+  picked_up_at      TIMESTAMPTZ,
+  delivered_at      TIMESTAMPTZ,
+  origin_lat        DOUBLE PRECISION,
+  origin_lng        DOUBLE PRECISION,
+  delivery_proof    TEXT
+)
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_vendor  UUID; v_courier UUID; v_cuser UUID;
+  v_started TIMESTAMPTZ; v_picked TIMESTAMPTZ; v_status TEXT; v_code TEXT;
+  v_lat DOUBLE PRECISION; v_lng DOUBLE PRECISION; r public.delivery_rates;
+BEGIN
+  IF auth.uid() IS NULL THEN RAISE EXCEPTION 'Connexion requise'; END IF;
+
+  IF p_step NOT IN ('start', 'pickup', 'finish') THEN
+    RAISE EXCEPTION 'Étape inconnue : %', p_step;
+  END IF;
+
+  SELECT o.vendor_id, o.courier_id, o.course_started_at, o.picked_up_at,
+         o.status, o.delivery_code
+    INTO v_vendor, v_courier, v_started, v_picked, v_status, v_code
+  FROM public.orders o WHERE o.id = p_order_id;
+  IF NOT FOUND THEN RAISE EXCEPTION 'Commande introuvable'; END IF;
+
+  SELECT c.user_id INTO v_cuser FROM public.couriers c WHERE c.id = v_courier;
+
+  IF NOT (public.is_super_admin()
+          OR public.owns_vendor(v_vendor)
+          OR v_cuser = auth.uid()) THEN
+    RAISE EXCEPTION 'Cette course ne vous est pas accessible';
+  END IF;
+
+  IF v_status IN ('cancelled', 'payment_failed') THEN
+    RAISE EXCEPTION 'Cette commande est annulée';
+  END IF;
+  IF v_status = 'delivered' THEN
+    RAISE EXCEPTION 'Cette course est déjà terminée';
+  END IF;
+  IF v_courier IS NULL THEN
+    RAISE EXCEPTION 'Attribue d''abord la course à un livreur';
+  END IF;
+  IF p_step IN ('pickup', 'finish') AND v_started IS NULL THEN
+    RAISE EXCEPTION 'La course n''a pas encore démarré';
+  END IF;
+  IF p_step = 'finish' AND v_picked IS NULL THEN
+    RAISE EXCEPTION 'Marque d''abord le colis comme récupéré';
+  END IF;
+
+  IF p_step = 'start' THEN
+    SELECT * INTO r FROM public.delivery_rates dr WHERE dr.id;
+    v_lat := COALESCE(p_lat, r.hub_lat);
+    v_lng := COALESCE(p_lng, r.hub_lng);
+    PERFORM public.ensure_delivery_code(p_order_id);
+
+    UPDATE public.orders o
+       SET course_started_at = COALESCE(o.course_started_at, NOW()),
+           origin_lat        = COALESCE(o.origin_lat, v_lat),
+           origin_lng        = COALESCE(o.origin_lng, v_lng),
+           status            = 'in_transit'
+     WHERE o.id = p_order_id;
+
+  ELSIF p_step = 'pickup' THEN
+    UPDATE public.orders o
+       SET picked_up_at = COALESCE(o.picked_up_at, NOW()),
+           status       = 'in_transit'
+     WHERE o.id = p_order_id;
+
+  ELSE
+    -- Un code saisi doit être le bon. Un code absent est permis — le client
+    -- peut être injoignable — mais la remise n'est alors pas prouvée, et le
+    -- livreur en assume la conséquence en cas de litige.
+    IF p_code IS NOT NULL AND BTRIM(p_code) <> '' THEN
+      IF v_code IS NULL OR BTRIM(p_code) <> v_code THEN
+        RAISE EXCEPTION 'Code incorrect. Demande au client le code affiché dans son suivi.';
+      END IF;
+      UPDATE public.orders o
+         SET status = 'delivered', code_verified_at = NOW(), delivery_proof = 'code'
+       WHERE o.id = p_order_id;
+    ELSE
+      UPDATE public.orders o
+         SET status = 'delivered', delivery_proof = 'none'
+       WHERE o.id = p_order_id;
+    END IF;
+  END IF;
+
+  RETURN QUERY
+  SELECT o.status::TEXT, o.course_started_at, o.picked_up_at, o.delivered_at,
+         o.origin_lat, o.origin_lng, o.delivery_proof::TEXT
+  FROM public.orders o WHERE o.id = p_order_id;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.advance_course(UUID, TEXT, DOUBLE PRECISION, DOUBLE PRECISION, TEXT) FROM anon;
+GRANT EXECUTE ON FUNCTION public.advance_course(UUID, TEXT, DOUBLE PRECISION, DOUBLE PRECISION, TEXT) TO authenticated;
+
+-- ════════════════════════════════════════════════════════════════════════════
+--  LE RETOUR, AVEC SA NATURE
+--
+--  « Jamais reçu » n'est pas « produit cassé ». La première affirmation est
+--  vérifiable, la seconde ne l'est pas. On les sépare, et on refuse la
+--  première quand le code a été saisi.
+-- ════════════════════════════════════════════════════════════════════════════
+CREATE OR REPLACE FUNCTION public.request_return(
+  p_order_id UUID,
+  p_reason   TEXT,
+  p_kind     TEXT DEFAULT 'other'
+)
+RETURNS TABLE (return_status TEXT, deadline TIMESTAMPTZ)
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_user UUID; v_status TEXT; v_delivered TIMESTAMPTZ;
+  v_ret TEXT; v_window INTEGER; v_deadline TIMESTAMPTZ;
+  v_verified TIMESTAMPTZ; v_confirmed TIMESTAMPTZ;
+BEGIN
+  IF auth.uid() IS NULL THEN RAISE EXCEPTION 'Connexion requise'; END IF;
+  IF COALESCE(BTRIM(p_reason), '') = '' THEN
+    RAISE EXCEPTION 'Explique la raison du retour';
+  END IF;
+  IF COALESCE(p_kind, 'other') NOT IN ('not_received', 'damaged', 'wrong_item', 'other') THEN
+    RAISE EXCEPTION 'Motif inconnu';
+  END IF;
+
+  SELECT o.user_id, o.status, o.delivered_at, o.return_status,
+         o.code_verified_at, o.client_confirmed_at
+    INTO v_user, v_status, v_delivered, v_ret, v_verified, v_confirmed
+  FROM public.orders o WHERE o.id = p_order_id;
+  IF v_status IS NULL THEN RAISE EXCEPTION 'Commande introuvable'; END IF;
+  IF v_user IS DISTINCT FROM auth.uid() THEN
+    RAISE EXCEPTION 'Cette commande n''est pas la vôtre';
+  END IF;
+  IF v_status <> 'delivered' THEN
+    RAISE EXCEPTION 'Le retour n''est possible qu''une fois la commande livrée';
+  END IF;
+  IF v_ret <> 'none' THEN
+    RAISE EXCEPTION 'Une demande de retour existe déjà pour cette commande';
+  END IF;
+  IF v_confirmed IS NOT NULL THEN
+    RAISE EXCEPTION 'Tu as déjà confirmé la bonne réception de cette commande';
+  END IF;
+
+  -- Le code n'a pu être saisi que par quelqu'un qui l'avait en main.
+  IF p_kind = 'not_received' AND v_verified IS NOT NULL THEN
+    RAISE EXCEPTION 'Le code de livraison a été saisi lors de la remise : la réception est établie. Choisis le motif qui correspond au problème réel.';
+  END IF;
+
+  SELECT pp.return_window_hours INTO v_window FROM public.platform_policy pp WHERE pp.id;
+  v_deadline := COALESCE(v_delivered, NOW()) + (v_window || ' hours')::INTERVAL;
+  IF NOW() > v_deadline THEN
+    RAISE EXCEPTION 'Le délai de % h est dépassé : le retour n''est plus possible', v_window;
+  END IF;
+
+  UPDATE public.orders o
+     SET return_status       = 'requested',
+         return_kind         = COALESCE(p_kind, 'other'),
+         return_reason       = BTRIM(p_reason),
+         return_requested_at = NOW(),
+         funds_released_at   = NULL
+   WHERE o.id = p_order_id;
+
+  RETURN QUERY SELECT 'requested'::TEXT, v_deadline;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.request_return(UUID, TEXT, TEXT) FROM anon;
+GRANT EXECUTE ON FUNCTION public.request_return(UUID, TEXT, TEXT) TO authenticated;
+
+-- ════════════════════════════════════════════════════════════════════════════
+--  CE QUE LE CLIENT DOIT AVOIR SOUS LES YEUX
+--  Son code, et rien d'autre : il le lit au livreur au moment de la remise.
+-- ════════════════════════════════════════════════════════════════════════════
+CREATE OR REPLACE FUNCTION public.my_active_deliveries()
+RETURNS TABLE (
+  id            UUID,
+  order_number  TEXT,
+  shop_name     TEXT,
+  status        TEXT,
+  total_amount  NUMERIC,
+  delivery_code TEXT,
+  started_at    TIMESTAMPTZ,
+  picked_up_at  TIMESTAMPTZ
+)
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  IF auth.uid() IS NULL THEN RAISE EXCEPTION 'Connexion requise'; END IF;
+
+  RETURN QUERY
+  SELECT o.id, o.order_number::TEXT, v.shop_name::TEXT, o.status::TEXT,
+         o.total_amount::NUMERIC, o.delivery_code::TEXT,
+         o.course_started_at, o.picked_up_at
+  FROM public.orders o
+  LEFT JOIN public.vendors v ON v.id = o.vendor_id
+  WHERE o.user_id = auth.uid()
+    AND o.status NOT IN ('delivered', 'cancelled', 'payment_failed')
+    AND o.delivery_code IS NOT NULL
+  ORDER BY o.created_at DESC
+  LIMIT 20;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.my_active_deliveries() FROM anon;
+GRANT EXECUTE ON FUNCTION public.my_active_deliveries() TO authenticated;
+
+-- ════════════════════════════════════════════════════════════════════════════
+--  L'ARBITRAGE, AVEC LES FAITS
+--
+--  L'admin ne tranche pas au feeling : il voit si le code a été saisi, et
+--  combien de litiges ce client a déjà ouverts. Un premier litige et un
+--  dixième ne se lisent pas de la même façon.
+-- ════════════════════════════════════════════════════════════════════════════
+CREATE OR REPLACE FUNCTION public.admin_returns(p_status TEXT DEFAULT 'requested')
+RETURNS TABLE (
+  id              UUID,
+  order_number    TEXT,
+  shop_name       TEXT,
+  vendor_id       UUID,
+  client_name     TEXT,
+  client_phone    TEXT,
+  total_amount    NUMERIC,
+  delivered_at    TIMESTAMPTZ,
+  requested_at    TIMESTAMPTZ,
+  resolved_at     TIMESTAMPTZ,
+  return_status   TEXT,
+  return_kind     TEXT,
+  return_reason   TEXT,
+  return_note     TEXT,
+  funds_state     TEXT,
+  delivery_proof  TEXT,
+  client_disputes INTEGER,   -- litiges ouverts par ce client, tous vendeurs
+  client_rejected INTEGER,   -- …dont combien ont été jugés infondés
+  vendor_disputes INTEGER    -- litiges subis par cette boutique
+)
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  IF NOT public.is_super_admin() THEN RAISE EXCEPTION 'Accès refusé'; END IF;
+
+  RETURN QUERY
+  SELECT o.id, o.order_number::TEXT, v.shop_name::TEXT, o.vendor_id,
+         o.client_name::TEXT, o.client_phone::TEXT, o.total_amount::NUMERIC,
+         o.delivered_at, o.return_requested_at, o.return_resolved_at,
+         o.return_status::TEXT, o.return_kind::TEXT,
+         o.return_reason::TEXT, o.return_note::TEXT,
+         public.order_funds_state(o.id), o.delivery_proof::TEXT,
+         (SELECT COUNT(*) FROM public.orders x
+           WHERE x.user_id = o.user_id AND x.return_status <> 'none')::INTEGER,
+         (SELECT COUNT(*) FROM public.orders x
+           WHERE x.user_id = o.user_id AND x.return_status = 'rejected')::INTEGER,
+         (SELECT COUNT(*) FROM public.orders x
+           WHERE x.vendor_id = o.vendor_id AND x.return_status <> 'none')::INTEGER
+  FROM public.orders o
+  LEFT JOIN public.vendors v ON v.id = o.vendor_id
+  WHERE o.return_status <> 'none'
+    AND (p_status IS NULL OR o.return_status = p_status)
+  ORDER BY o.return_requested_at DESC;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.admin_returns(TEXT) FROM anon;
+GRANT EXECUTE ON FUNCTION public.admin_returns(TEXT) TO authenticated;
+
+-- ════════════════════════════════════════════════════════════════════════════
+--  LE PROFIL DU CLIENT EXPOSE LA PREUVE
+-- ════════════════════════════════════════════════════════════════════════════
+CREATE OR REPLACE FUNCTION public.my_delivered_orders()
+RETURNS TABLE (
+  id              UUID,
+  order_number    TEXT,
+  shop_name       TEXT,
+  vendor_id       UUID,
+  total_amount    NUMERIC,
+  delivered_at    TIMESTAMPTZ,
+  reviewed_at     TIMESTAMPTZ,
+  confirmed_at    TIMESTAMPTZ,
+  return_status   TEXT,
+  return_reason   TEXT,
+  return_deadline TIMESTAMPTZ,
+  can_return      BOOLEAN,
+  delivery_proof  TEXT,
+  items           JSONB
+)
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE v_window INTEGER;
+BEGIN
+  IF auth.uid() IS NULL THEN RAISE EXCEPTION 'Connexion requise'; END IF;
+  SELECT pp.return_window_hours INTO v_window FROM public.platform_policy pp WHERE pp.id;
+
+  RETURN QUERY
+  SELECT o.id, o.order_number::TEXT, v.shop_name::TEXT, o.vendor_id,
+         o.total_amount::NUMERIC, o.delivered_at, o.reviewed_at,
+         o.client_confirmed_at, o.return_status::TEXT, o.return_reason::TEXT,
+         COALESCE(o.delivered_at, o.created_at) + (v_window || ' hours')::INTERVAL,
+         (o.return_status = 'none'
+          AND o.client_confirmed_at IS NULL
+          AND COALESCE(o.delivered_at, o.created_at)
+              + (v_window || ' hours')::INTERVAL > NOW()),
+         o.delivery_proof::TEXT,
+         COALESCE((
+           SELECT jsonb_agg(jsonb_build_object(
+                    'product_id', oi.product_id,
+                    'name',       oi.product_name,
+                    'img',        oi.product_img,
+                    'quantity',   oi.quantity))
+           FROM public.order_items oi WHERE oi.order_id = o.id
+         ), '[]'::JSONB)
+  FROM public.orders o
+  LEFT JOIN public.vendors v ON v.id = o.vendor_id
+  WHERE o.user_id = auth.uid() AND o.status = 'delivered'
+  ORDER BY o.delivered_at DESC NULLS LAST
+  LIMIT 50;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.my_delivered_orders() FROM anon;
+GRANT EXECUTE ON FUNCTION public.my_delivered_orders() TO authenticated;
