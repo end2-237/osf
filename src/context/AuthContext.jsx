@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabase';
+import { track } from '../lib/track';
 
 const AuthContext = createContext({});
 export const useAuth = () => useContext(AuthContext);
@@ -138,7 +139,10 @@ export const AuthProvider = ({ children }) => {
   };
 
   /* ─── SIGN UP MEMBRE (client avec remise) ─── */
+  // Le compte créé est la deuxième marche de l'entonnoir : sans elle on ne
+  // sait pas si les visiteurs qui n'achètent pas partent avant ou après.
   const signUpMember = async (email, password, displayName) => {
+    track('signup', { data: { type: 'membre' } });
     const { data: authData, error: authError } = await supabase.auth.signUp({
       email: email.trim(),
       password,

@@ -7,6 +7,7 @@ import DOMPurify from 'dompurify';
 
 const safeText = (str) => DOMPurify.sanitize(str || '', { ALLOWED_TAGS: [] });
 import { recordAffiliateCommission } from '../lib/affiliate';
+import { track } from '../lib/track';
 import {
   applyVendorDiscount,
   getVendorDiscountPercent,
@@ -489,6 +490,12 @@ const CartSidebar = ({ isOpen, cart, removeFromCart, updateQuantity, toggleCart,
 
         if (orderError) throw orderError;
         await supabase.from('order_items').insert(buildOrderItems(vendorItems, orderData.id));
+        // La commande est le seul événement qui compte vraiment : c'est lui qui
+        // dit si l'origine de la visite a produit quelque chose.
+        track('order_placed', {
+          vendor_id: vId === 'no_vendor' ? null : vId,
+          data: { montant: vendorAfterPromo, moyen: paymentMethod, articles: vendorItems.length },
+        });
         if (vId !== 'no_vendor') notifyVendor(orderData.id);
         if (user?.id) awardOrderPoints(user.id, orderData.id, vendorAfterPromo).catch(() => {});
         if (referralCode) recordAffiliateCommission(referralCode, orderData.id, vendorAfterPromo, user?.id || null).catch(() => {});
@@ -573,6 +580,10 @@ const CartSidebar = ({ isOpen, cart, removeFromCart, updateQuantity, toggleCart,
         if (orderError) throw orderError;
         orderIds.push(orderData.id);
         await supabase.from('order_items').insert(buildOrderItems(vendorItems, orderData.id));
+        track('order_placed', {
+          vendor_id: vId === 'no_vendor' ? null : vId,
+          data: { montant: vendorAfterPromo, moyen: paymentMethod, articles: vendorItems.length },
+        });
         if (vId !== 'no_vendor') notifyVendor(orderData.id);
         if (user?.id) awardOrderPoints(user.id, orderData.id, vendorAfterPromo).catch(() => {});
         if (referralCode) recordAffiliateCommission(referralCode, orderData.id, vendorAfterPromo, user?.id || null).catch(() => {});

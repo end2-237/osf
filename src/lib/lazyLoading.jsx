@@ -1,4 +1,5 @@
 import React, { lazy } from 'react';
+import { logError } from './track';
 
 /* ════════════════════════════════════════════════════════════════════════════
    CHARGEMENT DES PAGES — résistance aux déploiements
@@ -58,6 +59,9 @@ export class RouteErrorBoundary extends React.Component {
 
   componentDidCatch(error) {
     console.error('[ROUTE]', error);
+    // Sans remontée, une page blanche chez un client reste invisible : il
+    // ferme l'onglet et personne n'apprend jamais pourquoi.
+    logError(error, 'rendu de page');
     // Dernière chance : si l'erreur vient d'un chunk manquant et qu'aucun
     // rechargement récent n'a eu lieu, on retente automatiquement.
     if (/dynamically imported module|Importing a module script failed|Failed to fetch/i.test(error?.message || '')) {

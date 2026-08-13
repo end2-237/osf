@@ -3,6 +3,7 @@ import { useNavigate, Link, useSearchParams, useLocation } from 'react-router-do
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
 import { LOGO_URL as ofsLogo } from "../lib/brand";
+import { track } from '../lib/track';
 
 // ─── PLANS ───────────────────────────────────────────────────────────────────
 const PLANS = [
@@ -483,6 +484,7 @@ export default function Register() {
         selfieStorageUrl = await uploadKyc(`${base}/selfie.jpg`, selfieBlob, { contentType: 'image/jpeg', upsert: true });
       }
 
+      track('vendor_application');
       const { error: appErr } = await supabase.from('vendor_applications').insert({
         user_id: uid, shop_name: vForm.shop_name, full_name: vForm.full_name,
         phone: vForm.phone, city: vForm.city, category: vForm.category,

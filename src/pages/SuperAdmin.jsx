@@ -23,6 +23,7 @@ const STATUS = {
 
 const fmtDate = (iso) => new Date(iso).toLocaleDateString("fr-FR", { day:"2-digit", month:"short", year:"numeric" });
 const fmtTime = (iso) => new Date(iso).toLocaleTimeString("fr-FR", { hour:"2-digit", minute:"2-digit" });
+const fmtNum  = (n) => Number(n || 0).toLocaleString("fr-FR");
 
 // ─── KPI CARD ─────────────────────────────────────────────────────────────────
 const KpiCard = ({ icon, label, value, sub, color = "#FF9900" }) => (
@@ -2502,6 +2503,224 @@ const VendorApplicationsTab = () => {
   );
 };
 
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   AUDIENCE — l'entonnoir, les origines, les plantages
+
+   Trois questions auxquelles la plateforme ne savait pas répondre : combien
+   de gens arrivent, où ils s'arrêtent, et qui les a amenés. Sans elles, toute
+   dépense d'acquisition est une dépense à l'aveugle.
+
+   Le haut de l'entonnoir vient des événements — seule source possible pour un
+   visiteur sans compte. Le bas vient des commandes, parce qu'une commande est
+   un fait et pas une mesure.
+   ═══════════════════════════════════════════════════════════════════════════ */
+const PERIODES = [
+  { j: 7,  label: "7 jours"  },
+  { j: 30, label: "30 jours" },
+  { j: 90, label: "90 jours" },
+];
+
+const Marche = ({ label, valeur, sous, taux, largeur }) => (
+  <div className="bg-white border border-[#D5D9D9] rounded-xl p-4">
+    <div className="flex items-end justify-between gap-2 mb-2">
+      <div className="min-w-0">
+        <p className="text-[9px] font-black uppercase tracking-widest text-[#565959]">{label}</p>
+        <p className="font-black text-2xl text-[#0F1111] leading-none mt-1">{valeur}</p>
+        {sous && <p className="text-[10px] text-[#565959] mt-1">{sous}</p>}
+      </div>
+      {taux != null && (
+        <span className="text-[11px] font-black text-[#FF9900] whitespace-nowrap">{taux} %</span>
+      )}
+    </div>
+    <div className="h-1.5 rounded-full bg-[#EDEFEF] overflow-hidden">
+      <div className="h-full rounded-full bg-[#FF9900]" style={{ width: `${Math.min(100, largeur)}%` }} />
+    </div>
+  </div>
+);
+
+const AudienceTab = () => {
+  const [jours,   setJours]   = useState(30);
+  const [f,       setF]       = useState(null);
+  const [sources, setSources] = useState([]);
+  const [erreurs, setErreurs] = useState([]);
+  const [charge,  setCharge]  = useState(true);
+  const [erreur,  setErreur]  = useState("");
+
+  const load = async () => {
+    setCharge(true); setErreur("");
+    const [a, b, c] = await Promise.all([
+      supabase.rpc("funnel_stats",        { p_days: jours }),
+      supabase.rpc("traffic_sources",     { p_days: jours }),
+      supabase.rpc("admin_client_errors", { p_open_only: true }),
+    ]);
+    if (a.error) setErreur(a.error.message);
+    setF(Array.isArray(a.data) ? a.data[0] : a.data);
+    setSources(b.data || []);
+    setErreurs(c.data || []);
+    setCharge(false);
+  };
+  useEffect(() => { load(); }, [jours]);   // eslint-disable-line react-hooks/exhaustive-deps
+
+  const resoudre = async (fp) => {
+    await supabase.rpc("resolve_client_error", { p_fingerprint: fp });
+    load();
+  };
+
+  const vis = Number(f?.visiteurs || 0);
+  const pct = (n) => (vis > 0 ? (Number(n) * 100) / vis : 0);
+
+  return (
+    <div className="space-y-5">
+      <div className="bg-[#131921] rounded-xl px-5 py-4 flex items-end justify-between gap-4 flex-wrap">
+        <div>
+          <p className="text-[9px] font-black uppercase tracking-widest text-[#FF9900] mb-0.5">Mesure</p>
+          <h2 className="text-white font-black text-lg leading-tight">Audience et entonnoir</h2>
+          <p className="text-[10px] text-[#ADBAC7] mt-0.5">
+            Combien arrivent, où ils s'arrêtent, qui les a amenés
+          </p>
+        </div>
+        <div className="flex gap-2">
+          {PERIODES.map(p => (
+            <button key={p.j} onClick={() => setJours(p.j)}
+              className={`px-3 py-2 rounded-lg text-[10px] font-black uppercase tracking-wider border transition-all ${
+                jours === p.j ? "bg-[#FF9900] text-[#131921] border-[#FF9900]"
+                              : "bg-transparent text-[#ADBAC7] border-[#565959]/40 hover:border-[#FF9900]"}`}>
+              {p.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {erreur && (
+        <div className="bg-[#FEE7E5] border border-[#B12704]/30 rounded-lg px-4 py-3 text-[11px] text-[#B12704] font-bold">
+          <i className="fa-solid fa-circle-exclamation mr-2" />{erreur}
+        </div>
+      )}
+
+      {charge ? (
+        <div className="bg-white border border-[#D5D9D9] rounded-xl p-10 text-center text-[#565959] text-[11px] font-bold">
+          <i className="fa-solid fa-spinner fa-spin mr-2" />Chargement…
+        </div>
+      ) : (
+        <>
+          <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+            <Marche label="Visiteurs"  valeur={fmtNum(f?.visiteurs)} largeur={100}
+              sous="sessions distinctes" />
+            <Marche label="Comptes créés" valeur={fmtNum(f?.inscrits)} largeur={pct(f?.inscrits)}
+              taux={vis ? Math.round(pct(f?.inscrits) * 10) / 10 : null} />
+            <Marche label="Paniers"    valeur={fmtNum(f?.paniers)} largeur={pct(f?.paniers)}
+              taux={f?.taux_panier} sous="au moins un ajout" />
+            <Marche label="Commandes"  valeur={fmtNum(f?.commandes)} largeur={pct(f?.commandes)}
+              taux={f?.taux_commande} sous="depuis les paniers" />
+            <Marche label="Livrées"    valeur={fmtNum(f?.livrees)} largeur={pct(f?.livrees)}
+              taux={f?.taux_livraison} sous="depuis les commandes" />
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="bg-white border border-[#D5D9D9] rounded-xl p-4">
+              <p className="text-[9px] font-black uppercase tracking-widest text-[#565959]">Volume d'affaires</p>
+              <p className="font-black text-xl text-[#0F1111] mt-1">{fmtFcfa(f?.gmv)}</p>
+            </div>
+            <div className="bg-white border border-[#D5D9D9] rounded-xl p-4">
+              <p className="text-[9px] font-black uppercase tracking-widest text-[#565959]">Panier moyen</p>
+              <p className="font-black text-xl text-[#0F1111] mt-1">{fmtFcfa(f?.panier_moyen)}</p>
+            </div>
+            <div className="bg-white border border-[#D5D9D9] rounded-xl p-4">
+              <p className="text-[9px] font-black uppercase tracking-widest text-[#565959]">Visiteur → commande</p>
+              <p className="font-black text-xl text-[#0F1111] mt-1">
+                {vis > 0 ? `${Math.round(pct(f?.commandes) * 100) / 100} %` : "—"}
+              </p>
+            </div>
+          </div>
+
+          {/* ── Qui amène du monde ── */}
+          <div className="bg-white border border-[#D5D9D9] rounded-xl overflow-hidden">
+            <div className="px-4 py-3 border-b border-[#EAEDED]">
+              <p className="font-black text-[13px] text-[#0F1111]">D'où viennent les visites</p>
+              <p className="text-[10px] text-[#565959]">
+                L'origine est retenue à l'arrivée et suit toute la visite — la commande arrive
+                dix pages plus tard, elle est rattachée à qui a amené la personne.
+              </p>
+            </div>
+            {sources.length === 0 ? (
+              <p className="p-8 text-center text-[11px] text-[#565959] font-bold">Aucune visite sur la période</p>
+            ) : (
+              <table className="w-full text-[12px]">
+                <thead>
+                  <tr className="text-[#565959] text-[9px] font-black uppercase tracking-wider border-b border-[#EAEDED]">
+                    <th className="text-left px-4 py-2">Origine</th>
+                    <th className="text-right px-4 py-2">Visiteurs</th>
+                    <th className="text-right px-4 py-2">Inscrits</th>
+                    <th className="text-right px-4 py-2">Commandes</th>
+                    <th className="text-right px-4 py-2">Conversion</th>
+                  </tr>
+                </thead>
+                <tbody style={{ fontVariantNumeric: "tabular-nums" }}>
+                  {sources.map((s, i) => (
+                    <tr key={i} className="border-b border-[#F0F2F2]">
+                      <td className="px-4 py-2.5">
+                        <span className="font-bold text-[#0F1111]">{s.source}</span>
+                        {s.shop_name && <span className="text-[#565959] ml-1.5">· {s.shop_name}</span>}
+                      </td>
+                      <td className="px-4 py-2.5 text-right">{fmtNum(s.visiteurs)}</td>
+                      <td className="px-4 py-2.5 text-right">{fmtNum(s.inscrits)}</td>
+                      <td className="px-4 py-2.5 text-right font-bold text-[#0F1111]">{fmtNum(s.commandes)}</td>
+                      <td className="px-4 py-2.5 text-right font-black text-[#FF9900]">
+                        {s.visiteurs > 0 ? `${Math.round((s.commandes * 1000) / s.visiteurs) / 10} %` : "—"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+
+          {/* ── Ce qui casse chez les clients ── */}
+          <div className="bg-white border border-[#D5D9D9] rounded-xl overflow-hidden">
+            <div className="px-4 py-3 border-b border-[#EAEDED] flex items-center justify-between gap-3">
+              <div>
+                <p className="font-black text-[13px] text-[#0F1111]">Plantages non résolus</p>
+                <p className="text-[10px] text-[#565959]">
+                  Remontés depuis le navigateur des visiteurs, regroupés par empreinte
+                </p>
+              </div>
+              {erreurs.length > 0 && (
+                <span className="text-[10px] font-black text-white bg-[#B12704] px-2.5 py-1 rounded-full">
+                  {erreurs.length}
+                </span>
+              )}
+            </div>
+            {erreurs.length === 0 ? (
+              <p className="p-8 text-center text-[11px] text-[#007600] font-bold">
+                <i className="fa-solid fa-circle-check mr-1.5" />Rien à signaler
+              </p>
+            ) : (
+              <div className="divide-y divide-[#F0F2F2]">
+                {erreurs.map(e => (
+                  <div key={e.fingerprint} className="px-4 py-3 flex items-start gap-3">
+                    <div className="flex-1 min-w-0">
+                      <p className="font-bold text-[12px] text-[#0F1111] break-words">{e.message}</p>
+                      <p className="text-[10px] text-[#565959] mt-0.5">
+                        {e.path} · <b>{e.occurrences}</b> fois · {e.users_hit} utilisateur(s) ·
+                        {" "}vu pour la dernière fois le {fmtDate(e.last_seen)}
+                      </p>
+                    </div>
+                    <button onClick={() => resoudre(e.fingerprint)}
+                      className="text-[9px] font-black uppercase tracking-wider px-3 py-1.5 rounded-lg border border-[#D5D9D9] text-[#565959] hover:border-[#007600] hover:text-[#007600] flex-shrink-0">
+                      Marquer réglé
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </>
+      )}
+    </div>
+  );
+};
+
 /* ═══════════════════════════════════════════════════════════════════════════
    RETRAITS VENDEURS
    Les boutiques demandent le versement de ce que Buyticle a encaissé pour
@@ -3835,6 +4054,7 @@ const SuperAdmin = () => {
 
   const TABS = [
     { key: "overview",     icon: "fa-gauge-high",    label: "Vue globale"     },
+    { key: "audience",     icon: "fa-chart-line",    label: "Audience"        },
     { key: "vendeurs",     icon: "fa-user-check",     label: "Vendeurs KYC",   badge: globalStats.pendingApplications || 0 },
     { key: "boutiques",    icon: "fa-store",          label: "Boutiques"       },
     { key: "orders",       icon: "fa-bag-shopping",   label: "Commandes",      badge: globalStats.pending    || 0 },
@@ -3917,6 +4137,8 @@ const SuperAdmin = () => {
             loading={loading}
           />
         )}
+
+        {activeTab === "audience" && <AudienceTab />}
 
         {activeTab === "vendeurs" && (
           <VendorApplicationsTab />

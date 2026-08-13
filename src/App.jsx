@@ -4,6 +4,7 @@ import { AuthProvider } from './context/AuthContext';
 import { LangProvider } from './context/LangContext';
 import { useAuth } from './context/AuthContext';
 import { lazyWithRetry, RouteErrorBoundary } from './lib/lazyLoading.jsx';
+import { track, capterOrigine } from './lib/track';
 
 // Components always needed — not lazy
 import Navbar from './components/Navbar';
@@ -71,6 +72,15 @@ function AppContent() {
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isVisualSearchOpen, setIsVisualSearchOpen] = useState(false);
   const sharedCartLoaded = useRef(false);
+
+  // Mesure du parcours. L'origine (?ref= d'une boutique ou d'un partenaire) se
+  // capte à l'arrivée et se garde pour toute la visite : la commande vient dix
+  // pages plus tard sans rien porter, et c'est pourtant elle qu'il faut
+  // rattacher à celui qui a amené la personne.
+  useEffect(() => { capterOrigine(); }, []);
+  useEffect(() => {
+    track('page_view', { path: location.pathname });
+  }, [location.pathname]);
 
   // Pages sans Navbar / Footer / Cart (auth + dashboards admin)
   const isAuthPage = location.pathname === '/login'
@@ -157,6 +167,10 @@ function AppContent() {
       setCart([...cart, productData]);
     }
     setIsCartOpen(true);
+    track('add_to_cart', {
+      vendor_id: productData.vendor_id || null,
+      data: { produit: productData.id, prix: productData.price, qte: productData.quantity },
+    });
   };
 
   const updateQuantity = (index, delta) => {
