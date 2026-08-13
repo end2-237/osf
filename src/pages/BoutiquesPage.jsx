@@ -283,14 +283,17 @@ const BoutiqueCard = ({ v, rank, onRate, onVisit, userRated }) => {
       </div>
 
       <div className="px-4 pb-4 flex-1 flex flex-col">
-        <div className="flex items-end gap-3 -mt-6 mb-3 relative">
-          <div className="w-12 h-12 rounded-xl border-2 border-white overflow-hidden flex items-center justify-center flex-shrink-0 shadow-sm"
+        {/* Le logo seul remonte sur la bannière. Le texte reste dessous : sinon
+            chaque ligne ajoutée sous le nom — les étoiles, le nombre d'avis —
+            pousse le nom dans l'image et le rend illisible. */}
+        <div className="flex items-start gap-3 mb-3 relative">
+          <div className="-mt-6 w-12 h-12 rounded-xl border-2 border-white overflow-hidden flex items-center justify-center flex-shrink-0 shadow-sm"
             style={{ background: "#fff" }}>
             {v.logo_url
               ? <img src={v.logo_url} alt={v.shop_name} className="w-full h-full object-cover" />
               : <i className="fa-solid fa-store" style={{ color: ACCENT }} />}
           </div>
-          <div className="pb-0.5 min-w-0 flex-1">
+          <div className="min-w-0 flex-1">
             <p className="font-black text-[14px] leading-tight truncate" style={{ color: INK }}>{v.shop_name}</p>
             <Stars value={v._avgRating || 0} count={v._ratingCount} />
             {v._verifiedCount > 0 && (

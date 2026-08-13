@@ -211,15 +211,23 @@ const ShopHeader = ({ vendor, products, loading, avis = [] }) => {
 
       {/* Identité */}
       <div className="px-4 md:px-6 pb-4">
-        <div className="flex items-end gap-4 -mt-10 relative">
-          <div className="w-20 h-20 md:w-24 md:h-24 rounded-lg overflow-hidden bg-white dark:bg-zinc-800 border-4 border-white dark:border-zinc-900 flex items-center justify-center flex-shrink-0 shadow-sm">
+        {/* Seul le logo remonte sur la couverture. Le texte, lui, commence sous
+            elle : il était auparavant aligné sur le bas du logo, si bien que
+            chaque ligne ajoutée au bloc — le nom, la ville, la note — poussait
+            le titre un peu plus haut dans l'image, jusqu'à écrire du texte
+            sombre par-dessus la photo. Un en-tête ne doit pas dépendre de la
+            hauteur de ce qu'on met dedans. */}
+        <div className="flex items-start gap-3 md:gap-4 relative">
+          <div className="-mt-10 w-20 h-20 md:w-24 md:h-24 rounded-lg overflow-hidden bg-white dark:bg-zinc-800 border-4 border-white dark:border-zinc-900 flex items-center justify-center flex-shrink-0 shadow-sm">
             {vendor?.logo_url
               ? <img src={vendor.logo_url} alt={vendor.shop_name} className="w-full h-full object-cover" />
               : <i className="fa-solid fa-store text-[#FF9900] text-2xl" />}
           </div>
-          <div className="min-w-0 pb-1">
+          <div className="min-w-0 flex-1 pt-2">
             <div className="flex items-center gap-2 flex-wrap">
-              <h1 className={`text-[22px] md:text-[28px] font-medium leading-tight truncate ${TXT}`}>
+              {/* Un nom long passe à la ligne plutôt que d'être coupé : c'est
+                  l'enseigne du vendeur, pas un détail qu'on tronque. */}
+              <h1 className={`text-[20px] md:text-[28px] font-medium leading-tight break-words min-w-0 ${TXT}`}>
                 {vendor?.shop_name || '…'}
               </h1>
               <span className={`inline-flex items-center gap-1 text-[11px] ${OK}`}>
