@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../context/AuthContext";
 import { getVendorDiscountPercent } from "../utils/discountUtils";
+import { logError } from "../lib/track";
 
 /* ════════════════════════════════════════════════════════════════════════════
    TOUTES LES BOUTIQUES
@@ -414,29 +415,33 @@ const BoutiquesPage = () => {
         .from("products").select("id, vendor_id, type, img, price, name, created_at");
       const { data: oData } = await supabase.rpc("vendor_sales_counts");
 
-      let ratingsData = [];
-      try {
-        const { data: rData } = await supabase.from("boutique_ratings").select("vendor_id, stars, user_id");
-        ratingsData = rData || [];
-      } catch { /* la table peut ne pas exister encore */ }
+      const { data: rData, error: rErr } =
+        await supabase.from("boutique_ratings").select("vendor_id, stars, user_id");
+      if (rErr) logError(rErr, "boutiques:boutique_ratings");
+      const ratingsData = rData || [];
 
       // Les avis qui comptent vraiment : ceux déposés après une livraison. Un
       // avis boutique est lié à une commande, un avis produit à un achat — on
       // ne peut pas les fabriquer. Les deux sont publics, c'est leur raison
       // d'être.
-      let shopReviews = [], prodReviews = [];
-      try {
-        const [{ data: vr }, { data: pr }] = await Promise.all([
-          supabase.from("vendor_reviews")
-            .select("vendor_id, rating, text, user_name, created_at")
-            .order("created_at", { ascending: false }).limit(400),
-          supabase.from("reviews")
-            .select("product_id, rating, text, user_name, created_at")
-            .eq("approved", true)
-            .order("created_at", { ascending: false }).limit(600),
-        ]);
-        shopReviews = vr || []; prodReviews = pr || [];
-      } catch { /* une page qui liste des boutiques ne tombe pas pour des avis */ }
+      //
+      // On ne les enveloppe pas dans un try/catch : le client Supabase ne lève
+      // pas, il renvoie { data: null, error }. Un catch ne voyait donc jamais
+      // rien, et une table absente ou une règle RLS trop stricte se traduisait
+      // par une page silencieusement vide — impossible à diagnostiquer depuis
+      // le navigateur d'un vendeur. Maintenant l'erreur est journalisée.
+      const [{ data: vr, error: vErr }, { data: pr, error: pErr }] = await Promise.all([
+        supabase.from("vendor_reviews")
+          .select("vendor_id, rating, text, user_name, created_at")
+          .order("created_at", { ascending: false }).limit(400),
+        supabase.from("reviews")
+          .select("product_id, rating, text, user_name, created_at")
+          .eq("approved", true)
+          .order("created_at", { ascending: false }).limit(600),
+      ]);
+      if (vErr) logError(vErr, "boutiques:vendor_reviews");
+      if (pErr) logError(pErr, "boutiques:reviews");
+      const shopReviews = vr || [], prodReviews = pr || [];
       setAvisBoutique(shopReviews);
       setAvisProduit(prodReviews);
 
@@ -570,19 +575,35 @@ const BoutiquesPage = () => {
     [products, avecNote]
   );
 
-  // Mieux notés : une seule étoile d'un seul client ne fait pas une réputation.
-  // On demande au moins deux avis pour figurer dans ce classement.
-  const mieuxNotes = useMemo(
-    () => products.map(avecNote).filter(p => p._avis >= 2)
-            .sort((a, b) => b._note - a._note || b._avis - a._avis).slice(0, 8),
-    [products, avecNote]
-  );
+  // Mieux notés : une seule étoile d'un seul client ne fait pas une réputation,
+  // donc la règle reste deux avis minimum. Mais au démarrage, quand personne
+  // n'a encore été noté deux fois, cette règle vide complètement l'onglet — et
+  // un onglet vide donne l'impression que les avis ne remontent pas, alors
+  // qu'ils existent. Tant qu'il y a moins de trois produits qualifiés, on
+  // descend à un avis : le nombre d'avis est affiché à côté des étoiles, le
+  // visiteur voit donc lui-même sur quoi la note repose.
+  const mieuxNotes = useMemo(() => {
+    const classer = (a, b) => b._note - a._note || b._avis - a._avis;
+    const notes   = products.map(avecNote);
+    const solides = notes.filter(p => p._avis >= 2);
+    const retenus = solides.length >= 3 ? solides : notes.filter(p => p._avis >= 1);
+    return retenus.sort(classer).slice(0, 8);
+  }, [products, avecNote]);
 
-  // À la une : les produits des boutiques les mieux classées, un par boutique
-  // pour ne pas donner huit fois la même enseigne.
+  // À la une : un produit par boutique, pour ne pas donner huit fois la même
+  // enseigne. On y met celui qui a des avis plutôt que celui qui sort en
+  // premier de la base — sinon un produit noté peut n'apparaître nulle part
+  // sur cette page, ce qui est exactement l'inverse du but.
   const alaune = useMemo(() => {
     const out = [];
-    vendors.forEach(v => { if (v._products?.[0]) out.push(avecNote(v._products[0])); });
+    vendors.forEach(v => {
+      const liste = (v._products || []).map(avecNote);
+      if (!liste.length) return;
+      const meilleur = [...liste].sort(
+        (a, b) => b._avis - a._avis || b._note - a._note
+      )[0];
+      out.push(meilleur);
+    });
     return out.slice(0, 8);
   }, [vendors, avecNote]);
 
