@@ -23,6 +23,8 @@ const PAYOUT_STATUS = {
   processing: { label: "En cours",    cls: "bg-blue-50 text-blue-600 border-blue-200" },
   paid:       { label: "Versé",       cls: "bg-emerald-50 text-emerald-600 border-emerald-200" },
   rejected:   { label: "Refusé",      cls: "bg-red-50 text-red-600 border-red-200" },
+  disputed:   { label: "En litige",   cls: "bg-amber-50 text-amber-700 border-amber-300" },
+  reimbursed: { label: "Recrédité",   cls: "bg-violet-50 text-violet-700 border-violet-200" },
 };
 
 const METHODS = [
@@ -49,13 +51,16 @@ export const PayoutSection = ({ vendor, showToast, sectionRef }) => {
   const [method, setMethod]     = useState("orange_money");
   const [busy, setBusy]         = useState(false);
   const [msg, setMsg]           = useState(null);
+  const [receipt, setReceipt]   = useState("");     // versement dont le reçu s'édite
+  const [claimId, setClaimId]   = useState(null);   // versement en cours de contestation
+  const [claim, setClaim]       = useState("");
+  const [claimBusy, setClaimBusy] = useState(false);
 
   const load = useCallback(async () => {
     if (!vendor?.id) return;
     const [bal, hist, cfg] = await Promise.all([
       supabase.rpc("vendor_balance", { p_vendor_id: vendor.id }),
-      supabase.from("vendor_payouts").select("*").eq("vendor_id", vendor.id)
-        .order("requested_at", { ascending: false }).limit(20),
+      supabase.rpc("my_payouts", { p_vendor_id: vendor.id }),
       supabase.from("vendor_payout_settings").select("*").eq("vendor_id", vendor.id).maybeSingle(),
     ]);
     setBalance(Array.isArray(bal.data) ? bal.data[0] : bal.data);
@@ -98,6 +103,45 @@ export const PayoutSection = ({ vendor, showToast, sectionRef }) => {
       showToast?.(raw ? "Numéro enregistré" : "Numéro retiré");
     } catch (e) { showToast?.("Erreur", e.message, "error"); }
     finally { setMomoBusy(""); }
+  };
+
+  /* ── Le reçu ────────────────────────────────────────────────────────────
+     Émis à la demande par une fonction edge : la clé du service de
+     facturation n'a rien à faire dans le navigateur, et le montant se relit
+     en base plutôt que de venir de la page. */
+  const getReceipt = async (row) => {
+    if (row.invoice_url) { window.open(row.invoice_url, "_blank", "noopener"); return; }
+    setReceipt(row.id); setMsg(null);
+    try {
+      const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/payout-receipt`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+          apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
+        },
+        body: JSON.stringify({ payout_id: row.id }),
+      });
+      const out = await res.json().catch(() => ({}));
+      if (!res.ok || !out?.url) throw new Error(out?.error || "Reçu indisponible pour le moment.");
+      await load();
+      window.open(out.url, "_blank", "noopener");
+    } catch (e) {
+      setMsg({ type: "error", text: e.message });
+    } finally { setReceipt(""); }
+  };
+
+  /* ── « Je n'ai pas reçu ce virement » ──────────────────────────────────── */
+  const sendClaim = async () => {
+    setClaimBusy(true); setMsg(null);
+    const { error } = await supabase.rpc("dispute_payout", {
+      p_payout_id: claimId, p_reason: claim.trim(),
+    });
+    setClaimBusy(false);
+    if (error) return setMsg({ type: "error", text: error.message });
+    setClaimId(null); setClaim("");
+    showToast?.("Signalement envoyé", "Buyticle vérifie auprès de l'opérateur.");
+    load();
   };
 
   const submit = async () => {
@@ -264,7 +308,7 @@ export const PayoutSection = ({ vendor, showToast, sectionRef }) => {
                       const st = PAYOUT_STATUS[p.status] || PAYOUT_STATUS.pending;
                       return (
                         <React.Fragment key={p.id}>
-                        <tr className={p.note || p.reference ? "" : "border-b border-gray-50"}>
+                        <tr className={p.note || p.reference || p.can_get_receipt || p.dispute_reason ? "" : "border-b border-gray-50"}>
                           <td className="py-2.5 text-gray-500">
                             {p.requested_at ? new Date(p.requested_at).toLocaleDateString("fr-FR",
                               { day: "2-digit", month: "short", year: "numeric" }) : "—"}
@@ -280,13 +324,94 @@ export const PayoutSection = ({ vendor, showToast, sectionRef }) => {
                             </span>
                           </td>
                         </tr>
-                        {(p.note || p.reference) && (
+                        {(p.note || p.reference || p.can_get_receipt || p.dispute_reason) && (
                           <tr className="border-b border-gray-50">
-                            <td colSpan={4} className="pb-2.5 text-[12px] text-gray-500">
+                            <td colSpan={4} className="pb-3 text-[12px] text-gray-500 space-y-1.5">
                               {p.note && <span className="block">{p.note}</span>}
                               {p.reference && (
                                 <span className="block text-gray-400">
                                   Référence <span className="font-mono">{p.reference}</span>
+                                </span>
+                              )}
+
+                              {/* Ce que le vendeur a déclaré, et ce que Buyticle a répondu. */}
+                              {p.dispute_reason && (
+                                <span className="block bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-amber-800">
+                                  <i className="fa-solid fa-triangle-exclamation mr-1.5" />
+                                  Tu as signalé ne pas avoir reçu ce virement :
+                                  <span className="italic"> « {p.dispute_reason} »</span>
+                                  {p.dispute_outcome === "confirmed" && (
+                                    <span className="block mt-1 text-emerald-700">
+                                      <i className="fa-solid fa-circle-check mr-1.5" />
+                                      Vérifié : le virement est bien parti.
+                                      {p.dispute_note ? ` ${p.dispute_note}` : ""}
+                                    </span>
+                                  )}
+                                  {p.dispute_outcome === "reimbursed" && (
+                                    <span className="block mt-1 text-violet-700">
+                                      <i className="fa-solid fa-rotate-left mr-1.5" />
+                                      Somme remise sur ton solde disponible.
+                                      {p.dispute_note ? ` ${p.dispute_note}` : ""}
+                                    </span>
+                                  )}
+                                  {!p.dispute_outcome && (
+                                    <span className="block mt-1">En cours de vérification auprès de l'opérateur.</span>
+                                  )}
+                                </span>
+                              )}
+
+                              {p.can_get_receipt && (
+                                <span className="flex items-center gap-3 flex-wrap pt-0.5">
+                                  <button onClick={() => getReceipt(p)} disabled={receipt === p.id}
+                                    className="text-[12px] font-bold text-gray-900 hover:underline disabled:opacity-50">
+                                    <i className="fa-solid fa-file-arrow-down mr-1.5" />
+                                    {receipt === p.id ? "Édition du reçu…" : "Télécharger le reçu"}
+                                  </button>
+                                  {p.invoice_number && (
+                                    <span className="text-gray-400 font-mono text-[11px]">{p.invoice_number}</span>
+                                  )}
+                                  {p.can_dispute && (
+                                    <button onClick={() => { setClaimId(p.id); setClaim(""); setMsg(null); }}
+                                      className="text-[12px] font-bold text-red-500 hover:underline">
+                                      Je n'ai pas reçu ce virement
+                                    </button>
+                                  )}
+                                </span>
+                              )}
+
+                              {/* La contestation se ferme : passé le délai, un compte
+                                  mobile money a forcément été crédité ou pas. */}
+                              {p.status === "paid" && !p.can_dispute && p.dispute_deadline && (
+                                <span className="block text-[11px] text-gray-400">
+                                  Délai de signalement clos depuis le{" "}
+                                  {new Date(p.dispute_deadline).toLocaleDateString("fr-FR",
+                                    { day: "2-digit", month: "long", year: "numeric" })}.
+                                </span>
+                              )}
+
+                              {claimId === p.id && (
+                                <span className="block bg-gray-50 border border-gray-200 rounded-xl p-3 mt-1">
+                                  <span className="block text-[12px] font-bold text-gray-900 mb-1">
+                                    Que s'est-il passé ?
+                                  </span>
+                                  <span className="block text-[11px] text-gray-500 mb-2">
+                                    Dis-nous ce que tu as vérifié : c'est là-dessus que nous cherchons
+                                    auprès de l'opérateur. Le montant reste décompté de ton solde
+                                    pendant la vérification.
+                                  </span>
+                                  <textarea value={claim} onChange={e => setClaim(e.target.value)} rows={3}
+                                    placeholder="Ex : rien reçu sur le 690000000 depuis le 12/08, j'ai vérifié mon historique Orange Money et appelé le 150."
+                                    className="w-full bg-white border border-gray-200 rounded-xl px-3 py-2 text-[12px] outline-none focus:border-gray-900 resize-none" />
+                                  <span className="flex items-center gap-2 mt-2">
+                                    <button onClick={sendClaim} disabled={claimBusy || claim.trim().length < 10}
+                                      className="bg-gray-900 text-white text-[11px] font-bold px-4 py-2 rounded-xl disabled:opacity-40">
+                                      {claimBusy ? "Envoi…" : "Signaler à Buyticle"}
+                                    </button>
+                                    <button onClick={() => setClaimId(null)}
+                                      className="text-[11px] font-bold text-gray-500 px-3 py-2 rounded-xl hover:bg-gray-100">
+                                      Annuler
+                                    </button>
+                                  </span>
                                 </span>
                               )}
                             </td>

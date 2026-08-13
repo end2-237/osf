@@ -256,6 +256,64 @@ Clique **Passer au forfait gratuit**.
 
 ---
 
+## 9 · Le reçu de retrait, et le virement qui n'arrive pas
+
+### Le reçu
+
+Compte vendeur → **Réglages → Retraits**. Demande un retrait, puis passe sur le
+compte admin → **`/super-admin` → Retraits** → **Marquer comme versé**, en
+saisissant la référence du transfert mobile money.
+
+Reviens côté vendeur, recharge.
+
+> **Attendu** : la ligne passe à **Versé**, et un lien **« Télécharger le
+> reçu »** apparaît. Le premier clic émet le document et l'ouvre ; les suivants
+> rouvrent le même — il est numéroté `BT-VRS-…` et le numéro s'affiche à côté
+> du lien.
+
+Le reçu porte le logo, un filigrane, le bénéficiaire, le moyen employé, la
+**référence de transaction**, le montant en toutes lettres, et le recours à
+suivre si l'argent n'est jamais arrivé.
+
+### « Je n'ai pas reçu ce virement »
+
+Sur la même ligne, clique **« Je n'ai pas reçu ce virement »**, explique ce que
+tu as vérifié, puis **Signaler à Buyticle**.
+
+> **Attendu** : le bouton d'envoi reste gris tant que le motif fait moins de
+> dix caractères. Une fois envoyé, la ligne passe **En litige**, et — c'est le
+> point important — **le solde disponible ne bouge pas**. La somme reste
+> décomptée : sans cela, il suffirait de contester pour la redemander.
+
+### L'arbitrage
+
+Compte admin → **Retraits** → onglet **En litige**. La fiche montre le motif du
+vendeur, la référence du transfert, et deux faits pour décider : combien de
+litiges cette boutique a déjà ouverts, et combien se sont révélés infondés.
+
+**Trancher ce litige** → deux issues, pas trois :
+
+| Issue | Effet |
+|---|---|
+| **Le virement est bien parti** | Retour à « Versé ». La somme reste débitée. |
+| **Recréditer son solde** | Statut « Recrédité ». La somme retourne au disponible, le vendeur peut redemander. |
+
+> **Attendu côté vendeur** : la réponse de Buyticle s'affiche sous la ligne, et
+> le solde disponible remonte du montant dans le second cas seulement.
+
+### Les bornes
+
+| Ce qu'on tente | Attendu |
+|---|---|
+| Contester un versement encore « En attente » | Refusé — il n'a pas eu lieu |
+| Contester deux fois le même | Refusé — déjà en litige |
+| Contester au-delà de 15 jours | Refusé, avec la date de clôture affichée |
+| Le refuser depuis l'onglet Retraits pendant le litige | Refusé — ça se tranche depuis « En litige » |
+
+Le délai se règle dans `platform_policy.payout_dispute_days`.
+
+---
+
 ## Les pièges, résumés
 
 | Symptôme | Cause |
@@ -268,3 +326,5 @@ Clique **Passer au forfait gratuit**.
 | `/delivery` affiche « Accès réservé » | Compte ni vendeur, ni livreur validé, ni admin |
 | Un produit publié n'apparaît pas en boutique | Vitrine pleine : il est en réserve |
 | La boutique a disparu du site | Abonnement échu — renouveler, ou repasser au gratuit |
+| Pas de bouton « reçu » sur un retrait | Il n'est pas encore marqué comme versé |
+| Le solde ne remonte pas après une contestation | Normal : il ne remonte qu'après arbitrage en faveur du vendeur |

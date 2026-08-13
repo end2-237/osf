@@ -2513,6 +2513,8 @@ const PAYOUT_ADMIN_STATUS = {
   processing: { label: "En cours",   color: "text-[#007185]", bg: "bg-[#E6F3F5]", border: "border-[#007185]/30" },
   paid:       { label: "Versé",      color: "text-[#007600]", bg: "bg-[#E8F5E8]", border: "border-[#007600]/30" },
   rejected:   { label: "Refusé",     color: "text-[#B12704]", bg: "bg-[#FEE7E5]", border: "border-[#B12704]/30" },
+  disputed:   { label: "En litige",  color: "text-[#B26200]", bg: "bg-[#FFF8D3]", border: "border-[#B26200]/40" },
+  reimbursed: { label: "Recrédité",  color: "text-[#5B21B6]", bg: "bg-[#F1EAFE]", border: "border-[#5B21B6]/30" },
 };
 
 const PAYOUT_METHOD_LABEL = {
@@ -2531,14 +2533,20 @@ const PayoutsAdminTab = ({ onCountChange }) => {
   const [openId,  setOpenId]  = useState(null);      // demande dont le formulaire est ouvert
   const [ref,     setRef]     = useState("");
   const [note,    setNote]    = useState("");
+  // Les litiges portent deux faits que `admin_payouts` ne rapporte pas : combien
+  // ce vendeur en a déjà ouverts, et combien se sont révélés infondés. On
+  // arbitre mieux en sachant si c'est la première fois ou la cinquième.
+  const [disputes, setDisputes] = useState({});
 
   const load = async () => {
     setLoading(true); setError("");
-    const { data, error: e } = await supabase.rpc("admin_payouts", {
-      p_status: filter === "all" ? null : filter,
-    });
+    const [{ data, error: e }, { data: lits }] = await Promise.all([
+      supabase.rpc("admin_payouts", { p_status: filter === "all" ? null : filter }),
+      supabase.rpc("admin_payout_disputes"),
+    ]);
     if (e) setError(e.message);
     setRows(data || []);
+    setDisputes(Object.fromEntries((lits || []).map(d => [d.id, d])));
     setLoading(false);
   };
 
@@ -2546,8 +2554,11 @@ const PayoutsAdminTab = ({ onCountChange }) => {
 
   // Le compteur de l'onglet suit les demandes non traitées, quel que soit le filtre affiché.
   const refreshBadge = async () => {
-    const { data } = await supabase.rpc("admin_payouts", { p_status: "pending" });
-    onCountChange?.((data || []).length);
+    const [{ data: att }, { data: lits }] = await Promise.all([
+      supabase.rpc("admin_payouts", { p_status: "pending" }),
+      supabase.rpc("admin_payout_disputes"),
+    ]);
+    onCountChange?.((att || []).length + (lits || []).length);
   };
   useEffect(() => { refreshBadge(); }, []);
 
@@ -2573,6 +2584,18 @@ const PayoutsAdminTab = ({ onCountChange }) => {
     await refreshBadge();
   };
 
+  const resolve = async (id, outcome) => {
+    setActing(id); setError("");
+    const { error: e } = await supabase.rpc("resolve_payout_dispute", {
+      p_payout_id: id, p_outcome: outcome, p_note: note.trim() || null,
+    });
+    setActing("");
+    if (e) { setError(e.message); return; }
+    setOpenId(null); setNote("");
+    await load();
+    await refreshBadge();
+  };
+
   const total = rows.reduce((s, r) => s + Number(r.amount || 0), 0);
 
   return (
@@ -2594,6 +2617,7 @@ const PayoutsAdminTab = ({ onCountChange }) => {
       <div className="flex gap-2 flex-wrap">
         {[
           { key: "pending",    label: "En attente" },
+          { key: "disputed",   label: "En litige"  },
           { key: "processing", label: "En cours"   },
           { key: "paid",       label: "Versés"     },
           { key: "rejected",   label: "Refusés"    },
@@ -2674,6 +2698,80 @@ const PayoutsAdminTab = ({ onCountChange }) => {
                         {r.note}
                       </p>
                     )}
+                  </div>
+                )}
+
+                {/* ── Litige : le vendeur dit ne pas avoir reçu ce virement ── */}
+                {r.status === "disputed" && (
+                  <div className="border-t border-[#EAEDED] bg-[#FFF8D3] px-4 py-3 space-y-3">
+                    <div>
+                      <p className="text-[9px] font-black uppercase tracking-widest text-[#B26200] mb-1">
+                        Signalé le {fmtDate(r.disputed_at)} à {fmtTime(r.disputed_at)}
+                      </p>
+                      <p className="text-[12px] text-[#0F1111] italic">« {r.dispute_reason} »</p>
+                    </div>
+
+                    {/* Les deux faits qui aident à trancher, sans avoir à fouiller. */}
+                    <div className="flex gap-4 flex-wrap text-[10px] text-[#565959]">
+                      <span>
+                        <i className="fa-solid fa-hashtag mr-1" />
+                        Référence de transfert :{" "}
+                        {r.reference
+                          ? <span className="font-mono text-[#0F1111]">{r.reference}</span>
+                          : <span className="text-[#B12704] font-bold">aucune enregistrée</span>}
+                      </span>
+                      <span>
+                        <i className="fa-solid fa-clock-rotate-left mr-1" />
+                        Litiges de cette boutique : <b className="text-[#0F1111]">{disputes[r.id]?.vendor_disputes ?? 1}</b>
+                        {" · "}dont <b className="text-[#0F1111]">{disputes[r.id]?.vendor_disputes_rejected ?? 0}</b> infondés
+                      </span>
+                    </div>
+
+                    {openId === `${r.id}:dispute` ? (
+                      <div className="space-y-2">
+                        <label className="text-[9px] font-black uppercase tracking-widest text-[#565959] block">
+                          Ce que tu as vérifié — le vendeur le verra
+                        </label>
+                        <input value={note} onChange={e => setNote(e.target.value)}
+                          placeholder="Ex : transaction MP260812.1430 confirmée par l'opérateur"
+                          className="w-full bg-white border border-[#D5D9D9] rounded-lg px-3 py-2 text-[12px] outline-none focus:border-[#FF9900]" />
+                        <div className="flex gap-2 flex-wrap">
+                          <button onClick={() => resolve(r.id, "confirmed")} disabled={busy}
+                            className="bg-[#007600] hover:bg-[#005c00] text-white text-[10px] font-black uppercase tracking-wider px-4 py-2 rounded-lg disabled:opacity-50">
+                            <i className="fa-solid fa-check mr-1.5" />Le virement est bien parti
+                          </button>
+                          <button onClick={() => resolve(r.id, "reimbursed")} disabled={busy}
+                            className="bg-[#5B21B6] hover:bg-[#4a1a96] text-white text-[10px] font-black uppercase tracking-wider px-4 py-2 rounded-lg disabled:opacity-50">
+                            <i className="fa-solid fa-rotate-left mr-1.5" />Recréditer son solde
+                          </button>
+                          <button onClick={() => setOpenId(null)} disabled={busy}
+                            className="text-[10px] font-black uppercase tracking-wider px-4 py-2 rounded-lg text-[#565959] hover:bg-[#EAEDED]">
+                            Annuler
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <button onClick={() => { setOpenId(`${r.id}:dispute`); setNote(""); }}
+                        className="bg-[#131921] hover:bg-[#232F3E] text-white text-[10px] font-black uppercase tracking-wider px-4 py-2 rounded-lg">
+                        <i className="fa-solid fa-gavel mr-1.5" />Trancher ce litige
+                      </button>
+                    )}
+
+                    <p className="text-[10px] text-[#B26200]">
+                      <i className="fa-solid fa-circle-info mr-1.5" />
+                      Tant que ce n'est pas tranché, la somme reste décomptée du solde de la boutique :
+                      elle ne peut pas la redemander. « Recréditer » la lui rend, « bien parti » la laisse débitée.
+                    </p>
+                  </div>
+                )}
+
+                {/* ── Issue d'un litige déjà tranché ── */}
+                {r.dispute_outcome && r.status !== "disputed" && (
+                  <div className="border-t border-[#EAEDED] px-4 py-2.5 text-[11px] text-[#565959]">
+                    <i className={`fa-solid ${r.dispute_outcome === "confirmed" ? "fa-check text-[#007600]" : "fa-rotate-left text-[#5B21B6]"} mr-1.5`} />
+                    Litige tranché le {fmtDate(r.dispute_resolved_at)} :{" "}
+                    {r.dispute_outcome === "confirmed" ? "virement confirmé" : "solde recrédité"}
+                    {r.dispute_note ? ` — ${r.dispute_note}` : ""}
                   </div>
                 )}
 
