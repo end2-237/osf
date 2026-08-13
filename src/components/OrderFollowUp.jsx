@@ -81,8 +81,22 @@ export const ReviewPrompt = ({ user }) => {
     setSkipped(next);
   };
 
+  // Le commentaire est facultatif — mais s'il est écrit, il doit dire quelque
+  // chose : la base refuse en dessous de dix caractères. On le vérifie ici pour
+  // que le client corrige trois mots au lieu de recevoir une erreur de contrainte.
+  const trop_court = (t) => {
+    const v = (t || "").trim();
+    return v.length > 0 && v.length < 10;
+  };
+
   const submit = async () => {
     if (!shop.rating) return setError("Donne une note à la boutique.");
+    if (trop_court(shop.text)) {
+      return setError("Ton mot sur la boutique est trop court : dis-en un peu plus, ou laisse-le vide.");
+    }
+    if (Object.values(items).some(v => trop_court(v.text))) {
+      return setError("Un de tes avis produit est trop court : dis-en un peu plus, ou laisse-le vide.");
+    }
     setBusy(true); setError("");
     const payload = Object.entries(items)
       .filter(([, v]) => v.rating > 0)
@@ -149,7 +163,7 @@ export const ReviewPrompt = ({ user }) => {
                   </span>
                 </div>
                 <textarea value={shop.text} onChange={e => setShop(s => ({ ...s, text: e.target.value }))}
-                  rows={2} placeholder="Un mot sur le service de la boutique…"
+                  rows={2} placeholder="Facultatif — 10 caractères minimum si tu écris"
                   className="w-full bg-[#F7F8F8] border border-[#D5D9D9] rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#FF9900] resize-none" />
               </div>
 
@@ -174,7 +188,7 @@ export const ReviewPrompt = ({ user }) => {
                             <textarea
                               value={items[it.product_id]?.text || ""}
                               onChange={e => setItems(m => ({ ...m, [it.product_id]: { ...m[it.product_id], text: e.target.value } }))}
-                              rows={2} placeholder="Ton avis sur ce produit…"
+                              rows={2} placeholder="Facultatif — 10 caractères minimum"
                               className="w-full mt-2 bg-[#F7F8F8] border border-[#D5D9D9] rounded-xl px-3 py-2 text-[13px] outline-none focus:border-[#FF9900] resize-none" />
                           )}
                         </div>
