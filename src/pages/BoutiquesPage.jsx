@@ -159,21 +159,84 @@ const ProductChip = ({ p }) => (
   </Link>
 );
 
-/* ── Carte produit large, pour les rayons ─────────────────────────────────── */
-const ProductCardWide = ({ p, shop }) => (
-  <Link to={`/product/${p.id}`} className="group bg-white rounded-2xl border overflow-hidden flex flex-col" style={{ borderColor: LINE }}>
-    <div className="aspect-[4/3] flex items-center justify-center" style={{ background: "#F7F8F8" }}>
+/* ── Carte produit avec sa note ───────────────────────────────────────────── */
+const ProductCardRated = ({ p, shop }) => (
+  <Link to={`/product/${p.id}`} className="group bg-white rounded-2xl border overflow-hidden flex flex-col hover:shadow-md transition-shadow"
+    style={{ borderColor: LINE }}>
+    <div className="aspect-[4/3] flex items-center justify-center relative" style={{ background: "#F7F8F8" }}>
       {p.img
         ? <img src={p.img} alt={p.name} loading="lazy"
             className="w-full h-full object-contain p-4 group-hover:scale-105 transition-transform duration-500" />
         : <i className="fa-solid fa-image text-2xl" style={{ color: "#D5D9D9" }} />}
+      {p._note >= 4.5 && p._avis >= 2 && (
+        <span className="absolute top-2 left-2 text-[9px] font-black text-white px-2 py-1 rounded-lg"
+          style={{ background: "#0F7B4F" }}>
+          Coup de cœur
+        </span>
+      )}
     </div>
     <div className="p-3 flex-1 flex flex-col">
-      <p className="text-[12px] font-semibold leading-tight line-clamp-2 group-hover:underline" style={{ color: INK }}>{p.name}</p>
-      {shop && <p className="text-[10px] mt-1 truncate" style={{ color: MUTED }}>{shop}</p>}
+      {/* La note d'abord : c'est ce qu'on regarde avant le nom quand on ne
+          connaît pas la boutique. */}
+      {p._avis > 0
+        ? <Stars value={p._note} count={p._avis} size="text-[10px]" />
+        : <span className="text-[10px]" style={{ color: "#C9CDCD" }}>Pas encore d'avis</span>}
+      <p className="text-[12px] font-semibold leading-tight line-clamp-2 mt-1 group-hover:underline" style={{ color: INK }}>
+        {p.name}
+      </p>
+      {shop && <p className="text-[10px] mt-0.5 truncate" style={{ color: MUTED }}>{shop}</p>}
       <p className="text-[14px] font-black mt-auto pt-2" style={{ color: INK }}>{money(p.price)}</p>
     </div>
   </Link>
+);
+
+/* ── Ligne produit compacte, pour les colonnes latérales ──────────────────── */
+const ProductRow = ({ p }) => (
+  <Link to={`/product/${p.id}`} className="flex items-center gap-2.5 py-2.5 group">
+    <div className="w-12 h-12 rounded-lg overflow-hidden flex items-center justify-center flex-shrink-0"
+      style={{ background: "#F7F8F8" }}>
+      {p.img
+        ? <img src={p.img} alt="" loading="lazy" className="w-full h-full object-contain p-1" />
+        : <i className="fa-solid fa-image text-[11px]" style={{ color: "#D5D9D9" }} />}
+    </div>
+    <div className="min-w-0 flex-1">
+      <p className="text-[11.5px] font-semibold leading-tight line-clamp-2 group-hover:underline" style={{ color: INK }}>
+        {p.name}
+      </p>
+      <div className="flex items-center gap-2 mt-0.5">
+        <span className="text-[12px] font-black" style={{ color: INK }}>{money(p.price)}</span>
+        {p._avis > 0 && (
+          <span className="text-[10px] flex items-center gap-0.5" style={{ color: MUTED }}>
+            <i className="fa-solid fa-star text-[8px]" style={{ color: ACCENT }} />{p._note}
+          </span>
+        )}
+      </div>
+    </div>
+  </Link>
+);
+
+/* ── Un avis client ───────────────────────────────────────────────────────── */
+const AvisCard = ({ a, shop }) => (
+  <div className="bg-white rounded-2xl border p-4 flex flex-col" style={{ borderColor: LINE }}>
+    <Stars value={a.rating} size="text-[11px]" />
+    <p className="text-[12.5px] leading-relaxed mt-2 flex-1" style={{ color: INK }}>« {a.text} »</p>
+    <div className="flex items-center gap-2 mt-3 pt-3 border-t" style={{ borderColor: "#F0F2F2" }}>
+      <div className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-black flex-shrink-0"
+        style={{ background: "#FFF4D6", color: "#8A6100" }}>
+        {(a.user_name || "C").slice(0, 1).toUpperCase()}
+      </div>
+      <div className="min-w-0">
+        <p className="text-[11px] font-bold truncate" style={{ color: INK }}>{a.user_name || "Client Buyticle"}</p>
+        {shop && <p className="text-[10px] truncate" style={{ color: MUTED }}>chez {shop}</p>}
+      </div>
+      {/* Un avis boutique n'existe que sur une commande livrée : il est
+          vérifiable par construction, et ça mérite d'être dit. */}
+      <span className="ml-auto text-[9px] font-black px-2 py-1 rounded-md flex-shrink-0"
+        style={{ background: "#E8F5E8", color: "#0F7B4F" }}>
+        <i className="fa-solid fa-circle-check mr-1" />Achat vérifié
+      </span>
+    </div>
+  </div>
 );
 
 /* ── La carte d'une boutique — avec ce qu'elle vend ───────────────────────── */
@@ -229,6 +292,12 @@ const BoutiqueCard = ({ v, rank, onRate, onVisit, userRated }) => {
           <div className="pb-0.5 min-w-0 flex-1">
             <p className="font-black text-[14px] leading-tight truncate" style={{ color: INK }}>{v.shop_name}</p>
             <Stars value={v._avgRating || 0} count={v._ratingCount} />
+            {v._verifiedCount > 0 && (
+              <p className="text-[9.5px] font-bold" style={{ color: "#0F7B4F" }}>
+                <i className="fa-solid fa-circle-check mr-1" />
+                {v._verifiedCount} avis après livraison
+              </p>
+            )}
           </div>
         </div>
 
@@ -256,6 +325,14 @@ const BoutiqueCard = ({ v, rank, onRate, onVisit, userRated }) => {
               </Link>
             ))}
           </div>
+        )}
+
+        {/* Un mot d'un vrai client vaut plus que trois étiquettes de rayon. */}
+        {v._avis?.[0] && (
+          <p className="text-[11px] italic leading-snug mb-3 pl-2 border-l-2 line-clamp-2"
+            style={{ color: MUTED, borderColor: ACCENT }}>
+            « {v._avis[0].text} »
+          </p>
         )}
 
         <div className="flex items-center gap-1.5 flex-wrap mb-3">
@@ -312,6 +389,9 @@ const BoutiquesPage = () => {
 
   const [vendors, setVendors]         = useState([]);
   const [products, setProducts]       = useState([]);
+  const [avisBoutique, setAvisBoutique] = useState([]);
+  const [avisProduit, setAvisProduit]   = useState([]);
+  const [onglet, setOnglet]             = useState("une");   // une | notes | neufs
   const [loading, setLoading]         = useState(true);
   const [userRatings, setUserRatings] = useState({});
   const [search, setSearch]           = useState("");
@@ -340,17 +420,47 @@ const BoutiquesPage = () => {
         ratingsData = rData || [];
       } catch { /* la table peut ne pas exister encore */ }
 
+      // Les avis qui comptent vraiment : ceux déposés après une livraison. Un
+      // avis boutique est lié à une commande, un avis produit à un achat — on
+      // ne peut pas les fabriquer. Les deux sont publics, c'est leur raison
+      // d'être.
+      let shopReviews = [], prodReviews = [];
+      try {
+        const [{ data: vr }, { data: pr }] = await Promise.all([
+          supabase.from("vendor_reviews")
+            .select("vendor_id, rating, text, user_name, created_at")
+            .order("created_at", { ascending: false }).limit(400),
+          supabase.from("reviews")
+            .select("product_id, rating, text, user_name, created_at")
+            .eq("approved", true)
+            .order("created_at", { ascending: false }).limit(600),
+        ]);
+        shopReviews = vr || []; prodReviews = pr || [];
+      } catch { /* une page qui liste des boutiques ne tombe pas pour des avis */ }
+      setAvisBoutique(shopReviews);
+      setAvisProduit(prodReviews);
+
       const enriched = vData.map(v => {
         const vProducts = (pData || []).filter(p => p.vendor_id === v.id);
         const vSales    = Number((oData || []).find(o => o.vendor_id === v.id)?.sales || 0);
-        const vRatings  = ratingsData.filter(r => r.vendor_id === v.id);
-        const avg       = vRatings.length ? vRatings.reduce((a, r) => a + r.stars, 0) / vRatings.length : 0;
+
+        // Deux sources de notes : celles laissées librement sur cette page, et
+        // celles déposées après une livraison. La moyenne les additionne — une
+        // note reste une note — mais on compte à part celles qui sont
+        // adossées à une commande, parce que ce sont les seules invérifiables.
+        const libres    = ratingsData.filter(r => r.vendor_id === v.id).map(r => r.stars);
+        const verifies  = shopReviews.filter(r => r.vendor_id === v.id);
+        const toutes    = [...libres, ...verifies.map(r => r.rating)];
+        const avg       = toutes.length ? toutes.reduce((a, n) => a + n, 0) / toutes.length : 0;
+
         return {
           ...v,
           _productCount: vProducts.length,
           _salesCount:   vSales,
           _avgRating:    Math.round(avg * 10) / 10,
-          _ratingCount:  vRatings.length,
+          _ratingCount:  toutes.length,
+          _verifiedCount: verifies.length,
+          _avis:         verifies.filter(r => r.text),      // les commentaires écrits
           _products:     vProducts,
           _categories:   [...new Set(vProducts.map(p => p.type).filter(Boolean))],
         };
@@ -408,6 +518,22 @@ const BoutiquesPage = () => {
       .sort((a, b) => b.nb - a.nb);
   }, [products]);
 
+  // Note moyenne par produit, tirée des avis d'acheteurs.
+  const noteProduit = useMemo(() => {
+    const m = {};
+    avisProduit.forEach(a => {
+      (m[a.product_id] ||= { total: 0, n: 0 });
+      m[a.product_id].total += a.rating; m[a.product_id].n += 1;
+    });
+    Object.values(m).forEach(x => { x.moy = Math.round((x.total / x.n) * 10) / 10; });
+    return m;
+  }, [avisProduit]);
+
+  const avecNote = useCallback(
+    (p) => ({ ...p, _note: noteProduit[p.id]?.moy || 0, _avis: noteProduit[p.id]?.n || 0 }),
+    [noteProduit]
+  );
+
   const nomBoutique = useMemo(
     () => Object.fromEntries(vendors.map(v => [v.id, v.shop_name])),
     [vendors]
@@ -439,8 +565,39 @@ const BoutiquesPage = () => {
   const top3 = vendors.slice(0, 3);
 
   const nouveautes = useMemo(
-    () => [...products].sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0)).slice(0, 6),
-    [products]
+    () => [...products].sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0))
+            .slice(0, 8).map(avecNote),
+    [products, avecNote]
+  );
+
+  // Mieux notés : une seule étoile d'un seul client ne fait pas une réputation.
+  // On demande au moins deux avis pour figurer dans ce classement.
+  const mieuxNotes = useMemo(
+    () => products.map(avecNote).filter(p => p._avis >= 2)
+            .sort((a, b) => b._note - a._note || b._avis - a._avis).slice(0, 8),
+    [products, avecNote]
+  );
+
+  // À la une : les produits des boutiques les mieux classées, un par boutique
+  // pour ne pas donner huit fois la même enseigne.
+  const alaune = useMemo(() => {
+    const out = [];
+    vendors.forEach(v => { if (v._products?.[0]) out.push(avecNote(v._products[0])); });
+    return out.slice(0, 8);
+  }, [vendors, avecNote]);
+
+  const ONGLETS = [
+    { key: "une",   label: "À la une",     data: alaune },
+    { key: "notes", label: "Mieux notés",  data: mieuxNotes },
+    { key: "neufs", label: "Nouveautés",   data: nouveautes },
+  ];
+  const onglet_actif = ONGLETS.find(o => o.key === onglet) || ONGLETS[0];
+
+  // Les commentaires écrits, toutes boutiques : c'est ce qui rassure un
+  // visiteur qui ne connaît aucune des enseignes.
+  const temoignages = useMemo(
+    () => avisBoutique.filter(a => a.text).slice(0, 6),
+    [avisBoutique]
   );
 
   // Les boutiques mises en avant du carrousel : les mieux classées qui ont de
@@ -570,23 +727,116 @@ const BoutiquesPage = () => {
           </div>
         </div>
 
-        {/* ══ NOUVEAUTÉS ══════════════════════════════════════════════════════ */}
-        {nouveautes.length > 0 && (
-          <section className="bg-white rounded-2xl border p-4 sm:p-5" style={{ borderColor: LINE }}>
-            <div className="flex items-end justify-between gap-3 mb-4">
-              <div>
-                <h2 className="text-[18px] font-black leading-none" style={{ color: INK }}>Derniers arrivages</h2>
-                <p className="text-[12px] mt-1" style={{ color: MUTED }}>Les produits mis en ligne récemment, toutes boutiques confondues.</p>
+        {/* ══ PRODUITS : trois colonnes ═══════════════════════════════════════ */}
+        {/* Le rayon central porte les produits, les deux colonnes latérales
+            servent ce qu'on ne cherche pas mais qu'on prend : les arrivages
+            d'un côté, les mieux notés de l'autre. */}
+        <div className="grid grid-cols-1 lg:grid-cols-[240px_1fr] xl:grid-cols-[240px_1fr_250px] gap-5">
+
+          {/* Colonne gauche : nouveautés */}
+          <aside className="hidden lg:block space-y-5 self-start">
+            <div className="bg-white rounded-2xl border overflow-hidden" style={{ borderColor: LINE }}>
+              <div className="px-4 py-3 border-b flex items-center justify-between" style={{ borderColor: LINE }}>
+                <p className="text-[11px] font-black uppercase tracking-wider" style={{ color: INK }}>Nouveautés</p>
+                <span className="h-0.5 w-6 rounded-full" style={{ background: ACCENT }} />
               </div>
-              <div className="h-1 w-16 rounded-full flex-shrink-0" style={{ background: ACCENT }} />
+              <div className="px-4 divide-y" style={{ borderColor: "#F0F2F2" }}>
+                {nouveautes.slice(0, 5).map(p => <ProductRow key={p.id} p={p} />)}
+                {nouveautes.length === 0 && (
+                  <p className="py-6 text-[11px] text-center" style={{ color: MUTED }}>Aucun produit encore.</p>
+                )}
+              </div>
             </div>
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-              {nouveautes.map(p => (
-                <ProductCardWide key={p.id} p={p} shop={nomBoutique[p.vendor_id]} />
+
+            {temoignages[0] && (
+              <div className="bg-white rounded-2xl border p-4" style={{ borderColor: LINE }}>
+                <p className="text-[11px] font-black uppercase tracking-wider mb-2.5" style={{ color: INK }}>
+                  Ils ont acheté
+                </p>
+                <Stars value={temoignages[0].rating} size="text-[11px]" />
+                <p className="text-[12px] italic leading-relaxed mt-2" style={{ color: MUTED }}>
+                  « {temoignages[0].text} »
+                </p>
+                <p className="text-[11px] font-bold mt-2" style={{ color: INK }}>
+                  {temoignages[0].user_name || "Client Buyticle"}
+                </p>
+              </div>
+            )}
+          </aside>
+
+          {/* Colonne centrale : les produits, par onglet */}
+          <section className="bg-white rounded-2xl border p-4 sm:p-5" style={{ borderColor: LINE }}>
+            <div className="flex items-center justify-between gap-3 flex-wrap mb-4 pb-3 border-b" style={{ borderColor: LINE }}>
+              <div className="flex items-center gap-2">
+                <span className="h-4 w-1 rounded-full" style={{ background: ACCENT }} />
+                <h2 className="text-[16px] font-black" style={{ color: INK }}>Les produits du réseau</h2>
+              </div>
+              <div className="flex items-center gap-1">
+                {ONGLETS.map(o => (
+                  <button key={o.key} onClick={() => setOnglet(o.key)}
+                    className="px-3 py-1.5 rounded-full text-[11.5px] font-bold transition-colors"
+                    style={onglet === o.key
+                      ? { background: ACCENT, color: INK }
+                      : { color: MUTED }}>
+                    {o.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {onglet_actif.data.length === 0 ? (
+              <p className="py-14 text-center text-[12px]" style={{ color: MUTED }}>
+                {onglet === "notes"
+                  ? "Aucun produit n'a encore assez d'avis pour être classé."
+                  : "Aucun produit à afficher."}
+              </p>
+            ) : (
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                {onglet_actif.data.map(p => (
+                  <ProductCardRated key={p.id} p={p} shop={nomBoutique[p.vendor_id]} />
+                ))}
+              </div>
+            )}
+          </section>
+
+          {/* Colonne droite : services et mieux notés */}
+          <aside className="hidden xl:block space-y-5 self-start">
+            <div className="bg-white rounded-2xl border p-4 space-y-3" style={{ borderColor: LINE }}>
+              {[
+                { i: "fa-truck-fast",    t: "Livraison Buyticle", s: "Suivie, avec code de remise" },
+                { i: "fa-shield-halved", t: "Paiement protégé",   s: "L'argent est bloqué 48 h" },
+                { i: "fa-rotate-left",   t: "Retour possible",    s: "48 h après la livraison" },
+                { i: "fa-circle-check",  t: "Avis vérifiés",      s: "Déposés après réception" },
+              ].map(x => (
+                <div key={x.t} className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
+                    style={{ background: "#FFF4D6", color: "#8A6100" }}>
+                    <i className={`fa-solid ${x.i} text-[13px]`} />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-[12px] font-bold leading-tight" style={{ color: INK }}>{x.t}</p>
+                    <p className="text-[10.5px]" style={{ color: MUTED }}>{x.s}</p>
+                  </div>
+                </div>
               ))}
             </div>
-          </section>
-        )}
+
+            <div className="bg-white rounded-2xl border overflow-hidden" style={{ borderColor: LINE }}>
+              <div className="px-4 py-3 border-b flex items-center justify-between" style={{ borderColor: LINE }}>
+                <p className="text-[11px] font-black uppercase tracking-wider" style={{ color: INK }}>Mieux notés</p>
+                <span className="h-0.5 w-6 rounded-full" style={{ background: ACCENT }} />
+              </div>
+              <div className="px-4 divide-y" style={{ borderColor: "#F0F2F2" }}>
+                {mieuxNotes.slice(0, 5).map(p => <ProductRow key={p.id} p={p} />)}
+                {mieuxNotes.length === 0 && (
+                  <p className="py-6 text-[11px] text-center" style={{ color: MUTED }}>
+                    Pas encore assez d'avis.
+                  </p>
+                )}
+              </div>
+            </div>
+          </aside>
+        </div>
 
         {/* ══ TOP RAYONS ══════════════════════════════════════════════════════ */}
         {categories.length > 0 && (
@@ -691,6 +941,28 @@ const BoutiquesPage = () => {
           </div>
         </section>
 
+        {/* ══ CE QUE DISENT LES CLIENTS ═══════════════════════════════════════ */}
+        {/* Un visiteur qui ne connaît aucune de ces enseignes ne se décide pas
+            sur un score : il se décide sur ce qu'un autre client a écrit. */}
+        {temoignages.length > 0 && (
+          <section>
+            <div className="flex items-end justify-between gap-3 mb-4">
+              <div>
+                <h2 className="text-[18px] font-black leading-none" style={{ color: INK }}>Ce que disent les clients</h2>
+                <p className="text-[12px] mt-1" style={{ color: MUTED }}>
+                  Des avis déposés après réception de la commande — jamais avant.
+                </p>
+              </div>
+              <div className="h-1 w-16 rounded-full flex-shrink-0" style={{ background: ACCENT }} />
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+              {temoignages.slice(0, 3).map((a, i) => (
+                <AvisCard key={i} a={a} shop={nomBoutique[a.vendor_id]} />
+              ))}
+            </div>
+          </section>
+        )}
+
         {/* ══ LE RAYON, PRODUIT PAR PRODUIT ═══════════════════════════════════ */}
         {/* Filtrer par rayon doit montrer le rayon, pas seulement qui le tient. */}
         {cat !== "Toutes" && (() => {
@@ -706,7 +978,7 @@ const BoutiquesPage = () => {
                 <div className="h-1 w-16 rounded-full flex-shrink-0" style={{ background: ACCENT }} />
               </div>
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-                {duRayon.map(p => <ProductCardWide key={p.id} p={p} shop={nomBoutique[p.vendor_id]} />)}
+                {duRayon.map(p => <ProductCardRated key={p.id} p={avecNote(p)} shop={nomBoutique[p.vendor_id]} />)}
               </div>
             </section>
           );
