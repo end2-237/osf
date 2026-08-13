@@ -3,6 +3,8 @@ import { useParams, Link, useSearchParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import ProductCard from '../components/ProductCard';
 import { getVendorDiscountPercent } from '../utils/discountUtils';
+import { amorcer } from '../lib/productRatings';
+import { logError } from '../lib/track';
 
 /* ──────────────────────────────────────────────────────────────────────────
    Jetons de style — alignés sur la page Panier (panneaux blancs sur fond
@@ -64,7 +66,117 @@ const ProductSkeleton = () => (
 );
 
 /* ── EN-TÊTE BOUTIQUE ───────────────────────────────────────────────────── */
-const ShopHeader = ({ vendor, products, loading }) => {
+/* ── Étoiles ────────────────────────────────────────────────────────────────
+   Aucune valeur par défaut : sans avis, on n'affiche pas d'étoiles.
+   ────────────────────────────────────────────────────────────────────────── */
+const Etoiles = ({ note = 0, taille = 'text-[12px]' }) => (
+  <span className="inline-flex items-center gap-0.5 text-[#FF9900]">
+    {[1, 2, 3, 4, 5].map(s => (
+      <i key={s} className={`fa-star ${taille} ${s <= Math.round(note) ? 'fa-solid' : 'fa-regular'}`} />
+    ))}
+  </span>
+);
+
+/* ── CE QUE DISENT LES CLIENTS ──────────────────────────────────────────────
+   Chaque avis vient d'une commande livrée : un client ne peut en déposer un
+   qu'après avoir reçu son colis, et une commande ne donne qu'un avis. C'est
+   ce qui les distingue d'une note laissée en passant, et ça se dit.
+   ────────────────────────────────────────────────────────────────────────── */
+const dateCourte = (d) => {
+  try {
+    return new Date(d).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
+  } catch { return ''; }
+};
+
+const AvisPanel = ({ avis = [] }) => {
+  const [tout, setTout] = useState(false);
+  if (!avis.length) return null;
+
+  const ecrits = avis.filter(a => a.text);
+  const montres = tout ? avis : avis.slice(0, 6);
+  const repartition = [5, 4, 3, 2, 1].map(n => ({
+    n, c: avis.filter(a => Number(a.rating) === n).length,
+  }));
+  const moyenne = Math.round((avis.reduce((a, r) => a + Number(r.rating || 0), 0) / avis.length) * 10) / 10;
+
+  return (
+    <div className={`${PANEL} px-4 md:px-6 py-5`}>
+      <div className="flex items-center gap-2 mb-4">
+        <i className="fa-solid fa-comments text-[#FF9900]" />
+        <h2 className={`text-[16px] font-bold ${TXT}`}>Ce que disent les clients</h2>
+        <span className={`text-[12px] ${MUTED}`}>({avis.length})</span>
+      </div>
+
+      <div className="flex flex-col md:flex-row gap-5">
+        {/* Synthèse */}
+        <div className="md:w-[220px] flex-shrink-0">
+          <div className="flex items-baseline gap-2">
+            <span className={`text-[32px] font-bold leading-none ${TXT}`}>{moyenne.toFixed(1)}</span>
+            <span className={`text-[13px] ${MUTED}`}>/ 5</span>
+          </div>
+          <div className="mt-1"><Etoiles note={moyenne} taille="text-[14px]" /></div>
+          <p className={`text-[11px] mt-1.5 ${OK}`}>
+            <i className="fa-solid fa-circle-check text-[10px] mr-1" />
+            Tous déposés après livraison
+          </p>
+          <div className="mt-3 space-y-1">
+            {repartition.map(({ n, c }) => (
+              <div key={n} className="flex items-center gap-2">
+                <span className={`text-[11px] w-8 ${MUTED}`}>{n} ★</span>
+                <div className="flex-1 h-1.5 rounded-full bg-[#F0F2F2] dark:bg-zinc-800 overflow-hidden">
+                  <div className="h-full bg-[#FF9900]"
+                       style={{ width: `${avis.length ? (c / avis.length) * 100 : 0}%` }} />
+                </div>
+                <span className={`text-[11px] w-5 text-right ${FAINT}`}>{c}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Les avis */}
+        <div className="flex-1 min-w-0">
+          {ecrits.length === 0 && (
+            <p className={`text-[13px] ${MUTED} mb-3`}>
+              Les clients ont noté cette boutique sans laisser de commentaire.
+            </p>
+          )}
+          <div className="grid sm:grid-cols-2 gap-3">
+            {montres.map(a => (
+              <div key={a.id} className={`border ${DIV} rounded-lg p-3`}>
+                <div className="flex items-center justify-between gap-2">
+                  <Etoiles note={Number(a.rating) || 0} taille="text-[11px]" />
+                  <span className={`text-[11px] ${FAINT}`}>{dateCourte(a.created_at)}</span>
+                </div>
+                {a.text
+                  ? <p className={`text-[13px] mt-1.5 ${TXT}`}>« {a.text} »</p>
+                  : <p className={`text-[12px] mt-1.5 italic ${MUTED}`}>Note laissée sans commentaire.</p>}
+                <p className={`text-[11px] mt-2 ${MUTED}`}>
+                  {a.user_name || 'Client Buyticle'}
+                  <span className={`ml-2 ${OK}`}>
+                    <i className="fa-solid fa-circle-check text-[9px] mr-1" />achat vérifié
+                  </span>
+                </p>
+              </div>
+            ))}
+          </div>
+          {avis.length > 6 && (
+            <button onClick={() => setTout(t => !t)} className={`mt-3 text-[13px] font-medium ${LINK}`}>
+              {tout ? 'Réduire' : `Voir les ${avis.length} avis`}
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const ShopHeader = ({ vendor, products, loading, avis = [] }) => {
+  // Un avis boutique est adossé à une commande livrée : on ne peut pas en
+  // fabriquer. C'est pour ça qu'on le dit explicitement.
+  const nbAvis = avis.length;
+  const moyenne = nbAvis
+    ? Math.round((avis.reduce((a, r) => a + Number(r.rating || 0), 0) / nbAvis) * 10) / 10
+    : 0;
   const categories = [...new Set(products.map(p => p.type))].filter(Boolean);
   const cheapest   = products.length
     ? Math.min(...products.map(p => Number(p.price) || 0))
@@ -118,6 +230,16 @@ const ShopHeader = ({ vendor, products, loading }) => {
               {vendor?.full_name}
               {vendor?.city && <> · {vendor.city}</>}
             </p>
+            {nbAvis > 0 && (
+              <p className="flex items-center gap-1.5 mt-0.5 text-[12px]">
+                <Etoiles note={moyenne} />
+                <b className={TXT}>{moyenne.toFixed(1)}</b>
+                <span className={OK}>
+                  <i className="fa-solid fa-circle-check text-[10px] mr-1" />
+                  {nbAvis} avis après livraison
+                </span>
+              </p>
+            )}
           </div>
         </div>
 
@@ -281,6 +403,7 @@ const ShopPage = ({ openModal, addToCart }) => {
   const [loading,  setLoading]  = useState(true);
   const [creator,  setCreator]  = useState(null);   // profil public du gérant
   const [shows,    setShows]    = useState([]);     // lives de la boutique
+  const [avis,     setAvis]     = useState([]);     // avis déposés après livraison
 
   const [searchQuery,    setSearchQuery]    = useState('');
   const [activeCategory, setActiveCategory] = useState('Tous');
@@ -332,6 +455,32 @@ const ShopPage = ({ openModal, addToCart }) => {
         ]);
         setCreator(prof || null);
         setShows(liveShows || []);
+
+        // Les avis de la boutique. Ils étaient chargés sur la liste des
+        // boutiques mais pas ici, sur la page de la boutique elle-même — donc
+        // un vendeur qui recevait un avis ne le voyait nulle part chez lui.
+        const { data: vAvis, error: aErr } = await supabase
+          .from('vendor_reviews')
+          .select('id, rating, text, user_name, created_at')
+          .eq('vendor_id', vendorData.id)
+          .order('created_at', { ascending: false })
+          .limit(100);
+        if (aErr) logError(aErr, 'boutique:vendor_reviews');
+        setAvis(vAvis || []);
+
+        // Les notes produit de cette boutique, en une seule requête : les
+        // cartes les liront dans le cache partagé au lieu d'interroger
+        // chacune de leur côté.
+        const ids = (pData || []).map(p => p.id);
+        if (ids.length) {
+          const { data: pAvis, error: rErr } = await supabase
+            .from('reviews')
+            .select('product_id, rating')
+            .eq('approved', true)
+            .in('product_id', ids);
+          if (rErr) logError(rErr, 'boutique:reviews');
+          else amorcer(pAvis || [], ids);
+        }
       } catch (err) {
         console.error('Erreur boutique:', err.message);
       } finally {
@@ -417,7 +566,7 @@ const ShopPage = ({ openModal, addToCart }) => {
       <div className="max-w-[1500px] mx-auto space-y-2 md:space-y-3">
 
         {/* ═══ EN-TÊTE BOUTIQUE ═══ */}
-        <ShopHeader vendor={vendor} products={products} loading={loading} />
+        <ShopHeader vendor={vendor} products={products} loading={loading} avis={avis} />
 
         {/* ═══ CRÉATEUR & LIVES ═══ */}
         {!loading && vendor && <CreatorPanel vendor={vendor} creator={creator} shows={shows} />}
@@ -687,6 +836,9 @@ const ShopPage = ({ openModal, addToCart }) => {
                 )}
               </div>
             </div>
+
+            {/* ═══ CE QUE DISENT LES CLIENTS ═══ */}
+            <AvisPanel avis={avis} />
 
             {/* Retour marketplace */}
             <div className={`${PANEL} px-4 md:px-6 py-5 flex flex-col sm:flex-row items-center justify-between gap-3`}>

@@ -9,6 +9,7 @@ import {
   getVendorDiscountPercent,
   isVendorDiscountEnabled,
 } from "../utils/discountUtils";
+import { useProductRating, noteAffichable } from "../lib/productRatings";
 
 // ─── Color hex resolution ─────────────────────────────────────────────────────
 const COLOR_HEX = {
@@ -30,7 +31,8 @@ const resolveHex = (name = "") => {
 };
 
 // ─── Star Rating ──────────────────────────────────────────────────────────────
-const StarRating = ({ rating = 4.2, count = null }) => {
+// Pas de note par défaut : une carte sans avis n'affiche pas d'étoiles.
+const StarRating = ({ rating = 0, count = null }) => {
   const fullStars  = Math.floor(rating);
   const halfStar   = rating - fullStars >= 0.5;
   const emptyStars = 5 - fullStars - (halfStar ? 1 : 0);
@@ -62,8 +64,12 @@ const ProductCard = React.memo(({ product, openModal, addToCart }) => {
   const discountActive = isMember && vendorHasPromo;
   const memberPrice    = discountActive ? applyVendorDiscount(originalPrice, product) : originalPrice;
 
-  const ratingVal   = 3.8 + ((product.id?.charCodeAt(0) || 65) % 12) * 0.1;
-  const reviewCount = 10 + ((product.id?.charCodeAt(0) || 65) % 200);
+  // La note vient des avis réellement déposés — voir src/lib/productRatings.js
+  // pour ce qu'elle remplace. `null` tant qu'on ne sait pas, et un objet à
+  // zéro quand on sait qu'il n'y a pas encore d'avis : ce n'est pas la même
+  // chose et ça ne s'affiche pas pareil.
+  const avis = useProductRating(product.id);
+  const note = noteAffichable(product, avis);
 
   // Only show swatches when there are 3+ distinct non-generic colors
   // (CJ products often only have ["Black","White"] which adds no value)
@@ -180,9 +186,15 @@ const ProductCard = React.memo(({ product, openModal, addToCart }) => {
           {translatedName}
         </h3>
 
-        {/* STARS */}
-        <div className="mb-1">
-          <StarRating rating={ratingVal} count={reviewCount} />
+        {/* STARS — réelles, ou la place qu'elles prendront */}
+        <div className="mb-1 min-h-[16px]">
+          {note
+            ? <StarRating rating={note.rating} count={note.count} />
+            : avis && (
+                <span className="text-[11px] text-[#565959] dark:text-zinc-400">
+                  Pas encore d'avis
+                </span>
+              )}
         </div>
 
         {/* PRICE */}

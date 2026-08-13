@@ -14,6 +14,7 @@ import { useLang } from "../context/LangContext";
 import { translateText, stripHtml } from "../lib/translate";
 import { useSEO } from "../hooks/useSEO";
 import { useJsonLd } from "../hooks/useJsonLd";
+import { useProductRating, noteAffichable } from "../lib/productRatings";
 
 
 
@@ -71,7 +72,7 @@ const OFSSeal = ({ size = 64 }) => (
 );
 
 // ─── STAR RATING ──────────────────────────────────────────────────────────────
-const StarRating = ({ rating = 4.2, count = null }) => {
+const StarRating = ({ rating = 0, count = null }) => {
   const full = Math.floor(rating);
   const half = rating - full >= 0.5;
   const empty = 5 - full - (half ? 1 : 0);
@@ -1251,8 +1252,13 @@ const ProductDetail = ({ addToCart, openModal }) => {
     return { galleryImages: imgs, colorImageMap: cMap };
   }, [product?.images, product?.img, product?.variants, product?.product_video]);
 
-  const ratingVal   = product?.rating_avg  || 4.2;
-  const reviewCount = product?.review_count || 0;
+  // La note de l'en-tête suit les avis réellement déposés sur Buyticle, et
+  // retombe sur celle du fournisseur seulement si elle existe. Elle valait
+  // 4,2 par défaut : une note affichée sans qu'aucun client ne l'ait donnée.
+  const avisProduit = useProductRating(product?.id);
+  const note        = noteAffichable(product, avisProduit);
+  const ratingVal   = note?.rating || 0;
+  const reviewCount = note?.count  || 0;
 
   // ── Translation ────────────────────────────────────────────────────────────
   const { lang } = useLang();
@@ -1420,7 +1426,9 @@ const ProductDetail = ({ addToCart, openModal }) => {
 
                 {/* Rating + sold */}
                 <div className="flex items-center gap-3 flex-wrap mb-1">
-                  <StarRating rating={ratingVal} count={reviewCount} />
+                  {reviewCount > 0
+                    ? <StarRating rating={ratingVal} count={reviewCount} />
+                    : <span className="text-sm text-[#565959]">Pas encore d'avis</span>}
                   <span className="text-[#D5D9D9]">|</span>
                   <span className="text-sm font-bold text-[#CC0C39]">
                     <i className="fa-solid fa-fire text-xs mr-1" />
