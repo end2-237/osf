@@ -1,0 +1,872 @@
+<title>Le marché de Mboppi</title>
+<style>
+:root{
+  --ground:#EDF1F0; --panel:#FFFFFF; --panel2:#F6F9F8;
+  --ink:#15201E; --muted:#5B6C69; --faint:#8A9A97;
+  --line:#D7DFDD; --line2:#B6C4C1;
+  --teal:#0E6E63; --teal-soft:#E2EEEC;
+  --gold:#9C6300; --gold-soft:#F8EFDC;
+  --gain:#12613F; --cost:#9A3324;
+  --sky1:#CFDAD8; --sky2:#E8EEED;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --ground:#0D1312; --panel:#151D1C; --panel2:#1A2322;
+  --ink:#E7EEEC; --muted:#95A8A5; --faint:#6E807D;
+  --line:#26322F; --line2:#374644;
+  --teal:#4FC2B3; --teal-soft:#14302C;
+  --gold:#E2A340; --gold-soft:#291F12;
+  --gain:#53BC8C; --cost:#E4796A;
+  --sky1:#101A19; --sky2:#16211F;
+}}
+:root[data-theme="dark"]{
+  --ground:#0D1312; --panel:#151D1C; --panel2:#1A2322;
+  --ink:#E7EEEC; --muted:#95A8A5; --faint:#6E807D;
+  --line:#26322F; --line2:#374644;
+  --teal:#4FC2B3; --teal-soft:#14302C;
+  --gold:#E2A340; --gold-soft:#291F12;
+  --gain:#53BC8C; --cost:#E4796A;
+  --sky1:#101A19; --sky2:#16211F;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{
+  background:var(--ground); color:var(--ink);
+  font-family:"Segoe UI",system-ui,-apple-system,"Helvetica Neue",Arial,sans-serif;
+  overflow:hidden;
+}
+.mono{font-family:ui-monospace,"SF Mono","Cascadia Mono",Menlo,Consolas,monospace;
+      font-variant-numeric:tabular-nums}
+
+#app{position:fixed; inset:0; display:flex; flex-direction:column}
+#stage{position:relative; flex:1; min-height:0; overflow:hidden}
+canvas{position:absolute; inset:0; width:100%; height:100%; display:block}
+
+/* ── bandeau du haut ── */
+#top{position:absolute; top:0; left:0; right:0; display:flex; flex-wrap:wrap;
+     gap:10px; padding:12px 14px; pointer-events:none; z-index:5}
+.card{background:var(--panel); border:1px solid var(--line); padding:9px 13px;
+      display:flex; flex-direction:column; gap:2px; box-shadow:0 1px 3px rgba(0,0,0,.07)}
+.card .k{font-size:10px; letter-spacing:.11em; text-transform:uppercase;
+         color:var(--muted); font-weight:700; white-space:nowrap}
+.card .v{font-size:19px; font-weight:700; letter-spacing:-.01em}
+.card.big .v{font-size:23px}
+#top .spacer{flex:1}
+
+/* ── narration ── */
+#narr{position:absolute; left:0; right:0; bottom:0; padding:16px 14px 18px;
+      background:linear-gradient(to top, var(--panel) 62%, transparent);
+      z-index:6; pointer-events:none}
+#narrIn{max-width:760px; margin:0 auto; display:flex; flex-direction:column; gap:6px}
+#step{font-size:11px; font-weight:800; letter-spacing:.14em; text-transform:uppercase; color:var(--teal)}
+#line{font-size:clamp(17px,2.6vw,23px); line-height:1.34; font-weight:600; text-wrap:balance; min-height:2.7em}
+#sub{font-size:14.5px; color:var(--muted); line-height:1.45; min-height:1.4em}
+
+/* ── contrôles ── */
+#ctrl{display:flex; align-items:center; gap:8px; padding:10px 14px;
+      background:var(--panel); border-top:1px solid var(--line); flex-wrap:wrap; z-index:8}
+button{font:inherit; font-size:14px; font-weight:600; color:var(--ink);
+       background:var(--panel2); border:1px solid var(--line2); padding:8px 14px;
+       cursor:pointer; transition:background .15s, border-color .15s}
+button:hover{background:var(--teal-soft); border-color:var(--teal)}
+button:focus-visible{outline:2px solid var(--teal); outline-offset:2px}
+button.on{background:var(--teal); border-color:var(--teal); color:#fff}
+button[disabled]{opacity:.4; cursor:default}
+#bar{flex:1; min-width:120px; height:6px; background:var(--line); position:relative; overflow:hidden}
+#barIn{position:absolute; inset:0 100% 0 0; background:var(--teal); transition:right .2s linear}
+#clock{font-size:13px; color:var(--muted); white-space:nowrap}
+
+/* ── panneau boutique / téléphone ── */
+#side{position:absolute; top:70px; right:14px; width:min(300px,44vw); z-index:7;
+      background:var(--panel); border:1px solid var(--line); box-shadow:0 4px 16px rgba(0,0,0,.10);
+      display:none; flex-direction:column; max-height:calc(100% - 190px)}
+#side.show{display:flex}
+#sideH{padding:11px 14px; border-bottom:1px solid var(--line); background:var(--panel2)}
+#sideH .t{font-size:15px; font-weight:700}
+#sideH .s{font-size:11.5px; color:var(--muted); margin-top:1px}
+#sideB{padding:8px 0; overflow:auto}
+.row{display:flex; justify-content:space-between; gap:10px; padding:6px 14px; font-size:13px; align-items:baseline}
+.row .nm{flex:1}
+.row .st{color:var(--muted); white-space:nowrap; font-size:12px}
+.row .st.ko{color:var(--cost); font-weight:700}
+.row .st.ok{color:var(--gain); font-weight:700}
+
+/* ── écran téléphone ── */
+#phone{position:absolute; z-index:9; left:50%; top:50%; transform:translate(-50%,-50%) scale(.9);
+       width:min(330px,86vw); background:var(--panel); border:2px solid var(--ink);
+       box-shadow:0 12px 40px rgba(0,0,0,.28); opacity:0; pointer-events:none;
+       transition:opacity .35s, transform .35s; display:flex; flex-direction:column}
+#phone.show{opacity:1; transform:translate(-50%,-50%) scale(1)}
+#phH{padding:11px 14px; background:var(--ink); color:#fff; display:flex; justify-content:space-between; align-items:center}
+#phH .b{font-size:13px; font-weight:800; letter-spacing:.06em}
+#phH .c{font-size:11px; opacity:.75}
+#phB{padding:12px 14px; display:flex; flex-direction:column; gap:9px}
+.ask{font-size:13.5px; color:var(--muted)}
+.ask b{color:var(--ink)}
+.cand{border:1px solid var(--line); padding:9px 11px; display:flex; align-items:center; gap:10px;
+      transition:background .3s, border-color .3s; font-size:13.5px}
+.cand .nm{flex:1; font-weight:600}
+.cand .sc{font-size:11.5px; color:var(--muted); text-align:right; line-height:1.25}
+.cand.win{background:var(--teal-soft); border-color:var(--teal)}
+.cand.win .sc{color:var(--teal); font-weight:700}
+.cand .tick{width:14px; color:var(--teal); font-weight:800; opacity:0}
+.cand.win .tick{opacity:1}
+#phFoot{padding:10px 14px; border-top:1px solid var(--line); font-size:12.5px; color:var(--muted)}
+
+/* ── carte de fin ── */
+#end{position:absolute; inset:0; z-index:10; background:var(--panel); overflow:auto;
+     opacity:0; pointer-events:none; transition:opacity .5s}
+#end.show{opacity:1; pointer-events:auto}
+#endIn{max-width:860px; margin:0 auto; padding:44px 20px 90px}
+#end h2{font-family:Georgia,"Iowan Old Style",serif; font-size:clamp(26px,4.4vw,38px);
+        line-height:1.14; margin:0 0 6px; font-weight:600}
+#end .kicker{font-size:11.5px; font-weight:800; letter-spacing:.14em; text-transform:uppercase;
+             color:var(--teal); margin-bottom:10px}
+#end p{margin:0; color:var(--muted); font-size:16px; line-height:1.6}
+.cmp{display:grid; grid-template-columns:1fr 1fr; gap:1px; background:var(--line);
+     border:1px solid var(--line); margin:26px 0}
+.cmp>div{background:var(--panel); padding:18px}
+.cmp h3{margin:0 0 12px; font-size:12px; letter-spacing:.12em; text-transform:uppercase; color:var(--muted)}
+.cmp .l{display:flex; justify-content:space-between; gap:10px; padding:7px 0;
+        border-bottom:1px solid var(--line); font-size:14.5px}
+.cmp .l:last-child{border-bottom:none}
+.cmp .l b{font-weight:700}
+.big-num{font-size:clamp(30px,6vw,46px); font-weight:800; letter-spacing:-.02em; color:var(--gain);
+         font-family:ui-monospace,Menlo,monospace}
+.foot{border-top:1px solid var(--line); margin-top:26px; padding-top:16px; font-size:14px; color:var(--muted); line-height:1.6}
+@media (max-width:560px){
+  .cmp{grid-template-columns:1fr}
+  #side{display:none !important}
+  #top .card:nth-child(n+4){display:none}
+}
+@media (prefers-reduced-motion:reduce){#phone{transition:none} #end{transition:none}}
+</style>
+
+<div id="app">
+  <div id="stage">
+    <canvas id="cv"></canvas>
+
+    <div id="top">
+      <div class="card big"><span class="k">Jour</span><span class="v mono" id="hDay">1</span></div>
+      <div class="card"><span class="k">Clients servis</span><span class="v mono" id="hServ">0</span></div>
+      <div class="card"><span class="k">Clients envoyés</span><span class="v mono" id="hSend">0</span></div>
+      <div class="card"><span class="k">Clients reçus</span><span class="v mono" id="hRecv">0</span></div>
+      <div class="card"><span class="k">Gagné</span><span class="v mono" id="hCash">0 F</span></div>
+      <div class="spacer"></div>
+      <div class="card"><span class="k">Perdus sans rien</span><span class="v mono" id="hLost" style="color:var(--cost)">0</span></div>
+    </div>
+
+    <div id="side">
+      <div id="sideH"><div class="t" id="sideT">—</div><div class="s" id="sideS">—</div></div>
+      <div id="sideB"></div>
+    </div>
+
+    <div id="phone">
+      <div id="phH"><span class="b">BUYTICLE</span><span class="c" id="phC">recherche…</span></div>
+      <div id="phB">
+        <div class="ask" id="phAsk">—</div>
+        <div id="phList"></div>
+      </div>
+      <div id="phFoot" id="phF">—</div>
+    </div>
+
+    <div id="narr"><div id="narrIn">
+      <div id="step">Chargement</div>
+      <div id="line">Le marché de Mboppi</div>
+      <div id="sub">Quatorze boutiques, une allée, et une journée qui commence.</div>
+    </div></div>
+
+    <div id="end"><div id="endIn">
+      <div class="kicker">Fin du mois</div>
+      <h2>Toi, lundi matin. Toi, trente jours après.</h2>
+      <p>Tu n'as rien changé à ta boutique. Tu n'as avancé aucun argent. Tu as
+      seulement arrêté de laisser partir les gens que tu ne pouvais pas servir.</p>
+      <div class="cmp">
+        <div>
+          <h3>Le premier lundi</h3>
+          <div class="l"><span>Clients que tu n'as pas pu servir</span><b>6 ce jour-là</b></div>
+          <div class="l"><span>Ce qu'ils t'ont rapporté</span><b class="mono">0 F</b></div>
+          <div class="l"><span>Clients venus d'ailleurs</span><b class="mono">0</b></div>
+          <div class="l"><span>Ventes en plus</span><b class="mono">0 F</b></div>
+        </div>
+        <div>
+          <h3>Le dernier vendredi</h3>
+          <div class="l"><span>Clients envoyés chez un voisin</span><b class="mono">33</b></div>
+          <div class="l"><span>Ce qu'ils t'ont rapporté</span><b class="mono" style="color:var(--gain)">49 770 F</b></div>
+          <div class="l"><span>Clients venus d'ailleurs</span><b class="mono">24</b></div>
+          <div class="l"><span>Ventes en plus</span><b class="mono" style="color:var(--gain)">466 500 F</b></div>
+        </div>
+      </div>
+      <p style="margin-bottom:6px">Ce qui reste dans ta poche, tout payé —
+      les 500 F à ton vendeur sur chaque envoi, et les 3 % sur les clients qu'on t'a amenés :</p>
+      <div class="big-num">+ 20 775 F</div>
+      <p style="margin-top:6px">Plus <b style="color:var(--ink)">466 500 F</b> de marchandise vendue
+      à des gens qui ne seraient jamais entrés chez toi.</p>
+      <div class="foot">
+        <p><b style="color:var(--ink)">Et les autres ?</b> Les quatorze boutiques du marché
+        ont gagné 415 842 F ensemble, et se sont vendu 5 940 600 F de marchandise.
+        Aucune n'a reçu moins de cinq clients dans le mois — parce que celui qui
+        reçoit doit d'abord avoir donné.</p>
+      </div>
+    </div></div>
+  </div>
+
+  <div id="ctrl">
+    <button id="bPlay" class="on">Pause</button>
+    <button id="bBack">Reculer</button>
+    <button id="bNext">Avancer</button>
+    <button id="bSpeed">Vitesse ×1</button>
+    <button id="bRestart">Recommencer</button>
+    <div id="bar"><div id="barIn"></div></div>
+    <span id="clock" class="mono">0:00 / 2:40</span>
+  </div>
+</div>
+
+<script>
+"use strict";
+/* ══════════════════════════════════════════════════════════════════════════
+   LE MARCHÉ — projection isométrique dessinée à la main sur Canvas 2D.
+   Aucune bibliothèque : le CSP d'un artifact bloque tout script externe.
+   ══════════════════════════════════════════════════════════════════════════ */
+const cv = document.getElementById('cv'), ctx = cv.getContext('2d');
+const CSS = getComputedStyle(document.documentElement);
+const C = k => CSS.getPropertyValue(k).trim();
+let W = 0, H = 0, DPR = 1;
+
+function resize(){
+  DPR = Math.min(2, window.devicePixelRatio || 1);
+  const r = cv.getBoundingClientRect();
+  W = r.width; H = r.height;
+  cv.width = Math.round(W*DPR); cv.height = Math.round(H*DPR);
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+}
+window.addEventListener('resize', resize);
+
+/* ── projection ─────────────────────────────────────────────────────────── */
+const TW = 34, TH = 17, ZH = 20;            // demi-largeur, demi-hauteur, hauteur d'unité
+const cam = {x:13, y:7.5, z:1, tx:13, ty:7.5, tz:1};
+function iso(x,y,z){
+  const s = cam.z;
+  return {
+    X: W/2 + ((x-cam.x) - (y-cam.y)) * TW * s,
+    Y: H/2 + ((x-cam.x) + (y-cam.y)) * TH * s - (z||0) * ZH * s
+  };
+}
+const depth = (x,y) => x + y;
+
+/* ── les quatorze boutiques ─────────────────────────────────────────────── */
+// stock : [libellé, variante, quantité]
+const SHOPS = [
+  {n:"Étoile du Sud",       x:2.0,  y:4, side:1, moi:0, quoi:"Le plus grand du marché. Un peu de tout, beaucoup de pointures.",
+   stock:[["Timberland 6-inch","45",3],["Air Force 1 blanche","42",6],["Mocassins cuir","44",4],["Maillot Lions","L",5],["Sac de sport Nike","40 L",7]]},
+  {n:"Maison Ngando",       x:5.4,  y:4, side:1, moi:0, quoi:"Bien fournie. Chaussures, baskets, maillots, cirage.",
+   stock:[["Adidas Samba noire","41",4],["Escarpins vernis","39",3],["Maillot PSG","XL",6],["Cirage Kiwi","noir",20],["Chaussettes","lot de 3",15]]},
+  {n:"Sneaker Palace",      x:8.8,  y:4, side:1, moi:0, quoi:"Baskets importées, rien d'autre.",
+   stock:[["Air Force 1 blanche","45",2],["Puma Suede bleue","43",3],["Converse montante","40",5],["Nike Mercurial","42",2]]},
+  {n:"Kicks Douala",        x:12.2, y:4, side:1, moi:0, quoi:"Baskets et maillots, clientèle jeune.",
+   stock:[["Adidas Samba noire","44",3],["Nike Mercurial","42",4],["Maillot Lions","M",8],["Short Nike Dri-FIT","M",6]]},
+  {n:"Fitness Corner",      x:15.6, y:4, side:1, moi:0, quoi:"Tout pour le sport.",
+   stock:[["Nike Mercurial","41",5],["Short Nike Dri-FIT","L",9],["Sac de sport Nike","40 L",4],["Maillot Lions","XL",3]]},
+  {n:"Maillots 237",        x:19.0, y:4, side:1, moi:0, quoi:"Que des maillots. Le spécialiste de l'allée.",
+   stock:[["Maillot Lions domicile","L",12],["Maillot Lions extérieur","M",9],["Maillot PSG","XL",7],["Short Nike Dri-FIT","S",5]]},
+  {n:"Cordonnerie Moderne", x:22.4, y:4, side:1, moi:0, quoi:"Réparation, cirage, lacets, semelles.",
+   stock:[["Cirage Kiwi","noir",30],["Cirage Kiwi","marron",22],["Kit cuir + brosse","—",8],["Lacets ronds","120 cm",40],["Semelles confort","42-44",12]]},
+
+  {n:"Boutique Essomba",    x:2.0,  y:11, side:-1, moi:1, quoi:"C'est toi. Beaucoup de passage, mais ton stock a des trous.",
+   stock:[["Puma Suede bleue","43",2],["Converse montante","40",3],["Chaussettes","lot de 3",10],["Cirage Kiwi","noir",6],["Timberland 6-inch","45",0]]},
+  {n:"Tati Sport",          x:5.4,  y:11, side:-1, moi:0, quoi:"Un peu de tout, petits prix.",
+   stock:[["Adidas Samba noire","40",2],["Maillot PSG","L",4],["Chaussettes","lot de 3",12],["Sac de sport Nike","40 L",2]]},
+  {n:"Petits Pas",          x:8.8,  y:11, side:-1, moi:0, quoi:"Chaussures d'enfant, et quelques baskets adultes.",
+   stock:[["Converse montante","36",6],["Puma Suede bleue","43",2],["Ballerines beige","37",5],["Chaussettes","lot de 3",8]]},
+  {n:"Chez Mama Rose",      x:12.2, y:11, side:-1, moi:0, quoi:"Chaussures femme, ville et soirée.",
+   stock:[["Escarpins vernis","39",4],["Ballerines beige","37",7],["Bottines daim","41",3],["Mocassins cuir","38",2]]},
+  {n:"Second Life",         x:15.6, y:11, side:-1, moi:0, quoi:"Occasion et seconde main, arrivage chaque semaine.",
+   stock:[["Timberland 6-inch","44",2],["Air Force 1 blanche","41",3],["Converse montante","42",4]]},
+  {n:"Élégance Bonapriso",  x:19.0, y:11, side:-1, moi:0, quoi:"Ville et classique homme, cuir uniquement.",
+   stock:[["Mocassins cuir","44",5],["Timberland 6-inch","43",2],["Kit cuir + brosse","—",6],["Semelles confort","42-44",9]]},
+  {n:"Sandales du Wouri",   x:22.4, y:11, side:-1, moi:0, quoi:"Sandales, claquettes, tongs.",
+   stock:[["Sandales cuir homme","46",6],["Claquettes","42",14],["Cirage Kiwi","marron",5]]},
+];
+const MOI = SHOPS.findIndex(s => s.moi);
+const ALLEE = 7.5;
+
+/* ── acteurs ────────────────────────────────────────────────────────────── */
+const RNG = (()=>{ let s=20260814; return ()=> (s = s*1664525+1013904223 & 0x7fffffff)/0x7fffffff; })();
+const TEINTES = ["#C2410C","#1D4ED8","#047857","#7C2D12","#4338CA","#B45309","#0F766E","#9D174D"];
+
+class Person{
+  constructor(o){
+    Object.assign(this, {x:0,y:ALLEE,ang:0,phase:RNG()*6,sp:1.5,path:[],bub:null,bubT:0,
+      teinte:TEINTES[(RNG()*TEINTES.length)|0], sac:false, halo:0, done:false}, o);
+  }
+  go(pts){ this.path = pts.slice(); }
+  say(txt, dur=2.4, tone){ this.bub = txt; this.bubT = dur; this.bubTone = tone; }
+  update(dt){
+    if(this.bubT>0) this.bubT -= dt;
+    if(!this.path.length){ this.moving=false; return; }
+    const t = this.path[0];
+    let dx = t.x-this.x, dy = t.y-this.y, d = Math.hypot(dx,dy);
+    if(d < 0.06){ this.path.shift(); if(!this.path.length) this.done=true; return; }
+    const st = Math.min(d, this.sp*dt);
+    this.x += dx/d*st; this.y += dy/d*st;
+    this.ang = Math.atan2(dy,dx);
+    this.phase += dt*9; this.moving = true;
+  }
+}
+let people = [], coxeurs = [], sparkles = [];
+
+/* ── dessin ─────────────────────────────────────────────────────────────── */
+function tileGround(){
+  const g = ctx.createLinearGradient(0,0,0,H);
+  g.addColorStop(0, C('--sky1')); g.addColorStop(1, C('--sky2'));
+  ctx.fillStyle = g; ctx.fillRect(0,0,W,H);
+
+  // dalle du marché
+  const dark = C('--ink') === '#E7EEEC' || document.documentElement.dataset.theme === 'dark';
+  const p0 = iso(-2,0,0), p1 = iso(26,0,0), p2 = iso(26,15,0), p3 = iso(-2,15,0);
+  ctx.beginPath(); ctx.moveTo(p0.X,p0.Y); ctx.lineTo(p1.X,p1.Y); ctx.lineTo(p2.X,p2.Y); ctx.lineTo(p3.X,p3.Y); ctx.closePath();
+  ctx.fillStyle = dark ? "#182220" : "#D5DCDA"; ctx.fill();
+
+  // l'allée, plus claire
+  const a0=iso(-2,5.6,0), a1=iso(26,5.6,0), a2=iso(26,9.4,0), a3=iso(-2,9.4,0);
+  ctx.beginPath(); ctx.moveTo(a0.X,a0.Y); ctx.lineTo(a1.X,a1.Y); ctx.lineTo(a2.X,a2.Y); ctx.lineTo(a3.X,a3.Y); ctx.closePath();
+  ctx.fillStyle = dark ? "#1F2B29" : "#E6ECEA"; ctx.fill();
+
+  ctx.strokeStyle = dark ? "rgba(255,255,255,.045)" : "rgba(0,0,0,.05)"; ctx.lineWidth = 1;
+  for(let i=-2;i<=26;i+=2){ const q0=iso(i,0,0), q1=iso(i,15,0);
+    ctx.beginPath(); ctx.moveTo(q0.X,q0.Y); ctx.lineTo(q1.X,q1.Y); ctx.stroke(); }
+  for(let j=0;j<=15;j+=2){ const q0=iso(-2,j,0), q1=iso(26,j,0);
+    ctx.beginPath(); ctx.moveTo(q0.X,q0.Y); ctx.lineTo(q1.X,q1.Y); ctx.stroke(); }
+}
+
+// Volume entre deux hauteurs : z0 permet de poser une plaque en l'air
+// (l'auvent) au lieu d'un mur qui monte du sol.
+function box(x,y,w,d,z0,h,top,left,right){
+  const A=iso(x-w,y-d,h), B=iso(x+w,y-d,h), Cc=iso(x+w,y+d,h), D=iso(x-w,y+d,h);
+  const b=iso(x-w,y+d,z0), c=iso(x+w,y+d,z0), e=iso(x+w,y-d,z0);
+  ctx.beginPath(); ctx.moveTo(D.X,D.Y); ctx.lineTo(Cc.X,Cc.Y); ctx.lineTo(c.X,c.Y); ctx.lineTo(b.X,b.Y); ctx.closePath();
+  ctx.fillStyle=left; ctx.fill();
+  ctx.beginPath(); ctx.moveTo(Cc.X,Cc.Y); ctx.lineTo(B.X,B.Y); ctx.lineTo(e.X,e.Y); ctx.lineTo(c.X,c.Y); ctx.closePath();
+  ctx.fillStyle=right; ctx.fill();
+  ctx.beginPath(); ctx.moveTo(A.X,A.Y); ctx.lineTo(B.X,B.Y); ctx.lineTo(Cc.X,Cc.Y); ctx.lineTo(D.X,D.Y); ctx.closePath();
+  ctx.fillStyle=top; ctx.fill();
+}
+
+function drawShop(s, hi){
+  const dark = document.documentElement.dataset.theme === 'dark'
+            || (window.matchMedia('(prefers-color-scheme:dark)').matches && document.documentElement.dataset.theme!=='light');
+  // ombre
+  const o = iso(s.x, s.y, 0);
+  ctx.save(); ctx.globalAlpha = .16; ctx.fillStyle = "#000";
+  ctx.beginPath(); ctx.ellipse(o.X, o.Y+6, 52*cam.z, 24*cam.z, 0, 0, 7); ctx.fill(); ctx.restore();
+
+  // deux poteaux qui tiennent la bâche
+  ctx.strokeStyle = dark?"#4A4238":"#6B5A44"; ctx.lineWidth = 2.6*cam.z;
+  [-1.35, 1.35].forEach(dx=>{
+    const pA = iso(s.x+dx, s.y + s.side*1.5, 0), pB = iso(s.x+dx, s.y + s.side*1.5, 2.15);
+    ctx.beginPath(); ctx.moveTo(pA.X,pA.Y); ctx.lineTo(pB.X,pB.Y); ctx.stroke();
+  });
+
+  // l'étal, un simple comptoir bas
+  box(s.x, s.y, 1.3, .7, 0, 1.05,
+      dark?"#3A3129":"#B79A76", dark?"#2A241E":"#8E7659", dark?"#231E19":"#7A6349");
+
+  // marchandise posée dessus
+  for(let i=0;i<4;i++){
+    const bx = s.x - .82 + i*.55, by = s.y - .22 + (i%2)*.34;
+    box(bx, by, .17, .15, 1.05, 1.34, ["#D97706","#B91C1C","#155E75","#4D7C0F"][i],
+        "#7C2D12","#5B2110");
+  }
+
+  // La bâche : une plaque fine posée en l'air, décalée vers l'allée pour
+  // laisser voir la marchandise sur le comptoir.
+  const bl = hi ? "#1FA0B8" : (dark ? "#17596B" : "#2A8FA6");
+  box(s.x, s.y + s.side*1.18, 1.5, .78, 2.05, 2.2, bl, "#125264", "#0D4655");
+
+  // enseigne
+  const t = iso(s.x, s.y + s.side*1.18, 3.25);
+  const label = s.n, fs = Math.max(9, 12*cam.z);
+  ctx.font = `700 ${fs}px "Segoe UI",system-ui,sans-serif`;
+  const w = ctx.measureText(label).width + 14;
+  ctx.fillStyle = hi ? C('--teal') : (dark ? "#0E1716" : "#FFFFFF");
+  ctx.strokeStyle = hi ? C('--teal') : (dark ? "#3B4A47" : "#2A3634");
+  ctx.lineWidth = 1.2;
+  ctx.beginPath(); ctx.rect(t.X - w/2, t.Y - fs - 6, w, fs + 9); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = hi ? "#fff" : (dark ? "#DCE6E4" : "#17201E");
+  ctx.textAlign = "center"; ctx.textBaseline = "alphabetic";
+  ctx.fillText(label, t.X, t.Y - 4);
+
+  if(s.moi){
+    ctx.font = `800 ${Math.max(8,10*cam.z)}px "Segoe UI",sans-serif`;
+    ctx.fillStyle = C('--gold');
+    ctx.fillText("TA BOUTIQUE", t.X, t.Y - fs - 12);
+  }
+}
+
+function drawPerson(p){
+  const b = iso(p.x, p.y, 0);
+  const s = cam.z, bob = p.moving ? Math.abs(Math.sin(p.phase))*2.2*s : 0;
+  ctx.save(); ctx.globalAlpha=.2; ctx.fillStyle="#000";
+  ctx.beginPath(); ctx.ellipse(b.X,b.Y+1,10*s,4.5*s,0,0,7); ctx.fill(); ctx.restore();
+
+  if(p.halo>0){
+    ctx.save(); ctx.globalAlpha = .28*p.halo; ctx.strokeStyle = C('--teal');
+    ctx.lineWidth = 3*s; ctx.beginPath();
+    ctx.ellipse(b.X, b.Y+1, (14+5*(1-p.halo))*s, (6.5+2*(1-p.halo))*s, 0,0,7); ctx.stroke(); ctx.restore();
+  }
+
+  const hip = b.Y - 24*s - bob, head = b.Y - 44*s - bob;
+  ctx.lineCap="round"; ctx.lineJoin="round";
+  ctx.strokeStyle = p.teinte; ctx.lineWidth = 3.4*s;
+  // jambes
+  const sw = p.moving ? Math.sin(p.phase)*7*s : 2.5*s;
+  ctx.beginPath(); ctx.moveTo(b.X,hip); ctx.lineTo(b.X-sw, b.Y); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(b.X,hip); ctx.lineTo(b.X+sw, b.Y); ctx.stroke();
+  // tronc
+  ctx.lineWidth = 4.6*s;
+  ctx.beginPath(); ctx.moveTo(b.X,hip); ctx.lineTo(b.X, head+6*s); ctx.stroke();
+  // bras
+  ctx.lineWidth = 3*s;
+  const aw = p.moving ? Math.cos(p.phase)*6*s : 3*s;
+  ctx.beginPath(); ctx.moveTo(b.X, head+11*s); ctx.lineTo(b.X+aw, head+22*s); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(b.X, head+11*s); ctx.lineTo(b.X-aw, head+22*s); ctx.stroke();
+  // tête
+  ctx.fillStyle = p.teinte;
+  ctx.beginPath(); ctx.arc(b.X, head, 7*s, 0, 7); ctx.fill();
+  // sac d'achat
+  if(p.sac){
+    ctx.fillStyle = C('--gold');
+    ctx.fillRect(b.X + aw - 4*s, head + 22*s, 8*s, 9*s);
+  }
+  if(p.bubT > 0) bubble(b.X, head - 13*s, p.bub, p.bubTone);
+}
+
+function bubble(X, Y, txt, tone){
+  const s = Math.max(.82, cam.z);
+  const fs = 12.5*s, pad = 9*s, maxw = 190*s;
+  ctx.font = `600 ${fs}px "Segoe UI",system-ui,sans-serif`;
+  // découpe en lignes
+  const words = txt.split(' '); const lines = []; let cur = '';
+  for(const w of words){
+    const test = cur ? cur+' '+w : w;
+    if(ctx.measureText(test).width > maxw && cur){ lines.push(cur); cur = w; } else cur = test;
+  }
+  lines.push(cur);
+  const wBox = Math.min(maxw, Math.max(...lines.map(l=>ctx.measureText(l).width))) + pad*2;
+  const hBox = lines.length*fs*1.32 + pad*1.5;
+  // Une bulle qui sort de l'écran ne se lit pas : on la ramène dans le cadre,
+  // en laissant la place du bandeau du haut et de la narration du bas.
+  const x0 = Math.max(10, Math.min(W - wBox - 10, X - wBox/2));
+  const y0 = Math.max(88, Math.min(H - 170, Y - hBox));
+  X = Math.max(x0 + 14, Math.min(x0 + wBox - 14, X));
+  const fill = tone==='cox' ? C('--cost') : tone==='shop' ? C('--teal') : C('--panel');
+  const text = (tone==='cox'||tone==='shop') ? '#fff' : C('--ink');
+  ctx.beginPath();
+  const r = 7*s;
+  ctx.moveTo(x0+r,y0); ctx.arcTo(x0+wBox,y0,x0+wBox,y0+hBox,r);
+  ctx.arcTo(x0+wBox,y0+hBox,x0,y0+hBox,r); ctx.lineTo(X+6*s,y0+hBox);
+  ctx.lineTo(X, y0+hBox+8*s); ctx.lineTo(X-6*s, y0+hBox);
+  ctx.arcTo(x0,y0+hBox,x0,y0,r); ctx.arcTo(x0,y0,x0+wBox,y0,r); ctx.closePath();
+  ctx.fillStyle = fill; ctx.fill();
+  ctx.strokeStyle = tone ? fill : C('--line2'); ctx.lineWidth = 1.2; ctx.stroke();
+  ctx.fillStyle = text; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  lines.forEach((l,i)=> ctx.fillText(l, X, y0 + pad*.75 + fs*.66 + i*fs*1.32));
+}
+
+let route = null, routeT = 0;
+function drawRoute(){
+  if(!route) return;
+  ctx.save();
+  ctx.setLineDash([7*cam.z, 7*cam.z]); ctx.lineDashOffset = -routeT*38;
+  ctx.strokeStyle = C('--teal'); ctx.lineWidth = 3.4*cam.z; ctx.globalAlpha = .85;
+  ctx.beginPath();
+  route.forEach((p,i)=>{ const q = iso(p.x,p.y,.04); i?ctx.lineTo(q.X,q.Y):ctx.moveTo(q.X,q.Y); });
+  ctx.stroke(); ctx.restore();
+  const last = route[route.length-1], q = iso(last.x,last.y,.04);
+  const pulse = 1 + Math.sin(routeT*5)*.16;
+  ctx.strokeStyle = C('--teal'); ctx.lineWidth = 3*cam.z; ctx.globalAlpha=.9;
+  ctx.beginPath(); ctx.ellipse(q.X,q.Y,16*cam.z*pulse,7.5*cam.z*pulse,0,0,7); ctx.stroke();
+  ctx.globalAlpha=1;
+}
+
+function drawSparkles(dt){
+  for(let i=sparkles.length-1;i>=0;i--){
+    const s = sparkles[i]; s.life -= dt; s.y -= dt*.9;
+    if(s.life<=0){ sparkles.splice(i,1); continue; }
+    const q = iso(s.x, s.y, 1.4);
+    ctx.globalAlpha = Math.max(0,Math.min(1,s.life));
+    ctx.fillStyle = C('--gold');
+    ctx.font = `800 ${13*cam.z}px ui-monospace,Menlo,monospace`;
+    ctx.textAlign='center';
+    ctx.fillText(s.txt, q.X, q.Y);
+    ctx.globalAlpha = 1;
+  }
+}
+
+/* ── boucle ─────────────────────────────────────────────────────────────── */
+let hiShop = -1;
+function draw(dt){
+  ctx.clearRect(0,0,W,H);
+  tileGround();
+  drawRoute();
+  const items = [];
+  SHOPS.forEach((s,i)=> items.push({d:depth(s.x,s.y), f:()=>drawShop(s, i===hiShop)}));
+  // Les gens passent toujours devant les étals. En stricte règle du peintre, un
+  // client debout devant une boutique de la rangée du bas disparaît derrière
+  // elle — la vue isométrique la place plus près de l'œil. On les remonte donc
+  // au premier plan : c'est faux géométriquement, et c'est le seul moyen de
+  // voir ce que la scène raconte.
+  people.concat(coxeurs).forEach(p=> items.push({d:depth(p.x,p.y)+4, f:()=>drawPerson(p)}));
+  items.sort((a,b)=>a.d-b.d).forEach(o=>o.f());
+  drawSparkles(dt);
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   LE SCÉNARIO
+   ══════════════════════════════════════════════════════════════════════════ */
+const el = id => document.getElementById(id);
+const state = {serv:0, send:0, recv:0, cash:0, lost:0, day:1};
+const fr = n => n.toLocaleString('fr-FR').replace(/[\u202f\u00a0]/g,' ');
+function hud(){
+  el('hDay').textContent  = state.day;
+  el('hServ').textContent = state.serv;
+  el('hSend').textContent = state.send;
+  el('hRecv').textContent = state.recv;
+  el('hCash').textContent = fr(state.cash) + ' F';
+  el('hLost').textContent = state.lost;
+}
+function narr(step, line, sub){
+  el('step').textContent = step; el('line').textContent = line; el('sub').textContent = sub || '';
+}
+function side(shop){
+  if(!shop){ el('side').classList.remove('show'); return; }
+  el('side').classList.add('show');
+  el('sideT').textContent = shop.n;
+  el('sideS').textContent = shop.quoi;
+  el('sideB').innerHTML = shop.stock.map(([nm,va,q])=>
+    `<div class="row"><span class="nm">${nm}<br><span class="st">taille ${va}</span></span>`+
+    `<span class="st ${q?'ok':'ko'}">${q? q+' en stock' : 'plus rien'}</span></div>`).join('');
+}
+function phone(show, ask, cands, foot, winIdx){
+  const p = el('phone');
+  if(!show){ p.classList.remove('show'); return; }
+  p.classList.add('show');
+  el('phAsk').innerHTML = ask;
+  el('phList').innerHTML = (cands||[]).map((c,i)=>
+    `<div class="cand${i===winIdx?' win':''}"><span class="tick">✓</span><span class="nm">${c.n}</span>`+
+    `<span class="sc">${c.s}</span></div>`).join('');
+  el('phFoot').textContent = foot || '';
+}
+function money(x,y,txt){ sparkles.push({x,y,txt,life:2.2}); }
+
+const A = (x)=>({x, y:ALLEE});                       // point dans l'allée
+const devant = s => ({x:s.x, y:s.y + s.side*2.1});   // devant une boutique
+
+/* Chaque étape : durée en secondes, un `go` au démarrage, un `up` par image. */
+let SCRIPT = [];
+function build(){
+  people = []; coxeurs = []; sparkles = []; route = null; hiShop = -1;
+  state.serv=0; state.send=0; state.recv=0; state.cash=0; state.lost=0; state.day=1; hud();
+  const moi = SHOPS[MOI];
+
+  // deux rabatteurs installés dans l'allée
+  coxeurs = [
+    new Person({x:7.4, y:ALLEE-1.15, teinte:"#9A3324"}),
+    new Person({x:14.2, y:ALLEE+1.15, teinte:"#9A3324"}),
+  ];
+
+  SCRIPT = [
+  {d:7, go(){
+     cam.tx=13; cam.ty=7.5; cam.tz=.72; phone(false); side(null);
+     narr("Le marché","Marché Mboppi, un lundi matin.",
+          "Quatorze boutiques de chaussures, une seule allée. Tout le monde se connaît de vue.");
+  }},
+  {d:7, go(){
+     cam.tx=moi.x+3.5; cam.ty=9.5; cam.tz=1.15; hiShop=MOI; side(moi);
+     narr("Ta boutique","Là, c'est toi. Boutique Essomba.",
+          "Tu as du passage toute la journée. Mais regarde ton stock : les Timberland 45, tu n'en as plus.");
+  }},
+
+  // ── un client que tu peux servir ──
+  {d:9, go(){
+     const c = new Person({x:-1.5, y:ALLEE, sp:2.2});
+     c.go([A(moi.x), devant(moi)]);
+     c.say("Bonjour, vous avez les Puma Suede bleues en 43 ?", 4);
+     people = [c];
+     narr("Un client entre","Celui-là, tu peux le servir.","Il demande une paire que tu as en stock.");
+  }, up(t){
+     const c = people[0];
+     if(t>4.4 && !c._r){ c._r=1; c.say("Oui, j'ai le 43. 29 000 francs.", 3, 'shop'); }
+     if(t>7.2 && !c._d){ c._d=1; c.sac=true; state.serv++; state.cash+=0; hud();
+                          money(moi.x, moi.y+1.6, "+29 000 F"); }
+  }},
+
+  // ── celui que tu perds ──
+  {d:8, go(){
+     const c = new Person({x:-1.5, y:ALLEE, sp:2.2, teinte:"#1D4ED8"});
+     c.go([A(moi.x), devant(moi)]);
+     c.say("Il me faut les Timberland, pointure 45.", 3.4);
+     people = [c];
+     narr("Celui-là, non","« Je n'ai pas ta pointure. »","Ça t'arrive six fois par jour. Six fois zéro franc.");
+  }, up(t){
+     const c = people[0];
+     if(t>3.6 && !c._r){ c._r=1; c.say("Je n'ai plus le 45. Désolé.", 3, 'shop'); }
+  }},
+
+  {d:10, go(){
+     const c = people[0];
+     c.sp = 1.7; c.go([A(moi.x), A(7.4)]);
+     narr("Le rabatteur","Et dehors, quelqu'un l'attend.","Il n'a pas fait dix mètres.");
+  }, up(t){
+     const c = people[0];
+     if(t>3.4 && !c._x){ c._x=1; coxeurs[0].say("Mon frère ! Tu cherches quoi ? J'ai ça en bas !", 3.6, 'cox'); }
+     if(t>6.4 && !c._y){ c._y=1; c.say("Bon… on y va.", 2.4);
+                          c.go([{x:7.4,y:ALLEE-3.4},{x:7.4,y:-3}]); }
+     if(t>9.2 && !c._z){ c._z=1; state.lost++; hud(); }
+  }},
+
+  {d:6, go(){
+     people = []; cam.tz=.95;
+     narr("Ce que ça coûte","Il achètera ailleurs, chez quelqu'un que tu ne connais pas.",
+          "Toi, tu as gagné zéro. Et tu ne le comptes même pas.");
+  }},
+
+  // ── avec Buyticle ──
+  {d:9, go(){
+     cam.tx=moi.x+3.5; cam.ty=9.5; cam.tz=1.15; hiShop=MOI; side(moi);
+     const c = new Person({x:-1.5, y:ALLEE, sp:2.2, teinte:"#4338CA"});
+     c.go([A(moi.x), devant(moi)]);
+     c.say("Les Timberland 45, vous avez ?", 3.4);
+     people = [c];
+     narr("Le même client, autrement","Cette fois, tu ouvres Buyticle.",
+          "Tu ne le laisses pas repartir les mains vides.");
+  }, up(t){
+     if(t>3.6 && !people[0]._r){ people[0]._r=1; people[0].say("Attends, je regarde.", 2.6, 'shop'); }
+  }},
+
+  {d:11, go(){
+     side(null);
+     phone(true, "Un client cherche : <b>Timberland 6-inch, pointure 45</b>",
+       [], "Les boutiques de l'allée répondent…");
+     el('phC').textContent = "30 secondes";
+     narr("Qui l'a ?","Buyticle demande à toute l'allée.",
+          "Trente secondes. Celles qui ont la paire répondent sur leur téléphone.");
+  }, up(t){
+     if(t>2.6 && !this._a){ this._a=1; phone(true,
+       "Un client cherche : <b>Timberland 6-inch, pointure 45</b>",
+       [{n:"Étoile du Sud", s:"3 paires"}], "1 boutique a répondu…"); }
+     if(t>4.6 && !this._b){ this._b=1; phone(true,
+       "Un client cherche : <b>Timberland 6-inch, pointure 45</b>",
+       [{n:"Étoile du Sud", s:"3 paires"},{n:"Second Life", s:"2 paires"}], "2 boutiques ont répondu…"); }
+     if(t>6.6 && !this._c){ this._c=1; phone(true,
+       "Un client cherche : <b>Timberland 6-inch, pointure 45</b>",
+       [{n:"Étoile du Sud", s:"3 paires"},{n:"Second Life", s:"2 paires"},
+        {n:"Élégance Bonapriso", s:"2 paires"}], "3 boutiques ont répondu."); }
+  }},
+
+  {d:12, go(){
+     narr("Laquelle ?","Celle qui a le plus donné aux autres.",
+          "Étoile du Sud a déjà reçu beaucoup de monde ce mois-ci. Second Life a envoyé plus qu'elle n'a reçu.");
+     phone(true, "Trois boutiques ont la pointure 45.",
+       [{n:"Étoile du Sud", s:"a reçu 5 · a envoyé 3"},
+        {n:"Élégance Bonapriso", s:"a reçu 4 · a envoyé 4"},
+        {n:"Second Life", s:"a reçu 2 · a envoyé 7"}], "Buyticle choisit dans 3 secondes…");
+  }, up(t){
+     if(t>4.2 && !this._w){ this._w=1;
+       phone(true, "Trois boutiques ont la pointure 45.",
+         [{n:"Étoile du Sud", s:"a reçu 5 · a envoyé 3"},
+          {n:"Élégance Bonapriso", s:"a reçu 4 · a envoyé 4"},
+          {n:"Second Life", s:"a reçu 2 · a envoyé 7"}],
+         "Second Life a le plus donné. Le client est pour elle.", 2);
+       el('phC').textContent = "choisi";
+     }
+  }},
+
+  {d:9, go(){
+     phone(false);
+     const sl = SHOPS.find(s=>s.n==="Second Life");
+     hiShop = SHOPS.indexOf(sl); side(sl);
+     cam.tx=11; cam.ty=8.6; cam.tz=.86;
+     const c = people[0];
+     c.say("D'accord, j'y vais.", 3);
+     route = [devant(SHOPS[MOI]), A(SHOPS[MOI].x), A(sl.x), devant(sl)];
+     narr("Le chemin","Le client voit où aller, et ce qu'il gagne.",
+          "Second Life, à 130 mètres. Photo de la devanture, le prénom du vendeur, et 3 % de remise valable 48 heures.");
+  }},
+
+  {d:14, go(){
+     const sl = SHOPS.find(s=>s.n==="Second Life");
+     const c = people[0]; c.sp = 1.9; c.halo = 1;
+     c.go([A(SHOPS[MOI].x), A(sl.x), devant(sl)]);
+     narr("Il y va","Et le rabatteur l'attend encore.","Regarde ce qui se passe cette fois.");
+  }, up(t){
+     const c = people[0];
+     if(c.x > 6.6 && c.x < 8.4 && !c._x){ c._x=1;
+       coxeurs[0].say("Chef ! Viens voir, j'ai la même chose !", 3.2, 'cox'); }
+     if(t>5.6 && !c._y){ c._y=1; c.say("Non, j'ai déjà mon bon. Il ne marche que là-bas.", 4); }
+     if(t>10 && !c._z){ c._z=1; route=null; }
+  }},
+
+  {d:11, go(){
+     const sl = SHOPS.find(s=>s.n==="Second Life");
+     cam.tx=sl.x; cam.ty=9.4; cam.tz=1.2;
+     const c = people[0]; c.halo=0;
+     c.say("Bonjour, je viens de chez Essomba.", 3.2);
+     narr("Il arrive","Il donne son code. La vente se fait.","48 000 francs de Timberland, taille 45.");
+  }, up(t){
+     const c = people[0];
+     const sl = SHOPS.find(s=>s.n==="Second Life");
+     if(t>3.4 && !c._r){ c._r=1; c.say("Je te les fais à 46 560 avec ta remise.", 3.4, 'shop'); }
+     if(t>6.6 && !c._d){ c._d=1; c.sac=true;
+        money(sl.x, sl.y+1.6, "48 000 F"); }
+  }},
+
+  {d:12, go(){
+     cam.tx=SHOPS[MOI].x+4; cam.ty=9.6; cam.tz=1.0;
+     hiShop=MOI; side(null); people=[];
+     state.send++; state.cash += 3360; hud();
+     money(SHOPS[MOI].x, SHOPS[MOI].y+1.6, "+3 360 F");
+     narr("Et toi ?","Tu n'as rien vendu, et tu as gagné 3 360 francs.",
+          "Sur les 48 000 : 3 360 F pour toi, 1 440 F de remise au client, 1 440 F pour Buyticle. Le reste est pour Second Life.");
+  }, up(t){
+     if(t>6 && !this._p){ this._p=1;
+       narr("Ton vendeur aussi","Et le petit au comptoir touche 500 F ce soir.",
+            "C'est toi qui fixes la prime et c'est toi qui la donnes, en billets. Sinon il appellera son ami, pas l'application.");
+     }
+  }},
+
+  // ── le mois défile ──
+  {d:34, go(){
+     cam.tx=13; cam.ty=7.5; cam.tz=.66; hiShop=MOI; side(null); people=[]; route=null;
+     this.next=0; this.day=1;
+     narr("Le mois passe","Vingt-six jours. Chacun envoie, chacun reçoit.",
+          "Personne n'a changé sa boutique. Ils ont juste arrêté de laisser partir les gens.");
+  }, up(t,dt){
+     // horloge du mois
+     const d = Math.min(26, 1 + Math.floor(t/1.25));
+     if(d !== state.day){
+       state.day = d;
+       if(d%2===0){ state.send++; state.cash += 1508; }
+       if(d%2===1){ state.recv++; }
+       if(d%5===0){ state.lost++; }
+       state.serv += 2; hud();
+     }
+     // flux de passants
+     this.next -= dt;
+     if(this.next<=0 && people.length < 9){
+       this.next = .55;
+       const from = SHOPS[(Math.random()*SHOPS.length)|0], to = SHOPS[(Math.random()*SHOPS.length)|0];
+       if(from!==to){
+         const p = new Person({x:from.x, y:from.y+from.side*2, sp:1.6+Math.random()*.9});
+         p.go([A(from.x), A(to.x), devant(to)]);
+         people.push(p);
+       }
+     }
+     people = people.filter(p=>{
+       if(p.done){ p._w = (p._w||0)+dt; if(p._w>1.2){ if(Math.random()<.5) money(p.x,p.y,"+"+fr(900+((Math.random()*2200)|0))+" F"); return false; } }
+       return true;
+     });
+     if(t>30 && !this._f){ this._f=1;
+       narr("Fin du mois","259 clients ont changé de boutique sans quitter le marché.",
+            "5 940 600 francs de marchandise vendue. Et aucune boutique n'est restée les bras croisés.");
+     }
+  }},
+
+  {d:6, go(){
+     el('end').classList.add('show');
+     narr("Résultat","Toi, lundi matin. Toi, trente jours après.","");
+  }},
+  ];
+}
+
+/* ── moteur ─────────────────────────────────────────────────────────────── */
+let idx = 0, tIn = 0, playing = true, speed = 1, last = performance.now();
+const TOTAL = () => SCRIPT.reduce((a,s)=>a+s.d,0);
+function elapsed(){ let e=0; for(let i=0;i<idx;i++) e+=SCRIPT[i].d; return e+tIn; }
+function fmt(s){ s=Math.max(0,Math.round(s)); return Math.floor(s/60)+':'+String(s%60).padStart(2,'0'); }
+
+function enter(i){
+  idx = i; tIn = 0;
+  el('end').classList.remove('show');
+  const s = SCRIPT[i];
+  for(const k in s) if(k[0]==='_') delete s[k];
+  if(s.go) s.go();
+}
+function jump(i){
+  // On rejoue les étapes précédentes en accéléré pour retrouver l'état exact —
+  // en faisant aussi marcher les personnages, sinon on arrive à une étape avec
+  // des gens restés au point de départ de la précédente.
+  build();
+  const PAS = 1/20;
+  for(let k=0;k<i;k++){
+    const s = SCRIPT[k];
+    for(const key in s) if(key[0]==='_') delete s[key];
+    if(s.go) s.go();
+    let t = 0;
+    while(t < s.d){
+      t += PAS;
+      if(s.up) try{ s.up.call(s, t, PAS); }catch(e){}
+      people.forEach(p=>p.update(PAS));
+      coxeurs.forEach(p=>p.update(PAS));
+    }
+  }
+  cam.x=cam.tx; cam.y=cam.ty; cam.z=cam.tz;   // pas de glissé après un saut
+  sparkles.length = 0;
+  enter(i);
+}
+
+function frame(now){
+  let dt = Math.min(.05, (now-last)/1000); last = now;
+  if(playing) dt *= speed; else dt = 0;
+
+  if(playing){
+    tIn += dt;
+    const s = SCRIPT[idx];
+    if(s && s.up) try{ s.up.call(s, tIn, dt); }catch(e){}
+    if(s && tIn >= s.d){
+      if(idx < SCRIPT.length-1) enter(idx+1);
+      else { playing = false; el('bPlay').textContent = 'Rejouer'; el('bPlay').classList.remove('on'); }
+    }
+  }
+
+  // caméra fluide
+  cam.x += (cam.tx-cam.x)*Math.min(1, dt*2.6);
+  cam.y += (cam.ty-cam.y)*Math.min(1, dt*2.6);
+  cam.z += (cam.tz-cam.z)*Math.min(1, dt*2.6);
+
+  people.forEach(p=>{ p.update(dt); if(p.halo>0) p.halo = .6+.4*Math.sin(now/260); });
+  coxeurs.forEach(p=> p.update(dt));
+  routeT += dt;
+
+  draw(dt);
+
+  const e = elapsed(), T = TOTAL();
+  el('barIn').style.right = (100 - Math.min(100, e/T*100)) + '%';
+  el('clock').textContent = fmt(e) + ' / ' + fmt(T);
+  requestAnimationFrame(frame);
+}
+
+/* ── commandes ──────────────────────────────────────────────────────────── */
+el('bPlay').onclick = ()=>{
+  if(idx===SCRIPT.length-1 && !playing){ jump(0); playing=true; }
+  else playing = !playing;
+  el('bPlay').textContent = playing ? 'Pause' : 'Reprendre';
+  el('bPlay').classList.toggle('on', playing);
+};
+el('bNext').onclick = ()=>{ if(idx<SCRIPT.length-1) jump(idx+1); };
+el('bBack').onclick = ()=>{ if(idx>0) jump(idx-1); };
+el('bRestart').onclick = ()=>{ jump(0); playing=true;
+  el('bPlay').textContent='Pause'; el('bPlay').classList.add('on'); };
+el('bSpeed').onclick = ()=>{ speed = speed===1?2:speed===2?4:1;
+  el('bSpeed').textContent = 'Vitesse ×'+speed; };
+
+cv.addEventListener('click', ev=>{
+  const r = cv.getBoundingClientRect(), mx = ev.clientX-r.left, my = ev.clientY-r.top;
+  let best=-1, bd=1e9;
+  SHOPS.forEach((s,i)=>{ const p = iso(s.x,s.y,1.2); const d = Math.hypot(p.X-mx,p.Y-my);
+    if(d<70*cam.z && d<bd){ bd=d; best=i; } });
+  if(best>=0){ hiShop=best; side(SHOPS[best]); }
+});
+
+resize(); build(); enter(0); hud();
+requestAnimationFrame(frame);
+</script>
