@@ -31,18 +31,11 @@
 
 SET lock_timeout = '5s';
 
-DO $trg$
-BEGIN
-  -- Un déclencheur dépend de sa fonction : PostgreSQL refuse de supprimer la
-  -- seconde tant que le premier existe. On les retire donc d'abord, et ce
-  -- fichier les recrée plus bas.
-  DROP TRIGGER IF EXISTS trg_notifier_appel     ON public.appels;
-  DROP TRIGGER IF EXISTS trg_notifier_relais_ins ON public.relais;
-  DROP TRIGGER IF EXISTS trg_notifier_relais_upd ON public.relais;
-EXCEPTION WHEN undefined_table THEN NULL;
-END
-$trg$;
-
+-- Le CASCADE ci-dessous est délibéré et il est étroit. La seule dépendance que
+-- PostgreSQL enregistre sur ces fonctions est le déclencheur qui les appelle —
+-- les appels de fonction à fonction ne sont pas tracés. CASCADE ne peut donc
+-- retirer que ces déclencheurs-là, que ce fichier recrée quelques lignes plus
+-- bas. Sans lui, la suppression échoue dès la deuxième exécution.
 DO $reset$
 DECLARE r RECORD;
 BEGIN
@@ -53,7 +46,7 @@ BEGIN
        AND p.proname IN ('notifier_appel', 'notifier_relais', 'notifications_a_envoyer',
                          'marquer_notifications_envoyees', 'mes_notifications')
   LOOP
-    EXECUTE 'DROP FUNCTION IF EXISTS ' || r.sig;
+    EXECUTE 'DROP FUNCTION IF EXISTS ' || r.sig || ' CASCADE';
   END LOOP;
 END
 $reset$;
