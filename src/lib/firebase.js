@@ -1,5 +1,5 @@
 import { initializeApp } from 'firebase/app';
-import { getMessaging, getToken, onMessage } from 'firebase/messaging';
+import { getMessaging, getToken, onMessage, isSupported } from 'firebase/messaging';
 import { supabase } from './supabase';
 
 const firebaseConfig = {
@@ -13,7 +13,46 @@ const firebaseConfig = {
 };
 
 const app = initializeApp(firebaseConfig);
-const messaging = getMessaging(app);
+
+/* ── Messaging, en paresseux et sous garde ───────────────────────────────────
+   getMessaging() lève « messaging/unsupported-browser » dans tout navigateur
+   qui n'a pas PushManager, ServiceWorker ou Notification : Safari hors écran
+   d'accueil, une fenêtre privée, un profil qui bloque les données de site.
+
+   Appelée au chargement du module, cette exception cassait TOUT le fichier —
+   y compris requestNotificationPermission, qui n'avait donc jamais l'occasion
+   de rapporter la vraie raison. On n'initialise plus qu'à la demande.
+   ──────────────────────────────────────────────────────────────────────────── */
+let _messaging = null;
+let _messagingPromise = null;
+
+const obtenirMessaging = () => {
+  if (_messaging) return Promise.resolve(_messaging);
+  if (_messagingPromise) return _messagingPromise;
+  _messagingPromise = isSupported()
+    .then((ok) => {
+      if (!ok) return null;
+      _messaging = getMessaging(app);
+      return _messaging;
+    })
+    .catch(() => null);
+  return _messagingPromise;
+};
+
+/* Une seule inscription du service worker à la fois. Deux appels concurrents
+   pour la même portée font avorter le premier — c'est l'AbortError
+   « Operation has been aborted », qu'on prend pour une panne alors que c'est
+   nous qui nous marchons dessus. */
+let _swPromise = null;
+
+const inscrireServiceWorker = () => {
+  if (_swPromise) return _swPromise;
+  _swPromise = navigator.serviceWorker
+    .register('/firebase-messaging-sw.js', { scope: '/' })
+    .then(async (reg) => { await navigator.serviceWorker.ready; return reg; })
+    .catch((e) => { _swPromise = null; throw e; });
+  return _swPromise;
+};
 
 /* ── Le jeton de notification ─────────────────────────────────────────────────
    Renvoie { token, raison }. La raison compte autant que le jeton : sans elle,
@@ -24,8 +63,8 @@ const messaging = getMessaging(app);
    ──────────────────────────────────────────────────────────────────────────── */
 export const RAISONS = {
   ok:           'Notifications actives.',
-  non_supporte: 'Ce navigateur ne sait pas recevoir de notifications. Sur iPhone, il faut ajouter le site à l’écran d’accueil.',
-  sw_echec:     'Le service de fond n’a pas pu démarrer. Recharge la page.',
+  non_supporte: 'Ce navigateur ne sait pas recevoir de notifications. Sur iPhone il faut ajouter le site à l’écran d’accueil ; en navigation privée, ça ne marche pas non plus.',
+  sw_echec:     'Le service de fond n’a pas pu démarrer — souvent un bloqueur de scripts ou la navigation privée. Recharge la page.',
   refusee:      'Tu as refusé les notifications. Il faut les réautoriser dans les réglages du navigateur, à côté de l’adresse du site.',
   ignoree:      'La demande a été fermée sans répondre. Réessaie.',
   cle_absente:  'Configuration incomplète côté serveur : la clé VAPID manque. Ce n’est pas de ton fait — préviens Buyticle.',
@@ -38,13 +77,15 @@ export const requestNotificationPermission = async (vendorId) => {
     return { token: null, raison: 'non_supporte' };
   }
 
+  const messaging = await obtenirMessaging();
+  if (!messaging) return { token: null, raison: 'non_supporte' };
+
   let swRegistration;
   try {
-    swRegistration = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
-    await navigator.serviceWorker.ready;
+    swRegistration = await inscrireServiceWorker();
   } catch (swErr) {
     console.error('[FCM] Échec SW:', swErr);
-    return { token: null, raison: 'sw_echec' };
+    return { token: null, raison: 'sw_echec', detail: swErr?.name };
   }
 
   const permission = await Notification.requestPermission();
@@ -60,7 +101,10 @@ export const requestNotificationPermission = async (vendorId) => {
 
   let token;
   try {
-    token = await getToken(messaging, { vapidKey: VAPID_KEY, serviceWorkerRegistration: swRegistration });
+    token = await getToken(messaging, {
+      vapidKey: VAPID_KEY.trim(),
+      serviceWorkerRegistration: swRegistration,
+    });
   } catch (e) {
     console.error('[FCM] getToken:', e);
     return { token: null, raison: 'erreur', detail: e?.message };
@@ -82,15 +126,19 @@ export const requestNotificationPermission = async (vendorId) => {
 
 // ✅ FIX : Listener continu (onMessage ne se ferme pas après 1 message)
 export const setupForegroundNotifications = (onNotification) => {
-  const unsubscribe = onMessage(messaging, (payload) => {
-    console.log('[FCM] Message foreground reçu:', payload);
-    onNotification(payload);
+  let stop = null;
+  obtenirMessaging().then((m) => {
+    if (m) stop = onMessage(m, onNotification);
   });
-  return unsubscribe; // retourne la fonction de cleanup
+  // On rend une fonction d'arrêt tout de suite : l'appelant ne doit pas avoir
+  // à savoir que l'initialisation est asynchrone.
+  return () => { if (stop) stop(); };
 };
 
 export const onMessageListener = () =>
-  new Promise((resolve) => { onMessage(messaging, resolve); });
+  new Promise((resolve) => {
+    obtenirMessaging().then((m) => { if (m) onMessage(m, resolve); });
+  });
 
 export const sendNotificationToVendor = async (vendorId, title, body) => {
   try {
@@ -101,35 +149,5 @@ export const sendNotificationToVendor = async (vendorId, title, body) => {
     return data;
   } catch (error) {
     console.error('Error sending notification:', error);
-  }
-};
-
-export const sendDirectNotification = async (token, title, body) => {
-  const SERVER_KEY = "313383491173-aoh8ofm4dbd1ahj90orfc16c9gn5r1c3.apps.googleusercontent.com";
-
-  try {
-    const response = await fetch('https://fcm.googleapis.com/fcm/send', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `key=${SERVER_KEY}`,
-      },
-      body: JSON.stringify({
-        to: token,
-        notification: {
-          title: title,
-          body: body,
-          icon: "/ofs.png",
-          click_action: "/admin"
-        },
-        priority: "high"
-      }),
-    });
-
-    const result = await response.json();
-    console.log('[FCM] Résultat envoi direct:', result);
-    return result;
-  } catch (error) {
-    console.error('[FCM] Erreur envoi direct:', error);
   }
 };
