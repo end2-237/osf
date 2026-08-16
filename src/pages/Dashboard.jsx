@@ -9,6 +9,7 @@ import VendorStats from "../components/VendorStats";
 import { AccountSection, CreatorProfileSection } from "../components/VendorAccountSettings";
 import { PayoutSection, DeliverySection } from "../components/VendorPayouts";
 import VendorSubscription from "../components/VendorSubscription";
+import RelaisPanel from "../components/RelaisPanel";
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RTooltip } from "recharts";
 import { DISCOUNT_PRESETS, clampDiscountPercent, getVendorDiscountPercent } from "../utils/discountUtils";
 
@@ -205,6 +206,7 @@ const Dashboard = () => {
     { title: "Ma boutique", items: [
       { key: "products",  label: "Produits",       icon: "fa-box" },
       { key: "orders",    label: "Commandes",      icon: "fa-cart-shopping", badge: pendingCount },
+      { key: "relais",    label: "Le relais",      icon: "fa-arrows-turn-right" },
       { key: "customers", label: "Clients",        icon: "fa-users" },
       { key: "live",      label: "Passer en live", icon: "fa-video", needs: "allows_live" },
     ]},
@@ -421,6 +423,7 @@ const Dashboard = () => {
                   ? <OrderDetail order={selectedOrder} onBack={() => setSelectedOrder(null)} onStatus={updateOrderStatus} vendor={vendor} />
                   : <OrdersView orders={orders} onOpen={setSelectedOrder} />
               )}
+              {section === "relais" && <RelaisPanel />}
               {section === "stats" && <VendorStats orders={orders} products={products} />}
               {section === "live" && <VendorLivePanel vendor={vendor} onToast={showToast} />}
               {section === "customers" && <CustomersView customers={customers} />}

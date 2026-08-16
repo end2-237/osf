@@ -37,6 +37,8 @@ const SearchPage     = lazyWithRetry(() => import('./pages/SearchPage.jsx'));
 const TrackingPage   = lazyWithRetry(() => import('./pages/TrackingPage.jsx'));
 const SuperAdmin     = lazyWithRetry(() => import('./pages/SuperAdmin.jsx'));
 const AffiliateRedirect = lazyWithRetry(() => import('./pages/AffiliateRedirect.jsx'));
+const RelaisPage     = lazyWithRetry(() => import('./pages/RelaisPage.jsx'));
+const RelaisJoin     = lazyWithRetry(() => import('./pages/RelaisJoin.jsx'));
 const CartPage       = lazyWithRetry(() => import('./pages/CartPage.jsx'));
 const NotFound       = lazyWithRetry(() => import('./pages/NotFound.jsx'));
 const CGVPage        = lazyWithRetry(() => import('./pages/CGVPage.jsx'));
@@ -237,6 +239,9 @@ function AppContent() {
             <Route path="/rewards" element={<OFSRewardsPage />} />
             <Route path="/track" element={<TrackingPage />} />
             <Route path="/ref/:code" element={<AffiliateRedirect />} />
+            {/* Le relais : l'affiche du comptoir, puis l'écran du client. */}
+            <Route path="/r/:code" element={<RelaisJoin />} />
+            <Route path="/mon-relais" element={<RelaisPage />} />
             <Route path="/cart" element={<CartPage />} />
             <Route path="/cgv" element={<CGVPage />} />
             <Route path="/terms" element={<CGVPage />} />
