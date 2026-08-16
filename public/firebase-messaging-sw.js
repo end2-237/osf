@@ -13,6 +13,10 @@ firebase.initializeApp({
 
 const messaging = firebase.messaging();
 
+// Le même logo que le favicon du site. « ofs.png » traînait ici depuis l'ancien
+// nom du projet : la notification arrivait avec la mauvaise marque.
+const LOGO = 'https://alrbokstfwwlvbvghrqr.supabase.co/storage/v1/object/public/vendor-assets/buylogo.png';
+
 messaging.onBackgroundMessage((payload) => {
   const d = payload.data || {};
 
@@ -24,8 +28,8 @@ messaging.onBackgroundMessage((payload) => {
     payload.notification?.title || 'Buyticle',
     {
       body:  payload.notification?.body || '',
-      icon:  '/ofs.png',
-      badge: '/ofs.png',
+      icon:  LOGO,
+      badge: LOGO,
       // Un tag commun aux appels : le plus récent remplace le précédent, parce
       // qu'un appel périmé n'a plus d'objet. Tout le reste garde son propre tag,
       // sinon une vente confirmée effacerait le client qui vient d'arriver.

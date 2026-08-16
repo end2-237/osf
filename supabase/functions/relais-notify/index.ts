@@ -106,7 +106,7 @@ serve(async (req: Request) => {
               notification: { title: n.titre, body: n.corps },
               webpush: {
                 notification: {
-                  icon: "/ofs.png",
+                  icon: "https://alrbokstfwwlvbvghrqr.supabase.co/storage/v1/object/public/vendor-assets/buylogo.png",
                   // Un appel doit sonner et rester à l'écran : le commerçant a
                   // trente secondes. Le reste peut attendre qu'il regarde.
                   requireInteraction: n.genre === 'appel',
