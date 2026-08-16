@@ -55,6 +55,8 @@ export default function RayonsConsole() {
   const [msg, setMsg]         = useState("");
   const [busy, setBusy]       = useState(false);
   const [affecter, setAff]    = useState(null);   // boutique en cours d'affectation
+  const [editRayon, setEditR] = useState(false);
+  const [editFam, setEditF]   = useState(null);
 
   const err = (e) => setMsg(e?.message || "");
 
@@ -170,6 +172,31 @@ export default function RayonsConsole() {
       {rayon && (
         <>
           {/* ── L'ÉTAT DU RAYON ── */}
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <h2 className="text-[15px] font-black text-[#0F1111]">{rayon.nom}</h2>
+              <p className="text-[11px] text-[#565959]">{rayon.zone} · {rayon.ville}</p>
+            </div>
+            <div className="flex items-center gap-3">
+              <button onClick={() => setEditR((v) => !v)}
+                className="text-[11px] font-bold text-[#007185] hover:underline">
+                {editRayon ? "Fermer" : "Modifier le rayon"}
+              </button>
+              {rayon.statut === "actif" && (
+                <button onClick={() => agir(() => supabase.rpc("admin_maj_rayon", { p_rayon_id: actif, p_statut: "suspendu" }))}
+                  className="text-[11px] font-bold text-[#B12704] hover:underline">
+                  Suspendre
+                </button>
+              )}
+              {rayon.statut === "suspendu" && (
+                <button onClick={ouvrir}
+                  className="text-[11px] font-bold text-[#007600] hover:underline">
+                  Réactiver
+                </button>
+              )}
+            </div>
+          </div>
+
           <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
             {[
               ["Boutiques", `${rayon.boutiques}`, `plancher ${rayon.min_boutiques} · plafond ${rayon.max_boutiques}`],
@@ -186,6 +213,12 @@ export default function RayonsConsole() {
               </div>
             ))}
           </div>
+
+          {editRayon && (
+            <EditerRayon rayon={rayon}
+              onClose={() => setEditR(false)}
+              onFait={async () => { setEditR(false); await chargerRayons(); await chargerRayon(actif); }} />
+          )}
 
           {rayon.statut !== "actif" && (
             <div className={`rounded-xl px-4 py-3 text-[12px] border ${
@@ -269,7 +302,15 @@ export default function RayonsConsole() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#E7E9EA]">
-                  {familles.map((f) => (
+                  {familles.map((f) => (editFam === f.id ? (
+                    <tr key={f.id}>
+                      <td colSpan={9} className="px-4 py-3 bg-[#F7F8F8]">
+                        <EditerFamille famille={f} rayonId={actif}
+                          onClose={() => setEditF(null)}
+                          onFait={async () => { setEditF(null); await chargerRayons(); await chargerRayon(actif); }} />
+                      </td>
+                    </tr>
+                  ) : (
                     <tr key={f.id} className={f.ouverte ? "" : "bg-[#FFFBEB]"}>
                       <td className="px-4 py-2.5 font-bold text-[#0F1111]">{f.nom}</td>
                       <td className="px-4 py-2.5 text-[#565959]">{f.role}</td>
@@ -282,13 +323,19 @@ export default function RayonsConsole() {
                       </td>
                       <td className="px-4 py-2.5">{pct(f.couverture)}</td>
                       <td className="px-4 py-2.5">
-                        <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${
-                          f.ouverte ? "bg-[#F0FBF4] text-[#007600]" : "bg-[#FEF3C7] text-[#92400E]"}`}>
-                          {f.ouverte ? "ouverte" : "fermée"}
-                        </span>
+                        <div className="flex items-center gap-2">
+                          <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${
+                            f.ouverte ? "bg-[#F0FBF4] text-[#007600]" : "bg-[#FEF3C7] text-[#92400E]"}`}>
+                            {f.ouverte ? "ouverte" : "fermée"}
+                          </span>
+                          <button onClick={() => setEditF(f.id)}
+                            className="text-[11px] font-bold text-[#007185] hover:underline">
+                            Modifier
+                          </button>
+                        </div>
                       </td>
                     </tr>
-                  ))}
+                  )))}
                   {familles.length === 0 && (
                     <tr><td colSpan={9} className="px-4 py-6 text-center text-[#565959]">
                       Aucune famille. Commence par la famille motrice — c’est elle qui fixe la taille du rayon.
@@ -491,6 +538,181 @@ function AjouterFamille({ rayonId, onFait }) {
       </button>
       <button onClick={() => setOuvert(false)} className="text-[11px] text-[#565959]">Annuler</button>
       {msg && <span className="text-[11px] text-[#B12704]">{msg}</span>}
+    </div>
+  );
+}
+
+/* ── Modifier le rayon ───────────────────────────────────────────────────── */
+function EditerRayon({ rayon, onClose, onFait }) {
+  const [f, setF] = useState({
+    nom: rayon.nom, zone: rayon.zone, ville: rayon.ville,
+    perimetre: rayon.perimetre_m, plancher: rayon.plancher_recus,
+    min: rayon.min_boutiques, max: rayon.max_boutiques,
+  });
+  const [msg, setMsg]   = useState("");
+  const [busy, setBusy] = useState(false);
+  const set = (k, v) => setF((o) => ({ ...o, [k]: v }));
+
+  const enregistrer = async () => {
+    setBusy(true); setMsg("");
+    const { error } = await supabase.rpc("admin_maj_rayon", {
+      p_rayon_id: rayon.id,
+      p_nom: f.nom, p_zone: f.zone, p_ville: f.ville,
+      p_perimetre: Number(f.perimetre) || null,
+      p_plancher:  Number(f.plancher)  || null,
+      p_min: Number(f.min) || null,
+      p_max: Number(f.max) || null,
+    });
+    setBusy(false);
+    if (error) { setMsg(error.message); return; }
+    onFait();
+  };
+
+  const supprimer = async () => {
+    setBusy(true); setMsg("");
+    const { error } = await supabase.rpc("admin_supprimer_rayon", { p_rayon_id: rayon.id });
+    setBusy(false);
+    if (error) { setMsg(error.message); return; }
+    onFait();
+  };
+
+  const champ = "w-full bg-[#F7F8F8] border border-[#D5D9D9] rounded-lg px-3 py-2 text-[12px] outline-none focus:border-[#FF9900]";
+  const label = "text-[9px] font-black uppercase tracking-widest text-[#565959] block mb-1";
+
+  return (
+    <div className="bg-white rounded-xl border border-[#232F3E] p-5 space-y-3">
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+        <div><label className={label}>Nom</label>
+          <input className={champ} value={f.nom} onChange={(e) => set("nom", e.target.value)} /></div>
+        <div><label className={label}>Zone</label>
+          <input className={champ} value={f.zone} onChange={(e) => set("zone", e.target.value)} /></div>
+        <div><label className={label}>Ville</label>
+          <input className={champ} value={f.ville} onChange={(e) => set("ville", e.target.value)} /></div>
+        <div><label className={label}>Périmètre (m)</label>
+          <input className={champ} type="number" value={f.perimetre} onChange={(e) => set("perimetre", e.target.value)} /></div>
+        <div><label className={label}>Plancher / mois</label>
+          <input className={champ} type="number" value={f.plancher} onChange={(e) => set("plancher", e.target.value)} /></div>
+        <div className="grid grid-cols-2 gap-2">
+          <div><label className={label}>Min</label>
+            <input className={champ} type="number" value={f.min} onChange={(e) => set("min", e.target.value)} /></div>
+          <div><label className={label}>Max</label>
+            <input className={champ} type="number" value={f.max} onChange={(e) => set("max", e.target.value)} /></div>
+        </div>
+      </div>
+
+      <p className="text-[11px] text-[#565959] leading-relaxed">
+        Le <b>plancher</b> est le nombre de clients par mois en dessous duquel une
+        boutique passe première à l’arbitrage : c’est ce qui empêche la mieux
+        fournie de quitter le rayon. Les 60 par défaut sont une hypothèse non
+        mesurée — d’où le réglage par rayon plutôt qu’une constante.
+      </p>
+
+      {msg && <p className="text-[12px] text-[#B12704]">{msg}</p>}
+
+      <div className="flex items-center gap-2">
+        <button onClick={enregistrer} disabled={busy}
+          className="bg-[#232F3E] text-white rounded-lg px-4 py-2 text-[12px] font-bold disabled:opacity-40">
+          Enregistrer
+        </button>
+        <button onClick={onClose} className="text-[12px] text-[#565959] px-2">Annuler</button>
+        <button onClick={supprimer} disabled={busy}
+          className="ml-auto text-[11px] font-bold text-[#B12704] hover:underline disabled:opacity-40">
+          Supprimer le rayon
+        </button>
+      </div>
+      <p className="text-[10px] text-[#565959]">
+        Un rayon qui a des boutiques ou des relais dans son histoire ne se
+        supprime pas : suspends-le. Effacer emporterait les compteurs, et le
+        score des boutiques deviendrait faux ailleurs.
+      </p>
+    </div>
+  );
+}
+
+/* ── Modifier un sous-rayon ──────────────────────────────────────────────────
+   Le nombre de variantes est la seule donnée saisie du modèle : tout le reste
+   en découle. Le corriger après le comptage réel recalcule le rayon entier,
+   et peut ouvrir ou refermer la famille — d'où l'aperçu avant validation.
+   ──────────────────────────────────────────────────────────────────────────── */
+function EditerFamille({ famille, rayonId, onClose, onFait }) {
+  const [nom, setNom]   = useState(famille.nom);
+  const [v, setV]       = useState(famille.variantes);
+  const [role, setRole] = useState(famille.role);
+  const [msg, setMsg]   = useState("");
+  const [busy, setBusy] = useState(false);
+  const [confirme, setConf] = useState(false);
+
+  const p = Math.min(0.6, 2.2 / Math.sqrt(Math.max(Number(v) || 1, 1)));
+  const requis = Math.max(4, Math.ceil(1 + Math.log(0.1) / Math.log(1 - p)));
+  const ouvrira = famille.porteurs >= requis;
+
+  const enregistrer = async () => {
+    setBusy(true); setMsg("");
+    const { error } = await supabase.rpc("admin_maj_famille", {
+      p_rayon_id: rayonId, p_nom: nom, p_variantes: Number(v),
+      p_role: role, p_famille_id: famille.id,
+    });
+    setBusy(false);
+    if (error) { setMsg(error.message); return; }
+    onFait();
+  };
+
+  const supprimer = async () => {
+    setBusy(true); setMsg("");
+    const { data, error } = await supabase.rpc("admin_supprimer_famille", { p_famille_id: famille.id });
+    setBusy(false);
+    if (error) { setMsg(error.message); return; }
+    if (data > 0) setMsg(`${data} rattachement(s) de boutique supprimé(s).`);
+    onFait();
+  };
+
+  const champ = "bg-white border border-[#D5D9D9] rounded-lg px-3 py-2 text-[12px] outline-none focus:border-[#FF9900]";
+
+  return (
+    <div className="space-y-2.5">
+      <div className="flex flex-wrap items-center gap-2">
+        <input className={`${champ} w-48`} value={nom} onChange={(e) => setNom(e.target.value)} />
+        <input className={`${champ} w-24`} type="number" value={v} onChange={(e) => setV(e.target.value)} />
+        <select className={champ} value={role} onChange={(e) => setRole(e.target.value)}>
+          <option value="moteur">moteur</option>
+          <option value="appoint">appoint</option>
+          <option value="service">service</option>
+        </select>
+        <button onClick={enregistrer} disabled={busy || !nom}
+          className="bg-[#232F3E] text-white rounded-lg px-3 py-2 text-[11px] font-bold disabled:opacity-40">
+          Enregistrer
+        </button>
+        <button onClick={onClose} className="text-[11px] text-[#565959] px-1">Annuler</button>
+        {confirme ? (
+          <button onClick={supprimer} disabled={busy}
+            className="ml-auto text-[11px] font-bold text-white bg-[#B12704] rounded-lg px-3 py-2">
+            Confirmer la suppression
+          </button>
+        ) : (
+          <button onClick={() => setConf(true)}
+            className="ml-auto text-[11px] font-bold text-[#B12704] hover:underline">
+            Supprimer
+          </button>
+        )}
+      </div>
+
+      {/* Ce que le changement fait avant qu'il ne le fasse. */}
+      <p className="text-[11px] text-[#565959]">
+        {v} variantes → p = {p.toFixed(2)} → <b>{requis} porteurs nécessaires</b>.
+        Cette famille en a {famille.porteurs} :{" "}
+        {ouvrira
+          ? <span className="text-[#007600] font-bold">elle restera ouverte</span>
+          : <span className="text-[#B12704] font-bold">
+              elle se fermera — il en manque {requis - famille.porteurs}
+            </span>}.
+      </p>
+      {confirme && (
+        <p className="text-[11px] text-[#B12704]">
+          La supprimer retirera d’un coup le rattachement des {famille.porteurs} boutiques
+          qui la tenaient, et la couverture qu’elle apportait disparaîtra.
+        </p>
+      )}
+      {msg && <p className="text-[11px] text-[#B12704]">{msg}</p>}
     </div>
   );
 }

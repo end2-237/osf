@@ -31,6 +31,18 @@
 
 SET lock_timeout = '5s';
 
+DO $trg$
+BEGIN
+  -- Un déclencheur dépend de sa fonction : PostgreSQL refuse de supprimer la
+  -- seconde tant que le premier existe. On les retire donc d'abord, et ce
+  -- fichier les recrée plus bas.
+  DROP TRIGGER IF EXISTS trg_notifier_appel     ON public.appels;
+  DROP TRIGGER IF EXISTS trg_notifier_relais_ins ON public.relais;
+  DROP TRIGGER IF EXISTS trg_notifier_relais_upd ON public.relais;
+EXCEPTION WHEN undefined_table THEN NULL;
+END
+$trg$;
+
 DO $reset$
 DECLARE r RECORD;
 BEGIN

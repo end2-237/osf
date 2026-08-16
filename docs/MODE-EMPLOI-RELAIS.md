@@ -22,6 +22,7 @@ sont écrites en `plpgsql` exprès.
 | 5 | `docs/sql/27-console-rayons.sql` | les fonctions `admin_*` de la console des rayons |
 | 6 | `docs/sql/28-notifications-relais.sql` | `relais_notifications`, ses déclencheurs et la file d'envoi |
 | 7 | `docs/sql/29-repondre-a-l-appel.sql` | `appels_en_attente`, le ciblage unifié, et la correction de `lancer_appel` |
+| 8 | `docs/sql/30-modifier-rayons.sql` | modifier un rayon ou un sous-rayon, et les supprimer |
 
 Vérification après application :
 
@@ -102,6 +103,17 @@ n'utilise plus jamais le mécanisme.
 Retirer une boutique la **désactive**, ça ne l'efface pas : ses relais et ses
 compteurs restent, sinon le score des autres boutiques deviendrait faux
 rétroactivement.
+
+**Modifier.** « Modifier le rayon » ouvre le nom, la zone, la ville, le
+périmètre, le plancher d'arbitrage et les bornes du nombre de boutiques. Chaque
+sous-rayon a son propre « Modifier », et le formulaire montre l'effet avant de
+valider : changer le nombre de variantes recalcule les porteurs nécessaires, et
+la ligne dit si la famille restera ouverte ou se fermera. Le nombre de variantes
+est la seule donnée saisie du modèle — le corriger après le comptage sur le
+terrain est le geste normal, pas l'exception.
+
+Un rayon actif se **suspend** plutôt qu'il ne se supprime, et la base refuse la
+suppression dès qu'il a des boutiques ou un seul relais dans son histoire.
 
 <details>
 <summary>La même chose en SQL, si besoin</summary>
