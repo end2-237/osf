@@ -24,6 +24,7 @@ sont écrites en `plpgsql` exprès.
 | 7 | `docs/sql/29-repondre-a-l-appel.sql` | `appels_en_attente`, le ciblage unifié, et la correction de `lancer_appel` |
 | 8 | `docs/sql/30-modifier-rayons.sql` | modifier un rayon ou un sous-rayon, et les supprimer |
 | 9 | `docs/sql/31-premier-rayon.sql` | les catégories de recrutement, et le premier rayon monté en entier |
+| 10 | `docs/sql/32-ouvrir-et-les-sept-rayons.sql` | l'ouverture forcée, et les sept autres rayons |
 
 Vérification après application :
 
@@ -84,9 +85,24 @@ select genre, count(*), count(envoyee_le)
 
 ## 2. Monter un rayon
 
-La migration `31` monte déjà le premier — **Chaussure & Sport, marché de
-Mboppi** — avec ses 5 familles, ses 10 catégories de recrutement et le lien
-entre les deux. Il ne reste qu'à y affecter des boutiques.
+Les migrations `31` et `32` montent **les huit rayons du document 1** — de la
+chaussure à la pièce détachée — avec leurs familles, leurs catégories de
+recrutement et le lien entre les deux. Tous dans la même zone, et ce n'est pas
+un détail : cinq rayons dans un quartier valent mieux qu'un rayon dans cinq
+quartiers. Il ne reste qu'à y affecter des boutiques.
+
+### Un rayon neuf est en construction, et ça bloque tout
+
+C'est le piège, et il se voit mal. `vendor_rayon()` ne renvoie que les rayons
+**actifs** : une boutique affectée à un rayon en construction ne voit rien dans
+son onglet « Le relais », et ses prix ne sont pas majorés. C'est correct en
+production — on n'ouvre pas un rayon dont la famille motrice n'a pas ses
+porteurs — et insupportable pour essayer.
+
+L'entête du rayon porte donc trois boutons toujours visibles : **Construction ·
+Actif · Suspendu**. On passe de l'un à l'autre à volonté. Si le rayon n'est pas
+prêt, l'avertissement propose « Ouvrir quand même » — la base l'accepte avec
+`p_force`, et refuse sans lui.
 
 **Super admin → Rayons.** Tout le reste s'y fait sans écrire une requête :
 créer un rayon, ajouter des sous-rayons et des catégories, affecter les

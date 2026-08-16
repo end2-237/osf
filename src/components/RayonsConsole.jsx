@@ -135,8 +135,11 @@ export default function RayonsConsole() {
   const retirer = (vendorId) =>
     agir(() => supabase.rpc("admin_retirer_boutique", { p_vendor_id: vendorId, p_rayon_id: actif }));
 
-  const ouvrir = () =>
-    agir(() => supabase.rpc("admin_maj_rayon", { p_rayon_id: actif, p_statut: "actif" }));
+  const changerStatut = (statut, force = false) =>
+    agir(() => supabase.rpc("admin_maj_rayon",
+      { p_rayon_id: actif, p_statut: statut, p_force: force }));
+
+  const ouvrir = () => changerStatut("actif");
 
   return (
     <div className="space-y-4">
@@ -185,18 +188,24 @@ export default function RayonsConsole() {
                 className="text-[11px] font-bold text-[#007185] hover:underline">
                 {editRayon ? "Fermer" : "Modifier le rayon"}
               </button>
-              {rayon.statut === "actif" && (
-                <button onClick={() => agir(() => supabase.rpc("admin_maj_rayon", { p_rayon_id: actif, p_statut: "suspendu" }))}
-                  className="text-[11px] font-bold text-[#B12704] hover:underline">
-                  Suspendre
-                </button>
-              )}
-              {rayon.statut === "suspendu" && (
-                <button onClick={ouvrir}
-                  className="text-[11px] font-bold text-[#007600] hover:underline">
-                  Réactiver
-                </button>
-              )}
+              {/* Toujours visible, et dans les trois sens : un rayon s'ouvre,
+                  se referme et se rouvre à volonté. Une seule boutique dans un
+                  rayon en construction ne voit rien du relais — c'est correct
+                  en production, et impossible à essayer sans ce bouton. */}
+              <div className="flex rounded-lg overflow-hidden border border-[#D5D9D9]">
+                {[["construction", "Construction"], ["actif", "Actif"], ["suspendu", "Suspendu"]]
+                  .map(([k, l]) => (
+                    <button key={k}
+                      onClick={() => changerStatut(k)}
+                      disabled={busy || rayon.statut === k}
+                      className={`px-3 py-1.5 text-[11px] font-bold transition-colors ${
+                        rayon.statut === k
+                          ? "bg-[#232F3E] text-white"
+                          : "bg-white text-[#565959] hover:bg-[#F0F2F2]"}`}>
+                      {l}
+                    </button>
+                  ))}
+              </div>
             </div>
           </div>
 
@@ -216,6 +225,13 @@ export default function RayonsConsole() {
               </div>
             ))}
           </div>
+
+          {rayon.statut !== "actif" && (
+            <div className="rounded-xl border border-[#D5D9D9] bg-[#F7F8F8] px-4 py-2.5 text-[12px] text-[#565959]">
+              Tant que ce rayon n’est pas <b>actif</b>, ses boutiques ne voient rien
+              dans leur onglet « Le relais » et leurs prix ne sont pas majorés.
+            </div>
+          )}
 
           {editRayon && (
             <EditerRayon rayon={rayon}
@@ -239,11 +255,18 @@ export default function RayonsConsole() {
                   </button>
                 </div>
               ) : (
-                <>
-                  Le rayon ne peut pas encore ouvrir. Une famille motrice sous son
-                  seuil produit des relais ratés — et un commerçant qui se plante
-                  deux fois n’utilise plus jamais le mécanisme.
-                </>
+                <div className="flex items-start justify-between gap-3">
+                  <span>
+                    Le rayon n’est pas prêt : une famille motrice est sous son seuil
+                    de porteurs. L’ouvrir maintenant fera échouer un relais sur deux,
+                    et un commerçant qui se plante deux fois n’utilise plus jamais
+                    le mécanisme.
+                  </span>
+                  <button onClick={() => changerStatut("actif", true)} disabled={busy}
+                    className="border border-[#92400E] text-[#92400E] rounded-lg px-3 py-2 text-[11px] font-bold whitespace-nowrap disabled:opacity-40">
+                    Ouvrir quand même
+                  </button>
+                </div>
               )}
             </div>
           )}

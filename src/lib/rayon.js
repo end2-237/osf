@@ -130,7 +130,10 @@ export async function rayonDuVendeur(vendorId) {
 
   if (error) console.error('[rayon] appartenance:', error.code, error.message);
   const res = data && data.rayons?.statut === 'actif' ? data : null;
-  _rayonParVendeur.set(vendorId, res);
+  // On ne mémorise que les réponses positives. Un rayon encore en construction
+  // s'ouvre en cours de session : mettre le « non » en cache obligerait le
+  // commerçant à recharger la page pour voir son relais apparaître.
+  if (res) _rayonParVendeur.set(vendorId, res);
   return res;
 }
 
