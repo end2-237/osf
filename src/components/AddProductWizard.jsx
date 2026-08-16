@@ -1,5 +1,6 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { supabase, uploadProductImage } from "../lib/supabase";
+import { chargerBareme, rayonDuVendeur, decomposer, fcfa } from "../lib/rayon";
 
 // Taxonomie complète (alignée sur le Store)
 const SUBCATEGORIES = {
@@ -37,11 +38,66 @@ const label = "text-[11px] font-bold uppercase tracking-wide text-gray-400 block
 
 const STEPS = ["Infos", "Photos", "Variations", "Livraison", "Résumé"];
 
+/* ── Le prix net, montré pendant qu'il tape ─────────────────────────────────
+   Une boutique de rayon saisit son PRIX NET : ce qu'elle touche en entier.
+   Buyticle ajoute 13 % par-dessus, portés par l'acheteur. Si le commerçant
+   découvre plus tard un prix majoré sur sa fiche sans qu'on le lui ait dit,
+   il pensera qu'on gonfle ses prix — et il le dira dans l'allée. C'est le
+   plus gros risque d'adoption du projet, et il se joue sur cet encart.       */
+const PrixNet = ({ prixNet }) => {
+  const d = decomposer(prixNet);
+  if (!d.enRayon || !d.net) return null;
+  return (
+    <div className="col-span-2 rounded-xl border border-emerald-200 bg-emerald-50 p-3.5">
+      <p className="text-[11px] font-bold uppercase tracking-wide text-emerald-700">
+        Ce prix est ton prix net
+      </p>
+      <p className="text-[13px] text-emerald-900 mt-1.5 leading-relaxed">
+        Tu touches <b>{fcfa(d.net)}</b> en entier sur chaque vente. Les 13 % que
+        Buyticle ajoute au-dessus sont payés par l'acheteur — on ne prend rien
+        sur ta marge.
+      </p>
+      <div className="mt-3 space-y-1 text-[13px]">
+        <div className="flex justify-between">
+          <span className="text-emerald-800">Prix affiché sur Buyticle</span>
+          <b className="text-emerald-900">{fcfa(d.affiche)}</b>
+        </div>
+        <div className="flex justify-between">
+          <span className="text-emerald-800">Ton client relayé paiera</span>
+          <b className="text-emerald-900">{fcfa(d.paye)}</b>
+        </div>
+        <div className="flex justify-between border-t border-emerald-200 pt-1 mt-1">
+          <span className="text-emerald-700">Dont remise au client</span>
+          <span className="text-emerald-700">{fcfa(d.remise)}</span>
+        </div>
+        <div className="flex justify-between">
+          <span className="text-emerald-700">Dont bon à la boutique qui l'envoie</span>
+          <span className="text-emerald-700">{fcfa(d.bon)}</span>
+        </div>
+        <div className="flex justify-between">
+          <span className="text-emerald-700">Dont commission Buyticle</span>
+          <span className="text-emerald-700">{fcfa(d.buyticle)}</span>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // `product` renseigné → le formulaire modifie ce produit ; sinon il en crée un.
 const AddProductWizard = ({ vendor, product = null, plan = null, onClose, onDone, showToast }) => {
   const isEdit = !!product;
   const [step, setStep] = useState(0);
   const [saving, setSaving] = useState(false);
+  // La majoration est une propriété du rayon, pas du produit : hors rayon, le
+  // prix saisi reste le prix affiché et cet écran ne change pas.
+  const [enRayon, setEnRayon] = useState(false);
+
+  useEffect(() => {
+    let vivant = true;
+    Promise.all([chargerBareme(), rayonDuVendeur(vendor?.id)])
+      .then(([, appartenance]) => { if (vivant) setEnRayon(!!appartenance); });
+    return () => { vivant = false; };
+  }, [vendor?.id]);
   const [f, setF] = useState(() => ({
     name:          product?.name || "",
     type:          product?.type || "Tech Lab",
@@ -174,8 +230,18 @@ const AddProductWizard = ({ vendor, product = null, plan = null, onClose, onDone
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3">
-                <div><label className={label}>Prix (FCFA) *</label><input className={input} type="number" value={f.price} onChange={e => set("price", e.target.value)} placeholder="15000" /></div>
+                <div>
+                  <label className={label}>{enRayon ? "Ton prix net (FCFA) *" : "Prix (FCFA) *"}</label>
+                  <input className={input} type="number" value={f.price} onChange={e => set("price", e.target.value)} placeholder="15000" />
+                  {enRayon && (
+                    <p className="text-[11px] text-gray-500 mt-1.5 leading-snug">
+                      Le plus bas auquel tu acceptes de lâcher l'article — celui
+                      auquel tu finis par arriver après discussion.
+                    </p>
+                  )}
+                </div>
                 <div><label className={label}>Prix barré (optionnel)</label><input className={input} type="number" value={f.compareAt} onChange={e => set("compareAt", e.target.value)} placeholder="20000" /></div>
+                {enRayon && <PrixNet prixNet={f.price} />}
               </div>
               <div><label className={label}>Disponibilité</label>
                 <div className="flex gap-2">
@@ -278,7 +344,16 @@ const AddProductWizard = ({ vendor, product = null, plan = null, onClose, onDone
                 <div className="min-w-0">
                   <p className="font-bold text-gray-900">{f.name || "Sans nom"}</p>
                   <p className="text-[12px] text-gray-500">{f.type}{f.subcategory ? ` · ${f.subcategory}` : ""}</p>
-                  <p className="text-lg font-bold mt-1">{Number(f.price || 0).toLocaleString("fr-FR")} F</p>
+                  {enRayon ? (
+                    <>
+                      <p className="text-lg font-bold mt-1">{fcfa(decomposer(f.price).affiche)}</p>
+                      <p className="text-[12px] text-emerald-700 font-semibold">
+                        Tu touches {fcfa(decomposer(f.price).net)}
+                      </p>
+                    </>
+                  ) : (
+                    <p className="text-lg font-bold mt-1">{Number(f.price || 0).toLocaleString("fr-FR")} F</p>
+                  )}
                   <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${f.status === "Épuisé" ? "bg-red-50 text-red-600" : "bg-emerald-50 text-emerald-600"}`}>{f.status === "Épuisé" ? "Épuisé" : "En stock"}</span>
                 </div>
               </div>
