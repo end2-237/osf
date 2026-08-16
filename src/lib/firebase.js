@@ -54,6 +54,9 @@ export const capacitesManquantes = async () => {
   if (!('indexedDB' in window)) {
     manque.push('IndexedDB');
   } else {
+    // On garde le motif : SecurityError dit « le site n'a pas le droit de
+    // stocker », QuotaExceededError dit « le disque est plein », et les deux
+    // se règlent différemment.
     const ouvrable = await new Promise((resolve) => {
       let regle = false;
       const fini = (v) => { if (!regle) { regle = true; resolve(v); } };
@@ -61,14 +64,14 @@ export const capacitesManquantes = async () => {
         const req = window.indexedDB.open('buyticle-test-idb');
         req.onsuccess = () => {
           try { req.result.close(); window.indexedDB.deleteDatabase('buyticle-test-idb'); } catch { /* sans importance */ }
-          fini(true);
+          fini({ ok: true });
         };
-        req.onerror   = () => fini(false);
-        req.onblocked = () => fini(false);
-        setTimeout(() => fini(false), 2000);
-      } catch { fini(false); }
+        req.onerror   = () => fini({ ok: false, motif: req.error?.name || 'erreur' });
+        req.onblocked = () => fini({ ok: false, motif: 'bloqué' });
+        setTimeout(() => fini({ ok: false, motif: 'sans réponse' }), 2000);
+      } catch (e) { fini({ ok: false, motif: e?.name || 'exception' }); }
     });
-    if (!ouvrable) manque.push('IndexedDB bloqué');
+    if (!ouvrable.ok) manque.push(`IndexedDB bloqué (${ouvrable.motif})`);
   }
 
   return manque;
@@ -115,6 +118,7 @@ const inscrireServiceWorker = () => {
 export const RAISONS = {
   ok:           'Notifications actives.',
   non_supporte: 'Ce navigateur ne peut pas recevoir de notifications. Sur iPhone, ajoute le site à l’écran d’accueil ; en navigation privée, ça ne marche pas ; et sur Brave, il faut activer « Use Google services for push messaging » dans les réglages de confidentialité.',
+  stockage_bloque: 'Ce navigateur empêche le site d’enregistrer des données, et les notifications en ont besoin. Clique sur l’icône à gauche de l’adresse du site, puis autorise les cookies et les données pour buyticle.store. Un bloqueur de publicité ou un bouclier de confidentialité peut aussi en être la cause.',
   sw_echec:     'Le service de fond n’a pas pu démarrer — souvent un bloqueur de scripts ou la navigation privée. Recharge la page.',
   refusee:      'Tu as refusé les notifications. Il faut les réautoriser dans les réglages du navigateur, à côté de l’adresse du site.',
   ignoree:      'La demande a été fermée sans répondre. Réessaie.',
@@ -132,9 +136,14 @@ export const requestNotificationPermission = async (vendorId) => {
   if (!messaging) {
     const manque = await capacitesManquantes();
     console.warn('[FCM] non supporté — manque :', manque.length ? manque : '(rien de visible)');
+    // Le stockage bloqué est une cause à part : le navigateur en est capable,
+    // c'est un réglage qui l'en empêche. Le remède n'a rien à voir avec celui
+    // d'un navigateur incapable, donc le message non plus.
+    const seulementStockage = manque.length > 0 && manque.every((m) => m.startsWith('IndexedDB'));
+
     return {
       token: null,
-      raison: 'non_supporte',
+      raison: seulementStockage ? 'stockage_bloque' : 'non_supporte',
       // Rien ne manque en apparence mais Firebase refuse quand même : c'est la
       // signature d'un navigateur qui a coupé le service de push de Google —
       // Brave le fait par défaut.
