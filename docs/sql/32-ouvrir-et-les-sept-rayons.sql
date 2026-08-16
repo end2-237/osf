@@ -272,8 +272,12 @@ DECLARE
 ]
 $json$::JSONB;
 
-  ZONE  CONSTANT TEXT := 'Marché Mboppi';
-  VILLE CONSTANT TEXT := 'Douala';
+  -- Préfixés v_ : PL/pgSQL ne distingue pas la casse, donc une variable
+
+  -- nommée VILLE serait confondue avec la colonne ville de la table rayons.
+
+  v_zone  CONSTANT TEXT := 'Marché Mboppi';
+  v_ville CONSTANT TEXT := 'Douala';
 
   r JSONB; f JSONB; c JSONB;
   v_rayon UUID; v_cat UUID; v_total INTEGER;
@@ -282,12 +286,12 @@ BEGIN
 
     ---------------------------------------------------------------- le rayon
     SELECT id INTO v_rayon FROM public.rayons
-     WHERE ville = VILLE AND zone = ZONE AND nom = r->>'nom';
+     WHERE ville = v_ville AND zone = v_zone AND nom = r->>'nom';
 
     IF v_rayon IS NULL THEN
       INSERT INTO public.rayons (nom, zone, ville, perimetre_m,
                                  min_boutiques, max_boutiques, plancher_recus, statut)
-      VALUES (r->>'nom', ZONE, VILLE, 500, 8, 16, 60, 'construction')
+      VALUES (r->>'nom', v_zone, v_ville, 500, 8, 16, 60, 'construction')
       RETURNING id INTO v_rayon;
     END IF;
 
