@@ -27,18 +27,50 @@ const app = initializeApp(firebaseConfig);
    navigateur ne sait pas » sans dire quoi n'aide personne à décider s'il doit
    changer de navigateur, sortir de la navigation privée, ou débloquer un
    réglage. On refait donc la vérification nous-mêmes, en nommant chaque pièce. */
-export const capacitesManquantes = () => {
+export const capacitesManquantes = async () => {
   const manque = [];
   if (typeof window === 'undefined') return ['fenêtre'];
-  if (!window.isSecureContext)                 manque.push('HTTPS');
-  if (!('serviceWorker' in navigator))         manque.push('service worker');
-  if (!('PushManager' in window))              manque.push('PushManager');
-  if (!('Notification' in window))             manque.push('Notification');
-  if (!navigator.cookieEnabled)                manque.push('cookies');
-  if (!('showNotification' in (window.ServiceWorkerRegistration?.prototype || {})))
+  if (!window.isSecureContext)         manque.push('HTTPS');
+  if (!('serviceWorker' in navigator)) manque.push('service worker');
+  if (!('PushManager' in window))      manque.push('PushManager');
+  if (!('Notification' in window))     manque.push('Notification');
+  if (!('fetch' in window))            manque.push('fetch');
+  if (!navigator.cookieEnabled)        manque.push('cookies');
+
+  // hasOwnProperty et non `in` : c'est exactement ce que teste Firebase, et la
+  // nuance compte — un polyfill posé sur le prototype passerait le second test
+  // sans satisfaire le premier.
+  if (!window.ServiceWorkerRegistration?.prototype?.hasOwnProperty('showNotification'))
     manque.push('showNotification');
-  if (!('getKey' in (window.PushSubscription?.prototype || {})))
+  if (!window.PushSubscription?.prototype?.hasOwnProperty('getKey'))
     manque.push('PushSubscription.getKey');
+
+  // La vérification oubliée, et la plus fréquente. Firebase ouvre réellement
+  // une base IndexedDB avant de se déclarer supporté : la présence de l'objet
+  // ne suffit pas, il faut que l'ouverture aboutisse. Un navigateur qui bloque
+  // les données de site — Brave avec ses boucliers, une fenêtre privée, un
+  // réglage « refuser les cookies tiers et les données » — laisse l'objet en
+  // place et fait échouer l'ouverture.
+  if (!('indexedDB' in window)) {
+    manque.push('IndexedDB');
+  } else {
+    const ouvrable = await new Promise((resolve) => {
+      let regle = false;
+      const fini = (v) => { if (!regle) { regle = true; resolve(v); } };
+      try {
+        const req = window.indexedDB.open('buyticle-test-idb');
+        req.onsuccess = () => {
+          try { req.result.close(); window.indexedDB.deleteDatabase('buyticle-test-idb'); } catch { /* sans importance */ }
+          fini(true);
+        };
+        req.onerror   = () => fini(false);
+        req.onblocked = () => fini(false);
+        setTimeout(() => fini(false), 2000);
+      } catch { fini(false); }
+    });
+    if (!ouvrable) manque.push('IndexedDB bloqué');
+  }
+
   return manque;
 };
 
@@ -98,7 +130,7 @@ export const requestNotificationPermission = async (vendorId) => {
 
   const messaging = await obtenirMessaging();
   if (!messaging) {
-    const manque = capacitesManquantes();
+    const manque = await capacitesManquantes();
     console.warn('[FCM] non supporté — manque :', manque.length ? manque : '(rien de visible)');
     return {
       token: null,
@@ -106,7 +138,9 @@ export const requestNotificationPermission = async (vendorId) => {
       // Rien ne manque en apparence mais Firebase refuse quand même : c'est la
       // signature d'un navigateur qui a coupé le service de push de Google —
       // Brave le fait par défaut.
-      detail: manque.length ? `manque : ${manque.join(', ')}` : 'service de push désactivé',
+      detail: manque.length
+        ? `manque : ${manque.join(', ')}`
+        : 'toutes les API sont là — le navigateur a coupé le service de push de Google',
     };
   }
 
