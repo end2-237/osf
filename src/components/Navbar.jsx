@@ -77,6 +77,7 @@ const ProfileDropdown = ({ user, profile, signOut, isDark, isSuperAdmin }) => {
           </div>
           <div className="py-1">
             {[
+              { to: "/mon-relais",           icon: "fa-arrows-turn-right", label: "Mon relais" },
               { to: "/profile",              icon: "fa-user",           label: "Mon profil"         },
               { to: "/track",                icon: "fa-location-dot",   label: "Suivre ma commande" },
               { to: "/profile?tab=orders",   icon: "fa-box",            label: "Mes commandes"      },

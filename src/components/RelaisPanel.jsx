@@ -5,7 +5,7 @@ import {
   chercherDansRayon, lancerAppel, classerRepondants, attribuerRelais,
   validerCode, declarerRupture, relaisDuComptoir, soldeBon, fcfa,
   relaisALivrer, confirmerRemise, pousserNotifications,
-  appelsEnAttente, repondreAppel, famillesDuRayon,
+  appelsEnAttente, repondreAppel, famillesDuRayon, presencesDuComptoir,
 } from '../lib/relais';
 import { requestNotificationPermission, RAISONS } from '../lib/firebase';
 
@@ -266,6 +266,7 @@ function Envoyer({ vendor, rayon }) {
   const [choix, setChoix]   = useState(null);
   const [motif, setMotif]   = useState('');
   const [code, setCode]     = useState('');
+  const [presences, setPres] = useState([]);
   const [fini, setFini]     = useState(null);
   const [msg, setMsg]       = useState('');
   const tick = useRef(null);
@@ -316,6 +317,19 @@ function Envoyer({ vendor, rayon }) {
 
   useEffect(() => () => clearInterval(tick.current), []);
 
+  // Qui vient de scanner l'affiche du comptoir. On n'interroge qu'à l'étape de
+  // l'identification : avant, on n'a rien à donner au client et on ne lui a
+  // rien demandé.
+  useEffect(() => {
+    if (!choix) return;
+    let vivant = true;
+    const tirer = () => presencesDuComptoir(vendor.id)
+      .then(({ data }) => { if (vivant) setPres(data || []); });
+    tirer();
+    const t = setInterval(tirer, 2500);
+    return () => { vivant = false; clearInterval(t); };
+  }, [choix, vendor.id]);
+
   const attribuer = async () => {
     if (!choix) return;
     setMsg('');
@@ -324,7 +338,8 @@ function Envoyer({ vendor, rayon }) {
     const { data, error } = await attribuerRelais(
       appel.appel_id, choix.vendor_id, null, choix.prix_net,
       { productId: choix.product_id, mode, rangChoisi: choix.rang,
-        motif: choix.rang > 1 ? motif : null });
+        motif: choix.rang > 1 ? motif : null,
+        codeClient: code.trim().toUpperCase() || null });
     if (error) { setMsg(error.message); return; }
     setFini(data?.[0]);
   };
@@ -578,14 +593,43 @@ function Envoyer({ vendor, rayon }) {
             Dis-lui de scanner l’affiche sur ton comptoir. Il aura son compte et
             son code en deux gestes, sans rien installer.
           </p>
+
+          {/* Ceux qui viennent de scanner. Le plus récent en premier : c'est
+              presque toujours celui qui est devant lui. */}
+          {presences.length > 0 && (
+            <div className="mt-3 space-y-1.5">
+              <p className="text-[11px] font-bold uppercase tracking-wide text-gray-400">
+                Vient de scanner ton comptoir
+              </p>
+              {presences.map((p) => (
+                <button key={p.code} onClick={() => setCode(p.code)}
+                  className={`w-full flex items-center justify-between gap-3 rounded-xl border px-3.5 py-2.5 text-left transition-colors ${
+                    code === p.code ? 'border-gray-900 bg-gray-50' : 'border-gray-200'}`}>
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-gray-900 truncate">{p.nom}</p>
+                    <p className="text-[12px] text-gray-500">
+                      {p.telephone || '—'} · il y a {p.il_y_a_s < 60 ? `${p.il_y_a_s} s` : `${Math.round(p.il_y_a_s / 60)} min`}
+                    </p>
+                  </div>
+                  <span className="text-lg font-black tracking-[0.2em] text-gray-900 shrink-0">{p.code}</span>
+                </button>
+              ))}
+            </div>
+          )}
+
           <input value={code} onChange={(e) => setCode(e.target.value.toUpperCase())}
-            placeholder="Ou tape son code : ABC234" maxLength={6}
-            className="mt-3 w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm tracking-widest outline-none focus:border-gray-900" />
+            placeholder={presences.length ? 'Ou tape son code : AB34' : 'Son code à 4 caractères'}
+            maxLength={4}
+            className="mt-3 w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-center text-lg font-bold tracking-[0.3em] outline-none focus:border-gray-900" />
           <button onClick={attribuer}
-            disabled={choix.rang > 1 && !motif}
+            disabled={!code.trim() || (choix.rang > 1 && !motif)}
             className="mt-3 w-full bg-gray-900 text-white rounded-xl py-3 text-sm font-semibold disabled:opacity-40">
             Envoyer chez {choix.shop_name}
           </button>
+          <p className="text-[11px] text-gray-500 mt-2 leading-snug">
+            Sans son code, le relais n’aurait pas de destinataire : il ne
+            s’afficherait sur aucun téléphone et personne ne pourrait le payer.
+          </p>
         </Section>
       )}
 

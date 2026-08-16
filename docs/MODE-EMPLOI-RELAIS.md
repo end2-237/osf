@@ -26,6 +26,7 @@ sont écrites en `plpgsql` exprès.
 | 9 | `docs/sql/31-premier-rayon.sql` | les catégories de recrutement, et le premier rayon monté en entier |
 | 10 | `docs/sql/32-ouvrir-et-les-sept-rayons.sql` | l'ouverture forcée, et les sept autres rayons |
 | 11 | `docs/sql/33-recherche-du-rayon.sql` | la recherche montre les articles du rayon avant la question ouverte |
+| 12 | `docs/sql/34-le-code-du-client.sql` | la présence au comptoir : comment un client obtient son code |
 
 Vérification après application :
 
@@ -291,9 +292,30 @@ où il a tapé 48 000 pensera qu'on gonfle ses prix, et il le dira dans l'allée
 
 ## 4. Ce que voit le client
 
+### Deux codes, et il ne faut pas les confondre
+
+| | Longueur | À qui il sert | Durée |
+|---|:---:|---|:---:|
+| **Code de présence** | 4 | le client dit « c'est moi » au vendeur qui l'envoie | 15 min |
+| **Code de relais** | 6 | le client dit « c'est bien moi » au comptoir qui le reçoit | 48 h |
+
 **L'affiche du comptoir.** Un autocollant portant l'URL `buyticle.cm/r/<code>`
 où `<code>` est le `referral_code` de la boutique. Il le scanne avec son
 appareil photo — aucune application à installer.
+
+**Il obtient son code de présence.** Le scan enregistre qu'il est là,
+maintenant, chez ce commerçant. Un code à quatre caractères s'affiche en grand
+sur son téléphone, et il apparaît en même temps dans la liste du vendeur, avec
+son nom et depuis combien de temps il a scanné. Le vendeur tape sur la ligne,
+ou saisit le code si deux personnes ont scanné en même temps.
+
+Sans ce code, le relais serait créé sans destinataire : il ne s'afficherait sur
+aucun téléphone et personne ne pourrait le payer. La fonction refuse
+explicitement plutôt que de créer un relais orphelin.
+
+**Puis son code de relais.** Une fois le vendeur a attribué, l'écran bascule :
+l'article, la remise, le chemin et un code à six caractères, celui qu'il
+montrera au comptoir d'arrivée.
 
 **Deux gestes.** Son numéro, un mot de passe. Pas de code SMS, pas de
 vérification, pas d'adresse e-mail. Son numéro se vérifie tout seul au

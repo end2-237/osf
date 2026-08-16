@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { monRelais, payerRelais, confirmerRemise, annulerRelais,
-         resteAvant, etapes, fcfa } from '../lib/relais';
+         maPresence, resteAvant, etapes, fcfa } from '../lib/relais';
 
 /* ══════════════════════════════════════════════════════════════════════════
    MON RELAIS — l'écran du client
@@ -19,18 +19,38 @@ export default function RelaisPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [r, setR]       = useState(null);
+  const [presence, setPresence] = useState(null);
   const [charge, setCharge] = useState(true);
   const [msg, setMsg]   = useState('');
   const [reste, setReste] = useState(null);
 
-  const recharger = () =>
-    monRelais().then(({ data, error }) => {
-      if (error) setMsg(error.message);
-      setR(data?.[0] || null);
-      setCharge(false);
-    });
+  const recharger = async () => {
+    const { data, error } = await monRelais();
+    if (error) setMsg(error.message);
+    const rel = data?.[0] || null;
+    setR(rel);
+    // Pas encore de relais : il vient peut-être de scanner un comptoir et
+    // attend que le vendeur l'attache. Son code doit être à l'écran, pas
+    // caché derrière un « aucun relais en cours ».
+    if (!rel) {
+      const { data: p } = await maPresence();
+      setPresence(p?.[0] || null);
+    } else {
+      setPresence(null);
+    }
+    setCharge(false);
+  };
 
   useEffect(() => { if (user) recharger(); else setCharge(false); }, [user]);
+
+  // Tant qu'il attend, on regarde toutes les trois secondes si le vendeur a
+  // attaché le relais. Il est debout devant le comptoir : il ne va pas
+  // recharger la page lui-même.
+  useEffect(() => {
+    if (!user || r) return;
+    const t = setInterval(recharger, 3000);
+    return () => clearInterval(t);
+  }, [user, r]);   // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!r?.expire_le) return;
@@ -53,14 +73,61 @@ export default function RelaisPage() {
     );
   }
 
+  // Il a scanné un comptoir et le vendeur n'a pas encore attaché le relais.
+  // C'est le seul moment où son code de présence sert, et il doit être énorme.
+  if (!r && presence) {
+    return (
+      <div className="max-w-lg mx-auto px-4 py-8">
+        <div className="rounded-2xl border-2 border-gray-900 p-6 text-center">
+          <p className="text-[11px] font-bold uppercase tracking-wide text-gray-400">
+            Montre ce code au vendeur
+          </p>
+          <p className="text-6xl font-black tracking-[0.2em] text-gray-900 mt-3">
+            {presence.code}
+          </p>
+          <p className="text-sm text-gray-600 mt-3 leading-relaxed">
+            Tu es chez <b>{presence.boutique}</b>. Le vendeur le saisit, et ton
+            article, ton prix et ton chemin s’afficheront ici.
+          </p>
+        </div>
+        <div className="mt-4 flex items-center justify-center gap-2 text-[13px] text-gray-400">
+          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+          En attente du vendeur
+        </div>
+        <p className="text-[12px] text-gray-400 text-center mt-4">
+          Ce code est valable quinze minutes. S’il expire, rescanne l’affiche
+          du comptoir.
+        </p>
+      </div>
+    );
+  }
+
   if (!r) {
     return (
       <div className="max-w-lg mx-auto px-4 py-16 text-center">
         <p className="text-lg font-semibold text-gray-900">Aucun relais en cours</p>
         <p className="text-sm text-gray-500 mt-2 leading-relaxed">
           Quand un commerçant n’a pas ce que tu cherches, il t’envoie chez un
-          voisin qui l’a — et tu obtiens une remise. Ton chemin s’affichera ici.
+          voisin qui l’a — et tu obtiens une remise.
         </p>
+        <div className="mt-6 rounded-2xl border border-gray-200 p-5 text-left">
+          <p className="text-[11px] font-bold uppercase tracking-wide text-gray-400">
+            Comment ça marche
+          </p>
+          <ol className="mt-2.5 space-y-2 text-[13px] text-gray-600">
+            {['Le commerçant n’a pas ce que tu cherches et te le dit.',
+              'Il te montre l’affiche Buyticle collée sur son comptoir : tu la scannes.',
+              'Un code à quatre caractères apparaît ici. Tu le lui montres.',
+              'Ton article, ta remise et ton chemin s’affichent. Tu y vas.'].map((t, i) => (
+              <li key={i} className="flex gap-2.5">
+                <span className="w-5 h-5 rounded-full bg-gray-900 text-white grid place-items-center text-[10px] font-bold shrink-0 mt-0.5">
+                  {i + 1}
+                </span>
+                <span>{t}</span>
+              </li>
+            ))}
+          </ol>
+        </div>
         <button onClick={() => navigate('/store')}
           className="mt-6 bg-gray-900 text-white rounded-xl px-6 py-3 text-sm font-semibold">
           Voir la boutique

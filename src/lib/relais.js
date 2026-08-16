@@ -64,7 +64,26 @@ export const attribuerRelais = (appelId, receveurId, clientId, prixNet, opts = {
     p_mode:        opts.mode ?? 'marche',
     p_rang_choisi: opts.rangChoisi ?? 1,
     p_motif:       opts.motif ?? null,
+    p_code_client: opts.codeClient ?? null,
   });
+
+/* ── La présence au comptoir ─────────────────────────────────────────────────
+   Deux codes différents, et il ne faut pas les confondre. Celui de PRÉSENCE,
+   quatre caractères, sert au client à dire « c'est moi » au vendeur qui envoie ;
+   il vit quinze minutes. Celui de RELAIS, six caractères, sert à dire « c'est
+   bien moi » au comptoir de la boutique qui reçoit ; il vit 48 heures.
+   ──────────────────────────────────────────────────────────────────────────── */
+
+/** Le client vient de scanner l'affiche du comptoir. */
+export const signalerPresence = (referralCode) =>
+  rpc('signaler_presence', { p_referral_code: referralCode });
+
+/** Son code personnel, tant qu'aucun relais ne lui a été attribué. */
+export const maPresence = () => rpc('ma_presence');
+
+/** Qui vient de scanner ce comptoir — le plus récent en premier. */
+export const presencesDuComptoir = (vendorId) =>
+  rpc('presences_du_comptoir', { p_vendor_id: vendorId });
 
 export const validerCode = (code, vendorId) =>
   rpc('valider_code', { p_code: code, p_vendor_id: vendorId });

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
+import { signalerPresence } from '../lib/relais';
 
 /* ══════════════════════════════════════════════════════════════════════════
    L'AFFICHE DU COMPTOIR — /r/:code
@@ -33,7 +34,12 @@ export default function RelaisJoin() {
   const [msg, setMsg]   = useState('');
 
   useEffect(() => {
-    if (user) { navigate('/mon-relais', { replace: true }); return; }
+    // Déjà connecté : on signale quand même sa présence, sinon le vendeur ne
+    // le verra pas apparaître dans sa liste et ne pourra pas l'attacher.
+    if (user) {
+      signalerPresence(code).finally(() => navigate('/mon-relais', { replace: true }));
+      return;
+    }
     if (!code) return;
     supabase.from('vendors').select('id, shop_name').eq('referral_code', code.toUpperCase())
       .maybeSingle()
@@ -63,6 +69,11 @@ export default function RelaisJoin() {
       });
       if (e2) { setMsg('Ce numéro a déjà un compte, et le mot de passe ne correspond pas.'); return; }
     }
+    // C'est ce signal qui fait apparaître le client dans la liste du comptoir,
+    // et qui lui donne le code à montrer. Sans lui, le vendeur ne peut pas
+    // l'attacher à son relais.
+    const { error: e3 } = await signalerPresence(code);
+    if (e3) setMsg(e3.message);
     navigate('/mon-relais', { replace: true });
   };
 
