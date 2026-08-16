@@ -20,6 +20,11 @@ const rpc = (nom, args) => supabase.rpc(nom, args);
 export const chercherDansRayon = (vendorId, texte) =>
   rpc('chercher_dans_rayon', { p_vendor_id: vendorId, p_texte: texte });
 
+/** Les familles ouvertes du rayon, pour la question ouverte quand rien n'est
+    référencé nulle part. Les familles fermées ne sont pas proposées. */
+export const famillesDuRayon = (vendorId) =>
+  rpc('familles_du_rayon', { p_vendor_id: vendorId });
+
 /** Lance l'appel. L'application décide seule du cas A, B ou C. */
 export const lancerAppel = (vendorId, libelle, opts = {}) =>
   rpc('lancer_appel', {

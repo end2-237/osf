@@ -25,6 +25,7 @@ sont écrites en `plpgsql` exprès.
 | 8 | `docs/sql/30-modifier-rayons.sql` | modifier un rayon ou un sous-rayon, et les supprimer |
 | 9 | `docs/sql/31-premier-rayon.sql` | les catégories de recrutement, et le premier rayon monté en entier |
 | 10 | `docs/sql/32-ouvrir-et-les-sept-rayons.sql` | l'ouverture forcée, et les sept autres rayons |
+| 11 | `docs/sql/33-recherche-du-rayon.sql` | la recherche montre les articles du rayon avant la question ouverte |
 
 Vérification après application :
 
@@ -222,12 +223,28 @@ bord.
 
 **Tableau de bord → Le relais**, quatre onglets.
 
-**Envoyer un client.** Il tape ce que le client cherche. Son propre stock
-s'affiche en premier — c'est son métier, et il récupère les deux tiers des
-ruptures par sa propre substitution. S'il ne peut vraiment pas servir, il
-appuie sur « Demander au rayon ». Trente secondes plus tard il voit deux ou
-trois boutiques classées, la première étant celle qui a le plus donné. Il ne
-choisit pas ; s'il s'écarte du classement, il doit dire pourquoi.
+**Envoyer un client.** Il tape ce que le client cherche, et trois choses
+s'affichent dans cet ordre — l'ordre est tout.
+
+*Chez toi* d'abord. Il récupère les deux tiers des ruptures par sa propre
+substitution, c'est son métier, et une application qui lui propose le voisin en
+premier lui prend des ventes.
+
+*Dans le rayon* ensuite : les articles que les autres boutiques ont déjà
+référencés, avec la photo, la boutique, le prix affiché et ce que ça lui
+rapporterait. Il choisit celui qui correspond — c'est lui qui sait si
+« Timberland noire 45 » est bien ce que son client veut. L'appel part alors en
+**fiche fermée** : celle qui reçoit voit un article qu'elle reconnaît et deux
+boutons, et elle répond en deux secondes au lieu d'une minute.
+
+*Rien nulle part* enfin, et seulement alors : la question ouverte. Il choisit
+la famille, et celui qui répond « oui » saisira l'article et son prix net.
+C'est ce cas-là qui remplit le catalogue du rayon — il ne faut pas le fuir,
+mais il ne faut pas y tomber quand une fiche existait déjà.
+
+Trente secondes plus tard il voit deux ou trois boutiques classées, la première
+étant celle qui a le plus donné. Il ne choisit pas ; s'il s'écarte du
+classement, il doit dire pourquoi.
 
 **Répondre à un appel.** Quand une boutique du rayon cherche quelque chose, un
 encadré orange apparaît en haut de l'écran, quel que soit l'onglet ouvert, avec

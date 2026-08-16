@@ -5,7 +5,7 @@ import {
   chercherDansRayon, lancerAppel, classerRepondants, attribuerRelais,
   validerCode, declarerRupture, relaisDuComptoir, soldeBon, fcfa,
   relaisALivrer, confirmerRemise, pousserNotifications,
-  appelsEnAttente, repondreAppel,
+  appelsEnAttente, repondreAppel, famillesDuRayon,
 } from '../lib/relais';
 import { requestNotificationPermission, RAISONS } from '../lib/firebase';
 
@@ -258,6 +258,8 @@ function Envoyer({ vendor, rayon }) {
   const [texte, setTexte]   = useState('');
   const [mode, setMode]     = useState('marche');
   const [res, setRes]       = useState(null);      // résultats de recherche
+  const [fams, setFams]     = useState([]);       // familles ouvertes du rayon
+  const [famChoisie, setFC] = useState(null);
   const [appel, setAppel]   = useState(null);
   const [reste, setReste]   = useState(0);
   const [rangs, setRangs]   = useState([]);
@@ -268,8 +270,12 @@ function Envoyer({ vendor, rayon }) {
   const [msg, setMsg]       = useState('');
   const tick = useRef(null);
 
+  useEffect(() => {
+    if (vendor?.id) famillesDuRayon(vendor.id).then(({ data }) => setFams(data || []));
+  }, [vendor?.id]);
+
   const chercher = async () => {
-    setMsg('');
+    setMsg(''); setFC(null);
     const { data, error } = await chercherDansRayon(vendor.id, texte.trim());
     if (error) { setMsg(error.message); return; }
     setRes(data || []);
@@ -277,7 +283,10 @@ function Envoyer({ vendor, rayon }) {
 
   const appeler = async (produit) => {
     setMsg('');
-    const { data, error } = await lancerAppel(vendor.id, texte.trim(), {
+    // Sur un article choisi, le libellé devient son nom : c'est lui qui sert à
+    // retrouver la même chose chez les autres boutiques du rayon.
+    const libelle = produit?.nom || texte.trim();
+    const { data, error } = await lancerAppel(vendor.id, libelle, {
       productId: produit?.product_id ?? null,
       familleId: produit?.famille_id ?? null,
     });
@@ -354,30 +363,115 @@ function Envoyer({ vendor, rayon }) {
           </button>
         </div>
 
-        {res && (
-          <div className="mt-3 space-y-2">
-            {/* Son stock d'abord. C'est son métier, et il récupère les deux
-                tiers des ruptures tout seul. */}
-            {res.filter((r) => r.source === 'moi').length > 0 && (
-              <>
-                <p className="text-[11px] font-bold uppercase tracking-wide text-gray-400">Chez toi</p>
-                {res.filter((r) => r.source === 'moi').map((r) => (
-                  <div key={r.product_id} className="rounded-xl border border-emerald-200 bg-emerald-50 px-3.5 py-2.5">
-                    <p className="text-sm font-semibold text-emerald-900">{r.nom}</p>
-                    <p className="text-[12px] text-emerald-700">Tu l’as — vends-le, pas besoin de relais.</p>
+        {res && (() => {
+          const chezMoi = res.filter((r) => r.source === 'moi');
+          const auRayon = res.filter((r) => r.source === 'rayon');
+          return (
+            <div className="mt-3 space-y-3">
+
+              {/* 1 · CE QU'IL A. Il récupère les deux tiers des ruptures par sa
+                     propre substitution : lui proposer le voisin en premier
+                     reviendrait à lui prendre des ventes. */}
+              {chezMoi.length > 0 && (
+                <div>
+                  <p className="text-[11px] font-bold uppercase tracking-wide text-gray-400 mb-1.5">
+                    Chez toi
+                  </p>
+                  <div className="space-y-1.5">
+                    {chezMoi.map((r) => (
+                      <div key={r.product_id}
+                           className="flex items-center gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2.5">
+                        {r.img && <img src={r.img} alt="" className="w-10 h-10 rounded-lg object-cover shrink-0" />}
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-semibold text-emerald-900 truncate">{r.nom}</p>
+                          <p className="text-[12px] text-emerald-700">
+                            {r.stock === 'Épuisé' ? 'Marqué épuisé' : 'Tu l’as — vends-le, pas besoin de relais'}
+                          </p>
+                        </div>
+                        <span className="text-[13px] font-bold text-emerald-900 shrink-0">{fcfa(r.prix_net)}</span>
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </>
-            )}
-            <p className="text-[11px] font-bold uppercase tracking-wide text-gray-400 pt-1">
-              Si tu ne peux pas le servir
-            </p>
-            <button onClick={() => appeler(res.find((r) => r.source === 'rayon') || null)}
-              className="w-full bg-gray-900 text-white rounded-xl py-3 text-sm font-semibold">
-              Demander au rayon · 30 secondes
-            </button>
-          </div>
-        )}
+                </div>
+              )}
+
+              {/* 2 · CE QUE LE RAYON A DÉJÀ RÉFÉRENCÉ. C'est lui qui choisit :
+                     il sait si « Timberland noire 45 » est ce que son client
+                     veut, et l'appel part en fiche plutôt qu'en question. */}
+              {auRayon.length > 0 && (
+                <div>
+                  <p className="text-[11px] font-bold uppercase tracking-wide text-gray-400 mb-1.5">
+                    Dans le rayon · {auRayon.length} article{auRayon.length > 1 ? 's' : ''} référencé{auRayon.length > 1 ? 's' : ''}
+                  </p>
+                  <div className="space-y-1.5">
+                    {auRayon.map((r) => {
+                      const d = decomposer(r.prix_net);
+                      return (
+                        <button key={r.product_id} onClick={() => appeler(r)}
+                          className="w-full flex items-center gap-3 rounded-xl border border-gray-200 hover:border-gray-900 px-3 py-2.5 text-left transition-colors">
+                          {r.img && <img src={r.img} alt="" className="w-10 h-10 rounded-lg object-cover shrink-0" />}
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm font-semibold text-gray-900 truncate">{r.nom}</p>
+                            <p className="text-[12px] text-gray-500 truncate">
+                              {r.shop_name}{r.famille ? ` · ${r.famille}` : ''}
+                            </p>
+                          </div>
+                          <div className="text-right shrink-0">
+                            <p className="text-[13px] font-bold">{fcfa(d.affiche)}</p>
+                            <p className="text-[11px] text-emerald-700">+ {fcfa(d.bon)} pour toi</p>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <p className="text-[11px] text-gray-500 mt-1.5">
+                    Choisis l’article : la boutique reçoit sa fiche et répond en
+                    deux secondes. Ça ne veut pas dire qu’elle l’a encore — c’est
+                    sa réponse qui décide, pas le catalogue.
+                  </p>
+                </div>
+              )}
+
+              {/* 3 · RIEN NULLE PART. Alors seulement la question ouverte. */}
+              {auRayon.length === 0 && (
+                <div className="rounded-xl border border-gray-200 p-3.5">
+                  <p className="text-[13px] font-semibold text-gray-900">
+                    Personne dans le rayon n’a référencé ça
+                  </p>
+                  <p className="text-[12px] text-gray-500 mt-1 leading-relaxed">
+                    On peut quand même demander en question ouverte. Celui qui
+                    répond « oui » saisira l’article et son prix net — c’est
+                    comme ça que le catalogue du rayon se remplit.
+                  </p>
+                  <p className="text-[11px] font-bold uppercase tracking-wide text-gray-400 mt-3 mb-1.5">
+                    Dans quelle famille ?
+                  </p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {fams.map((f) => (
+                      <button key={f.id} onClick={() => setFC(f)}
+                        className={`px-2.5 py-1.5 rounded-lg text-[12px] font-semibold ${
+                          famChoisie?.id === f.id ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-600'}`}>
+                        {f.nom}
+                        <span className="opacity-60 ml-1">{f.porteurs}</span>
+                      </button>
+                    ))}
+                  </div>
+                  {fams.length === 0 && (
+                    <p className="text-[12px] text-gray-500 mt-1">
+                      Aucune famille ouverte dans ce rayon : il n’a pas encore
+                      assez de porteurs pour qu’un relais aboutisse.
+                    </p>
+                  )}
+                  <button onClick={() => appeler({ famille_id: famChoisie?.id ?? null })}
+                    disabled={!famChoisie}
+                    className="mt-3 w-full bg-gray-900 text-white rounded-xl py-3 text-sm font-semibold disabled:opacity-40">
+                    Demander au rayon · 30 secondes
+                  </button>
+                </div>
+              )}
+            </div>
+          );
+        })()}
       </Section>
 
       {appel && (
