@@ -50,6 +50,7 @@ export default function RayonsConsole() {
   const [actif, setActif]     = useState(null);
   const [carte, setCarte]     = useState([]);
   const [familles, setFams]   = useState([]);
+  const [cats, setCats]       = useState([]);
   const [libres, setLibres]   = useState([]);
   const [recherche, setRech]  = useState("");
   const [msg, setMsg]         = useState("");
@@ -69,14 +70,16 @@ export default function RayonsConsole() {
 
   const chargerRayon = useCallback(async (id) => {
     if (!id) return;
-    const [c, f] = await Promise.all([
+    const [c, f, k] = await Promise.all([
       supabase.rpc("admin_rayon_carte", { p_rayon_id: id }),
       supabase.rpc("admin_familles",    { p_rayon_id: id }),
+      supabase.rpc("admin_categories",  { p_rayon_id: id }),
     ]);
     if (c.error) return err(c.error);
     if (f.error) return err(f.error);
     setCarte(c.data || []);
     setFams(f.data || []);
+    setCats(k.data || []);
   }, []);
 
   const chargerLibres = useCallback(async (q) => {
@@ -346,6 +349,48 @@ export default function RayonsConsole() {
             </div>
           </Carte>
 
+          {/* ── LA LISTE DE COURSES ── */}
+          <Carte titre="Les catégories à pourvoir"
+                 sous={`${cats.reduce((a, c) => a + c.quota, 0)} boutiques visées · ${cats.reduce((a, c) => a + c.pourvues, 0)} recrutées`}
+                 action={<AjouterCategorie rayonId={actif} familles={familles}
+                           onFait={() => chargerRayon(actif)} />}>
+            <div className="divide-y divide-[#E7E9EA]">
+              {cats.map((c) => (
+                <div key={c.id} className="flex items-center justify-between gap-4 px-5 py-2.5">
+                  <div className="min-w-0">
+                    <p className="text-[13px] font-bold text-[#0F1111]">{c.nom}</p>
+                    <p className="text-[11px] text-[#565959] truncate">
+                      {c.profil} · {fcfa(c.abonnement)}
+                      {c.familles ? ` · ${c.familles}` : " · aucune famille suggérée"}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-3 shrink-0">
+                    <span className={`text-[12px] font-black tabular-nums ${
+                      c.manque ? "text-[#B12704]" : "text-[#007600]"}`}>
+                      {c.pourvues}/{c.quota}
+                    </span>
+                    <button onClick={() => setAff({ rayonId: actif, choisir: true, cat: c })}
+                      className="text-[11px] font-bold text-[#007185] hover:underline whitespace-nowrap disabled:opacity-30"
+                      disabled={!c.manque}>
+                      Pourvoir
+                    </button>
+                    <button onClick={() => agir(() => supabase.rpc("admin_supprimer_categorie", { p_categorie_id: c.id }))}
+                      className="text-[11px] font-bold text-[#B12704] hover:underline">
+                      ×
+                    </button>
+                  </div>
+                </div>
+              ))}
+              {cats.length === 0 && (
+                <p className="px-5 py-6 text-center text-[13px] text-[#565959]">
+                  Aucune catégorie. Sans elles, l’équipe terrain recrute au hasard —
+                  et on ne recrute jamais « pour faire du volume », mais pour une
+                  famille qui passe sous son seuil.
+                </p>
+              )}
+            </div>
+          </Carte>
+
           {/* ── LES BOUTIQUES DU RAYON ── */}
           <Carte titre={`Les ${carte.length} boutiques du rayon`}
                  sous="Le score est celui de l’arbitrage : envoyés − reçus − 5 × ruptures">
@@ -428,7 +473,8 @@ export default function RayonsConsole() {
       )}
 
       {affecter && (
-        <Affectation boutique={affecter} rayons={rayons} familles={familles}
+        <Affectation boutique={affecter} rayons={rayons} familles={familles} cats={cats}
+          rayonId={actif}
           onClose={() => setAff(null)}
           onFait={async () => {
             setAff(null);
@@ -538,6 +584,129 @@ function AjouterFamille({ rayonId, onFait }) {
       </button>
       <button onClick={() => setOuvert(false)} className="text-[11px] text-[#565959]">Annuler</button>
       {msg && <span className="text-[11px] text-[#B12704]">{msg}</span>}
+    </div>
+  );
+}
+
+/* ── Créer une famille sans quitter la fiche ─────────────────────────────── */
+function NouvelleFamille({ rayonId, onFait }) {
+  const [ouvert, setOuvert] = useState(false);
+  const [nom, setNom] = useState("");
+  const [v, setV]     = useState(40);
+  const [msg, setMsg] = useState("");
+
+  const p = Math.min(0.6, 2.2 / Math.sqrt(Math.max(Number(v) || 1, 1)));
+  const requis = Math.max(4, Math.ceil(1 + Math.log(0.1) / Math.log(1 - p)));
+
+  const creer = async () => {
+    const { data, error } = await supabase.rpc("admin_maj_famille", {
+      p_rayon_id: rayonId, p_nom: nom, p_variantes: Number(v),
+      p_role: "appoint", p_famille_id: null,
+    });
+    if (error) { setMsg(error.message); return; }
+    setOuvert(false); setNom("");
+    onFait(data);
+  };
+
+  if (!ouvert) return (
+    <button onClick={() => setOuvert(true)}
+      className="mt-2 text-[11px] font-bold text-[#007185] hover:underline">
+      + Elle tient autre chose
+    </button>
+  );
+
+  return (
+    <div className="mt-2 rounded-lg border border-[#D5D9D9] p-2.5 space-y-2">
+      <div className="flex flex-wrap items-center gap-2">
+        <input value={nom} onChange={(e) => setNom(e.target.value)} placeholder="Nom de la famille"
+          className="flex-1 min-w-[9rem] bg-[#F7F8F8] border border-[#D5D9D9] rounded-lg px-2.5 py-1.5 text-[12px] outline-none" />
+        <input value={v} onChange={(e) => setV(e.target.value)} type="number" placeholder="variantes"
+          className="w-24 bg-[#F7F8F8] border border-[#D5D9D9] rounded-lg px-2.5 py-1.5 text-[12px] outline-none" />
+        <button onClick={creer} disabled={!nom}
+          className="bg-[#232F3E] text-white rounded-lg px-3 py-1.5 text-[11px] font-bold disabled:opacity-40">
+          Créer
+        </button>
+        <button onClick={() => setOuvert(false)} className="text-[11px] text-[#565959]">Annuler</button>
+      </div>
+      <p className="text-[10px] text-[#565959]">
+        {v} variantes → {requis} porteurs nécessaires. Elle restera fermée tant
+        qu’elle ne les aura pas — une famille sous son seuil produit des relais
+        ratés, et un relais raté coûte plus cher qu’une famille absente.
+      </p>
+      {msg && <p className="text-[10px] text-[#B12704]">{msg}</p>}
+    </div>
+  );
+}
+
+/* ── Ajouter une catégorie de recrutement ────────────────────────────────── */
+function AjouterCategorie({ rayonId, familles, onFait }) {
+  const [ouvert, setOuvert] = useState(false);
+  const [nom, setNom]   = useState("");
+  const [quota, setQ]   = useState(1);
+  const [profil, setP]  = useState("emettrice");
+  const [genre, setG]   = useState("produit");
+  const [abo, setA]     = useState(15000);
+  const [sel, setSel]   = useState([]);
+  const [msg, setMsg]   = useState("");
+
+  const creer = async () => {
+    const { error } = await supabase.rpc("admin_maj_categorie", {
+      p_rayon_id: rayonId, p_nom: nom, p_quota: Number(quota) || 1,
+      p_profil: profil, p_genre: genre, p_abonnement: Number(abo) || 15000,
+      p_familles: sel.length ? sel : null, p_categorie_id: null,
+    });
+    if (error) { setMsg(error.message); return; }
+    setOuvert(false); setNom(""); setSel([]); onFait();
+  };
+
+  if (!ouvert) return (
+    <button onClick={() => setOuvert(true)}
+      className="text-[11px] font-bold text-[#007185] hover:underline whitespace-nowrap">
+      + Catégorie
+    </button>
+  );
+
+  const champ = "bg-[#F7F8F8] border border-[#D5D9D9] rounded-lg px-2.5 py-1.5 text-[12px] outline-none";
+  return (
+    <div className="w-full space-y-2">
+      <div className="flex flex-wrap items-center gap-2">
+        <input value={nom} onChange={(e) => setNom(e.target.value)} placeholder="Chaussure femme"
+          className={`${champ} w-44`} />
+        <input value={quota} onChange={(e) => setQ(e.target.value)} type="number"
+          className={`${champ} w-16`} title="Combien de boutiques" />
+        <select value={profil} onChange={(e) => setP(e.target.value)} className={champ}>
+          {PROFILS.map(([k, l]) => <option key={k} value={k}>{l}</option>)}
+        </select>
+        <select value={genre} onChange={(e) => setG(e.target.value)} className={champ}>
+          <option value="produit">Produits</option><option value="service">Services</option>
+        </select>
+        <select value={abo} onChange={(e) => setA(e.target.value)} className={champ}>
+          <option value={15000}>15 000 F</option><option value={5000}>5 000 F</option>
+        </select>
+        <button onClick={creer} disabled={!nom}
+          className="bg-[#232F3E] text-white rounded-lg px-3 py-1.5 text-[11px] font-bold disabled:opacity-40">
+          Ajouter
+        </button>
+        <button onClick={() => setOuvert(false)} className="text-[11px] text-[#565959]">Annuler</button>
+      </div>
+      <div className="flex flex-wrap gap-1.5">
+        {familles.map((f) => {
+          const on = sel.includes(f.id);
+          return (
+            <button key={f.id}
+              onClick={() => setSel(on ? sel.filter((x) => x !== f.id) : [...sel, f.id])}
+              className={`px-2 py-1 rounded text-[11px] font-bold ${
+                on ? "bg-[#232F3E] text-white" : "bg-[#F0F2F2] text-[#565959]"}`}>
+              {f.nom}
+            </button>
+          );
+        })}
+      </div>
+      <p className="text-[10px] text-[#565959]">
+        Ce qu’une boutique de cette catégorie tient d’habitude. La console les
+        cochera d’avance à l’affectation — c’est une suggestion, pas une règle.
+      </p>
+      {msg && <p className="text-[10px] text-[#B12704]">{msg}</p>}
     </div>
   );
 }
@@ -718,23 +887,31 @@ function EditerFamille({ famille, rayonId, onClose, onFait }) {
 }
 
 /* ── Affecter ou modifier une boutique ───────────────────────────────────── */
-function Affectation({ boutique, rayons, familles, onClose, onFait }) {
-  const [rayonId, setRayonId] = useState(boutique.rayonId);
-  const [cat, setCat]     = useState(boutique.categorie || "");
-  const [profil, setProfil] = useState(boutique.profil || "emettrice");
-  const [genre, setGenre] = useState(boutique.genre || "produit");
-  const [abo, setAbo]     = useState(boutique.abonnement_fcfa ?? 15000);
-  const [sel, setSel]     = useState([]);
+function Affectation({ boutique, rayons, familles, cats = [], rayonId: rayonInit, onClose, onFait }) {
+  const [rayonId, setRayonId] = useState(boutique.rayonId || rayonInit);
+  const [cat, setCat]     = useState(boutique.cat?.nom || boutique.categorie || "");
+  const [profil, setProfil] = useState(boutique.cat?.profil || boutique.profil || "emettrice");
+  const [genre, setGenre] = useState(boutique.cat?.genre || boutique.genre || "produit");
+  const [abo, setAbo]     = useState(boutique.cat?.abonnement ?? boutique.abonnement_fcfa ?? 15000);
+  // Les familles suggérées par la catégorie sont cochées d'avance. C'est une
+  // suggestion : l'équipe terrain corrige d'après ce qu'elle a vu sur l'étagère.
+  const [sel, setSel]     = useState(boutique.cat?.familles_ids || []);
+  const [catsRayon, setCatsRayon] = useState(cats);
   const [msg, setMsg]     = useState("");
   const [busy, setBusy]   = useState(false);
 
   // Quand on change de rayon, les familles proposées ne sont plus les mêmes.
   const [famsRayon, setFams] = useState(familles);
-  useEffect(() => {
-    if (rayonId === boutique.rayonId) { setFams(familles); return; }
+  const rechargerFamilles = () =>
     supabase.rpc("admin_familles", { p_rayon_id: rayonId })
       .then(({ data }) => setFams(data || []));
-  }, [rayonId, boutique.rayonId, familles]);
+
+  useEffect(() => {
+    if (rayonId === (boutique.rayonId || rayonInit)) { setFams(familles); setCatsRayon(cats); return; }
+    rechargerFamilles();
+    supabase.rpc("admin_categories", { p_rayon_id: rayonId })
+      .then(({ data }) => setCatsRayon(data || []));
+  }, [rayonId]);   // eslint-disable-line react-hooks/exhaustive-deps
 
   const valider = async () => {
     setBusy(true); setMsg("");
@@ -784,8 +961,27 @@ function Affectation({ boutique, rayons, familles, onClose, onFait }) {
             <label className="text-[10px] font-black uppercase tracking-widest text-[#565959] block mb-1.5">
               Catégorie de recrutement
             </label>
+            {catsRayon.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 mb-2">
+                {catsRayon.map((c) => (
+                  <button key={c.id}
+                    onClick={() => {
+                      setCat(c.nom); setProfil(c.profil);
+                      setGenre(c.genre); setAbo(c.abonnement);
+                      setSel(c.familles_ids || []);
+                    }}
+                    className={`px-2.5 py-1.5 rounded-lg text-[11px] font-bold ${
+                      cat === c.nom ? "bg-[#232F3E] text-white" : "bg-[#F0F2F2] text-[#565959]"}`}>
+                    {c.nom}
+                    <span className={`ml-1.5 ${c.manque ? "text-[#FF9900]" : "opacity-50"}`}>
+                      {c.pourvues}/{c.quota}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
             <input value={cat} onChange={(e) => setCat(e.target.value)}
-              placeholder="Chaussure généraliste, Basket et sneaker…"
+              placeholder="Ou saisis une catégorie hors liste"
               className="w-full bg-[#F7F8F8] border border-[#D5D9D9] rounded-lg px-3 py-2.5 text-[13px] outline-none" />
           </div>
 
@@ -850,6 +1046,10 @@ function Affectation({ boutique, rayons, familles, onClose, onFait }) {
               Coche tout ce qu’elle vend, pas seulement sa spécialité : c’est ce
               qui donne le nombre de porteurs, et donc la couverture du rayon.
             </p>
+            {/* Elle tient quelque chose que le rayon ne connaît pas encore.
+                Le créer ici évite de fermer la fiche et de tout ressaisir. */}
+            <NouvelleFamille rayonId={rayonId}
+              onFait={async (id) => { await rechargerFamilles(); setSel((l) => [...l, id]); }} />
           </div>
 
           {msg && <p className="text-[12px] text-[#B12704]">{msg}</p>}

@@ -23,6 +23,7 @@ sont écrites en `plpgsql` exprès.
 | 6 | `docs/sql/28-notifications-relais.sql` | `relais_notifications`, ses déclencheurs et la file d'envoi |
 | 7 | `docs/sql/29-repondre-a-l-appel.sql` | `appels_en_attente`, le ciblage unifié, et la correction de `lancer_appel` |
 | 8 | `docs/sql/30-modifier-rayons.sql` | modifier un rayon ou un sous-rayon, et les supprimer |
+| 9 | `docs/sql/31-premier-rayon.sql` | les catégories de recrutement, et le premier rayon monté en entier |
 
 Vérification après application :
 
@@ -83,9 +84,36 @@ select genre, count(*), count(envoyee_le)
 
 ## 2. Monter un rayon
 
-**Super admin → Rayons.** Tout s'y fait sans écrire une requête : créer le
-rayon, ajouter les sous-rayons avec leur nombre de variantes, affecter les
+La migration `31` monte déjà le premier — **Chaussure & Sport, marché de
+Mboppi** — avec ses 5 familles, ses 10 catégories de recrutement et le lien
+entre les deux. Il ne reste qu'à y affecter des boutiques.
+
+**Super admin → Rayons.** Tout le reste s'y fait sans écrire une requête :
+créer un rayon, ajouter des sous-rayons et des catégories, affecter les
 boutiques, les changer de rayon, les retirer.
+
+### Catégorie de recrutement et famille : deux comptes différents
+
+C'est la confusion qui coûte le plus cher, alors la console les sépare.
+
+La **catégorie** est ce sur quoi on cherche le commerçant, et ce dans quoi il
+se reconnaît : « chaussure femme », « basket et sneaker ». Les quotas des dix
+catégories s'additionnent à 14 — c'est le total du rayon, et la liste de
+courses de l'équipe terrain. Chaque ligne affiche `pourvues/quota`.
+
+La **famille** est ce qu'il tient réellement en rayon, souvent trois ou quatre.
+Elle sert à calculer la couverture. Les porteurs de toutes les familles
+s'additionnent bien au-delà de 14, et c'est normal : douze porteurs de
+chaussures dans un rayon de quatorze boutiques n'est pas une contradiction, le
+vendeur de baskets en vend aussi.
+
+Chaque catégorie porte les familles qu'une boutique de ce type tient
+d'habitude. Quand on affecte une boutique, il suffit de cliquer la catégorie :
+le profil, le tarif et les familles sont cochés d'avance. **C'est une
+suggestion, pas une contrainte** — l'équipe terrain corrige d'après ce qu'elle
+a vu sur l'étagère, et si la boutique tient quelque chose que le rayon ne
+connaît pas encore, « + Elle tient autre chose » crée la famille sans fermer
+la fiche.
 
 La carte est en haut parce que c'est elle qui tranche : deux boutiques à huit
 cents mètres l'une de l'autre ne forment pas un rayon, quels que soient leurs
