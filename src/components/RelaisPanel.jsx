@@ -92,8 +92,10 @@ export default function RelaisPanel() {
           </p>
           <p className="text-[12px] text-amber-800 mt-1.5">
             {RAISONS[notif.raison] || RAISONS.erreur}
-            {notif.detail ? ` (${notif.detail})` : ''}
           </p>
+          {notif.detail && (
+            <p className="text-[11px] text-amber-700 mt-1 font-mono">{notif.detail}</p>
+          )}
           <p className="text-[12px] text-amber-800 mt-1.5">
             Les appels s’affichent quand même ci-dessus tant que cette page
             reste ouverte.

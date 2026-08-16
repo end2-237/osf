@@ -23,6 +23,25 @@ const app = initializeApp(firebaseConfig);
    y compris requestNotificationPermission, qui n'avait donc jamais l'occasion
    de rapporter la vraie raison. On n'initialise plus qu'à la demande.
    ──────────────────────────────────────────────────────────────────────────── */
+/* Ce qui manque, précisément. isSupported() ne répond que oui ou non, et « ce
+   navigateur ne sait pas » sans dire quoi n'aide personne à décider s'il doit
+   changer de navigateur, sortir de la navigation privée, ou débloquer un
+   réglage. On refait donc la vérification nous-mêmes, en nommant chaque pièce. */
+export const capacitesManquantes = () => {
+  const manque = [];
+  if (typeof window === 'undefined') return ['fenêtre'];
+  if (!window.isSecureContext)                 manque.push('HTTPS');
+  if (!('serviceWorker' in navigator))         manque.push('service worker');
+  if (!('PushManager' in window))              manque.push('PushManager');
+  if (!('Notification' in window))             manque.push('Notification');
+  if (!navigator.cookieEnabled)                manque.push('cookies');
+  if (!('showNotification' in (window.ServiceWorkerRegistration?.prototype || {})))
+    manque.push('showNotification');
+  if (!('getKey' in (window.PushSubscription?.prototype || {})))
+    manque.push('PushSubscription.getKey');
+  return manque;
+};
+
 let _messaging = null;
 let _messagingPromise = null;
 
@@ -63,7 +82,7 @@ const inscrireServiceWorker = () => {
    ──────────────────────────────────────────────────────────────────────────── */
 export const RAISONS = {
   ok:           'Notifications actives.',
-  non_supporte: 'Ce navigateur ne sait pas recevoir de notifications. Sur iPhone il faut ajouter le site à l’écran d’accueil ; en navigation privée, ça ne marche pas non plus.',
+  non_supporte: 'Ce navigateur ne peut pas recevoir de notifications. Sur iPhone, ajoute le site à l’écran d’accueil ; en navigation privée, ça ne marche pas ; et sur Brave, il faut activer « Use Google services for push messaging » dans les réglages de confidentialité.',
   sw_echec:     'Le service de fond n’a pas pu démarrer — souvent un bloqueur de scripts ou la navigation privée. Recharge la page.',
   refusee:      'Tu as refusé les notifications. Il faut les réautoriser dans les réglages du navigateur, à côté de l’adresse du site.',
   ignoree:      'La demande a été fermée sans répondre. Réessaie.',
@@ -78,7 +97,18 @@ export const requestNotificationPermission = async (vendorId) => {
   }
 
   const messaging = await obtenirMessaging();
-  if (!messaging) return { token: null, raison: 'non_supporte' };
+  if (!messaging) {
+    const manque = capacitesManquantes();
+    console.warn('[FCM] non supporté — manque :', manque.length ? manque : '(rien de visible)');
+    return {
+      token: null,
+      raison: 'non_supporte',
+      // Rien ne manque en apparence mais Firebase refuse quand même : c'est la
+      // signature d'un navigateur qui a coupé le service de push de Google —
+      // Brave le fait par défaut.
+      detail: manque.length ? `manque : ${manque.join(', ')}` : 'service de push désactivé',
+    };
+  }
 
   let swRegistration;
   try {
