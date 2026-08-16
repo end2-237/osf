@@ -15,52 +15,69 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const messaging = getMessaging(app);
 
+/* ── Le jeton de notification ─────────────────────────────────────────────────
+   Renvoie { token, raison }. La raison compte autant que le jeton : sans elle,
+   l'écran ne peut que dire « autorise les notifications », ce qui est faux
+   quatre fois sur cinq et envoie le commerçant chercher au mauvais endroit.
+
+   Cinq échecs possibles, et un seul dépend vraiment de lui.
+   ──────────────────────────────────────────────────────────────────────────── */
+export const RAISONS = {
+  ok:           'Notifications actives.',
+  non_supporte: 'Ce navigateur ne sait pas recevoir de notifications. Sur iPhone, il faut ajouter le site à l’écran d’accueil.',
+  sw_echec:     'Le service de fond n’a pas pu démarrer. Recharge la page.',
+  refusee:      'Tu as refusé les notifications. Il faut les réautoriser dans les réglages du navigateur, à côté de l’adresse du site.',
+  ignoree:      'La demande a été fermée sans répondre. Réessaie.',
+  cle_absente:  'Configuration incomplète côté serveur : la clé VAPID manque. Ce n’est pas de ton fait — préviens Buyticle.',
+  jeton_absent: 'Firebase n’a pas délivré de jeton. Réessaie dans un instant.',
+  erreur:       'Une erreur est survenue.',
+};
+
 export const requestNotificationPermission = async (vendorId) => {
-  try {
-    if (!('serviceWorker' in navigator)) return null;
-
-    let swRegistration;
-    try {
-      swRegistration = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
-      await navigator.serviceWorker.ready;
-    } catch (swErr) {
-      console.error('[FCM] Échec SW:', swErr);
-      return null;
-    }
-
-    const permission = await Notification.requestPermission();
-    if (permission !== 'granted') return null;
-
-    const VAPID_KEY = import.meta.env.VITE_FIREBASE_VAPID_KEY;
-    if (!VAPID_KEY) {
-      console.error('[FCM] VITE_FIREBASE_VAPID_KEY manquante !');
-      return null;
-    }
-
-    const token = await getToken(messaging, {
-      vapidKey: VAPID_KEY,
-      serviceWorkerRegistration: swRegistration,
-    });
-
-    if (!token) return null;
-    console.log('[FCM] ✅ Token obtenu:', token.substring(0, 30) + '...');
-
-    if (vendorId) {
-      // ✅ FIX double tokens : supprimer l'ancien, insérer le nouveau
-      await supabase.from('fcm_tokens').delete().eq('vendor_id', vendorId);
-      const { error } = await supabase.from('fcm_tokens').insert({ vendor_id: vendorId, token });
-      if (error) {
-        console.error('[FCM] Erreur save token:', error.message);
-      } else {
-        console.log('[FCM] ✅ Token sauvegardé proprement (1 token par vendeur)');
-      }
-    }
-
-    return token;
-  } catch (error) {
-    console.error('[FCM] Erreur générale:', error);
-    return null;
+  if (!('serviceWorker' in navigator) || !('Notification' in window)) {
+    return { token: null, raison: 'non_supporte' };
   }
+
+  let swRegistration;
+  try {
+    swRegistration = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
+    await navigator.serviceWorker.ready;
+  } catch (swErr) {
+    console.error('[FCM] Échec SW:', swErr);
+    return { token: null, raison: 'sw_echec' };
+  }
+
+  const permission = await Notification.requestPermission();
+  if (permission === 'denied')  return { token: null, raison: 'refusee' };
+  if (permission !== 'granted') return { token: null, raison: 'ignoree' };
+
+  // La cause la plus fréquente, et la seule qui ne se règle pas côté commerçant.
+  const VAPID_KEY = import.meta.env.VITE_FIREBASE_VAPID_KEY;
+  if (!VAPID_KEY) {
+    console.error('[FCM] VITE_FIREBASE_VAPID_KEY manquante — console Firebase → Cloud Messaging → certificats push Web');
+    return { token: null, raison: 'cle_absente' };
+  }
+
+  let token;
+  try {
+    token = await getToken(messaging, { vapidKey: VAPID_KEY, serviceWorkerRegistration: swRegistration });
+  } catch (e) {
+    console.error('[FCM] getToken:', e);
+    return { token: null, raison: 'erreur', detail: e?.message };
+  }
+  if (!token) return { token: null, raison: 'jeton_absent' };
+
+  if (vendorId) {
+    // Un seul jeton par boutique : on remplace au lieu d'empiler.
+    await supabase.from('fcm_tokens').delete().eq('vendor_id', vendorId);
+    const { error } = await supabase.from('fcm_tokens').insert({ vendor_id: vendorId, token });
+    if (error) {
+      console.error('[FCM] Enregistrement du jeton:', error.code, error.message);
+      return { token, raison: 'erreur', detail: error.message };
+    }
+  }
+
+  return { token, raison: 'ok' };
 };
 
 // ✅ FIX : Listener continu (onMessage ne se ferme pas après 1 message)

@@ -7,7 +7,7 @@ import {
   relaisALivrer, confirmerRemise, pousserNotifications,
   appelsEnAttente, repondreAppel,
 } from '../lib/relais';
-import { requestNotificationPermission } from '../lib/firebase';
+import { requestNotificationPermission, RAISONS } from '../lib/firebase';
 
 /* ══════════════════════════════════════════════════════════════════════════
    LE COMPTOIR
@@ -46,7 +46,7 @@ export default function RelaisPanel() {
   const { vendor } = useAuth();
   const [rayon, setRayon]     = useState(null);
   const [onglet, setOnglet]   = useState('envoyer');
-  const [jeton, setJeton]     = useState(null);   // null = en cours · false = échec
+  const [notif, setNotif]     = useState(null);   // { token, raison }
 
   useEffect(() => {
     chargerBareme();
@@ -55,12 +55,13 @@ export default function RelaisPanel() {
     // saura jamais qu'on l'interroge, et la couverture du rayon tombe à zéro.
     // On le demande ici, une fois le rayon rejoint, et pas à l'inscription :
     // une permission demandée avant d'avoir montré à quoi elle sert est refusée.
-    if (vendor?.id) {
-      requestNotificationPermission(vendor.id)
-        .then((t) => setJeton(t || false))
-        .catch(() => setJeton(false));
-    }
-  }, [vendor?.id]);
+    if (vendor?.id) brancherNotifs();
+  }, [vendor?.id]);   // eslint-disable-line react-hooks/exhaustive-deps
+
+  const brancherNotifs = () =>
+    requestNotificationPermission(vendor.id)
+      .then(setNotif)
+      .catch((e) => setNotif({ token: null, raison: 'erreur', detail: e?.message }));
 
   if (!vendor) return null;
   if (!rayon) {
@@ -81,19 +82,28 @@ export default function RelaisPanel() {
       <Repondre vendor={vendor} />
 
       {/* Une panne silencieuse coûte la couverture du rayon sans que personne
-          ne s'en aperçoive. On la dit, et on dit ce qui marche quand même. */}
-      {jeton === false && (
+          ne s'en aperçoive. On la dit — et on dit LAQUELLE, parce que « autorise
+          les notifications » est un mauvais conseil quatre fois sur cinq. */}
+      {notif && notif.raison !== 'ok' && (
         <div className="rounded-2xl border border-amber-300 bg-amber-50 px-4 py-3">
           <p className="text-[13px] text-amber-900 leading-relaxed">
-            <b>Tes notifications ne sont pas activées.</b> Tu ne seras pas
-            prévenu quand une boutique du rayon cherche quelque chose — et
-            l’appel ne dure que trente secondes.
+            <b>Tu ne seras pas prévenu des appels du rayon.</b> Un appel ne dure
+            que trente secondes — sans notification, tu les rateras.
           </p>
           <p className="text-[12px] text-amber-800 mt-1.5">
-            Les appels s’affichent quand même ici tant que cette page reste
-            ouverte. Autorise les notifications dans ton navigateur pour ne
-            plus en rater.
+            {RAISONS[notif.raison] || RAISONS.erreur}
+            {notif.detail ? ` (${notif.detail})` : ''}
           </p>
+          <p className="text-[12px] text-amber-800 mt-1.5">
+            Les appels s’affichent quand même ci-dessus tant que cette page
+            reste ouverte.
+          </p>
+          {notif.raison !== 'cle_absente' && notif.raison !== 'non_supporte' && (
+            <button onClick={brancherNotifs}
+              className="mt-2.5 border border-amber-700 text-amber-900 rounded-lg px-3 py-1.5 text-[12px] font-bold">
+              Réessayer
+            </button>
+          )}
         </div>
       )}
 
