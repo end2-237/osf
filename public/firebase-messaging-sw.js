@@ -14,20 +14,27 @@ firebase.initializeApp({
 const messaging = firebase.messaging();
 
 messaging.onBackgroundMessage((payload) => {
-  console.log('[SW] Message en arrière-plan reçu:', payload);
+  const d = payload.data || {};
 
-  const notificationTitle = payload.notification?.title || '🛒 Buyticle';
-  const notificationOptions = {
-    body: payload.notification?.body || 'Nouvelle notification',
-    icon: '/ofs.png',
-    badge: '/ofs.png',
-    tag: 'order-notification',
-    requireInteraction: true,
-    vibrate: [200, 100, 200],
-    data: { url: '/admin' }
-  };
+  // Un appel à disponibilité doit sonner et rester à l'écran : le commerçant a
+  // trente secondes. Le reste peut attendre qu'il regarde son téléphone.
+  const estAppel = d.genre === 'appel';
 
-  return self.registration.showNotification(notificationTitle, notificationOptions);
+  return self.registration.showNotification(
+    payload.notification?.title || 'Buyticle',
+    {
+      body:  payload.notification?.body || '',
+      icon:  '/ofs.png',
+      badge: '/ofs.png',
+      // Un tag commun aux appels : le plus récent remplace le précédent, parce
+      // qu'un appel périmé n'a plus d'objet. Tout le reste garde son propre tag,
+      // sinon une vente confirmée effacerait le client qui vient d'arriver.
+      tag: estAppel ? 'relais-appel' : (d.lien ? `bt-${d.genre || 'x'}-${Date.now()}` : 'buyticle'),
+      requireInteraction: estAppel,
+      vibrate: estAppel ? [300, 100, 300, 100, 300] : [200, 100, 200],
+      data: { url: d.lien || '/admin' },
+    },
+  );
 });
 
 self.addEventListener('notificationclick', (event) => {
