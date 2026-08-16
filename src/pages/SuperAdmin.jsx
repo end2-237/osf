@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../context/AuthContext";
 import CJImportTab from "../components/CJImportTab";
+import RayonsConsole from "../components/RayonsConsole";
 import CourierManager from "../components/CourierManager";
 import { fetchSiteSettings, saveSiteSettings } from "../components/WhatsAppButton";
 
@@ -4060,6 +4061,7 @@ const SuperAdmin = () => {
     { key: "orders",       icon: "fa-bag-shopping",   label: "Commandes",      badge: globalStats.pending    || 0 },
     { key: "fulfillment",  icon: "fa-truck-fast",     label: "Fulfillment CJ", badge: globalStats.cjPending  || 0 },
     { key: "retraits",     icon: "fa-money-bill-transfer", label: "Retraits",  badge: pendingPayouts         || 0 },
+    { key: "rayons",       icon: "fa-diagram-project", label: "Rayons"          },
     { key: "livraison",    icon: "fa-map-location-dot", label: "Livraison"       },
     { key: "litiges",      icon: "fa-scale-balanced", label: "Litiges", badge: pendingReturns || 0 },
     { key: "livreurs",     icon: "fa-id-card", label: "Livreurs", badge: pendingCouriers || 0 },
@@ -4139,6 +4141,8 @@ const SuperAdmin = () => {
         )}
 
         {activeTab === "audience" && <AudienceTab />}
+
+        {activeTab === "rayons" && <RayonsConsole />}
 
         {activeTab === "vendeurs" && (
           <VendorApplicationsTab />

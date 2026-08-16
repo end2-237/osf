@@ -45,6 +45,7 @@ const pinIcon = (color, icon, label) => L.divIcon({
 
 const DeliveryMap = ({
   markers  = [],          // [{ lat, lng, color, icon, label, id }]
+  circles  = [],          // [{ lat, lng, radius, color }] — le périmètre d'un rayon
   route    = null,        // [[lat, lng], …]
   center   = null,
   zoom     = 13,
@@ -60,6 +61,7 @@ const DeliveryMap = ({
   const mapRef    = useRef(null);
   const layerRef  = useRef(null);
   const lineRef   = useRef(null);
+  const circleRef = useRef(null);
   const onPickRef  = useRef(onPick);
   const onReadyRef = useRef(onReady);
 
@@ -118,6 +120,27 @@ const DeliveryMap = ({
       });
   }, [markers, draggableMarker]);
 
+  // Cercles — le périmètre de marche d'un rayon, dessiné autour du barycentre
+  // de ses boutiques. Une boutique en dehors ne peut pas recevoir à pied.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    if (circleRef.current) { circleRef.current.remove(); circleRef.current = null; }
+    if (!circles?.length) return;
+    const group = L.layerGroup();
+    circles
+      .filter(c => Number.isFinite(c?.lat) && Number.isFinite(c?.lng) && c.radius > 0)
+      .forEach(c => {
+        L.circle([c.lat, c.lng], {
+          radius: c.radius,
+          color: c.color || "#FF9900", weight: 2, opacity: .55,
+          fillColor: c.color || "#FF9900", fillOpacity: .07,
+        }).addTo(group);
+      });
+    group.addTo(map);
+    circleRef.current = group;
+  }, [circles]);
+
   // Tracé
   useEffect(() => {
     const map = mapRef.current;
@@ -138,11 +161,12 @@ const DeliveryMap = ({
       ...markers.filter(m => Number.isFinite(m?.lat) && Number.isFinite(m?.lng))
                 .map(m => [m.lat, m.lng]),
       ...(route || []),
+      ...circles.filter(c => Number.isFinite(c?.lat)).map(c => [c.lat, c.lng]),
     ];
     if (pts.length > 1)      map.fitBounds(L.latLngBounds(pts), { padding: [50, 50], maxZoom: 16 });
     else if (pts.length === 1) map.setView(pts[0], Math.max(zoom, 15));
     else if (center)         map.setView([center.lat, center.lng], zoom);
-  }, [markers, route, center, zoom]);
+  }, [markers, route, circles, center, zoom]);
 
   return <div ref={host} className={className} style={{ background: theme === "dark" ? "#1a1a1a" : "#e8e8e8" }} />;
 };

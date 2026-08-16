@@ -19,6 +19,8 @@ sont écrites en `plpgsql` exprès.
 | 2 | `docs/sql/24-appel-et-arbitrage.sql` | `demandes`, `appels`, `reponses`, le classement d'arbitrage, la recherche |
 | 3 | `docs/sql/25-relais.sql` | `relais` et ses douze états, le code à six caractères |
 | 4 | `docs/sql/26-bon-et-paiement.sql` | `bon_mouvements`, la commande au comptoir, le relevé de boutique |
+| 5 | `docs/sql/27-console-rayons.sql` | les fonctions `admin_*` de la console des rayons |
+| 6 | `docs/sql/28-notifications-relais.sql` | `relais_notifications`, ses déclencheurs et la file d'envoi |
 
 Vérification après application :
 
@@ -39,12 +41,47 @@ select public.relais_a_confirmer();   -- toutes les heures  · le client debout
                                       --   confirmer, 2 h plus tard
 ```
 
+Et la fonction edge `relais-notify`, **chaque minute** :
+
+```bash
+supabase functions deploy relais-notify
+```
+
+Elle vide la file des notifications et pousse vers Firebase. L'application
+l'invoque déjà elle-même juste après chaque appel à disponibilité, pour que
+les trente secondes commencent tout de suite ; la tâche planifiée rattrape
+tout le reste — la vente confirmée, le bon expiré.
+
+Elle a besoin des mêmes secrets que `send-notification` :
+`FIREBASE_CLIENT_EMAIL`, `FIREBASE_PRIVATE_KEY`, `FIREBASE_PROJECT_ID`.
+
 ---
 
 ## 2. Monter un rayon
 
-Il n'y a pas d'écran d'administration : la composition d'un rayon se décide au
-bureau, avec le document 2 sous les yeux. Trois requêtes.
+**Super admin → Rayons.** Tout s'y fait sans écrire une requête : créer le
+rayon, ajouter les sous-rayons avec leur nombre de variantes, affecter les
+boutiques, les changer de rayon, les retirer.
+
+La carte est en haut parce que c'est elle qui tranche : deux boutiques à huit
+cents mètres l'une de l'autre ne forment pas un rayon, quels que soient leurs
+produits. Le cercle est le périmètre de marche autour du barycentre des
+boutiques ; celles qui en sortent apparaissent en rouge, celles qui n'ont pas
+de position sont signalées — sans point sur la carte, aucun chemin ne peut
+être tracé vers elles.
+
+Le bouton **Ouvrir le rayon** n'apparaît que quand toutes les familles
+motrices ont leurs porteurs et que le plancher de huit boutiques est atteint.
+La base refuse l'ouverture autrement, et ce n'est pas de la prudence : avant
+ce seuil un relais sur deux échoue, et un commerçant qui se plante deux fois
+n'utilise plus jamais le mécanisme.
+
+Retirer une boutique la **désactive**, ça ne l'efface pas : ses relais et ses
+compteurs restent, sinon le score des autres boutiques deviendrait faux
+rétroactivement.
+
+<details>
+<summary>La même chose en SQL, si besoin</summary>
 
 ```sql
 -- Le rayon
@@ -71,6 +108,7 @@ select '<vendor>', id from public.familles
 
 select public.rafraichir_familles('<rayon>');
 ```
+</details>
 
 Puis on regarde où on en est :
 
@@ -103,7 +141,7 @@ bord.
 
 ## 3. Ce que voit le commerçant
 
-**Tableau de bord → Le relais**, trois onglets.
+**Tableau de bord → Le relais**, quatre onglets.
 
 **Envoyer un client.** Il tape ce que le client cherche. Son propre stock
 s'affiche en premier — c'est son métier, et il récupère les deux tiers des
@@ -116,6 +154,18 @@ choisit pas ; s'il s'écarte du classement, il doit dire pourquoi.
 ce que le client vient chercher, le prix affiché, la remise, ce qu'il paie —
 et lui rappelle qu'on ne prend rien sur ce client-là. Un bouton « Je ne l'ai
 plus » si l'article vient de partir.
+
+**À livrer.** Le second type de relais. Une cliente est assise dans un fauteuil
+de salon, à moitié coiffée, et il manque une longueur de mèche : elle ne peut
+pas se lever. Le salon coche « on lui apporte » au lieu de « il y va à pied »,
+et c'est la boutique qui vend qui porte — jamais l'envoyeur, qui ne quitte
+pas son comptoir. La cliente paie elle-même dans l'application : si le salon
+payait et refacturait, il deviendrait revendeur et le modèle du prix net
+s'effondrerait. Au-delà de vingt minutes annoncées, la boutique n'est pas
+proposée, même si l'arbitrage la désigne.
+
+Le choix du mode n'apparaît que pour un commerçant de services — c'est le seul
+qui a un client immobilisé.
 
 **Mes relais.** Le solde de son bon, ce qu'il a gagné dans le mois, ce qui est
 retirable, et la liste de ce qu'il a envoyé et reçu.
@@ -180,15 +230,33 @@ le reste du modèle en dépend.
 
 ---
 
-## 7. Ce qui n'est pas encore construit
+## 7. Les notifications
 
-- **Les notifications.** L'envoyeur doit être prévenu à la minute où la vente
-  se fait, avec le montant de son bon. C'est la boucle de renforcement, et
-  c'est elle qui le fait recommencer demain. Le socle existe
-  (`send-notification`, `fcm_tokens`) ; le branchement reste à faire.
+Quatre moments, et pas un de plus. Écrits par déclencheur en base, jamais
+depuis le navigateur : une notification qui dépend d'un client connecté est
+une notification qui n'arrive pas.
+
+| Moment | À qui | Ce qu'elle dit |
+|---|---|---|
+| `appel` | aux boutiques interrogées | « Tu as encore ça ? — réponds en 30 secondes » |
+| `arrive` | à la boutique qui reçoit | « Un client arrive, envoyé par X » |
+| `vendu` | à celle qui a envoyé | « + 2 400 F pour toi » |
+| `pas_venu` | à celle qui a envoyé | sans reproche : elle a fait son travail |
+
+La troisième est la seule qui compte vraiment : c'est la boucle de
+renforcement, celle qui le fait recommencer demain. Un commerçant qui envoie
+un client et n'entend plus jamais parler de rien ne recommencera pas.
+
+On ne notifie ni la rupture ni l'annulation : le commerçant n'a rien à en
+faire sur le moment, et une notification qu'on ne peut pas traiter apprend à
+ignorer les suivantes. Pour la même raison, une notification d'appel de plus
+de deux minutes n'est plus poussée du tout.
+
+---
+
+## 8. Ce qui n'est pas encore construit
+
 - **Le repli SMS de l'appel** après dix secondes sans accusé de réception.
-- **Le relais livré** pour les commerçants de services : la colonne `mode`
-  existe et les prix se calculent, mais l'écran de livraison n'est pas fait.
 - **Les trois compteurs anti-collusion** : la part des relais partant vers une
   même boutique, la part hors classement, le taux de transformation. Les
   données sont là (`rang_propose`, `rang_choisi`, `motif_ecart`), la
@@ -197,7 +265,7 @@ le reste du modèle en dépend.
 
 ---
 
-## 8. Les deux choses à mesurer avant de recruter
+## 9. Les deux choses à mesurer avant de recruter
 
 **La marge de négociation à l'étal.** Cinq achats, une semaine, en négociant
 normalement. On note le prix annoncé et le prix payé. Si un client obtient

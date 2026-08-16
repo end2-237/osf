@@ -4,6 +4,7 @@ import { chargerBareme, rayonDuVendeur, decomposer } from '../lib/rayon';
 import {
   chercherDansRayon, lancerAppel, classerRepondants, attribuerRelais,
   validerCode, declarerRupture, relaisDuComptoir, soldeBon, fcfa,
+  relaisALivrer, confirmerRemise, pousserNotifications,
 } from '../lib/relais';
 
 /* ══════════════════════════════════════════════════════════════════════════
@@ -64,7 +65,8 @@ export default function RelaisPanel() {
   return (
     <div className="space-y-4">
       <div className="flex gap-2">
-        {[['envoyer', 'Envoyer un client'], ['recevoir', 'Un client arrive'], ['journal', 'Mes relais']]
+        {[['envoyer', 'Envoyer un client'], ['recevoir', 'Un client arrive'],
+          ['livrer', 'À livrer'], ['journal', 'Mes relais']]
           .map(([k, l]) => (
             <button key={k} onClick={() => setOnglet(k)}
               className={`px-3.5 py-2 rounded-xl text-[13px] font-semibold transition-colors ${
@@ -73,8 +75,9 @@ export default function RelaisPanel() {
             </button>
           ))}
       </div>
-      {onglet === 'envoyer'  && <Envoyer vendor={vendor} />}
+      {onglet === 'envoyer'  && <Envoyer vendor={vendor} rayon={rayon} />}
       {onglet === 'recevoir' && <Recevoir vendor={vendor} />}
+      {onglet === 'livrer'   && <ALivrer vendor={vendor} />}
       {onglet === 'journal'  && <Journal vendor={vendor} />}
     </div>
   );
@@ -82,8 +85,9 @@ export default function RelaisPanel() {
 
 /* ── ENVOYER ─────────────────────────────────────────────────────────────── */
 
-function Envoyer({ vendor }) {
+function Envoyer({ vendor, rayon }) {
   const [texte, setTexte]   = useState('');
+  const [mode, setMode]     = useState('marche');
   const [res, setRes]       = useState(null);      // résultats de recherche
   const [appel, setAppel]   = useState(null);
   const [reste, setReste]   = useState(0);
@@ -118,6 +122,9 @@ function Envoyer({ vendor }) {
     }
     setAppel(a);
     setRes(null);
+    // Les trente secondes commencent maintenant : on pousse sans attendre la
+    // tâche planifiée, sinon la moitié du délai est déjà passée à l'arrivée.
+    pousserNotifications();
     const fin = new Date(a.expire_le).getTime();
     clearInterval(tick.current);
     tick.current = setInterval(async () => {
@@ -138,7 +145,7 @@ function Envoyer({ vendor }) {
     // On ne lui demande rien avant : une fois sur dix, personne n'a l'article.
     const { data, error } = await attribuerRelais(
       appel.appel_id, choix.vendor_id, null, choix.prix_net,
-      { productId: choix.product_id, rangChoisi: choix.rang,
+      { productId: choix.product_id, mode, rangChoisi: choix.rang,
         motif: choix.rang > 1 ? motif : null });
     if (error) { setMsg(error.message); return; }
     setFini(data?.[0]);
@@ -281,8 +288,29 @@ function Envoyer({ vendor }) {
         </Section>
       )}
 
+      {choix && rayon?.genre === 'service' && (
+        <Section n="3" titre="Le client se déplace, ou on lui apporte ?" actif>
+          <div className="grid grid-cols-2 gap-2">
+            {[['marche', 'Il y va à pied', `${choix.distance_m ?? '—'} m`],
+              ['livre',  'On lui apporte', 'il est immobilisé chez toi']].map(([k, l, d]) => (
+              <button key={k} onClick={() => setMode(k)}
+                className={`text-left rounded-xl border px-3.5 py-3 transition-colors ${
+                  mode === k ? 'border-gray-900 bg-gray-50' : 'border-gray-200'}`}>
+                <p className="text-sm font-bold text-gray-900">{l}</p>
+                <p className="text-[12px] text-gray-500">{d}</p>
+              </button>
+            ))}
+          </div>
+          <p className="text-[12px] text-gray-500 mt-2.5 leading-relaxed">
+            Ta cliente est dans le fauteuil et ne peut pas se lever : la boutique
+            qui vend te l’apporte. Elle paie elle-même dans l’application — tu
+            n’avances rien et tu ne revends rien.
+          </p>
+        </Section>
+      )}
+
       {choix && (
-        <Section n="3" titre="Identifie le client" actif>
+        <Section n={rayon?.genre === 'service' ? '4' : '3'} titre="Identifie le client" actif>
           <p className="text-[13px] text-gray-600 leading-relaxed">
             Dis-lui de scanner l’affiche sur ton comptoir. Il aura son compte et
             son code en deux gestes, sans rien installer.
@@ -360,6 +388,111 @@ function Recevoir({ vendor }) {
           </button>
         </Section>
       )}
+
+      {msg && <p className="text-[13px] text-gray-600 px-1">{msg}</p>}
+    </div>
+  );
+}
+
+/* ── À LIVRER ────────────────────────────────────────────────────────────────
+   Le second type de relais. Une cliente est assise dans un fauteuil, à moitié
+   coiffée, et il manque une longueur de mèche. Elle ne peut pas se lever et
+   marcher deux cents mètres.
+
+   Le salon lance donc le relais en cochant « on lui apporte », et c'est la
+   boutique qui vend qui porte — jamais l'envoyeur, qui ne quitte pas son
+   comptoir. La cliente achète en direct : si le salon payait et refacturait,
+   il deviendrait revendeur et tout le modèle du prix net s'effondrerait.
+   ──────────────────────────────────────────────────────────────────────────── */
+
+function ALivrer({ vendor }) {
+  const [lignes, setLignes] = useState([]);
+  const [msg, setMsg] = useState('');
+  const [busy, setBusy] = useState('');
+
+  const recharger = () =>
+    relaisALivrer(vendor.id).then(({ data, error }) => {
+      if (error) setMsg(error.message);
+      setLignes(data || []);
+    });
+
+  useEffect(() => { recharger(); }, [vendor.id]);
+
+  const remettre = async (id) => {
+    setBusy(id); setMsg('');
+    const { error } = await confirmerRemise(id);
+    setBusy('');
+    if (error) { setMsg(error.message); return; }
+    recharger();
+  };
+
+  if (!lignes.length) {
+    return (
+      <div className="rounded-2xl border border-gray-200 p-6 text-center">
+        <p className="text-sm text-gray-500 leading-relaxed">
+          Rien à livrer. Ces demandes viennent des salons, couturiers et garages
+          du rayon : leur client est immobilisé et ne peut pas se déplacer.
+        </p>
+        {msg && <p className="text-[13px] text-gray-600 mt-2">{msg}</p>}
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3">
+        <p className="text-[13px] text-amber-900 leading-relaxed">
+          <b>Le client attend, immobilisé.</b> Au-delà de vingt minutes il n’aura
+          plus besoin de l’article — pars maintenant, ou dis que tu ne l’as plus.
+        </p>
+      </div>
+
+      {lignes.map((l) => (
+        <div key={l.id} className="rounded-2xl border border-gray-200 p-4">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-sm font-bold text-gray-900">{l.libelle}</p>
+              <p className="text-[12px] text-gray-500 mt-0.5">
+                Pour {l.emetteur?.shop_name || 'une boutique du rayon'}
+                {l.distance_m != null && ` · ${l.distance_m} m`}
+              </p>
+              {l.emetteur?.pickup_label && (
+                <p className="text-[12px] text-gray-500">{l.emetteur.pickup_label}</p>
+              )}
+            </div>
+            <div className="text-right shrink-0">
+              <p className="text-sm font-bold">{fcfa(l.prix_net)}</p>
+              <p className="text-[11px] text-gray-500">ton prix net</p>
+            </div>
+          </div>
+
+          {/* Trois états, trois gestes. On ne montre jamais deux boutons à la fois :
+              le porteur est dans la rue, sur un téléphone, avec une main prise. */}
+          {l.etat === 'attribue' && (
+            <div className="mt-3 rounded-xl bg-gray-50 px-3.5 py-2.5">
+              <p className="text-[12px] text-gray-600">
+                Prends l’article et porte-le. Sur place, le client te montre son
+                code <b className="tracking-widest">{l.code}</b> — tu le valides
+                dans l’onglet « Un client arrive ».
+              </p>
+            </div>
+          )}
+          {l.etat === 'arrive' && (
+            <div className="mt-3 rounded-xl bg-blue-50 px-3.5 py-2.5">
+              <p className="text-[12px] text-blue-800">
+                Code validé. Le client paie {fcfa(l.prix_paye)} dans l’application —
+                attends la confirmation avant de laisser l’article.
+              </p>
+            </div>
+          )}
+          {l.etat === 'paye' && (
+            <button onClick={() => remettre(l.id)} disabled={busy === l.id}
+              className="mt-3 w-full bg-emerald-600 text-white rounded-xl py-3 text-sm font-bold disabled:opacity-40">
+              {busy === l.id ? '…' : 'Je lui ai remis l’article'}
+            </button>
+          )}
+        </div>
+      ))}
 
       {msg && <p className="text-[13px] text-gray-600 px-1">{msg}</p>}
     </div>

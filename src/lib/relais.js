@@ -72,6 +72,27 @@ export const releveBoutique = (vendorId, jours = 30) =>
 
 export const compteurs = (vendorId) => rpc('compteurs_boutique', { p_vendor_id: vendorId });
 
+export const mesNotifications = (vendorId, limite = 30) =>
+  rpc('mes_notifications', { p_vendor_id: vendorId, p_limite: limite });
+
+/* Les relais à livrer : ce qu'un commerçant de services a demandé et que cette
+   boutique doit porter jusqu'à lui. Le client est immobilisé — dans un fauteuil,
+   ou la voiture sur le pont — donc l'ordre est chronologique et rien d'autre. */
+export const relaisALivrer = (vendorId) =>
+  supabase
+    .from('relais')
+    .select('id, libelle, code, etat, prix_net, prix_paye, distance_m, created_at, emetteur:vendors!relais_emetteur_id_fkey(shop_name, pickup_label)')
+    .eq('receveur_id', vendorId)
+    .eq('mode', 'livre')
+    .in('etat', ['attribue', 'arrive', 'paye'])
+    .order('created_at', { ascending: true });
+
+/* L'appel vient de partir : on pousse tout de suite, sans attendre la tâche
+   planifiée. Les trente secondes commencent maintenant, pas dans une minute.
+   Sans réponse, on ne fait rien : la file sera vidée par le cron. */
+export const pousserNotifications = () =>
+  supabase.functions.invoke('relais-notify').catch(() => {});
+
 /* ── Côté client ─────────────────────────────────────────────────────────── */
 
 export const monRelais = () => rpc('mon_relais');

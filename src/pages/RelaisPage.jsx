@@ -147,11 +147,13 @@ export default function RelaisPage() {
       {/* Le code, en très grand : il se lit à voix haute dans une allée bruyante */}
       <div className="mt-4 rounded-2xl border-2 border-dashed border-gray-300 p-5 text-center">
         <p className="text-[11px] font-bold uppercase tracking-wide text-gray-400">
-          Montre ce code au comptoir
+          {r.mode === 'livre' ? 'Montre ce code à celui qui apporte' : 'Montre ce code au comptoir'}
         </p>
         <p className="text-4xl font-black tracking-[0.25em] text-gray-900 mt-2">{r.code}</p>
         <p className="text-[12px] text-gray-500 mt-2">
-          Il ne marche que chez {r.boutique}. Personne d’autre ne peut l’honorer.
+          {r.mode === 'livre'
+            ? `Seul ${r.boutique} peut l’honorer. Ne paie qu’une fois l’article devant toi.`
+            : `Il ne marche que chez ${r.boutique}. Personne d’autre ne peut l’honorer.`}
         </p>
       </div>
 
@@ -169,7 +171,9 @@ export default function RelaisPage() {
             J’ai mon article
           </button>
           <p className="text-[12px] text-gray-500 text-center mt-2">
-            Ne confirme qu’une fois l’article en main.
+            {r.mode === 'livre'
+              ? 'La boutique peut aussi confirmer de son côté. Ne le fais qu’avec l’article en main.'
+              : 'Ne confirme qu’une fois l’article en main.'}
           </p>
         </>
       )}
@@ -177,7 +181,7 @@ export default function RelaisPage() {
       {r.etat === 'attribue' && (
         <button onClick={() => annulerRelais(r.id).then(recharger)}
           className="mt-3 w-full text-[13px] text-gray-400 py-2">
-          Finalement, je n’y vais pas
+          {r.mode === 'livre' ? 'Finalement, je n’en veux pas' : 'Finalement, je n’y vais pas'}
         </button>
       )}
 
