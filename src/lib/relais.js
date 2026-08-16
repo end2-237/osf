@@ -40,6 +40,11 @@ export const repondreAppel = (appelId, vendorId, disponible, opts = {}) =>
     p_prix_net:   opts.prixNet ?? null,
   });
 
+/** Les appels en cours qui la concernent et auxquels elle n'a pas répondu.
+    C'est la moitié du mécanisme : sans elle, personne ne répond jamais. */
+export const appelsEnAttente = (vendorId) =>
+  rpc('appels_en_attente', { p_vendor_id: vendorId });
+
 /** Le classement de l'arbitrage. La première est celle qui a le plus donné. */
 export const classerRepondants = (appelId) =>
   rpc('classer_repondants', { p_appel_id: appelId });

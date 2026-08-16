@@ -21,6 +21,7 @@ sont écrites en `plpgsql` exprès.
 | 4 | `docs/sql/26-bon-et-paiement.sql` | `bon_mouvements`, la commande au comptoir, le relevé de boutique |
 | 5 | `docs/sql/27-console-rayons.sql` | les fonctions `admin_*` de la console des rayons |
 | 6 | `docs/sql/28-notifications-relais.sql` | `relais_notifications`, ses déclencheurs et la file d'envoi |
+| 7 | `docs/sql/29-repondre-a-l-appel.sql` | `appels_en_attente`, le ciblage unifié, et la correction de `lancer_appel` |
 
 Vérification après application :
 
@@ -54,6 +55,28 @@ tout le reste — la vente confirmée, le bon expiré.
 
 Elle a besoin des mêmes secrets que `send-notification` :
 `FIREBASE_CLIENT_EMAIL`, `FIREBASE_PRIVATE_KEY`, `FIREBASE_PROJECT_ID`.
+
+### Et la clé VAPID, côté navigateur
+
+Les trois secrets ci-dessus servent à **envoyer**. Il en faut un quatrième pour
+**recevoir**, et il vit dans le front :
+
+```
+VITE_FIREBASE_VAPID_KEY=…
+```
+
+Console Firebase → Paramètres du projet → Cloud Messaging → « Certificats push
+Web » → paire de clés. À poser dans `.env.local` et dans les variables Vercel.
+
+Sans elle, `requestNotificationPermission` s'arrête avant d'obtenir un jeton,
+`fcm_tokens` reste vide, et la fonction edge tourne dans le vide sans erreur —
+elle vide la file et ne pousse rien. Pour vérifier :
+
+```sql
+select count(*) from public.fcm_tokens;                    -- doit être > 0
+select genre, count(*), count(envoyee_le)
+  from public.relais_notifications group by genre;         -- la file se remplit-elle ?
+```
 
 ---
 
@@ -149,6 +172,17 @@ ruptures par sa propre substitution. S'il ne peut vraiment pas servir, il
 appuie sur « Demander au rayon ». Trente secondes plus tard il voit deux ou
 trois boutiques classées, la première étant celle qui a le plus donné. Il ne
 choisit pas ; s'il s'écarte du classement, il doit dire pourquoi.
+
+**Répondre à un appel.** Quand une boutique du rayon cherche quelque chose, un
+encadré orange apparaît en haut de l'écran, quel que soit l'onglet ouvert, avec
+un compte à rebours. Sur un appel fermé — l'article est à son catalogue — il a
+sa fiche, son prix net et deux boutons. Sur un appel ouvert, il saisit l'article
+et son prix net s'il l'a : c'est ce moment-là, et pas un autre, qui construit le
+catalogue du rayon.
+
+L'écran interroge la base toutes les trois secondes en plus de la notification
+poussée. Un commerçant dont le navigateur refuse les notifications doit pouvoir
+répondre quand même, sinon on perd sa couverture — et un bandeau le lui dit.
 
 **Un client arrive.** Il tape les six caractères du client. L'écran lui montre
 ce que le client vient chercher, le prix affiché, la remise, ce qu'il paie —

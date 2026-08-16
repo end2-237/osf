@@ -5,7 +5,9 @@ import {
   chercherDansRayon, lancerAppel, classerRepondants, attribuerRelais,
   validerCode, declarerRupture, relaisDuComptoir, soldeBon, fcfa,
   relaisALivrer, confirmerRemise, pousserNotifications,
+  appelsEnAttente, repondreAppel,
 } from '../lib/relais';
+import { requestNotificationPermission } from '../lib/firebase';
 
 /* ══════════════════════════════════════════════════════════════════════════
    LE COMPTOIR
@@ -44,10 +46,20 @@ export default function RelaisPanel() {
   const { vendor } = useAuth();
   const [rayon, setRayon]     = useState(null);
   const [onglet, setOnglet]   = useState('envoyer');
+  const [jeton, setJeton]     = useState(null);   // null = en cours · false = échec
 
   useEffect(() => {
     chargerBareme();
     rayonDuVendeur(vendor?.id).then(setRayon);
+    // Sans jeton enregistré, aucune notification ne part : le commerçant ne
+    // saura jamais qu'on l'interroge, et la couverture du rayon tombe à zéro.
+    // On le demande ici, une fois le rayon rejoint, et pas à l'inscription :
+    // une permission demandée avant d'avoir montré à quoi elle sert est refusée.
+    if (vendor?.id) {
+      requestNotificationPermission(vendor.id)
+        .then((t) => setJeton(t || false))
+        .catch(() => setJeton(false));
+    }
   }, [vendor?.id]);
 
   if (!vendor) return null;
@@ -64,6 +76,27 @@ export default function RelaisPanel() {
 
   return (
     <div className="space-y-4">
+      {/* Toujours au-dessus, quel que soit l'onglet : un appel dure trente
+          secondes et ne peut pas attendre qu'on le cherche. */}
+      <Repondre vendor={vendor} />
+
+      {/* Une panne silencieuse coûte la couverture du rayon sans que personne
+          ne s'en aperçoive. On la dit, et on dit ce qui marche quand même. */}
+      {jeton === false && (
+        <div className="rounded-2xl border border-amber-300 bg-amber-50 px-4 py-3">
+          <p className="text-[13px] text-amber-900 leading-relaxed">
+            <b>Tes notifications ne sont pas activées.</b> Tu ne seras pas
+            prévenu quand une boutique du rayon cherche quelque chose — et
+            l’appel ne dure que trente secondes.
+          </p>
+          <p className="text-[12px] text-amber-800 mt-1.5">
+            Les appels s’affichent quand même ici tant que cette page reste
+            ouverte. Autorise les notifications dans ton navigateur pour ne
+            plus en rater.
+          </p>
+        </div>
+      )}
+
       <div className="flex gap-2">
         {[['envoyer', 'Envoyer un client'], ['recevoir', 'Un client arrive'],
           ['livrer', 'À livrer'], ['journal', 'Mes relais']]
@@ -79,6 +112,132 @@ export default function RelaisPanel() {
       {onglet === 'recevoir' && <Recevoir vendor={vendor} />}
       {onglet === 'livrer'   && <ALivrer vendor={vendor} />}
       {onglet === 'journal'  && <Journal vendor={vendor} />}
+    </div>
+  );
+}
+
+/* ── RÉPONDRE ────────────────────────────────────────────────────────────────
+   Quelqu'un du rayon cherche quelque chose, et un client est debout devant son
+   comptoir. Trente secondes.
+
+   Deux formes. Sur un appel fermé, la boutique a déjà référencé l'article : on
+   lui montre sa fiche et son prix, et il y a deux boutons. Sur un appel ouvert,
+   celui qui dit oui saisit l'article et son prix net — c'est ce moment-là, et
+   pas un autre, qui construit le catalogue du rayon.
+
+   On interroge la base toutes les trois secondes en plus de la notification
+   poussée : un commerçant dont le navigateur refuse les notifications doit
+   pouvoir répondre quand même, sinon on perd sa couverture.
+   ──────────────────────────────────────────────────────────────────────────── */
+
+function Repondre({ vendor }) {
+  const [appels, setAppels] = useState([]);
+  const [saisie, setSaisie] = useState({});     // appel_id → prix net tapé
+  const [busy, setBusy]     = useState('');
+  const [msg, setMsg]       = useState('');
+
+  useEffect(() => {
+    if (!vendor?.id) return;
+    let vivant = true;
+    const tirer = async () => {
+      const { data } = await appelsEnAttente(vendor.id);
+      if (vivant) setAppels(data || []);
+    };
+    tirer();
+    const t = setInterval(tirer, 3000);
+    return () => { vivant = false; clearInterval(t); };
+  }, [vendor?.id]);
+
+  const repondre = async (a, dispo) => {
+    setBusy(a.appel_id); setMsg('');
+    const prix = dispo
+      ? (a.prix_net ?? Number(String(saisie[a.appel_id] || '').replace(/\D/g, '')))
+      : null;
+    if (dispo && !prix) { setBusy(''); setMsg('Indique ton prix net.'); return; }
+
+    const { error } = await repondreAppel(a.appel_id, vendor.id, dispo, {
+      productId: a.product_id, prixNet: prix,
+    });
+    setBusy('');
+    if (error) { setMsg(error.message); return; }
+    setAppels((l) => l.filter((x) => x.appel_id !== a.appel_id));
+  };
+
+  if (!appels.length) return null;
+
+  return (
+    <div className="space-y-2">
+      {appels.map((a) => (
+        <div key={a.appel_id}
+             className="rounded-2xl border-2 border-amber-400 bg-amber-50 p-4 animate-pulse-none">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-[11px] font-bold uppercase tracking-wide text-amber-700">
+                {a.demandeur} cherche
+                {a.distance_m != null && ` · à ${a.distance_m} m`}
+              </p>
+              <p className="text-base font-bold text-gray-900 mt-0.5">
+                {a.produit || a.libelle}
+              </p>
+              {(a.contrainte || a.famille) && (
+                <p className="text-[13px] text-gray-600">
+                  {[a.contrainte, a.famille].filter(Boolean).join(' · ')}
+                </p>
+              )}
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              {a.photo && (
+                <img src={a.photo} alt="" className="w-14 h-14 rounded-xl object-cover" />
+              )}
+              <span className="text-2xl font-black tabular-nums text-amber-700 w-9 text-right">
+                {a.reste_s}
+              </span>
+            </div>
+          </div>
+
+          {/* Appel ouvert : il saisit l'article et son prix net. C'est ici que
+              le catalogue du rayon se remplit — en répondant, pas en saisissant
+              un inventaire que personne ne tiendrait à jour. */}
+          {a.forme === 'ouvert' && (
+            <div className="mt-3">
+              <label className="text-[11px] font-bold uppercase tracking-wide text-gray-500 block mb-1">
+                Ton prix net, si tu l’as
+              </label>
+              <input
+                value={saisie[a.appel_id] || ''}
+                onChange={(e) => setSaisie({ ...saisie, [a.appel_id]: e.target.value })}
+                inputMode="numeric" placeholder="48000"
+                className="w-full bg-white border border-amber-300 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-gray-900" />
+              <p className="text-[11px] text-gray-500 mt-1">
+                Ce que tu touches en entier. Les 13 % sont ajoutés au-dessus.
+              </p>
+            </div>
+          )}
+
+          {a.forme === 'ferme' && a.prix_net != null && (
+            <p className="text-[13px] text-gray-700 mt-2">
+              Ton prix net enregistré : <b>{fcfa(a.prix_net)}</b>
+            </p>
+          )}
+
+          <div className="flex gap-2 mt-3">
+            <button onClick={() => repondre(a, true)} disabled={busy === a.appel_id}
+              className="flex-1 bg-emerald-600 text-white rounded-xl py-3 text-sm font-bold disabled:opacity-40">
+              Oui, je l’ai
+            </button>
+            <button onClick={() => repondre(a, false)} disabled={busy === a.appel_id}
+              className="flex-1 bg-white border border-gray-300 text-gray-700 rounded-xl py-3 text-sm font-bold disabled:opacity-40">
+              Non
+            </button>
+          </div>
+
+          <p className="text-[11px] text-gray-500 mt-2 leading-snug">
+            Répondre « non » compte autant que « oui » : c’est ton taux de
+            réponse qui décide si le rayon continue de t’envoyer des clients.
+          </p>
+        </div>
+      ))}
+      {msg && <p className="text-[13px] text-gray-600 px-1">{msg}</p>}
     </div>
   );
 }
