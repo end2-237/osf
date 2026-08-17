@@ -32,6 +32,8 @@ export default function RelaisJoin() {
   const [mdp, setMdp]   = useState('');
   const [busy, setBusy] = useState(false);
   const [msg, setMsg]   = useState('');
+  const [connu, setConnu] = useState(false);   // il a déjà un compte Buyticle
+  const [mail, setMail]   = useState('');
 
   useEffect(() => {
     // Déjà connecté : on signale quand même sa présence, sinon le vendeur ne
@@ -77,6 +79,36 @@ export default function RelaisJoin() {
     navigate('/mon-relais', { replace: true });
   };
 
+  /* Celui qui s'est inscrit un jour avec sa vraie adresse n'a pas de compte
+     à `<numéro>@relais.buyticle.cm`. Le passer par le formulaire ci-dessus lui
+     en créerait un second : ses points, ses commandes et son historique
+     resteraient sur le premier, et il ne comprendrait pas pourquoi. On lui
+     ouvre donc une porte séparée. */
+  const seConnecter = async (e) => {
+    e.preventDefault();
+    if (!mail.trim() || !mdp) { setMsg('Ton adresse ou ton numéro, et ton mot de passe.'); return; }
+    setBusy(true); setMsg('');
+
+    // Il peut taper l'un ou l'autre : beaucoup ne savent plus avec quoi ils
+    // s'étaient inscrits. Un identifiant fait uniquement de chiffres est un
+    // numéro, et on lui redonne la forme dérivée.
+    const saisi = mail.trim();
+    const chiffres = saisi.replace(/\D/g, '');
+    const identifiant = /^\d{9,}$/.test(chiffres) && !saisi.includes('@')
+      ? `${chiffres}@relais.buyticle.cm`
+      : saisi;
+
+    const { error } = await supabase.auth.signInWithPassword({
+      email: identifiant, password: mdp,
+    });
+    setBusy(false);
+    if (error) { setMsg('Identifiant ou mot de passe incorrect.'); return; }
+
+    const { error: e2 } = await signalerPresence(code);
+    if (e2) { setMsg(e2.message); return; }
+    navigate('/mon-relais', { replace: true });
+  };
+
   return (
     <div className="min-h-[70vh] flex items-center justify-center px-4 py-10">
       <div className="w-full max-w-sm">
@@ -91,34 +123,65 @@ export default function RelaisJoin() {
           </p>
         </div>
 
-        <form onSubmit={creer} className="space-y-3">
-          <div>
-            <label className="text-[11px] font-bold uppercase tracking-wide text-gray-400 block mb-1.5">
-              Ton numéro
-            </label>
-            <input value={tel} onChange={(e) => setTel(e.target.value)}
-              inputMode="numeric" autoFocus placeholder="6XX XX XX XX"
-              className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3.5 text-lg outline-none focus:border-gray-900" />
-          </div>
-          <div>
-            <label className="text-[11px] font-bold uppercase tracking-wide text-gray-400 block mb-1.5">
-              Un mot de passe
-            </label>
-            <input value={mdp} onChange={(e) => setMdp(e.target.value)}
-              type="password" placeholder="6 caractères"
-              className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3.5 text-lg outline-none focus:border-gray-900" />
-          </div>
-          <button type="submit" disabled={busy}
-            className="w-full bg-gray-900 text-white rounded-xl py-4 text-[15px] font-bold disabled:opacity-40">
-            {busy ? '…' : 'Voir mon relais'}
-          </button>
-        </form>
+        {connu ? (
+          <form onSubmit={seConnecter} className="space-y-3">
+            <div>
+              <label className="text-[11px] font-bold uppercase tracking-wide text-gray-400 block mb-1.5">
+                Ton adresse e-mail ou ton numéro
+              </label>
+              <input value={mail} onChange={(e) => setMail(e.target.value)}
+                autoFocus placeholder="toi@exemple.com ou 6XX XX XX XX"
+                className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3.5 text-[15px] outline-none focus:border-gray-900" />
+            </div>
+            <div>
+              <label className="text-[11px] font-bold uppercase tracking-wide text-gray-400 block mb-1.5">
+                Ton mot de passe
+              </label>
+              <input value={mdp} onChange={(e) => setMdp(e.target.value)}
+                type="password" placeholder="••••••"
+                className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3.5 text-lg outline-none focus:border-gray-900" />
+            </div>
+            <button type="submit" disabled={busy}
+              className="w-full bg-gray-900 text-white rounded-xl py-4 text-[15px] font-bold disabled:opacity-40">
+              {busy ? '…' : 'Me connecter et voir mon relais'}
+            </button>
+          </form>
+        ) : (
+          <form onSubmit={creer} className="space-y-3">
+            <div>
+              <label className="text-[11px] font-bold uppercase tracking-wide text-gray-400 block mb-1.5">
+                Ton numéro
+              </label>
+              <input value={tel} onChange={(e) => setTel(e.target.value)}
+                inputMode="numeric" autoFocus placeholder="6XX XX XX XX"
+                className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3.5 text-lg outline-none focus:border-gray-900" />
+            </div>
+            <div>
+              <label className="text-[11px] font-bold uppercase tracking-wide text-gray-400 block mb-1.5">
+                Un mot de passe
+              </label>
+              <input value={mdp} onChange={(e) => setMdp(e.target.value)}
+                type="password" placeholder="6 caractères"
+                className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3.5 text-lg outline-none focus:border-gray-900" />
+            </div>
+            <button type="submit" disabled={busy}
+              className="w-full bg-gray-900 text-white rounded-xl py-4 text-[15px] font-bold disabled:opacity-40">
+              {busy ? '…' : 'Voir mon relais'}
+            </button>
+          </form>
+        )}
 
         {msg && <p className="text-[13px] text-red-600 text-center mt-3">{msg}</p>}
 
-        <p className="text-[11px] text-gray-400 text-center mt-6 leading-relaxed">
-          Ton numéro sert à retrouver ton compte. Il sera vérifié au moment du
-          paiement, pas maintenant.
+        <button onClick={() => { setConnu(!connu); setMsg(''); setMdp(''); }}
+          className="w-full text-[13px] text-gray-500 underline underline-offset-2 mt-4 py-1.5">
+          {connu ? 'Je n’ai pas encore de compte' : 'J’ai déjà un compte Buyticle'}
+        </button>
+
+        <p className="text-[11px] text-gray-400 text-center mt-4 leading-relaxed">
+          {connu
+            ? 'On te reconnecte à ton compte : tes points et tes commandes te suivent.'
+            : 'Ton numéro sert à retrouver ton compte. Il sera vérifié au moment du paiement, pas maintenant.'}
         </p>
       </div>
     </div>

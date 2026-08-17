@@ -8,6 +8,7 @@ import {
   appelsEnAttente, repondreAppel, famillesDuRayon, presencesDuComptoir,
 } from '../lib/relais';
 import { requestNotificationPermission, RAISONS } from '../lib/firebase';
+import AfficheComptoir from './AfficheComptoir';
 
 /* ══════════════════════════════════════════════════════════════════════════
    LE COMPTOIR
@@ -65,12 +66,18 @@ export default function RelaisPanel() {
 
   if (!vendor) return null;
   if (!rayon) {
+    // Le relais dort, mais l'affiche non : elle sert aussi à l'affiliation, et
+    // une boutique qui l'imprime aujourd'hui aura ses clients déjà inscrits le
+    // jour où son rayon s'ouvre.
     return (
-      <div className="rounded-2xl border border-gray-200 p-6 text-center">
-        <p className="text-sm text-gray-500">
-          Ta boutique n’appartient à aucun rayon pour le moment. Le relais
-          s’activera dès qu’elle en rejoindra un.
-        </p>
+      <div className="space-y-4">
+        <div className="rounded-2xl border border-gray-200 p-6 text-center">
+          <p className="text-sm text-gray-500">
+            Ta boutique n’appartient à aucun rayon pour le moment. Le relais
+            s’activera dès qu’elle en rejoindra un.
+          </p>
+        </div>
+        <AfficheComptoir />
       </div>
     );
   }
@@ -112,12 +119,15 @@ export default function RelaisPanel() {
         </div>
       )}
 
-      <div className="flex gap-2">
+      {/* Cinq onglets ne tiennent pas sur la largeur d'un téléphone : la barre
+          défile plutôt que de se replier sur deux lignes, qui mangeraient la
+          hauteur utile au-dessus du clavier. */}
+      <div className="flex gap-2 overflow-x-auto -mx-1 px-1 pb-1">
         {[['envoyer', 'Envoyer un client'], ['recevoir', 'Un client arrive'],
-          ['livrer', 'À livrer'], ['journal', 'Mes relais']]
+          ['livrer', 'À livrer'], ['journal', 'Mes relais'], ['affiche', 'Mon affiche']]
           .map(([k, l]) => (
             <button key={k} onClick={() => setOnglet(k)}
-              className={`px-3.5 py-2 rounded-xl text-[13px] font-semibold transition-colors ${
+              className={`shrink-0 px-3.5 py-2 rounded-xl text-[13px] font-semibold transition-colors ${
                 onglet === k ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-600'}`}>
               {l}
             </button>
@@ -127,6 +137,7 @@ export default function RelaisPanel() {
       {onglet === 'recevoir' && <Recevoir vendor={vendor} />}
       {onglet === 'livrer'   && <ALivrer vendor={vendor} />}
       {onglet === 'journal'  && <Journal vendor={vendor} />}
+      {onglet === 'affiche'  && <AfficheComptoir />}
     </div>
   );
 }

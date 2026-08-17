@@ -74,9 +74,13 @@ export const attribuerRelais = (appelId, receveurId, clientId, prixNet, opts = {
    bien moi » au comptoir de la boutique qui reçoit ; il vit 48 heures.
    ──────────────────────────────────────────────────────────────────────────── */
 
-/** Le client vient de scanner l'affiche du comptoir. */
+/** Le client vient de scanner l'affiche du comptoir — ou d'en taper le code. */
 export const signalerPresence = (referralCode) =>
   rpc('signaler_presence', { p_referral_code: referralCode });
+
+/** Quelle boutique porte ce code — pour l'afficher avant de valider. */
+export const boutiqueParCode = (code) =>
+  rpc('boutique_par_code', { p_code: code });
 
 /** Son code personnel, tant qu'aucun relais ne lui a été attribué. */
 export const maPresence = () => rpc('ma_presence');

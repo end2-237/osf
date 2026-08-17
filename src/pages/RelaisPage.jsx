@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { monRelais, payerRelais, confirmerRemise, annulerRelais,
-         maPresence, resteAvant, etapes, fcfa } from '../lib/relais';
+         maPresence, signalerPresence, boutiqueParCode,
+         resteAvant, etapes, fcfa } from '../lib/relais';
 
 /* ══════════════════════════════════════════════════════════════════════════
    MON RELAIS — l'écran du client
@@ -14,6 +15,95 @@ import { monRelais, payerRelais, confirmerRemise, annulerRelais,
    plus tard, sur une commande livrée. Écrire un avis au comptoir, sous le
    regard du commerçant, ne produit pas un avis — ça produit une politesse.
    ══════════════════════════════════════════════════════════════════════════ */
+
+/* ── JE SUIS DANS UNE BOUTIQUE ───────────────────────────────────────────────
+   Le second chemin vers la présence, à côté du scan.
+
+   Il fallait le prévoir dès le départ : le scan ne marche pas toujours. Un
+   téléphone d'occasion n'ouvre pas les liens depuis l'appareil photo, une
+   affiche décollée ne se lit plus, et surtout — le cas qu'on avait manqué —
+   un client qui a déjà un compte et qui est déjà connecté n'a aucune raison
+   de repasser par /r/<code>. Il ouvre l'application et cherche le bouton.
+
+   Le nom de la boutique s'affiche dès que le code est complet, avant de
+   valider. Se signaler chez le mauvais commerçant enverrait le relais d'un
+   autre client sur son téléphone.
+   ──────────────────────────────────────────────────────────────────────────── */
+
+function JeSuisEnBoutique({ onSignale }) {
+  const [ouvert, setOuvert] = useState(false);
+  const [code, setCode]     = useState('');
+  const [boutique, setBout] = useState(null);
+  const [busy, setBusy]     = useState(false);
+  const [msg, setMsg]       = useState('');
+
+  // Dès que le code a sa longueur, on va chercher le nom. Une frappe de plus
+  // annule la précédente : sinon deux réponses lentes peuvent arriver dans le
+  // désordre et afficher le nom d'une boutique qu'il n'a plus à l'écran.
+  useEffect(() => {
+    const c = code.trim();
+    if (c.length < 4) { setBout(null); return; }
+    let vivant = true;
+    boutiqueParCode(c).then(({ data }) => { if (vivant) setBout(data?.[0] || null); });
+    return () => { vivant = false; };
+  }, [code]);
+
+  const valider = async () => {
+    setBusy(true); setMsg('');
+    const { error } = await signalerPresence(code.trim());
+    setBusy(false);
+    if (error) { setMsg(error.message); return; }
+    onSignale();
+  };
+
+  if (!ouvert) {
+    return (
+      <button onClick={() => setOuvert(true)}
+        className="w-full rounded-2xl border-2 border-gray-900 px-5 py-4 text-left">
+        <p className="text-[15px] font-bold text-gray-900">Je suis dans une boutique</p>
+        <p className="text-[13px] text-gray-500 mt-1 leading-relaxed">
+          Le vendeur n’a pas ton article ? Tape le code de son comptoir pour
+          qu’il puisse t’envoyer chez un voisin qui l’a.
+        </p>
+      </button>
+    );
+  }
+
+  return (
+    <div className="rounded-2xl border-2 border-gray-900 p-5">
+      <p className="text-[11px] font-bold uppercase tracking-wide text-gray-400">
+        Le code affiché sur le comptoir
+      </p>
+      <input value={code} autoFocus
+        onChange={(e) => setCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''))}
+        onKeyDown={(e) => e.key === 'Enter' && boutique && valider()}
+        placeholder="ABC123" maxLength={12}
+        className="mt-2 w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3.5 text-center text-2xl font-black tracking-[0.2em] outline-none focus:border-gray-900" />
+
+      {boutique && (
+        <p className="text-[13px] text-emerald-700 font-semibold text-center mt-2.5">
+          {boutique.boutique}
+        </p>
+      )}
+      {code.trim().length >= 4 && !boutique && (
+        <p className="text-[12px] text-gray-400 text-center mt-2.5">
+          Aucune boutique avec ce code — vérifie l’affiche.
+        </p>
+      )}
+
+      <button onClick={valider} disabled={busy || !boutique}
+        className="mt-3 w-full bg-gray-900 text-white rounded-xl py-3.5 text-sm font-bold disabled:opacity-40">
+        {busy ? '…' : 'Je suis ici'}
+      </button>
+      <button onClick={() => { setOuvert(false); setCode(''); setMsg(''); }}
+        className="mt-1.5 w-full text-[13px] text-gray-400 py-1.5">
+        Annuler
+      </button>
+
+      {msg && <p className="text-[13px] text-red-600 text-center mt-2">{msg}</p>}
+    </div>
+  );
+}
 
 export default function RelaisPage() {
   const { user } = useAuth();
@@ -104,19 +194,30 @@ export default function RelaisPage() {
 
   if (!r) {
     return (
-      <div className="max-w-lg mx-auto px-4 py-16 text-center">
-        <p className="text-lg font-semibold text-gray-900">Aucun relais en cours</p>
-        <p className="text-sm text-gray-500 mt-2 leading-relaxed">
-          Quand un commerçant n’a pas ce que tu cherches, il t’envoie chez un
-          voisin qui l’a — et tu obtiens une remise.
-        </p>
+      <div className="max-w-lg mx-auto px-4 py-10">
+        {/* Le geste d'abord, l'explication ensuite. Celui qui arrive ici est
+            presque toujours debout dans une boutique, en train de chercher
+            comment se signaler — pas en train de se demander ce qu'est un
+            relais. C'est précisément ce chemin qui manquait : un client déjà
+            inscrit et déjà connecté n'avait aucun moyen de se déclarer, et le
+            vendeur ne pouvait donc rattacher personne. */}
+        <JeSuisEnBoutique onSignale={recharger} />
+
+        <div className="mt-8 text-center">
+          <p className="text-lg font-semibold text-gray-900">Aucun relais en cours</p>
+          <p className="text-sm text-gray-500 mt-2 leading-relaxed">
+            Quand un commerçant n’a pas ce que tu cherches, il t’envoie chez un
+            voisin qui l’a — et tu obtiens une remise.
+          </p>
+        </div>
+
         <div className="mt-6 rounded-2xl border border-gray-200 p-5 text-left">
           <p className="text-[11px] font-bold uppercase tracking-wide text-gray-400">
             Comment ça marche
           </p>
           <ol className="mt-2.5 space-y-2 text-[13px] text-gray-600">
             {['Le commerçant n’a pas ce que tu cherches et te le dit.',
-              'Il te montre l’affiche Buyticle collée sur son comptoir : tu la scannes.',
+              'Tu scannes l’affiche Buyticle de son comptoir — ou tu tapes son code ci-dessus.',
               'Un code à quatre caractères apparaît ici. Tu le lui montres.',
               'Ton article, ta remise et ton chemin s’affichent. Tu y vas.'].map((t, i) => (
               <li key={i} className="flex gap-2.5">
@@ -128,8 +229,9 @@ export default function RelaisPage() {
             ))}
           </ol>
         </div>
+
         <button onClick={() => navigate('/store')}
-          className="mt-6 bg-gray-900 text-white rounded-xl px-6 py-3 text-sm font-semibold">
+          className="mt-6 w-full bg-gray-900 text-white rounded-xl px-6 py-3 text-sm font-semibold">
           Voir la boutique
         </button>
       </div>
