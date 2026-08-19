@@ -321,9 +321,30 @@ montrera au comptoir d'arrivée.
 vérification, pas d'adresse e-mail. Son numéro se vérifie tout seul au
 paiement : on ne paie pas en Mobile Money avec le numéro d'un autre.
 
-**Mon relais** (`/mon-relais`). Le produit, le prix barré, sa remise, ce qu'il
-paie, le temps qu'il lui reste, trois étapes de chemin, et son code en très
-grand. Puis « Payer », puis « J'ai mon article ».
+**Il peut aussi se signaler sans scanner.** « Je suis dans une boutique », sur
+`/mon-relais`, accepte le code du comptoir tapé à la main. C'est le chemin de
+celui qui a déjà un compte et qui est déjà connecté — il n'a aucune raison de
+repasser par `/r/<code>`, et sans ce bouton le vendeur ne pouvait le rattacher
+à rien.
+
+**Mon relais** (`/mon-relais`). La photo de l'article, le prix barré, sa
+remise, ce qu'il paie, le temps qu'il lui reste, le chemin sur une carte dans
+la page, et son code en très grand.
+
+**Il paie en ligne, avant de retirer.** Orange Money ou MTN MoMo, poussée USSD
+par `monetbil-init` — le même circuit que le panier. L'argent passe par la
+plateforme, sinon il n'y a rien à répartir : la commission, le bon de
+l'envoyeur et le prix net du receveur sortent tous les trois d'un
+encaissement. C'est le webhook de l'opérateur qui déclare le paiement, jamais
+l'écran : le client valide souvent en quittant le navigateur, et le relais
+doit avancer même s'il ne revient pas.
+
+**S'il ne paie pas, l'article part dans son panier.** Au prix du catalogue,
+sans la remise — elle payait le déplacement au comptoir, et il n'y a plus de
+déplacement. Un client sans solde aujourd'hui n'est pas un client perdu ; le
+faire repartir les mains vides avec l'article effacé de son téléphone, si.
+
+Puis, l'article en main, « J'ai mon article ».
 
 **L'avis arrive plus tard**, par notification, sur une commande livrée. Jamais
 au comptoir : un avis écrit sous le regard du commerçant n'est pas un avis,

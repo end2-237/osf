@@ -130,12 +130,95 @@ export const pousserNotifications = () =>
 
 export const monRelais = () => rpc('mon_relais');
 
-export const payerRelais = (relaisId, reference = null) =>
-  rpc('payer_relais', { p_relais_id: relaisId, p_reference: reference });
+/* Crée la commande en attente de paiement. Elle ne vaut rien tant que
+   l'opérateur n'a pas confirmé : c'est son webhook qui fait avancer le
+   relais, jamais cet écran. */
+export const payerRelais = (relaisId, moyen = 'orange_money', reference = null) =>
+  rpc('payer_relais', { p_relais_id: relaisId, p_reference: reference, p_moyen: moyen });
 
 export const confirmerRemise = (relaisId) => rpc('confirmer_remise', { p_relais_id: relaisId });
 
 export const annulerRelais = (relaisId) => rpc('annuler_relais', { p_relais_id: relaisId });
+
+/** Il est venu, il n'a pas payé, il repart. L'article part dans son panier. */
+export const renoncerAuComptoir = (relaisId) =>
+  rpc('renoncer_au_comptoir', { p_relais_id: relaisId });
+
+/** L'état des commandes, sans aucune donnée client — le même que le panier. */
+export const etatCommandes = (ids) => rpc('orders_status', { p_ids: ids });
+
+/* ── Le paiement Mobile Money ────────────────────────────────────────────────
+   Exactement le circuit du panier : `monetbil-init` pousse l'USSD, l'opérateur
+   rappelle le webhook, et le webhook écrit `paid`. On ne fait que déclencher
+   et attendre.
+   ──────────────────────────────────────────────────────────────────────────── */
+
+export const OPERATEURS = [
+  ['orange_money', 'Orange Money', 'CM_ORANGEMONEY'],
+  ['mtn_momo',     'MTN MoMo',     'CM_MTNMOBILEMONEY'],
+];
+
+/** 6XX XX XX XX → 237XXXXXXXXX, la seule forme que Monetbil accepte. */
+export function numeroMonetbil(tel) {
+  let p = String(tel || '').replace(/[\s\-.()]/g, '');
+  if (p.startsWith('+')) p = p.slice(1);
+  if (/^6\d{8}$/.test(p)) p = '237' + p;
+  return p;
+}
+
+export async function pousserUssd({ orderId, montant, tel, moyen }) {
+  const url  = import.meta.env.VITE_SUPABASE_URL;
+  const anon = import.meta.env.VITE_SUPABASE_ANON_KEY;
+  const op   = OPERATEURS.find(([k]) => k === moyen)?.[2] || 'CM_ORANGEMONEY';
+
+  const res = await fetch(`${url}/functions/v1/monetbil-init`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${anon}`,
+      'apikey': anon,
+    },
+    body: JSON.stringify({
+      order_ids: [orderId],
+      amount: Math.round(montant),
+      phone: numeroMonetbil(tel),
+      operator: op,
+    }),
+  });
+
+  const brut = await res.text();
+  let out;
+  try { out = JSON.parse(brut); }
+  catch { throw new Error(`Réponse serveur invalide (${res.status})`); }
+  if (!out.success) throw new Error(out.error || `Erreur ${res.status}`);
+  return out;
+}
+
+/* ── Le panier ───────────────────────────────────────────────────────────────
+   S'il ne paie pas, l'article ne doit pas disparaître. On l'écrit dans le
+   panier du navigateur — le même que partout ailleurs — et on prévient
+   l'application, qui tient sa propre copie en mémoire.
+
+   Au prix normal du catalogue, pas au prix du relais : la remise payait le
+   déplacement au comptoir. S'il repart sans acheter, il n'y a plus de
+   déplacement à récompenser, et le bon de l'envoyeur n'existera jamais.
+   ──────────────────────────────────────────────────────────────────────────── */
+
+export function mettreAuPanier(article) {
+  let panier = [];
+  try { panier = JSON.parse(localStorage.getItem('ofs_cart') || '[]'); } catch { panier = []; }
+
+  const i = panier.findIndex((x) => x.id === article.id);
+  if (i > -1) panier[i].quantity = (Number(panier[i].quantity) || 1) + 1;
+  else panier.push({ ...article, quantity: 1 });
+
+  try {
+    localStorage.setItem('ofs_cart', JSON.stringify(panier));
+    localStorage.setItem('ofs_cart_ts', Date.now().toString());
+  } catch { return false; }
+  window.dispatchEvent(new CustomEvent('ofs:cartUpdated'));
+  return true;
+}
 
 /* ── Petites choses ──────────────────────────────────────────────────────── */
 

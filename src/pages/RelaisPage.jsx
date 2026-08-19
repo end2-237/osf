@@ -2,7 +2,8 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import DeliveryMap from '../components/DeliveryMap';
-import { monRelais, payerRelais, confirmerRemise, annulerRelais,
+import PaiementRelais from '../components/PaiementRelais';
+import { monRelais, confirmerRemise, annulerRelais,
          maPresence, signalerPresence, boutiqueParCode,
          resteAvant, etapes, fcfa } from '../lib/relais';
 
@@ -249,7 +250,7 @@ const Page = ({ children }) => (
   </div>
 );
 
-function Argent({ r, reste, msg, compact, onPayer, onConfirmer, onAnnuler }) {
+function Argent({ r, reste, msg, compact, onPaye, onConfirmer, onAnnuler }) {
   const livre = r.mode === 'livre';
   return (
     <div className={`bg-white rounded-lg ${compact ? 'p-4' : 'p-5'}`}>
@@ -274,10 +275,9 @@ function Argent({ r, reste, msg, compact, onPayer, onConfirmer, onAnnuler }) {
       )}
 
       {r.etat === 'arrive' && (
-        <button onClick={onPayer}
-          className="mt-3.5 w-full bg-[#FFD814] hover:bg-[#F7CA00] rounded-full py-3 text-[14px] font-bold text-[#0F1111] transition">
-          Payer {fcfa(r.prix_paye)}
-        </button>
+        <div className="mt-3.5 -mx-5 -mb-5">
+          <PaiementRelais r={r} onFini={onPaye} />
+        </div>
       )}
 
       {r.etat === 'paye' && (
@@ -451,13 +451,6 @@ export default function RelaisPage() {
     );
   }
 
-  const payer = async () => {
-    setMsg('');
-    const { error } = await payerRelais(r.id);
-    if (error) { setMsg(error.message); return; }
-    recharger();
-  };
-
   const confirmer = async () => {
     setMsg('');
     const { error } = await confirmerRemise(r.id);
@@ -473,7 +466,7 @@ export default function RelaisPage() {
      de portée du pouce. */
   const argent = (compact) => (
     <Argent r={r} reste={reste} msg={msg} compact={compact}
-      onPayer={payer} onConfirmer={confirmer}
+      onPaye={recharger} onConfirmer={confirmer}
       onAnnuler={() => annulerRelais(r.id).then(recharger)} />
   );
 
