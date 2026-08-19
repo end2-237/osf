@@ -1,0 +1,15 @@
+node_modules/
+.expo/
+dist/
+web-build/
+*.log
+
+# Jamais versionnés : ils portent les clés
+.env
+.env.local
+
+# Artefacts de build natif
+android/
+ios/
+*.apk
+*.aab

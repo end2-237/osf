@@ -77,12 +77,23 @@ serve(async (req: Request) => {
     // concernées : la file contient souvent trois lignes pour un même appel.
     const vendorIds = [...new Set(file.map((n: any) => n.vendor_id))]
     const { data: tokens } = await supabase
-      .from('fcm_tokens').select('vendor_id, token').in('vendor_id', vendorIds)
+      .from('fcm_tokens').select('vendor_id, token, plateforme').in('vendor_id', vendorIds)
 
+    // Deux genres de jetons désormais, et ils ne s'envoient pas au même
+    // endroit. Un jeton Expo poussé vers Firebase est refusé en silence : le
+    // commerçant qui installe l'application recevrait alors MOINS de
+    // notifications qu'avec son navigateur.
     const parVendeur = new Map<string, string[]>()
+    const expoParVendeur = new Map<string, string[]>()
     for (const t of tokens || []) {
-      if (!parVendeur.has(t.vendor_id)) parVendeur.set(t.vendor_id, [])
-      parVendeur.get(t.vendor_id)!.push(t.token)
+      // Le préfixe fait foi quand la colonne manque encore : la migration 40
+      // peut ne pas être appliquée au moment où cette version se déploie.
+      const estExpo = t.plateforme === 'expo' ||
+        String(t.token).startsWith('ExponentPushToken') ||
+        String(t.token).startsWith('ExpoPushToken')
+      const cible = estExpo ? expoParVendeur : parVendeur
+      if (!cible.has(t.vendor_id)) cible.set(t.vendor_id, [])
+      cible.get(t.vendor_id)!.push(t.token)
     }
 
     // @ts-ignore
@@ -117,6 +128,40 @@ serve(async (req: Request) => {
               data: { genre: n.genre, lien: n.lien || '/admin' },
             },
           }),
+        }))
+      }
+    }
+
+    // Les jetons Expo partent par lots : leur API accepte jusqu'à cent
+    // messages par requête, et un appel par notification serait plus lent que
+    // les trente secondes dont dispose le commerçant.
+    const messagesExpo: unknown[] = []
+    for (const n of file) {
+      for (const token of expoParVendeur.get(n.vendor_id) || []) {
+        messagesExpo.push({
+          to: token,
+          title: n.titre,
+          body: n.corps,
+          sound: 'default',
+          // Un appel doit sonner tout de suite et passer devant : trente
+          // secondes ne se rattrapent pas.
+          priority: n.genre === 'appel' ? 'high' : 'normal',
+          channelId: n.genre === 'appel' ? 'appels' : 'default',
+          data: { genre: n.genre, lien: n.lien || '/comptoir' },
+        })
+      }
+    }
+
+    if (messagesExpo.length) {
+      for (let i = 0; i < messagesExpo.length; i += 100) {
+        envois.push(fetch('https://exp.host/--/api/v2/push/send', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'Accept-Encoding': 'gzip, deflate',
+          },
+          body: JSON.stringify(messagesExpo.slice(i, i + 100)),
         }))
       }
     }
