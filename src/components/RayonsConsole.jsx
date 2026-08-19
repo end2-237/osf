@@ -504,6 +504,148 @@ export default function RayonsConsole() {
             await chargerRayons(); await chargerRayon(actif); await chargerLibres(recherche);
           }} />
       )}
+
+      {actif && <Collusion rayonId={actif} />}
+    </div>
+  );
+}
+
+/* ── LA COLLUSION ─────────────────────────────────────────────────────────────
+   La seule fraude que la structure ne bloque pas : deux boutiques voisines qui
+   s'arrangent hors application. Les données étaient écrites depuis le premier
+   jour — `rang_propose`, `rang_choisi`, `motif_ecart` — mais personne ne les
+   lisait.
+
+   Trois compteurs, et aucune sanction. Ils disent où aller voir, dans l'ordre.
+   Dans un marché de cinq cents mètres, exclure une boutique sur la foi d'un
+   pourcentage coûte plus cher que la fraude elle-même : le commerçant parle à
+   ses voisins le soir même, et le rayon se referme.
+   ──────────────────────────────────────────────────────────────────────────── */
+function Collusion({ rayonId }) {
+  const [lignes, setLignes] = useState([]);
+  const [jours, setJours]   = useState(30);
+  const [charge, setCharge] = useState(true);
+  const [msg, setMsg]       = useState("");
+
+  useEffect(() => {
+    let vivant = true;
+    setCharge(true);
+    supabase.rpc("compteurs_collusion", { p_rayon_id: rayonId, p_jours: jours })
+      .then(({ data, error }) => {
+        if (!vivant) return;
+        if (error) setMsg(error.message);
+        setLignes(data || []);
+        setCharge(false);
+      });
+    return () => { vivant = false; };
+  }, [rayonId, jours]);
+
+  const pct = (n) => `${Math.round(Number(n || 0) * 100)} %`;
+  const suspects = lignes.filter((l) => l.a_visiter || l.a_regarder);
+
+  return (
+    <div className="bg-white border border-gray-200/80 rounded-2xl p-5 space-y-4">
+      <div className="flex items-start justify-between gap-3 flex-wrap">
+        <div>
+          <p className="font-bold text-[15px]">Ce qu'il y a à aller voir</p>
+          <p className="text-[13px] text-gray-500 leading-relaxed max-w-xl">
+            Trois compteurs, aucune sanction automatique. Ils désignent des
+            visites — un pourcentage ne prouve rien, et une exclusion prononcée
+            sans avoir vu referme le rayon.
+          </p>
+        </div>
+        <div className="flex gap-1.5 shrink-0">
+          {[7, 30, 90].map((j) => (
+            <button key={j} onClick={() => setJours(j)}
+              className={`px-3 py-1.5 rounded-lg text-[12px] font-semibold transition-colors ${
+                jours === j ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-600"}`}>
+              {j} j
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {msg && <p className="text-[12px] text-red-500">{msg}</p>}
+
+      {charge ? (
+        <div className="h-24 bg-gray-50 rounded-xl animate-pulse" />
+      ) : lignes.length === 0 ? (
+        <p className="text-[13px] text-gray-500">
+          Aucun relais sur la période. Les compteurs n'ont rien à dire tant que
+          le rayon n'a pas tourné.
+        </p>
+      ) : (
+        <>
+          {suspects.length === 0 && (
+            <p className="text-[12px] text-emerald-700 bg-emerald-50 border border-emerald-100 rounded-xl px-3.5 py-2.5">
+              <i className="fa-solid fa-circle-check mr-1.5" />
+              Rien à signaler sur {jours} jours. Les seuils ne mordent qu'à
+              partir de cinq envois : en dessous, « deux relais sur trois vers
+              la même boutique » ne veut rien dire.
+            </p>
+          )}
+
+          <div className="overflow-x-auto -mx-1 px-1">
+            <table className="w-full text-[13px] min-w-[720px]">
+              <thead>
+                <tr className="text-left text-[11px] font-bold uppercase tracking-wide text-gray-400 border-b border-gray-100">
+                  <th className="py-2 pr-3">Boutique</th>
+                  <th className="py-2 pr-3">Envoyés</th>
+                  <th className="py-2 pr-3">Vers la même</th>
+                  <th className="py-2 pr-3">Hors classement</th>
+                  <th className="py-2 pr-3">Transformation</th>
+                  <th className="py-2">À faire</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-50">
+                {lignes.map((l) => (
+                  <tr key={l.vendor_id} className={l.a_visiter ? "bg-red-50/40" : l.a_regarder ? "bg-amber-50/40" : ""}>
+                    <td className="py-2.5 pr-3 font-semibold text-gray-900">{l.shop_name}</td>
+                    <td className="py-2.5 pr-3 text-gray-600">{l.envoyes}</td>
+                    <td className="py-2.5 pr-3">
+                      <span className={l.a_regarder ? "font-bold text-amber-700" : "text-gray-600"}>
+                        {pct(l.part_concentree)}
+                      </span>
+                      {l.meme_boutique && (
+                        <span className="text-[11px] text-gray-400 block truncate max-w-[160px]">
+                          {l.meme_boutique}
+                        </span>
+                      )}
+                    </td>
+                    <td className="py-2.5 pr-3">
+                      <span className={l.a_visiter ? "font-bold text-red-600" : "text-gray-600"}>
+                        {pct(l.part_hors_rang)}
+                      </span>
+                      <span className="text-[11px] text-gray-400 block">{l.hors_classement} relais</span>
+                    </td>
+                    <td className="py-2.5 pr-3">
+                      <span className={Number(l.taux_transfo) >= 1 && l.recus >= 5 ? "font-bold text-amber-700" : "text-gray-600"}>
+                        {pct(l.taux_transfo)}
+                      </span>
+                      <span className="text-[11px] text-gray-400 block">{l.transformes}/{l.recus} reçus</span>
+                    </td>
+                    <td className="py-2.5">
+                      {l.a_visiter
+                        ? <span className="text-[11px] font-bold text-red-600">Visiter</span>
+                        : l.a_regarder
+                        ? <span className="text-[11px] font-bold text-amber-700">Regarder</span>
+                        : Number(l.taux_transfo) >= 1 && l.recus >= 5
+                        ? <span className="text-[11px] font-bold text-amber-700">Transformation à 100 %</span>
+                        : <span className="text-[11px] text-gray-300">—</span>}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="text-[11px] text-gray-400 leading-relaxed space-y-1">
+            <p><b className="text-gray-500">Vers la même</b> — part des relais partis vers une seule autre boutique. Au-delà de 40 %, on regarde.</p>
+            <p><b className="text-gray-500">Hors classement</b> — part des relais qui s'écartent de l'arbitrage. Au-delà de 50 %, on visite : c'est la signature du renvoi entre amis.</p>
+            <p><b className="text-gray-500">Transformation</b> — part des clients reçus qui achètent. À 100 %, ce sont des clients qui venaient de toute façon.</p>
+          </div>
+        </>
+      )}
     </div>
   );
 }
