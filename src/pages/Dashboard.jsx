@@ -8,6 +8,7 @@ import VendorProducts from "../components/VendorProducts";
 import VendorStats from "../components/VendorStats";
 import { AccountSection, CreatorProfileSection } from "../components/VendorAccountSettings";
 import { PayoutSection, DeliverySection } from "../components/VendorPayouts";
+import BonRelaisSection from "../components/BonRelaisSection";
 import VendorSubscription from "../components/VendorSubscription";
 import RelaisPanel from "../components/RelaisPanel";
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RTooltip } from "recharts";
@@ -1383,9 +1384,15 @@ const SettingsView = ({ user, vendor, plan, updateVendorField, updateVendorField
         )}
 
         {activeSection === "retraits" && (
-          <PayoutSection
-            vendor={vendor} showToast={showToast}
-          />
+          <div className="space-y-4">
+            <PayoutSection
+              vendor={vendor} showToast={showToast}
+            />
+            {/* Deux poches, deux blocs. Le bon de relais n'est pas du chiffre
+                d'affaires : le mêler au solde des ventes ferait croire au
+                commerçant qu'il a vendu ce qu'il a seulement orienté. */}
+            <BonRelaisSection vendor={vendor} showToast={showToast} />
+          </div>
         )}
 
         {activeSection === "createur" && (
