@@ -168,7 +168,24 @@ const DeliveryMap = ({
     else if (center)         map.setView([center.lat, center.lng], zoom);
   }, [markers, route, circles, center, zoom]);
 
-  return <div ref={host} className={className} style={{ background: theme === "dark" ? "#1a1a1a" : "#e8e8e8" }} />;
+  // Leaflet empile ses calques entre z-index 400 et 700, en dur dans sa
+  // feuille de style. Sans contexte d'empilement propre, la carte passe
+  // au-dessus de la barre de navigation et des bandeaux collants dès qu'on
+  // fait défiler la page — elle semble « décoller ». `isolation: isolate`
+  // enferme toute cette pile à l'intérieur du conteneur, et `z-index: 0`
+  // le place là où le reste de la page l'attend.
+  return (
+    <div
+      ref={host}
+      className={className}
+      style={{
+        background: theme === "dark" ? "#1a1a1a" : "#e8e8e8",
+        position: "relative",
+        zIndex: 0,
+        isolation: "isolate",
+      }}
+    />
+  );
 };
 
 export default DeliveryMap;

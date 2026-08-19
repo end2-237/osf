@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import DeliveryMap from '../components/DeliveryMap';
 import PaiementRelais from '../components/PaiementRelais';
+import SuggestionsRelais from '../components/SuggestionsRelais';
 import { monRelais, confirmerRemise, annulerRelais,
          maPresence, signalerPresence, boutiqueParCode,
          resteAvant, etapes, fcfa } from '../lib/relais';
@@ -555,6 +556,12 @@ export default function RelaisPage() {
         <aside className="hidden lg:block w-[300px] xl:w-[340px] flex-shrink-0 lg:sticky lg:top-3">
           {argent(false)}
         </aside>
+      </div>
+
+      {/* Sous les deux colonnes, sur toute la largeur : il a le temps, il
+          marche, et rien ne l'occupait. */}
+      <div className="mt-2 md:mt-3 space-y-2 md:space-y-3">
+        <SuggestionsRelais relais={r} />
       </div>
     </Page>
   );
