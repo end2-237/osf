@@ -164,18 +164,45 @@ function JeSuisEnBoutique({ onSignale }) {
   const [ouvert, setOuvert] = useState(false);
   const [code, setCode]     = useState('');
   const [boutique, setBout] = useState(null);
+  const [cherche, setCherche] = useState(false);
+  const [resolu, setResolu] = useState('');   // le code pour lequel on a une réponse
   const [busy, setBusy]     = useState(false);
   const [msg, setMsg]       = useState('');
 
-  // Dès que le code a sa longueur, on va chercher le nom. Une frappe de plus
-  // annule la précédente : sinon deux réponses lentes peuvent arriver dans le
-  // désordre et afficher le nom d'une boutique qu'il n'a plus à l'écran.
+  /* On cherche le nom de la boutique pendant qu'il tape, mais on ne conclut
+     jamais avant d'avoir la réponse. La version précédente affichait « aucune
+     boutique avec ce code » dès le quatrième caractère : comme les codes en
+     font six, le message était affiché à tort pendant les deux dernières
+     frappes, puis encore le temps de l'aller-retour réseau. Debout dans une
+     boutique, sur un réseau lent, ça se lit comme un refus.
+
+     Trois précautions donc : on affiche l'attente plutôt que de la taire, on
+     ne déclare l'échec que pour le code exactement interrogé, et une frappe
+     de plus annule la recherche en cours — sinon deux réponses lentes peuvent
+     arriver dans le désordre et afficher le nom d'une boutique qu'il n'a plus
+     à l'écran.
+
+     On interroge dès quatre caractères et non six : les codes émis par la
+     migration 35 en font six, mais une boutique peut en porter un plus court,
+     hérité. Exiger six aurait rendu ces boutiques-là introuvables. */
   useEffect(() => {
     const c = code.trim();
-    if (c.length < 4) { setBout(null); return; }
+    if (c.length < 4) { setBout(null); setResolu(''); setCherche(false); return; }
+
     let vivant = true;
-    boutiqueParCode(c).then(({ data }) => { if (vivant) setBout(data?.[0] || null); });
-    return () => { vivant = false; };
+    setCherche(true);
+    // Petit délai : il tape encore, et le code n'est pas forcément complet.
+    const t = setTimeout(() => {
+      boutiqueParCode(c)
+        .then(({ data }) => {
+          if (!vivant) return;
+          setBout(data?.[0] || null);
+          setResolu(c);
+        })
+        .finally(() => { if (vivant) setCherche(false); });
+    }, 300);
+
+    return () => { vivant = false; clearTimeout(t); };
   }, [code]);
 
   const valider = async () => {
@@ -209,26 +236,38 @@ function JeSuisEnBoutique({ onSignale }) {
       </p>
       <input value={code} autoFocus
         onChange={(e) => setCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''))}
-        onKeyDown={(e) => e.key === 'Enter' && boutique && valider()}
+        onKeyDown={(e) => e.key === 'Enter' && boutique && !cherche && valider()}
         placeholder="ABC123" maxLength={12}
         className="mt-2 w-full bg-[#F7FAFA] border border-[#D5D9D9] rounded-lg px-4 py-3.5 text-center text-2xl font-black tracking-[0.2em] outline-none focus:border-[#0F1111]" />
 
-      {boutique && (
+      {/* Trois états, jamais deux à la fois : on cherche · on a trouvé · on
+          a cherché et il n'y a rien. Le troisième n'apparaît que pour le code
+          effectivement interrogé. */}
+      {cherche ? (
+        <p className="text-[12px] text-[#565959] text-center mt-2.5 flex items-center justify-center gap-2">
+          <span className="w-3.5 h-3.5 rounded-full border-2 border-[#D5D9D9] border-t-[#0F1111] animate-spin" />
+          On cherche la boutique…
+        </p>
+      ) : boutique ? (
         <p className="text-[13px] text-[#007600] font-semibold text-center mt-2.5">
+          <i className="fa-solid fa-circle-check mr-1.5" />
           {boutique.boutique}
         </p>
-      )}
-      {code.trim().length >= 4 && !boutique && (
+      ) : resolu === code.trim() ? (
         <p className="text-[12px] text-[#565959] text-center mt-2.5">
           Aucune boutique avec ce code — vérifie l’affiche.
         </p>
+      ) : (
+        <p className="text-[12px] text-[#565959] text-center mt-2.5">
+          Le code est écrit en gros sur l’affiche du comptoir.
+        </p>
       )}
 
-      <button onClick={valider} disabled={busy || !boutique}
+      <button onClick={valider} disabled={busy || cherche || !boutique}
         className="mt-3 w-full bg-[#FFD814] hover:bg-[#F7CA00] rounded-full py-3 text-[14px] font-bold text-[#0F1111] disabled:opacity-40 transition">
-        {busy ? '…' : 'Je suis ici'}
+        {busy ? 'On te signale…' : 'Je suis ici'}
       </button>
-      <button onClick={() => { setOuvert(false); setCode(''); setMsg(''); }}
+      <button onClick={() => { setOuvert(false); setCode(''); setMsg(''); setBout(null); setResolu(''); }}
         className="mt-2 w-full text-[13px] text-[#007185] hover:text-[#C7511F] py-1.5">
         Annuler
       </button>
