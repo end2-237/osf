@@ -3,15 +3,15 @@ import {
   View, Text, TextInput, Pressable, ScrollView, ActivityIndicator, RefreshControl,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { useSession } from '../lib/session';
+import { useSession } from '../../lib/session';
 import {
   appelsEnAttente, repondreAppel, chercherDansRayon, lancerAppel,
   classerRepondants, attribuerRelais, presencesDuComptoir,
   validerCode, declarerRupture, relaisDuComptoir, soldeBon,
   pousserNotifications, fcfa,
-} from '../lib/relais';
-import { enregistrerPourNotifications } from '../lib/notifications';
-import { C, S } from '../lib/theme';
+} from '../../lib/relais';
+import { enregistrerPourNotifications } from '../../lib/notifications';
+import { C, S } from '../../lib/theme';
 
 /* ══════════════════════════════════════════════════════════════════════════
    LE COMPTOIR

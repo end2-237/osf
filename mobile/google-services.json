@@ -1,0 +1,55 @@
+{
+  "project_info": {
+    "project_number": "313383491173",
+    "project_id": "buyticle-bce3f",
+    "storage_bucket": "buyticle-bce3f.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:313383491173:android:c3fff8ff31b69a840f188c",
+        "android_client_info": {
+          "package_name": "com.buyticle.btlmarketplace"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "313383491173-gkorg3vulo4esjn2a7grqkirlr7tgraj.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.buyticle.btlmarketplace",
+            "certificate_hash": "2a607a9cfdce24878ca7bd94b17bca5734525d64"
+          }
+        },
+        {
+          "client_id": "313383491173-oscnmosbh2namnkcgrdpbbr5871po6qn.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.buyticle.btlmarketplace",
+            "certificate_hash": "fd0a39a18d897e89213678a3fdcdbb5b744e64a6"
+          }
+        },
+        {
+          "client_id": "313383491173-aoh8ofm4dbd1ahj90orfc16c9gn5r1c3.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAahOwcwaLXWbCaWeREZ03hIKl-0Xc4Dgc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "313383491173-aoh8ofm4dbd1ahj90orfc16c9gn5r1c3.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
