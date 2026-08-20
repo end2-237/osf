@@ -253,7 +253,7 @@ function JeSuisEnBoutique({ onSignale }) {
           <i className="fa-solid fa-circle-check mr-1.5" />
           {boutique.boutique}
         </p>
-      ) : resolu === code.trim() ? (
+      ) : resolu !== '' && resolu === code.trim() ? (
         <p className="text-[12px] text-[#565959] text-center mt-2.5">
           Aucune boutique avec ce code — vérifie l’affiche.
         </p>

@@ -398,7 +398,7 @@ function JeSuisEnBoutique({ onSignale }) {
         <Text style={{ fontSize: 13, fontWeight: '700', color: C.vert, textAlign: 'center' }}>
           {boutique.boutique}
         </Text>
-      ) : resolu === code.trim() ? (
+      ) : resolu !== '' && resolu === code.trim() ? (
         <Text style={{ fontSize: 12, color: C.gris, textAlign: 'center' }}>
           Aucune boutique avec ce code — vérifie l’affiche.
         </Text>

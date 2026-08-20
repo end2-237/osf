@@ -40,9 +40,15 @@ export function useSessionValue() {
     const { data: sub } = supabase.auth.onAuthStateChange(async (_e, s) => {
       if (!vivant) return;
       const u = s?.user || null;
+      // `charge` repasse à vrai le temps de savoir si ce compte tient une
+      // boutique. Sans cette ligne, l'aiguillage voyait un utilisateur
+      // connecté et une boutique encore nulle, et envoyait le commerçant sur
+      // l'écran du client au lieu de son comptoir — juste après sa connexion,
+      // c'est-à-dire exactement au moment où il ouvre l'application.
+      setCharge(true);
       setUser(u);
       await chargerVendeur(u?.id);
-      setCharge(false);
+      if (vivant) setCharge(false);
     });
 
     return () => { vivant = false; sub?.subscription?.unsubscribe(); };
