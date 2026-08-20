@@ -4,6 +4,7 @@ import {
   ActivityIndicator, StyleSheet, Dimensions,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { C, R, S, E, OMBRE } from '../lib/ui';
 import Icone from './Icone';
 
@@ -213,6 +214,28 @@ export function Ligne({ icone, titre, valeur, badge, onPress, danger }) {
   );
 }
 
+/* ── La barre d'un écran secondaire ──────────────────────────────────────
+   Le même bandeau marine, le même retour, le même titre. Il était recopié
+   dans une vingtaine d'écrans : au premier changement de teinte il aurait
+   fallu les rouvrir tous, et il en serait resté un. */
+export function Barre({ titre, action, sousTitre }) {
+  const router = useRouter();
+  return (
+    <SafeAreaView edges={['top']} style={{ backgroundColor: C.marine }}>
+      <View style={st.barre}>
+        <Pressable hitSlop={10} onPress={() => router.back()}>
+          <Icone nom="retour" taille={25} couleur="#FFF" />
+        </Pressable>
+        <View style={{ flex: 1 }}>
+          <Text style={st.barreTitre} numberOfLines={1}>{titre}</Text>
+          {!!sousTitre && <Text style={st.barreSous} numberOfLines={1}>{sousTitre}</Text>}
+        </View>
+        {action}
+      </View>
+    </SafeAreaView>
+  );
+}
+
 export function Champ({ label, aide, ...props }) {
   return (
     <View style={{ gap: 6 }}>
@@ -224,6 +247,13 @@ export function Champ({ label, aide, ...props }) {
 }
 
 const st = StyleSheet.create({
+  barre: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    paddingHorizontal: E.page, paddingVertical: 11,
+  },
+  barreTitre: { color: '#FFF', fontSize: 18, fontWeight: '800' },
+  barreSous: { color: 'rgba(255,255,255,0.7)', fontSize: 12, marginTop: 1 },
+
   enTete: {
     backgroundColor: C.marine,
     paddingTop: 8, paddingBottom: 12,
