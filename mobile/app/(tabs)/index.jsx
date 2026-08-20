@@ -8,6 +8,7 @@ import { useSession } from '../../lib/session';
 import { produits, categories } from '../../lib/boutique';
 import CarteProduit from '../../components/CarteProduit';
 import { TitreSection, Puces, Carrousel, Squelette } from '../../components/Base';
+import Stories from '../../components/Stories';
 import { C, R, S, E, OMBRE } from '../../lib/ui';
 
 const L = Dimensions.get('window').width;
@@ -61,6 +62,7 @@ export default function Accueil() {
   const [page, setPage] = useState(0);
   const [encore, setEncore] = useState(true);
   const [rafraichit, setRaf] = useState(false);
+  const [histoires, setHistoires] = useState([]);
 
   const charger = useCallback(async () => {
     const [c, o, n, t] = await Promise.all([
@@ -73,6 +75,27 @@ export default function Accueil() {
     setOffres(o.data);
     setNouv(n.data);
     setTop(t.data);
+
+    // Les stories portent de vrais articles, jamais des visuels seuls : le
+    // tiroir est tout l'intérêt du format, et il lui faut du stock.
+    const tousArticles = [...(o.data || []), ...(t.data || [])];
+    setHistoires([
+      {
+        id: 'beaute', titre: 'Beauté −40 %', icone: '💄', fond: '#2C6BED',
+        accroche: 'Sur une sélection de soins et parfums, jusqu’à dimanche.',
+        produits: tousArticles.slice(0, 4),
+      },
+      {
+        id: 'tech', titre: 'Le mois high-tech', icone: '📱', fond: C.marine,
+        accroche: 'Téléphones et ordinateurs, payables en douze fois.',
+        produits: tousArticles.slice(4, 8),
+      },
+      {
+        id: 'relais', titre: 'Le relais', icone: '🔁', fond: '#00897B',
+        accroche: 'Un vendeur ne l’a pas ? Il t’envoie chez un voisin qui l’a — et tu paies moins cher.',
+        route: '/relais', action: 'Comment ça marche',
+      },
+    ]);
   }, []);
 
   const chargerGrille = useCallback(async (p) => {
@@ -133,6 +156,13 @@ export default function Accueil() {
           if (encore && auBord(nativeEvent)) chargerGrille(page + 1);
         }}
         refreshControl={<RefreshControl refreshing={rafraichit} onRefresh={rafraichir} />}>
+
+        {/* ②bis Les stories */}
+        {histoires.length > 0 && (
+          <View style={{ marginTop: 14 }}>
+            <Stories histoires={histoires} />
+          </View>
+        )}
 
         {/* ③ Le carrousel */}
         <View style={{ marginTop: 14 }}>
