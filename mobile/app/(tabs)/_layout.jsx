@@ -1,7 +1,9 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { Tabs } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useBoutique } from '../../lib/boutique';
+import Icone from '../../components/Icone';
 import { C } from '../../lib/ui';
 
 /* ══════════════════════════════════════════════════════════════════════════
@@ -16,10 +18,13 @@ import { C } from '../../lib/ui';
    sont la SEULE confirmation. C'est pour ça qu'on ne met pas de message.
    ══════════════════════════════════════════════════════════════════════════ */
 
-function Icone({ glyphe, actif, badge }) {
+function Onglet({ nom, actif, badge }) {
   return (
     <View style={{ width: 44, alignItems: 'center' }}>
-      <Text style={{ fontSize: 20, opacity: actif ? 1 : 0.55 }}>{glyphe}</Text>
+      {/* Plein quand l'onglet est actif, en trait sinon : c'est la convention
+          que tout le monde lit sans y penser, et elle double la couleur. */}
+      <Icone nom={actif ? nom + 'Plein' : nom} taille={22}
+        couleur={actif ? C.orange : C.gris} />
       {badge > 0 && (
         <View style={st.pastille}>
           <Text style={st.pastilleTexte}>{badge > 99 ? '99+' : badge}</Text>
@@ -31,6 +36,9 @@ function Icone({ glyphe, actif, badge }) {
 
 export default function Onglets() {
   const { nbArticles, favoris } = useBoutique();
+  // La barre gestuelle d'Android mange les libellés si on fixe la hauteur en
+  // dur : on ajoute la zone sûre réelle du téléphone.
+  const bas = useSafeAreaInsets().bottom;
 
   return (
     <Tabs
@@ -38,29 +46,29 @@ export default function Onglets() {
         headerShown: false,
         tabBarActiveTintColor: C.orange,
         tabBarInactiveTintColor: C.gris,
-        tabBarStyle: st.barre,
+        tabBarStyle: [st.barre, { height: 58 + bas, paddingBottom: 6 + bas }],
         tabBarLabelStyle: { fontSize: 10, fontWeight: '600', marginTop: -2 },
         tabBarItemStyle: { paddingVertical: 4 },
       }}>
       <Tabs.Screen name="index" options={{
         title: 'Accueil',
-        tabBarIcon: ({ focused }) => <Icone glyphe="🏠" actif={focused} />,
+        tabBarIcon: ({ focused }) => <Onglet nom="accueil" actif={focused} />,
       }} />
       <Tabs.Screen name="catalogue" options={{
         title: 'Catalogue',
-        tabBarIcon: ({ focused }) => <Icone glyphe="🗂" actif={focused} />,
+        tabBarIcon: ({ focused }) => <Onglet nom="catalogue" actif={focused} />,
       }} />
       <Tabs.Screen name="favoris" options={{
         title: 'Favoris',
-        tabBarIcon: ({ focused }) => <Icone glyphe="♡" actif={focused} badge={favoris.length} />,
+        tabBarIcon: ({ focused }) => <Onglet nom="favori" actif={focused} badge={favoris.length} />,
       }} />
       <Tabs.Screen name="panier" options={{
         title: 'Panier',
-        tabBarIcon: ({ focused }) => <Icone glyphe="🛒" actif={focused} badge={nbArticles} />,
+        tabBarIcon: ({ focused }) => <Onglet nom="panier" actif={focused} badge={nbArticles} />,
       }} />
       <Tabs.Screen name="profil" options={{
         title: 'Profil',
-        tabBarIcon: ({ focused }) => <Icone glyphe="👤" actif={focused} />,
+        tabBarIcon: ({ focused }) => <Onglet nom="profil" actif={focused} />,
       }} />
     </Tabs>
   );
@@ -70,7 +78,7 @@ const st = StyleSheet.create({
   barre: {
     backgroundColor: C.carte,
     borderTopWidth: 1, borderTopColor: C.bord,
-    height: 62, paddingBottom: 8, paddingTop: 6,
+    paddingTop: 7,
   },
   pastille: {
     position: 'absolute', top: -4, right: 6,

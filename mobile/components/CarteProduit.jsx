@@ -3,6 +3,7 @@ import { View, Text, Image, Pressable, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import { C, R, S, E, OMBRE, fcfa, pourcent } from '../lib/ui';
 import { useBoutique } from '../lib/boutique';
+import Icone from './Icone';
 
 /* ══════════════════════════════════════════════════════════════════════════
    LA CARTE PRODUIT
@@ -27,20 +28,20 @@ const PLACEHOLDER = 'data:image/svg+xml;utf8,' + encodeURIComponent(
 
 /** L'urgence, dans l'ordre de force. Une seule ligne s'affiche. */
 function urgence(p) {
-  if (p.fin_promo) return { icone: '⏱', texte: p.fin_promo, couleur: C.orange };
+  if (p.fin_promo) return { icone: 'chrono', texte: p.fin_promo };
   if (p.stock != null && p.stock > 0 && p.stock <= 5) {
-    return { icone: '⚡', texte: `Il en reste ${p.stock}`, couleur: C.orange };
+    return { icone: 'eclair', texte: `Il en reste ${p.stock}` };
   }
-  if (p.meilleur_prix) return { icone: '⭐', texte: 'Meilleur prix', couleur: C.orange };
-  if (p.populaire) return { icone: '🔥', texte: 'Ça part vite', couleur: C.orange };
+  if (p.meilleur_prix) return { icone: 'etoile', texte: 'Meilleur prix' };
+  if (p.populaire) return { icone: 'feu', texte: 'Ça part vite' };
   return null;
 }
 
 function badge(p) {
   if (p.status === 'Épuisé') return { t: 'ÉPUISÉ', fond: C.gris };
   if (p.promo) return { t: 'SALE', fond: C.orange };
-  if (p.nouveau) return { t: '🔥 NEW', fond: C.orange };
-  return { t: 'Paiement 0-0-24', fond: '#FFF', encre: C.encre };
+  if (p.nouveau) return { t: 'NEW', fond: C.orange };
+  return { t: '0-0-24', fond: '#FFF', encre: C.encre };
 }
 
 function Etoiles({ note = 0, avis = 0 }) {
@@ -51,10 +52,12 @@ function Etoiles({ note = 0, avis = 0 }) {
       <Text style={{ fontSize: 13, fontWeight: '700', color: C.jaune }}>
         {Number(note).toFixed(1)}
       </Text>
-      <Text style={{ fontSize: 11, color: C.jaune, letterSpacing: -1 }}>
-        {'★'.repeat(pleines)}
-        <Text style={{ color: C.grisClair }}>{'★'.repeat(5 - pleines)}</Text>
-      </Text>
+      <View style={{ flexDirection: 'row', gap: 1 }}>
+        {[0, 1, 2, 3, 4].map((i) => (
+          <Icone key={i} nom={i < pleines ? 'etoile' : 'etoileVide'} taille={11}
+            couleur={i < pleines ? C.jaune : C.grisClair} />
+        ))}
+      </View>
       {!!avis && <Text style={{ fontSize: 11, color: C.gris }}>({avis})</Text>}
     </View>
   );
@@ -92,35 +95,29 @@ function CarteProduit({ p, horizontal = false, largeur }) {
       style={[st.carte, horizontal ? st.carteH : st.carteV, !!largeur && { width: largeur }]}>
 
       <View style={horizontal ? { flexDirection: 'row', gap: 12 } : undefined}>
-        <View style={horizontal ? undefined : { position: 'relative' }}>
+        {/* Le badge est posé SUR l'image dans les deux orientations. Dans la
+            référence il ne quitte jamais la vignette : c'est ce qui permet de
+            balayer une liste et de repérer les SALE sans lire un mot. */}
+        <View style={{ position: 'relative' }}>
           {Image_}
+          <View style={[st.badge, { backgroundColor: b.fond },
+            b.encre && { borderWidth: 1, borderColor: C.bord }]}>
+            <Text style={[st.badgeTexte, b.encre && { color: b.encre }]}>{b.t}</Text>
+          </View>
           {!horizontal && (
-            <>
-              <View style={[st.badge, { backgroundColor: b.fond }]}>
-                <Text style={[st.badgeTexte, b.encre && { color: b.encre }]}>{b.t}</Text>
-              </View>
-              <Pressable hitSlop={8} onPress={() => basculerFavori(p)} style={st.coeur}>
-                <Text style={{ fontSize: 17, color: fav ? C.rouge : C.grisClair }}>
-                  {fav ? '♥' : '♡'}
-                </Text>
-              </Pressable>
-            </>
+            <Pressable hitSlop={8} onPress={() => basculerFavori(p)} style={st.coeur}>
+              <Icone nom={fav ? 'favoriPlein' : 'favori'} taille={19}
+                couleur={fav ? C.rouge : C.grisClair} />
+            </Pressable>
           )}
         </View>
 
         <View style={horizontal ? { flex: 1 } : { marginTop: 8 }}>
-          {horizontal && (
-            <View style={{ flexDirection: 'row', gap: 6, marginBottom: 4 }}>
-              <View style={[st.badgePlat, { backgroundColor: b.fond }]}>
-                <Text style={[st.badgeTexte, b.encre && { color: b.encre }]}>{b.t}</Text>
-              </View>
-            </View>
-          )}
-
           {!!u && (
-            <Text style={[st.urgence, { color: u.couleur }]} numberOfLines={1}>
-              {u.icone} {u.texte}
-            </Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 2 }}>
+              <Icone nom={u.icone} taille={12} couleur={C.orange} />
+              <Text style={st.urgence} numberOfLines={1}>{u.texte}</Text>
+            </View>
           )}
 
           <Text style={st.titre} numberOfLines={2}>{p.name}</Text>
@@ -155,16 +152,15 @@ function CarteProduit({ p, horizontal = false, largeur }) {
             {horizontal && (
               <Pressable hitSlop={6} onPress={() => basculerFavori(p)}
                 style={{ paddingHorizontal: 6 }}>
-                <Text style={{ fontSize: 20, color: fav ? C.rouge : C.grisClair }}>
-                  {fav ? '♥' : '♡'}
-                </Text>
+                <Icone nom={fav ? 'favoriPlein' : 'favori'} taille={21}
+                  couleur={fav ? C.rouge : C.grisClair} />
               </Pressable>
             )}
 
             <Pressable
               onPress={() => !epuise && ouvrirChoix(p)}
               style={[st.panier, epuise && { backgroundColor: C.grisClair }]}>
-              <Text style={{ fontSize: 16, color: '#FFF' }}>🛒</Text>
+              <Icone nom="panier" taille={18} couleur="#FFF" />
             </Pressable>
           </View>
 
@@ -195,7 +191,6 @@ const st = StyleSheet.create({
     position: 'absolute', top: 6, left: 6, borderRadius: R.puce,
     paddingHorizontal: 8, paddingVertical: 3,
   },
-  badgePlat: { borderRadius: R.puce, paddingHorizontal: 8, paddingVertical: 3, alignSelf: 'flex-start' },
   badgeTexte: { fontSize: 10, fontWeight: '700', color: '#FFF' },
 
   coeur: { position: 'absolute', top: 4, right: 4, padding: 4 },
@@ -207,7 +202,7 @@ const st = StyleSheet.create({
   point: { width: 4, height: 4, borderRadius: 2, backgroundColor: C.grisClair },
   pointActif: { backgroundColor: C.marine, width: 10 },
 
-  urgence: { fontSize: 11, fontWeight: '700', marginBottom: 2 },
+  urgence: { fontSize: 11, fontWeight: '700', color: C.orange },
   titre: { fontSize: 13, color: C.encre, lineHeight: 17, minHeight: 34 },
 
   echelonne: {

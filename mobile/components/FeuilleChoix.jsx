@@ -5,6 +5,7 @@ import {
 } from 'react-native';
 import { C, R, S, fcfa, pourcent } from '../lib/ui';
 import { useBoutique } from '../lib/boutique';
+import Icone from './Icone';
 
 /* ══════════════════════════════════════════════════════════════════════════
    LA FEUILLE DE CHOIX
@@ -97,7 +98,10 @@ export default function FeuilleChoix() {
             <Image source={{ uri: choix.img }} resizeMode="contain" style={st.vignette} />
             <View style={{ flex: 1 }}>
               {!!choix.meilleur_prix && (
-                <Text style={st.urgence}>⭐ Meilleur prix</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 2 }}>
+                  <Icone nom="etoile" taille={12} couleur={C.orange} />
+                  <Text style={st.urgence}>Meilleur prix</Text>
+                </View>
               )}
               <Text style={st.nom} numberOfLines={2}>{choix.name}</Text>
               {choix.price >= 20000 && (
@@ -171,7 +175,7 @@ export default function FeuilleChoix() {
         <View style={st.pied}>
           <Pressable onPress={valider} disabled={!complet}
             style={[S.bouton, !complet && S.boutonEteint]}>
-            <Text style={{ fontSize: 15 }}>🛒</Text>
+            <Icone nom="panier" taille={18} couleur={complet ? '#FFF' : C.grisClair} />
             <Text style={[S.boutonTexte, !complet && S.boutonEteintTexte]}>
               Ajouter au panier
             </Text>

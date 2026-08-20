@@ -7,6 +7,7 @@ import { useSession } from '../../lib/session';
 import { soldeBon, appelsEnAttente } from '../../lib/relais';
 import { Vide, Chargement, Ligne } from '../../components/Base';
 import { C, R, S, E, OMBRE, fcfa } from '../../lib/ui';
+import Icone from '../../components/Icone';
 
 /* ══════════════════════════════════════════════════════════════════════════
    LE TABLEAU DE BORD DU COMMERÇANT
@@ -63,7 +64,7 @@ export default function Vendeur() {
   if (!vendor) {
     return (
       <View style={S.page}>
-        <Vide icone="🏬" titre="Ce compte n’a pas de boutique"
+        <Vide icone="boutique" titre="Ce compte n’a pas de boutique"
           texte="Le comptoir s’ouvre pour les commerçants inscrits. Écris-nous si tu veux vendre sur Buyticle."
           bouton="Retour" onBouton={() => router.replace('/')} />
       </View>
@@ -86,7 +87,7 @@ export default function Vendeur() {
         <View style={st.enTete}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
             <Pressable hitSlop={10} onPress={() => router.back()}>
-              <Text style={{ color: '#FFF', fontSize: 24 }}>‹</Text>
+              <Icone nom="retour" taille={25} couleur="#FFF" />
             </Pressable>
             <View style={{ flex: 1 }}>
               <Text style={st.titre} numberOfLines={1}>{vendor.shop_name}</Text>
@@ -121,7 +122,7 @@ export default function Vendeur() {
         {/* ① Ce qui ne peut pas attendre */}
         {appels > 0 && (
           <Pressable onPress={() => router.push('/vendeur/relais')} style={st.urgent}>
-            <Text style={{ fontSize: 24 }}>🔔</Text>
+            <Icone nom="cloche" taille={24} couleur="#FFF" />
             <View style={{ flex: 1 }}>
               <Text style={{ fontSize: 15, fontWeight: '800', color: '#FFF' }}>
                 {appels} client{appels > 1 ? 's' : ''} cherche{appels > 1 ? 'nt' : ''} un article
@@ -130,17 +131,17 @@ export default function Vendeur() {
                 Trente secondes pour répondre — touche ici
               </Text>
             </View>
-            <Text style={{ color: '#FFF', fontSize: 20 }}>›</Text>
+            <Icone nom="suite" taille={18} couleur="#FFF" />
           </Pressable>
         )}
 
         {aConfirmer > 0 && (
           <Pressable onPress={() => router.push('/vendeur/commandes')} style={st.aFaire}>
-            <Text style={{ fontSize: 20 }}>📦</Text>
+            <Icone nom="colis" taille={21} couleur={C.gris} />
             <Text style={{ flex: 1, fontSize: 14, fontWeight: '600', color: C.encre }}>
               {aConfirmer} commande{aConfirmer > 1 ? 's' : ''} à confirmer
             </Text>
-            <Text style={{ color: C.grisClair, fontSize: 20 }}>›</Text>
+            <Icone nom="suite" taille={18} couleur={C.grisClair} />
           </Pressable>
         )}
 
@@ -174,7 +175,7 @@ export default function Vendeur() {
         {/* ③ Le bon de relais */}
         {!!bon && (
           <Pressable onPress={() => router.push('/vendeur/retraits')} style={st.bon}>
-            <Text style={{ fontSize: 22 }}>🔁</Text>
+            <Icone nom="relais" taille={24} couleur="#FFF" />
             <View style={{ flex: 1 }}>
               <Text style={{ fontSize: 12, color: 'rgba(255,255,255,0.6)', fontWeight: '700' }}>
                 BON DE RELAIS
@@ -191,28 +192,28 @@ export default function Vendeur() {
 
         {/* ④ Le reste */}
         <View style={[st.bloc, { padding: 0, overflow: 'hidden' }]}>
-          <Ligne icone="🔁" titre="Le relais" badge={appels}
+          <Ligne icone="relais" titre="Le relais" badge={appels}
             onPress={() => router.push('/vendeur/relais')} />
-          <Ligne icone="📦" titre="Mes commandes" badge={aConfirmer}
+          <Ligne icone="colis" titre="Mes commandes" badge={aConfirmer}
             onPress={() => router.push('/vendeur/commandes')} />
-          <Ligne icone="🏷" titre="Mes produits"
+          <Ligne icone="etiquette" titre="Mes produits"
             onPress={() => router.push('/vendeur/produits')} />
-          <Ligne icone="👥" titre="Mes clients"
+          <Ligne icone="personnes" titre="Mes clients"
             onPress={() => router.push('/vendeur/clients')} />
-          <Ligne icone="📊" titre="Statistiques"
+          <Ligne icone="graphique" titre="Statistiques"
             onPress={() => router.push('/vendeur/statistiques')} />
         </View>
 
         <View style={[st.bloc, { padding: 0, overflow: 'hidden' }]}>
-          <Ligne icone="💸" titre="Retraits et bon"
+          <Ligne icone="argent" titre="Retraits et bon"
             valeur={fcfa(solde?.available || 0)}
             onPress={() => router.push('/vendeur/retraits')} />
-          <Ligne icone="👑" titre="Abonnement"
+          <Ligne icone="couronne" titre="Abonnement"
             valeur={vendor.plan === 'free' || !vendor.plan ? 'Gratuit' : vendor.plan}
             onPress={() => router.push('/vendeur/abonnement')} />
-          <Ligne icone="🚚" titre="Livraison"
+          <Ligne icone="camion" titre="Livraison"
             onPress={() => router.push('/vendeur/livraison')} />
-          <Ligne icone="⚙️" titre="Réglages de la boutique"
+          <Ligne icone="reglages" titre="Réglages de la boutique"
             onPress={() => router.push('/vendeur/reglages')} />
         </View>
       </ScrollView>

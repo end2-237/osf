@@ -7,6 +7,7 @@ import { useSession } from '../lib/session';
 import { enregistrerPourNotifications } from '../lib/notifications';
 import { Vide, Chargement } from '../components/Base';
 import { C, R, S, E, OMBRE } from '../lib/ui';
+import Icone from '../components/Icone';
 
 /* ══════════════════════════════════════════════════════════════════════════
    LES NOTIFICATIONS
@@ -20,10 +21,10 @@ import { C, R, S, E, OMBRE } from '../lib/ui';
    ══════════════════════════════════════════════════════════════════════════ */
 
 const FAMILLES = [
-  { cle: 'commande', icone: '📦', titre: 'Mes commandes', fond: '#2C6BED' },
-  { cle: 'promo', icone: '🏷', titre: 'Offres et remises', fond: C.orange },
-  { cle: 'perso', icone: '🎁', titre: 'Pour toi', fond: '#00897B' },
-  { cle: 'appli', icone: '✨', titre: 'Nouveautés', fond: '#7B1FA2' },
+  { cle: 'commande', icone: 'colis', titre: 'Mes commandes', fond: '#2C6BED' },
+  { cle: 'promo', icone: 'etiquette', titre: 'Offres et remises', fond: C.orange },
+  { cle: 'perso', icone: 'cadeau', titre: 'Pour toi', fond: '#00897B' },
+  { cle: 'appli', icone: 'eclair', titre: 'Nouveautés', fond: '#7B1FA2' },
 ];
 
 export default function Notifications() {
@@ -61,7 +62,7 @@ export default function Notifications() {
         <View style={st.enTete}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
             <Pressable hitSlop={10} onPress={() => router.back()}>
-              <Text style={{ color: '#FFF', fontSize: 24 }}>‹</Text>
+              <Icone nom="retour" taille={25} couleur="#FFF" />
             </Pressable>
             <Text style={st.titre}>Notifications</Text>
           </View>
@@ -71,7 +72,7 @@ export default function Notifications() {
       <ScrollView contentContainerStyle={{ paddingVertical: 14, paddingBottom: 30 }}>
         {!autorise && (
           <Pressable onPress={activer} style={st.alerte}>
-            <Text style={{ fontSize: 20 }}>🔕</Text>
+            <Icone nom="cloches" taille={21} couleur={C.orange} />
             <View style={{ flex: 1 }}>
               <Text style={{ fontSize: 13.5, fontWeight: '700', color: C.encre }}>
                 Les notifications sont coupées
@@ -90,7 +91,7 @@ export default function Notifications() {
               onPress={() => setFamille(famille === f.cle ? null : f.cle)}
               style={[st.famille, famille === f.cle && { borderColor: C.orange }]}>
               <View style={[st.familleIcone, { backgroundColor: f.fond }]}>
-                <Text style={{ fontSize: 18 }}>{f.icone}</Text>
+                <Icone nom={f.icone} taille={20} couleur="#FFF" />
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={{ fontSize: 14.5, fontWeight: '700', color: C.encre }}>{f.titre}</Text>
@@ -111,7 +112,7 @@ export default function Notifications() {
 
         {/* Le contenu */}
         {liste === null ? <Chargement /> : filtree.length === 0 ? (
-          <Vide icone="🔔" titre="Rien pour l’instant"
+          <Vide icone="cloche" titre="Rien pour l’instant"
             texte="Tes notifications de commande, tes offres et tes bonus arriveront ici." />
         ) : (
           <View style={{ marginTop: 16, paddingHorizontal: E.page, gap: 10 }}>

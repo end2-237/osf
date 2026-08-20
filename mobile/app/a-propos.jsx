@@ -5,6 +5,7 @@ import Constants from 'expo-constants';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useMiseAJour } from '../lib/maj';
 import { C, R, S, E, OMBRE } from '../lib/ui';
+import Icone from '../components/Icone';
 
 export default function APropos() {
   const router = useRouter();
@@ -15,7 +16,7 @@ export default function APropos() {
         <View style={st.enTete}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
             <Pressable hitSlop={10} onPress={() => router.back()}>
-              <Text style={{ color: '#FFF', fontSize: 24 }}>‹</Text>
+              <Icone nom="retour" taille={25} couleur="#FFF" />
             </Pressable>
             <Text style={st.titre}>À propos</Text>
           </View>

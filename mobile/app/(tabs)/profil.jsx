@@ -7,6 +7,7 @@ import { useBoutique } from '../../lib/boutique';
 import { supabase } from '../../lib/supabase';
 import { Ligne, Vide } from '../../components/Base';
 import { C, R, S, E, OMBRE, fcfa } from '../../lib/ui';
+import Icone from '../../components/Icone';
 
 /* ══════════════════════════════════════════════════════════════════════════
    LE PROFIL
@@ -55,7 +56,7 @@ export default function Profil() {
         <SafeAreaView edges={['top']} style={{ backgroundColor: C.marine }}>
           <View style={st.enTete}><Text style={st.titre}>Mon profil</Text></View>
         </SafeAreaView>
-        <Vide icone="👤" titre="Connecte-toi"
+        <Vide icone="profil" titre="Connecte-toi"
           texte="Pour suivre tes commandes, garder tes favoris et gagner des bonus sur chaque achat."
           bouton="Se connecter" onBouton={() => router.push('/connexion')} />
       </View>
@@ -80,14 +81,14 @@ export default function Profil() {
             <View style={st.avatar}>
               {profil?.avatar_url
                 ? <Image source={{ uri: profil.avatar_url }} style={{ width: '100%', height: '100%' }} />
-                : <Text style={{ fontSize: 22 }}>👤</Text>}
+                : <Icone nom="profil" taille={24} couleur="#FFF" />}
             </View>
             <View style={{ flex: 1 }}>
               <Text style={st.nom} numberOfLines={1}>{nom}</Text>
               <Text style={st.sousTitre}>{profil?.phone || user.email}</Text>
             </View>
             <Pressable onPress={() => router.push('/notifications')} hitSlop={8}>
-              <Text style={{ fontSize: 20 }}>🔔</Text>
+              <Icone nom="cloche" taille={22} couleur="#FFF" />
             </Pressable>
           </View>
 
@@ -136,40 +137,42 @@ export default function Profil() {
 
         {/* Le relais — mis en avant, c'est notre spécificité */}
         <Pressable onPress={() => router.push('/relais')} style={st.relais}>
-          <Text style={{ fontSize: 26 }}>🔁</Text>
+          <View style={st.relaisRond}>
+            <Icone nom="relais" taille={22} couleur="#FFF" />
+          </View>
           <View style={{ flex: 1 }}>
             <Text style={{ fontSize: 15, fontWeight: '700', color: '#FFF' }}>Mon relais</Text>
             <Text style={{ fontSize: 12, color: 'rgba(255,255,255,0.75)', marginTop: 2 }}>
               Ton code, ton chemin, ta remise
             </Text>
           </View>
-          <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 20 }}>›</Text>
+          <Icone nom="suite" taille={18} couleur="rgba(255,255,255,0.6)" />
         </Pressable>
 
         {/* Mes achats */}
         <View style={[st.bloc, { padding: 0, overflow: 'hidden' }]}>
-          <Ligne icone="📦" titre="Mes commandes" badge={nbCommandes}
+          <Ligne icone="colis" titre="Mes commandes" badge={nbCommandes}
             onPress={() => router.push('/commandes')} />
-          <Ligne icone="♡" titre="Mes favoris" badge={favoris.length}
+          <Ligne icone="favori" titre="Mes favoris" badge={favoris.length}
             onPress={() => router.push('/favoris')} />
-          <Ligne icone="🛒" titre="Mon panier" badge={nbArticles}
+          <Ligne icone="panier" titre="Mon panier" badge={nbArticles}
             onPress={() => router.push('/panier')} />
-          <Ligne icone="⭐" titre="Mes avis" onPress={() => router.push('/avis')} />
+          <Ligne icone="etoile" titre="Mes avis" onPress={() => router.push('/avis')} />
         </View>
 
         {/* Gagner */}
         <View style={[st.bloc, { padding: 0, overflow: 'hidden' }]}>
-          <Ligne icone="🎁" titre="Bonus et fidélité" valeur={`${bonus.toLocaleString('fr-FR')} pts`}
+          <Ligne icone="cadeau" titre="Bonus et fidélité" valeur={`${bonus.toLocaleString('fr-FR')} pts`}
             onPress={() => router.push('/fidelite')} />
-          <Ligne icone="👥" titre="Parrainage" onPress={() => router.push('/parrainage')} />
-          <Ligne icone="🏪" titre="Les boutiques" onPress={() => router.push('/boutiques')} />
-          <Ligne icone="🔴" titre="Les lives" onPress={() => router.push('/lives')} />
+          <Ligne icone="personnes" titre="Parrainage" onPress={() => router.push('/parrainage')} />
+          <Ligne icone="boutique" titre="Les boutiques" onPress={() => router.push('/boutiques')} />
+          <Ligne icone="live" titre="Les lives" onPress={() => router.push('/lives')} />
         </View>
 
         {/* Le commerçant */}
         {vendor ? (
           <Pressable onPress={() => router.push('/vendeur')} style={st.vendeur}>
-            <Text style={{ fontSize: 22 }}>🏬</Text>
+            <Icone nom="boutique" taille={23} couleur={C.orange} />
             <View style={{ flex: 1 }}>
               <Text style={{ fontSize: 15, fontWeight: '700', color: C.encre }}>
                 {vendor.shop_name}
@@ -178,21 +181,21 @@ export default function Profil() {
                 Ouvrir mon comptoir
               </Text>
             </View>
-            <Text style={{ color: C.grisClair, fontSize: 20 }}>›</Text>
+            <Icone nom="suite" taille={18} couleur={C.grisClair} />
           </Pressable>
         ) : (
           <View style={[st.bloc, { padding: 0, overflow: 'hidden' }]}>
-            <Ligne icone="🏬" titre="Devenir vendeur" onPress={() => router.push('/devenir-vendeur')} />
+            <Ligne icone="boutique" titre="Devenir vendeur" onPress={() => router.push('/devenir-vendeur')} />
           </View>
         )}
 
         {/* Le compte */}
         <View style={[st.bloc, { padding: 0, overflow: 'hidden' }]}>
-          <Ligne icone="⚙️" titre="Mes données" onPress={() => router.push('/compte')} />
-          <Ligne icone="📍" titre="Mes adresses" onPress={() => router.push('/adresses')} />
-          <Ligne icone="💬" titre="Assistance" onPress={() => router.push('/aide')} />
-          <Ligne icone="ℹ️" titre="À propos" onPress={() => router.push('/a-propos')} />
-          <Ligne icone="🚪" titre="Se déconnecter" danger
+          <Ligne icone="reglages" titre="Mes données" onPress={() => router.push('/compte')} />
+          <Ligne icone="position" titre="Mes adresses" onPress={() => router.push('/adresses')} />
+          <Ligne icone="aide" titre="Assistance" onPress={() => router.push('/aide')} />
+          <Ligne icone="info" titre="À propos" onPress={() => router.push('/a-propos')} />
+          <Ligne icone="sortie" titre="Se déconnecter" danger
             onPress={() => deconnecter().then(() => router.replace('/'))} />
         </View>
       </ScrollView>
@@ -226,6 +229,10 @@ const st = StyleSheet.create({
   jauge: { height: 7, borderRadius: 4, backgroundColor: C.champ, overflow: 'hidden' },
   jaugePleine: { height: '100%', backgroundColor: C.orange, borderRadius: 4 },
 
+  relaisRond: {
+    width: 40, height: 40, borderRadius: R.vignette, backgroundColor: C.orange,
+    alignItems: 'center', justifyContent: 'center',
+  },
   relais: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
     backgroundColor: C.marine, borderRadius: R.carte,

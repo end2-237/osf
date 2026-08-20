@@ -7,6 +7,7 @@ import { useSession } from '../../lib/session';
 import { soldeBon } from '../../lib/relais';
 import { Chargement } from '../../components/Base';
 import { C, R, S, E, OMBRE, fcfa } from '../../lib/ui';
+import Icone from '../../components/Icone';
 
 /* L'ABONNEMENT. Ce qu'il ouvre est dit en clair, sans superlatif : un
    commerçant paie ce qu'il comprend. Et le bon de relais peut le régler — la
@@ -64,7 +65,7 @@ export default function Abonnement() {
         <View style={st.enTete}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
             <Pressable hitSlop={10} onPress={() => router.back()}>
-              <Text style={{ color: '#FFF', fontSize: 24 }}>‹</Text>
+              <Icone nom="retour" taille={25} couleur="#FFF" />
             </Pressable>
             <Text style={st.titre}>Abonnement</Text>
           </View>

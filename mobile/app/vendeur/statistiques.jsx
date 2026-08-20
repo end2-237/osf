@@ -6,6 +6,7 @@ import { supabase } from '../../lib/supabase';
 import { useSession } from '../../lib/session';
 import { Chargement, Puces } from '../../components/Base';
 import { C, R, S, E, OMBRE, fcfa } from '../../lib/ui';
+import Icone from '../../components/Icone';
 
 /* LES STATISTIQUES. Pas de graphique : sur un téléphone, une courbe de sept
    points ne dit rien qu'un chiffre ne dise mieux. On donne les nombres, la
@@ -55,7 +56,7 @@ export default function Statistiques() {
         <View style={st.enTete}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
             <Pressable hitSlop={10} onPress={() => router.back()}>
-              <Text style={{ color: '#FFF', fontSize: 24 }}>‹</Text>
+              <Icone nom="retour" taille={25} couleur="#FFF" />
             </Pressable>
             <Text style={st.titre}>Statistiques</Text>
           </View>

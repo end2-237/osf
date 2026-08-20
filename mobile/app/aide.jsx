@@ -4,6 +4,7 @@ import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ligne } from '../components/Base';
 import { C, R, S, E, OMBRE } from '../lib/ui';
+import Icone from '../components/Icone';
 
 /* L'assistance. WhatsApp d'abord : c'est là que les gens écrivent réellement,
    et un formulaire de contact reste sans réponse dans les deux sens. */
@@ -22,7 +23,7 @@ export default function Aide() {
         <View style={st.enTete}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
             <Pressable hitSlop={10} onPress={() => router.back()}>
-              <Text style={{ color: '#FFF', fontSize: 24 }}>‹</Text>
+              <Icone nom="retour" taille={25} couleur="#FFF" />
             </Pressable>
             <Text style={st.titre}>Assistance</Text>
           </View>
@@ -30,7 +31,7 @@ export default function Aide() {
       </SafeAreaView>
       <ScrollView contentContainerStyle={{ paddingVertical: 14, paddingBottom: 30 }}>
         <Pressable onPress={() => Linking.openURL('https://wa.me/237699000000')} style={st.wa}>
-          <Text style={{ fontSize: 24 }}>💬</Text>
+          <Icone nom="message" taille={26} couleur="#FFF" />
           <View style={{ flex: 1 }}>
             <Text style={{ fontSize: 15, fontWeight: '700', color: '#FFF' }}>Écris-nous sur WhatsApp</Text>
             <Text style={{ fontSize: 12, color: 'rgba(255,255,255,0.8)', marginTop: 2 }}>
@@ -48,9 +49,9 @@ export default function Aide() {
           ))}
         </View>
         <View style={[st.bloc, { padding: 0, overflow: 'hidden' }]}>
-          <Ligne icone="📄" titre="Conditions de vente" onPress={() => Linking.openURL('https://www.buyticle.store/cgv')} />
-          <Ligne icone="🔒" titre="Confidentialité" onPress={() => Linking.openURL('https://www.buyticle.store/terms')} />
-          <Ligne icone="ℹ️" titre="À propos" onPress={() => router.push('/a-propos')} />
+          <Ligne icone="document" titre="Conditions de vente" onPress={() => Linking.openURL('https://www.buyticle.store/cgv')} />
+          <Ligne icone="cadenas" titre="Confidentialité" onPress={() => Linking.openURL('https://www.buyticle.store/terms')} />
+          <Ligne icone="info" titre="À propos" onPress={() => router.push('/a-propos')} />
         </View>
       </ScrollView>
     </View>

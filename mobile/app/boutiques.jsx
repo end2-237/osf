@@ -5,6 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { supabase } from '../lib/supabase';
 import { Vide, Chargement } from '../components/Base';
 import { C, R, S, E, OMBRE } from '../lib/ui';
+import Icone from '../components/Icone';
 
 /* Les boutiques. Sur une place de marché naissante, elles rassurent plus que
    les produits : on achète chez quelqu'un avant d'acheter quelque chose. */
@@ -29,7 +30,7 @@ export default function Boutiques() {
         <View style={st.enTete}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
             <Pressable hitSlop={10} onPress={() => router.back()}>
-              <Text style={{ color: '#FFF', fontSize: 24 }}>‹</Text>
+              <Icone nom="retour" taille={25} couleur="#FFF" />
             </Pressable>
             <Text style={st.titre}>Les boutiques</Text>
           </View>
@@ -41,7 +42,7 @@ export default function Boutiques() {
       </SafeAreaView>
 
       {liste === null ? <Chargement /> : filtree.length === 0 ? (
-        <Vide icone="🏪" titre="Aucune boutique" texte="Aucune boutique ne correspond." />
+        <Vide icone="boutique" titre="Aucune boutique" texte="Aucune boutique ne correspond." />
       ) : (
         <ScrollView contentContainerStyle={{ paddingVertical: 14, paddingBottom: 30, gap: 10 }}>
           {filtree.map((b) => (
@@ -49,7 +50,7 @@ export default function Boutiques() {
               <View style={st.logo}>
                 {b.logo_url
                   ? <Image source={{ uri: b.logo_url }} style={{ width: '100%', height: '100%' }} />
-                  : <Text style={{ fontSize: 20 }}>🏪</Text>}
+                  : <Icone nom="boutique" taille={21} couleur={C.gris} />}
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={{ fontSize: 14.5, fontWeight: '700', color: C.encre }}>{b.shop_name}</Text>
@@ -57,7 +58,7 @@ export default function Boutiques() {
                   {b.city || 'Douala'}{b.plan && b.plan !== 'free' ? ' · Boutique vérifiée' : ''}
                 </Text>
               </View>
-              <Text style={{ color: C.grisClair, fontSize: 20 }}>›</Text>
+              <Icone nom="suite" taille={18} couleur={C.grisClair} />
             </Pressable>
           ))}
         </ScrollView>

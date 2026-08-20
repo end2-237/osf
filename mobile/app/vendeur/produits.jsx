@@ -8,6 +8,7 @@ import { supabase } from '../../lib/supabase';
 import { useSession } from '../../lib/session';
 import { Vide, Chargement, Puces, Champ } from '../../components/Base';
 import { C, R, S, E, OMBRE, fcfa } from '../../lib/ui';
+import Icone from '../../components/Icone';
 
 /* ══════════════════════════════════════════════════════════════════════════
    MES PRODUITS
@@ -101,11 +102,11 @@ export default function Produits() {
         <View style={st.enTete}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
             <Pressable hitSlop={10} onPress={() => router.back()}>
-              <Text style={{ color: '#FFF', fontSize: 24 }}>‹</Text>
+              <Icone nom="retour" taille={25} couleur="#FFF" />
             </Pressable>
             <Text style={st.titre}>Mes produits</Text>
             <Pressable onPress={() => ouvrir(null)} style={st.plus}>
-              <Text style={{ color: C.marine, fontSize: 20, fontWeight: '800' }}>+</Text>
+              <Icone nom="plus" taille={21} couleur={C.marine} />
             </Pressable>
           </View>
           <View style={st.champ}>
@@ -124,7 +125,7 @@ export default function Produits() {
       </View>
 
       {liste === null ? <Chargement /> : filtree.length === 0 ? (
-        <Vide icone="🏷" titre="Aucun article"
+        <Vide icone="etiquette" titre="Aucun article"
           texte="Ajoute ton premier article : nom, prix, photo. Tu pourras le compléter ensuite."
           bouton="Ajouter un article" onBouton={() => ouvrir(null)} />
       ) : (

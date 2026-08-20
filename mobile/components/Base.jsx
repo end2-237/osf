@@ -5,6 +5,7 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { C, R, S, E, OMBRE } from '../lib/ui';
+import Icone from './Icone';
 
 const L = Dimensions.get('window').width;
 
@@ -25,7 +26,7 @@ export function EnTete({ titre, recherche = true, retour = false, action }) {
       <View style={st.enTeteHaut}>
         {retour ? (
           <Pressable onPress={() => router.back()} hitSlop={10} style={{ width: 32 }}>
-            <Text style={{ color: '#FFF', fontSize: 22 }}>‹</Text>
+            <Icone nom="retour" taille={24} couleur="#FFF" />
           </Pressable>
         ) : <View style={{ width: 32 }} />}
         <Text style={st.enTeteTitre} numberOfLines={1}>{titre || 'Buyticle'}</Text>
@@ -34,7 +35,8 @@ export function EnTete({ titre, recherche = true, retour = false, action }) {
 
       {recherche && (
         <Pressable onPress={() => router.push('/recherche')} style={st.champRecherche}>
-          <Text style={{ fontSize: 15, color: 'rgba(255,255,255,0.55)' }}>🔍  Chercher un article</Text>
+          <Icone nom="recherche" taille={17} couleur="rgba(255,255,255,0.55)" />
+          <Text style={{ fontSize: 15, color: 'rgba(255,255,255,0.55)' }}>Chercher un article</Text>
         </Pressable>
       )}
     </View>
@@ -48,7 +50,10 @@ export function TitreSection({ titre, lien, onLien, style }) {
       <Text style={S.titreSection}>{titre}</Text>
       {!!lien && (
         <Pressable onPress={onLien} hitSlop={8}>
-          <Text style={S.lienSection}>{lien} ›</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}>
+            <Text style={S.lienSection}>{lien}</Text>
+            <Icone nom="suite" taille={14} couleur={C.orange} />
+          </View>
         </Pressable>
       )}
     </View>
@@ -72,7 +77,10 @@ export function Puces({ valeurs, actif, onChoisir, sombre = false }) {
               sombre && { backgroundColor: 'rgba(255,255,255,0.12)', borderColor: 'transparent' },
               on && (sombre ? { backgroundColor: '#FFF' } : { backgroundColor: C.marine, borderColor: C.marine }),
             ]}>
-            {!!v.icone && <Text style={{ fontSize: 13 }}>{v.icone}</Text>}
+            {!!v.icone && (
+              <Icone nom={v.icone} taille={15}
+                couleur={on ? (sombre ? C.marine : '#FFF') : (sombre ? '#FFF' : C.gris)} />
+            )}
             <Text style={[
               st.puceTexte,
               sombre && { color: '#FFF' },
@@ -142,10 +150,12 @@ export function Carrousel({ bannieres = [], hauteur = 150, onOuvrir }) {
 
 /* ── Les états ────────────────────────────────────────────────────────────
    Une page vide sans explication se lit comme une panne. */
-export function Vide({ icone = '📦', titre, texte, bouton, onBouton }) {
+export function Vide({ icone = 'vide', titre, texte, bouton, onBouton }) {
   return (
     <View style={st.vide}>
-      <Text style={{ fontSize: 40 }}>{icone}</Text>
+      <View style={st.videRond}>
+        <Icone nom={icone} taille={34} couleur={C.grisClair} />
+      </View>
       <Text style={[S.titre, { marginTop: 12, textAlign: 'center' }]}>{titre}</Text>
       {!!texte && (
         <Text style={[S.sousTitre, { textAlign: 'center', marginTop: 6, maxWidth: 300 }]}>
@@ -186,7 +196,11 @@ export function Squelette({ hauteur = 220, style }) {
 export function Ligne({ icone, titre, valeur, badge, onPress, danger }) {
   return (
     <Pressable onPress={onPress} style={st.ligne}>
-      {!!icone && <Text style={{ fontSize: 17, width: 26 }}>{icone}</Text>}
+      {!!icone && (
+        <View style={{ width: 26, alignItems: 'center' }}>
+          <Icone nom={icone} taille={19} couleur={danger ? C.rouge : C.gris} />
+        </View>
+      )}
       <Text style={[st.ligneTitreTexte, danger && { color: C.rouge }]} numberOfLines={1}>
         {titre}
       </Text>
@@ -194,7 +208,7 @@ export function Ligne({ icone, titre, valeur, badge, onPress, danger }) {
         <View style={st.pastille}><Text style={st.pastilleTexte}>{badge}</Text></View>
       )}
       {!!valeur && <Text style={st.ligneValeur} numberOfLines={1}>{valeur}</Text>}
-      {!!onPress && <Text style={{ color: C.grisClair, fontSize: 18 }}>›</Text>}
+      {!!onPress && <Icone nom="suite" taille={17} couleur={C.grisClair} />}
     </Pressable>
   );
 }
@@ -221,9 +235,10 @@ const st = StyleSheet.create({
   },
   enTeteTitre: { flex: 1, textAlign: 'center', color: '#FFF', fontSize: 16, fontWeight: '700' },
   champRecherche: {
+    flexDirection: 'row', alignItems: 'center', gap: 9,
     marginHorizontal: E.page, marginTop: 6,
     backgroundColor: 'rgba(255,255,255,0.12)',
-    borderRadius: R.puce, paddingHorizontal: 16, paddingVertical: 11,
+    borderRadius: R.puce, paddingHorizontal: 15, paddingVertical: 11,
   },
 
   ligneTitre: {
@@ -247,6 +262,10 @@ const st = StyleSheet.create({
   pointActif: { backgroundColor: C.marine, width: 16 },
 
   vide: { alignItems: 'center', paddingVertical: 56, paddingHorizontal: 24 },
+  videRond: {
+    width: 72, height: 72, borderRadius: 36, backgroundColor: C.champ,
+    alignItems: 'center', justifyContent: 'center',
+  },
 
   ligne: {
     flexDirection: 'row', alignItems: 'center', gap: 10,

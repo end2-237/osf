@@ -8,6 +8,7 @@ import { useBoutique } from '../../lib/boutique';
 import { useSession } from '../../lib/session';
 import { Vide, Champ } from '../../components/Base';
 import { C, R, S, E, OMBRE, fcfa, pourcent } from '../../lib/ui';
+import Icone from '../../components/Icone';
 
 /* ══════════════════════════════════════════════════════════════════════════
    LE PANIER
@@ -51,7 +52,7 @@ export default function Panier() {
         <SafeAreaView edges={['top']} style={{ backgroundColor: C.marine }}>
           <View style={st.enTete}><Text style={st.titre}>Mon panier</Text></View>
         </SafeAreaView>
-        <Vide icone="🛒" titre="Ton panier est vide"
+        <Vide icone="panier" titre="Ton panier est vide"
           texte="Ajoute des articles depuis le catalogue — tu pourras choisir la taille et la couleur avant de valider."
           bouton="Voir le catalogue" onBouton={() => router.push('/catalogue')} />
       </View>
@@ -106,12 +107,11 @@ export default function Panier() {
                   <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8 }}>
                     <Text style={st.nom} numberOfLines={2}>{a.name}</Text>
                     <Pressable hitSlop={8} onPress={() => basculerFavori(a)}>
-                      <Text style={{ fontSize: 16, color: estFavori(a.id) ? C.rouge : C.grisClair }}>
-                        {estFavori(a.id) ? '♥' : '♡'}
-                      </Text>
+                      <Icone nom={estFavori(a.id) ? 'favoriPlein' : 'favori'} taille={17}
+                        couleur={estFavori(a.id) ? C.rouge : C.grisClair} />
                     </Pressable>
                     <Pressable hitSlop={8} onPress={() => retirer(k)}>
-                      <Text style={{ fontSize: 15, color: C.grisClair }}>🗑</Text>
+                      <Icone nom="poubelle" taille={16} couleur={C.grisClair} />
                     </Pressable>
                   </View>
 
@@ -134,11 +134,11 @@ export default function Panier() {
 
                     <View style={st.compteur}>
                       <Pressable onPress={() => changerQuantite(k, -1)} style={st.compteurBouton}>
-                        <Text style={st.compteurSigne}>−</Text>
+                        <Icone nom="moins" taille={16} couleur={C.encre} />
                       </Pressable>
                       <Text style={st.compteurValeur}>{a.quantite || 1}</Text>
                       <Pressable onPress={() => changerQuantite(k, 1)} style={st.compteurBouton}>
-                        <Text style={st.compteurSigne}>+</Text>
+                        <Icone nom="plus" taille={16} couleur={C.encre} />
                       </Pressable>
                     </View>
                   </View>
@@ -150,8 +150,14 @@ export default function Panier() {
 
         {/* Les services */}
         <View style={st.services}>
-          <View style={st.service}><Text style={st.serviceTexte}>🚚  Livraison en 2 h</Text></View>
-          <View style={st.service}><Text style={st.serviceTexte}>🏪  Retrait au comptoir</Text></View>
+          <View style={st.service}>
+            <Icone nom="camion" taille={15} couleur={C.vert} />
+            <Text style={st.serviceTexte}>Livraison en 2 h</Text>
+          </View>
+          <View style={st.service}>
+            <Icone nom="boutique" taille={15} couleur={C.marine} />
+            <Text style={st.serviceTexte}>Retrait au comptoir</Text>
+          </View>
         </View>
 
         {/* Bonus et code promo */}
@@ -159,7 +165,7 @@ export default function Panier() {
           <Text style={S.titre}>Bonus et code promo</Text>
 
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-            <Text style={{ fontSize: 17 }}>🎁</Text>
+            <Icone nom="cadeau" taille={19} couleur={C.orange} />
             <Text style={{ flex: 1, fontSize: 14, color: C.encre }}>
               Bonus <Text style={{ fontWeight: '700' }}>{BONUS.toLocaleString('fr-FR')}</Text>
             </Text>
@@ -213,10 +219,10 @@ export default function Panier() {
           </View>
 
           <View style={{ flexDirection: 'row', gap: 8, marginTop: 4 }}>
-            {[['🚚', 'Livraison\ngratuite'], ['🎯', 'Programme\nfidélité'], ['💳', 'Paiement\nen 12 fois']]
+            {[['camion', 'Livraison\ngratuite'], ['cible', 'Programme\nfidélité'], ['carte', 'Paiement\nen 12 fois']]
               .map(([i, t]) => (
                 <View key={t} style={st.avantage}>
-                  <Text style={{ fontSize: 16 }}>{i}</Text>
+                  <Icone nom={i} taille={17} couleur={C.marine} />
                   <Text style={st.avantageTexte}>{t}</Text>
                 </View>
               ))}

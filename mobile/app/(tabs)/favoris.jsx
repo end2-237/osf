@@ -6,6 +6,7 @@ import { useBoutique } from '../../lib/boutique';
 import CarteProduit from '../../components/CarteProduit';
 import { Vide } from '../../components/Base';
 import { C, R, S, E } from '../../lib/ui';
+import Icone from '../../components/Icone';
 
 const L = Dimensions.get('window').width;
 
@@ -30,7 +31,7 @@ export default function Favoris() {
       </SafeAreaView>
 
       {favoris.length === 0 ? (
-        <Vide icone="♡" titre="Aucun favori"
+        <Vide icone="favori" titre="Aucun favori"
           texte="Touche le cœur d’un article pour le garder ici. Rien ne t’engage — c’est ta liste d’envies."
           bouton="Voir le catalogue" onBouton={() => router.push('/catalogue')} />
       ) : (

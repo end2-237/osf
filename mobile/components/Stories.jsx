@@ -6,6 +6,7 @@ import {
 import { useRouter } from 'expo-router';
 import { useBoutique } from '../lib/boutique';
 import { C, R, S, E, OMBRE, fcfa, pourcent } from '../lib/ui';
+import Icone from './Icone';
 
 const { width: L, height: H } = Dimensions.get('window');
 const DUREE = 6000;   // six secondes par vue, comme partout ailleurs
@@ -33,7 +34,7 @@ const DUREE = 6000;   // six secondes par vue, comme partout ailleurs
    ══════════════════════════════════════════════════════════════════════════ */
 
 /* ── Le rail rond, en haut de l'accueil ─────────────────────────────────── */
-export function RailStories({ histoires = [], vues = [], onOuvrir }) {
+export function RailStories({ histoires = [], vues = [], onOuvrir, sombre = false }) {
   if (!histoires.length) return null;
   return (
     <ScrollView horizontal showsHorizontalScrollIndicator={false}
@@ -44,15 +45,20 @@ export function RailStories({ histoires = [], vues = [], onOuvrir }) {
           <Pressable key={h.id} onPress={() => onOuvrir(i)} style={{ width: 68, alignItems: 'center', gap: 6 }}>
             {/* L'anneau orange dit « pas encore vue ». Gris, elle l'est déjà —
                 c'est le seul signal, et il suffit. */}
-            <View style={[st.anneau, vue && { borderColor: C.bord }]}>
+            <View style={[st.anneau,
+              sombre && { backgroundColor: C.marine, borderColor: C.orange },
+              vue && { borderColor: sombre ? 'rgba(255,255,255,0.3)' : C.bord }]}>
               {h.vignette
                 ? <Image source={{ uri: h.vignette }} style={st.vignetteRail} />
                 : <View style={[st.vignetteRail, { backgroundColor: h.fond || C.marine,
                     alignItems: 'center', justifyContent: 'center' }]}>
-                    <Text style={{ fontSize: 22 }}>{h.icone || '✨'}</Text>
+                    <Icone nom={h.icone || 'eclair'} taille={24} couleur="#FFF" />
                   </View>}
             </View>
-            <Text numberOfLines={2} style={st.railTexte}>{h.titre}</Text>
+            <Text numberOfLines={2}
+              style={[st.railTexte, sombre && { color: 'rgba(255,255,255,0.92)' }]}>
+              {h.titre}
+            </Text>
           </Pressable>
         );
       })}
@@ -136,7 +142,7 @@ export function LecteurStories({ histoires = [], depart = 0, visible, onFermer, 
         <View style={st.barreHaut}>
           <Text style={st.marque}>buy<Text style={{ color: C.orange }}>ticle</Text></Text>
           <Pressable hitSlop={12} onPress={onFermer}>
-            <Text style={{ color: '#FFF', fontSize: 22 }}>✕</Text>
+            <Icone nom="fermer" taille={24} couleur="#FFF" />
           </Pressable>
         </View>
 
@@ -163,7 +169,7 @@ export function LecteurStories({ histoires = [], depart = 0, visible, onFermer, 
             <Text style={{ color: '#FFF', fontSize: 13.5, fontWeight: '700' }}>
               Les articles de la story
             </Text>
-            <Text style={{ color: '#FFF', fontSize: 12 }}>▲</Text>
+            <Icone nom="haut" taille={14} couleur="#FFF" />
           </Pressable>
         )}
 
@@ -211,7 +217,10 @@ export function LecteurStories({ histoires = [], depart = 0, visible, onFermer, 
             </ScrollView>
 
             <Pressable onPress={() => basculerTiroir(false)} style={st.masquer}>
-              <Text style={{ fontSize: 13, color: C.gris }}>Masquer les articles  ▼</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+              <Text style={{ fontSize: 13, color: C.gris }}>Masquer les articles</Text>
+              <Icone nom="bas" taille={14} couleur={C.gris} />
+            </View>
             </Pressable>
           </Animated.View>
         )}
@@ -221,7 +230,7 @@ export function LecteurStories({ histoires = [], depart = 0, visible, onFermer, 
 }
 
 /* ── Les deux ensemble, à poser dans un écran ───────────────────────────── */
-export default function Stories({ histoires = [] }) {
+export default function Stories({ histoires = [], sombre = false }) {
   const [ouvert, setOuvert] = useState(false);
   const [depart, setDepart] = useState(0);
   const [vues, setVues] = useState([]);
@@ -230,7 +239,7 @@ export default function Stories({ histoires = [] }) {
 
   return (
     <>
-      <RailStories histoires={histoires} vues={vues}
+      <RailStories histoires={histoires} vues={vues} sombre={sombre}
         onOuvrir={(i) => { setDepart(i); setOuvert(true); }} />
       <LecteurStories
         histoires={histoires} depart={depart} visible={ouvert}

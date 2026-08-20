@@ -6,6 +6,7 @@ import { supabase } from '../lib/supabase';
 import { useSession } from '../lib/session';
 import { Vide, Chargement, Puces } from '../components/Base';
 import { C, R, S, E, OMBRE, fcfa } from '../lib/ui';
+import Icone from '../components/Icone';
 
 /* ══════════════════════════════════════════════════════════════════════════
    MES COMMANDES
@@ -62,7 +63,7 @@ export default function Commandes() {
   };
 
   if (!user) {
-    return <Vide icone="👤" titre="Connecte-toi" texte="Pour retrouver tes commandes."
+    return <Vide icone="profil" titre="Connecte-toi" texte="Pour retrouver tes commandes."
       bouton="Se connecter" onBouton={() => router.push('/connexion')} />;
   }
 
@@ -89,7 +90,7 @@ export default function Commandes() {
         <View style={st.enTete}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
             <Pressable hitSlop={10} onPress={() => router.back()}>
-              <Text style={{ color: '#FFF', fontSize: 24 }}>‹</Text>
+              <Icone nom="retour" taille={25} couleur="#FFF" />
             </Pressable>
             <Text style={st.titre}>Mes commandes</Text>
           </View>
@@ -101,7 +102,7 @@ export default function Commandes() {
       </View>
 
       {liste === null ? <Chargement /> : filtree.length === 0 ? (
-        <Vide icone="📦" titre="Aucune commande"
+        <Vide icone="colis" titre="Aucune commande"
           texte="Tes commandes s’afficheront ici, avec leur suivi."
           bouton="Voir le catalogue" onBouton={() => router.push('/catalogue')} />
       ) : (

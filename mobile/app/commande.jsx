@@ -10,6 +10,7 @@ import { useBoutique } from '../lib/boutique';
 import { Champ, Vide } from '../components/Base';
 import { OPERATEURS, numeroMonetbil, pousserUssd, etatCommandes } from '../lib/relais';
 import { C, R, S, E, OMBRE, fcfa } from '../lib/ui';
+import Icone from '../components/Icone';
 
 /* ══════════════════════════════════════════════════════════════════════════
    LA COMMANDE
@@ -29,9 +30,9 @@ import { C, R, S, E, OMBRE, fcfa } from '../lib/ui';
    ══════════════════════════════════════════════════════════════════════════ */
 
 const RECEPTIONS = [
-  { cle: 'express', icone: '🚀', titre: 'Livraison express', sous: 'Aujourd’hui, en 2 h', frais: 2500 },
-  { cle: 'standard', icone: '🚚', titre: 'Livraison standard', sous: 'Demain', frais: 1500 },
-  { cle: 'comptoir', icone: '🏪', titre: 'Retrait en boutique', sous: 'Dès aujourd’hui', frais: 0 },
+  { cle: 'express', icone: 'fusee', titre: 'Livraison express', sous: 'Aujourd’hui, en 2 h', frais: 2500 },
+  { cle: 'standard', icone: 'camion', titre: 'Livraison standard', sous: 'Demain', frais: 1500 },
+  { cle: 'comptoir', icone: 'boutique', titre: 'Retrait en boutique', sous: 'Dès aujourd’hui', frais: 0 },
 ];
 
 export default function Commande() {
@@ -158,7 +159,7 @@ export default function Commande() {
   };
 
   if (!user) {
-    return <Vide icone="👤" titre="Connecte-toi pour commander"
+    return <Vide icone="profil" titre="Connecte-toi pour commander"
       bouton="Se connecter" onBouton={() => router.push('/connexion')} />;
   }
 
@@ -168,7 +169,7 @@ export default function Commande() {
         <SafeAreaView edges={['top']} style={{ backgroundColor: C.marine }}>
           <View style={st.enTete}><Text style={st.titre}>Commande envoyée</Text></View>
         </SafeAreaView>
-        <Vide icone="✅" titre="C’est parti"
+        <Vide icone="cocheCercle" titre="C’est parti"
           texte={reception === 'comptoir'
             ? 'La boutique prépare ta commande. Tu recevras une notification quand elle sera prête à retirer.'
             : 'La boutique prépare ta commande. Tu suivras la livraison depuis « Mes commandes ».'}
@@ -207,7 +208,7 @@ export default function Commande() {
         <View style={st.enTete}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
             <Pressable hitSlop={10} onPress={() => router.back()}>
-              <Text style={{ color: '#FFF', fontSize: 24 }}>‹</Text>
+              <Icone nom="retour" taille={25} couleur="#FFF" />
             </Pressable>
             <Text style={st.titre}>Ma commande</Text>
           </View>
@@ -230,7 +231,7 @@ export default function Commande() {
           {RECEPTIONS.map((r) => (
             <Pressable key={r.cle} onPress={() => setReception(r.cle)}
               style={[st.option, reception === r.cle && st.optionChoisie]}>
-              <Text style={{ fontSize: 19 }}>{r.icone}</Text>
+              <Icone nom={r.icone} taille={21} couleur={C.marine} />
               <View style={{ flex: 1 }}>
                 <Text style={{ fontSize: 14, fontWeight: '600', color: C.encre }}>{r.titre}</Text>
                 <Text style={{ fontSize: 11.5, color: C.gris }}>{r.sous}</Text>

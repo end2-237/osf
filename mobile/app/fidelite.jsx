@@ -7,6 +7,7 @@ import { supabase } from '../lib/supabase';
 import { useSession } from '../lib/session';
 import { Vide, Chargement } from '../components/Base';
 import { C, R, S, E, OMBRE, fcfa } from '../lib/ui';
+import Icone from '../components/Icone';
 
 /* ══════════════════════════════════════════════════════════════════════════
    FIDÉLITÉ ET PARRAINAGE
@@ -47,7 +48,7 @@ export default function Fidelite() {
   }, [profil?.referral_code]);
 
   if (!user) {
-    return <Vide icone="🎁" titre="Connecte-toi"
+    return <Vide icone="cadeau" titre="Connecte-toi"
       texte="Pour gagner des bonus sur chaque commande livrée."
       bouton="Se connecter" onBouton={() => router.push('/connexion')} />;
   }
@@ -67,7 +68,7 @@ export default function Fidelite() {
         <View style={st.enTete}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
             <Pressable hitSlop={10} onPress={() => router.back()}>
-              <Text style={{ color: '#FFF', fontSize: 24 }}>‹</Text>
+              <Icone nom="retour" taille={25} couleur="#FFF" />
             </Pressable>
             <Text style={st.titre}>Bonus et parrainage</Text>
           </View>
@@ -91,12 +92,12 @@ export default function Fidelite() {
         <View style={[st.bloc, { gap: 11 }]}>
           <Text style={S.titre}>Comment tu en gagnes</Text>
           {[
-            ['🛒', 'Sur tes achats', '2 % du montant, crédités quand la commande est livrée.'],
-            ['⭐', 'Sur tes avis', 'Un avis sur un article reçu rapporte des points.'],
-            ['👥', 'Sur tes filleuls', 'Quand quelqu’un commande avec ton code.'],
+            ['panier', 'Sur tes achats', '2 % du montant, crédités quand la commande est livrée.'],
+            ['etoile', 'Sur tes avis', 'Un avis sur un article reçu rapporte des points.'],
+            ['personnes', 'Sur tes filleuls', 'Quand quelqu’un commande avec ton code.'],
           ].map(([i, t, d]) => (
             <View key={t} style={{ flexDirection: 'row', gap: 11 }}>
-              <Text style={{ fontSize: 17 }}>{i}</Text>
+              <Icone nom={i} taille={19} couleur={C.marine} />
               <View style={{ flex: 1 }}>
                 <Text style={{ fontSize: 13.5, fontWeight: '600', color: C.encre }}>{t}</Text>
                 <Text style={{ fontSize: 12, color: C.gris, marginTop: 1, lineHeight: 16 }}>{d}</Text>

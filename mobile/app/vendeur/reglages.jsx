@@ -7,6 +7,7 @@ import { useSession } from '../../lib/session';
 import { enregistrerPourNotifications } from '../../lib/notifications';
 import { Champ, Chargement } from '../../components/Base';
 import { C, R, S, E, OMBRE } from '../../lib/ui';
+import Icone from '../../components/Icone';
 
 /* LES RÉGLAGES DE LA BOUTIQUE. Le bloc des numéros de retrait est en premier :
    c'est le seul qui bloque de l'argent quand il n'est pas rempli. */
@@ -63,7 +64,7 @@ export default function ReglagesVendeur() {
         <View style={st.enTete}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
             <Pressable hitSlop={10} onPress={() => router.back()}>
-              <Text style={{ color: '#FFF', fontSize: 24 }}>‹</Text>
+              <Icone nom="retour" taille={25} couleur="#FFF" />
             </Pressable>
             <Text style={st.titre}>Réglages</Text>
           </View>

@@ -7,6 +7,7 @@ import { produits } from '../../lib/boutique';
 import CarteProduit from '../../components/CarteProduit';
 import { Vide, Chargement, TitreSection } from '../../components/Base';
 import { C, R, S, E, OMBRE } from '../../lib/ui';
+import Icone from '../../components/Icone';
 
 const L = Dimensions.get('window').width;
 
@@ -31,13 +32,13 @@ export default function Boutique() {
       <SafeAreaView edges={['top']} style={{ backgroundColor: C.marine }}>
         <View style={st.enTete}>
           <Pressable hitSlop={10} onPress={() => router.back()}>
-            <Text style={{ color: '#FFF', fontSize: 24 }}>‹</Text>
+            <Icone nom="retour" taille={25} couleur="#FFF" />
           </Pressable>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 8 }}>
             <View style={st.logo}>
               {b.logo_url
                 ? <Image source={{ uri: b.logo_url }} style={{ width: '100%', height: '100%' }} />
-                : <Text style={{ fontSize: 24 }}>🏪</Text>}
+                : <Icone nom="boutique" taille={25} couleur="#FFF" />}
             </View>
             <View style={{ flex: 1 }}>
               <Text style={{ color: '#FFF', fontSize: 19, fontWeight: '800' }}>{b.shop_name}</Text>
@@ -56,7 +57,7 @@ export default function Boutique() {
 
       <ScrollView contentContainerStyle={{ paddingVertical: 14, paddingBottom: 30 }}>
         {liste === null ? <Chargement /> : liste.length === 0 ? (
-          <Vide icone="📦" titre="Aucun article" texte="Cette boutique n’a rien publié pour l’instant." />
+          <Vide icone="colis" titre="Aucun article" texte="Cette boutique n’a rien publié pour l’instant." />
         ) : (
           <>
             <TitreSection titre={`${liste.length} article${liste.length > 1 ? 's' : ''}`} />

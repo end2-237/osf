@@ -7,6 +7,7 @@ import { useSession } from '../../lib/session';
 import { soldeBon } from '../../lib/relais';
 import { Chargement, Champ } from '../../components/Base';
 import { C, R, S, E, OMBRE, fcfa } from '../../lib/ui';
+import Icone from '../../components/Icone';
 
 /* ══════════════════════════════════════════════════════════════════════════
    RETRAITS ET BON
@@ -111,7 +112,7 @@ export default function Retraits() {
         <View style={st.enTete}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
             <Pressable hitSlop={10} onPress={() => router.back()}>
-              <Text style={{ color: '#FFF', fontSize: 24 }}>‹</Text>
+              <Icone nom="retour" taille={25} couleur="#FFF" />
             </Pressable>
             <Text style={st.titre}>Retraits</Text>
           </View>
@@ -210,13 +211,13 @@ export default function Retraits() {
               </Text>
             ) : (
               <View style={{ gap: 8 }}>
-                <Sortie titre="Le garder pour mes remises client" icone="🏷"
+                <Sortie titre="Le garder pour mes remises client" icone="etiquette"
                   sous="La seule option qui te ramène un client : le bon dépensé revient en vente."
                   onPress={() => setChoix('remise')} />
-                <Sortie titre="Payer mon abonnement" icone="👑"
+                <Sortie titre="Payer mon abonnement" icone="couronne"
                   sous="Sans sortir un billet, si un forfait est en attente."
                   onPress={() => setChoix('abonnement')} />
-                <Sortie titre="Le retirer en argent" icone="💸"
+                <Sortie titre="Le retirer en argent" icone="argent"
                   sous={retirable < PLANCHER
                     ? `À partir de ${fcfa(PLANCHER)} et trente jours. Tu as ${fcfa(retirable)} de retirable.`
                     : `Jusqu’à ${fcfa(retirable)}, traité sous 48 h.`}
@@ -324,7 +325,7 @@ function Sortie({ titre, sous, icone, onPress, desactive }) {
   return (
     <Pressable onPress={desactive ? undefined : onPress}
       style={[st.sortie, desactive && { opacity: 0.5 }]}>
-      <Text style={{ fontSize: 18 }}>{icone}</Text>
+      <Icone nom={icone} taille={20} couleur={C.marine} />
       <View style={{ flex: 1 }}>
         <Text style={{ fontSize: 13.5, fontWeight: '700', color: C.encre }}>{titre}</Text>
         <Text style={{ fontSize: 11.5, color: C.gris, marginTop: 2, lineHeight: 16 }}>{sous}</Text>

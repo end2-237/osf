@@ -8,6 +8,7 @@ import { supabase } from '../../lib/supabase';
 import { useSession } from '../../lib/session';
 import { Vide, Chargement, Puces } from '../../components/Base';
 import { C, R, S, E, OMBRE, fcfa } from '../../lib/ui';
+import Icone from '../../components/Icone';
 
 /* ══════════════════════════════════════════════════════════════════════════
    LES COMMANDES DU COMMERÇANT
@@ -73,7 +74,7 @@ export default function CommandesVendeur() {
         <View style={st.enTete}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
             <Pressable hitSlop={10} onPress={() => router.back()}>
-              <Text style={{ color: '#FFF', fontSize: 24 }}>‹</Text>
+              <Icone nom="retour" taille={25} couleur="#FFF" />
             </Pressable>
             <Text style={st.titre}>Mes commandes</Text>
           </View>
@@ -89,7 +90,7 @@ export default function CommandesVendeur() {
       </View>
 
       {liste === null ? <Chargement /> : filtree.length === 0 ? (
-        <Vide icone="📦" titre="Rien à traiter"
+        <Vide icone="colis" titre="Rien à traiter"
           texte="Les commandes de tes clients s’afficheront ici, avec le geste à faire." />
       ) : (
         <ScrollView
@@ -119,20 +120,20 @@ export default function CommandesVendeur() {
                       {o.client_name || 'Client'}
                     </Text>
                     <Text style={{ fontSize: 12, color: C.gris, marginTop: 1 }}>
-                      {comptoir ? '🏪 Retrait au comptoir' : `📍 ${o.client_address || '—'}`}
+                      {comptoir ? 'Retrait au comptoir' : (o.client_address || '—')}
                     </Text>
                   </View>
                   {!!o.client_phone && (
                     <>
                       <Pressable onPress={() => Linking.openURL(`tel:${o.client_phone}`)}
                         style={st.rond}>
-                        <Text style={{ fontSize: 15 }}>📞</Text>
+                        <Icone nom="telephone" taille={16} couleur={C.marine} />
                       </Pressable>
                       <Pressable
                         onPress={() => Linking.openURL(
                           `https://wa.me/237${String(o.client_phone).replace(/\D/g, '').slice(-9)}`)}
                         style={[st.rond, { backgroundColor: '#25D366' }]}>
-                        <Text style={{ fontSize: 15 }}>💬</Text>
+                        <Icone nom="message" taille={16} couleur="#FFF" />
                       </Pressable>
                     </>
                   )}

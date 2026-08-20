@@ -6,6 +6,7 @@ import { supabase } from '../../lib/supabase';
 import { useSession } from '../../lib/session';
 import { Vide, Chargement } from '../../components/Base';
 import { C, R, S, E, OMBRE, fcfa } from '../../lib/ui';
+import Icone from '../../components/Icone';
 
 /* MES CLIENTS — reconstruits depuis les commandes, pas depuis une table à
    part. Un fichier client tenu à la main n'est jamais à jour ; celui-ci l'est
@@ -43,7 +44,7 @@ export default function Clients() {
         <View style={st.enTete}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
             <Pressable hitSlop={10} onPress={() => router.back()}>
-              <Text style={{ color: '#FFF', fontSize: 24 }}>‹</Text>
+              <Icone nom="retour" taille={25} couleur="#FFF" />
             </Pressable>
             <Text style={st.titre}>Mes clients</Text>
           </View>
@@ -56,7 +57,7 @@ export default function Clients() {
       </SafeAreaView>
 
       {liste === null ? <Chargement /> : liste.length === 0 ? (
-        <Vide icone="👥" titre="Aucun client"
+        <Vide icone="personnes" titre="Aucun client"
           texte="Tes clients apparaîtront ici dès ta première commande." />
       ) : (
         <ScrollView contentContainerStyle={{ paddingVertical: 14, paddingBottom: 30, gap: 10 }}>
@@ -82,12 +83,12 @@ export default function Clients() {
               {!!c.tel && (
                 <View style={{ gap: 6 }}>
                   <Pressable onPress={() => Linking.openURL(`tel:${c.tel}`)} style={st.action}>
-                    <Text style={{ fontSize: 14 }}>📞</Text>
+                    <Icone nom="telephone" taille={15} couleur={C.marine} />
                   </Pressable>
                   <Pressable
                     onPress={() => Linking.openURL(`https://wa.me/237${String(c.tel).replace(/\D/g,'').slice(-9)}`)}
                     style={[st.action, { backgroundColor: '#25D366' }]}>
-                    <Text style={{ fontSize: 14 }}>💬</Text>
+                    <Icone nom="message" taille={15} couleur="#FFF" />
                   </Pressable>
                 </View>
               )}

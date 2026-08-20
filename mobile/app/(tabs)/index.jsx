@@ -9,7 +9,9 @@ import { produits, categories } from '../../lib/boutique';
 import CarteProduit from '../../components/CarteProduit';
 import { TitreSection, Puces, Carrousel, Squelette } from '../../components/Base';
 import Stories from '../../components/Stories';
+import { SlidesPub, PubVerticale, melangerPubs } from '../../components/Pub';
 import { C, R, S, E, OMBRE } from '../../lib/ui';
+import Icone, { IconeCategorie } from '../../components/Icone';
 
 const L = Dimensions.get('window').width;
 
@@ -27,21 +29,23 @@ const L = Dimensions.get('window').width;
    ══════════════════════════════════════════════════════════════════════════ */
 
 const RACCOURCIS = [
-  { valeur: 'Tech Lab', libelle: 'Tech', icone: '💻' },
-  { valeur: 'Audio Lab', libelle: 'Audio', icone: '🎧' },
-  { valeur: 'Femme', libelle: 'Femme', icone: '👗' },
-  { valeur: 'Shoes', libelle: 'Chaussures', icone: '👟' },
-  { valeur: 'Maison', libelle: 'Maison', icone: '🏡' },
-  { valeur: 'Beauté', libelle: 'Beauté', icone: '💄' },
+  { valeur: 'Tech Lab', libelle: 'Tech', icone: 'catalogue' },
+  { valeur: 'Audio Lab', libelle: 'Audio', icone: 'casque' },
+  { valeur: 'Femme', libelle: 'Femme', icone: 'etiquette' },
+  { valeur: 'Shoes', libelle: 'Chaussures', icone: 'colis' },
+  { valeur: 'Maison', libelle: 'Maison', icone: 'boutique' },
+  { valeur: 'Beauté', libelle: 'Beauté', icone: 'cadeau' },
 ];
 
+// Chaque service porte sa couleur : c'est ce qui les rend reconnaissables
+// d'un coup d'œil dans un rail qui défile.
 const SERVICES = [
-  { icone: '⚡', titre: 'Ventes\nflash', route: '/store?flash=1' },
-  { icone: '🎁', titre: 'Cartes\ncadeaux', route: '/profil' },
-  { icone: '🔴', titre: 'Lives', route: '/lives' },
-  { icone: '🚀', titre: 'Livraison\nexpress', route: '/catalogue' },
-  { icone: '🔁', titre: 'Le\nrelais', route: '/relais' },
-  { icone: '👥', titre: 'Parrainage', route: '/parrainage' },
+  { icone: 'eclair',    teinte: '#FF6B00', titre: 'Ventes\nflash',       route: '/catalogue' },
+  { icone: 'cadeau',    teinte: '#E53935', titre: 'Cartes\ncadeaux',     route: '/fidelite' },
+  { icone: 'live',      teinte: '#D81B60', titre: 'Lives',               route: '/lives' },
+  { icone: 'fusee',     teinte: '#2C6BED', titre: 'Livraison\nexpress',  route: '/catalogue' },
+  { icone: 'relais',    teinte: '#00897B', titre: 'Le\nrelais',          route: '/relais' },
+  { icone: 'personnes', teinte: '#7B1FA2', titre: 'Parrainage',          route: '/parrainage' },
 ];
 
 const BANNIERES = [
@@ -81,17 +85,17 @@ export default function Accueil() {
     const tousArticles = [...(o.data || []), ...(t.data || [])];
     setHistoires([
       {
-        id: 'beaute', titre: 'Beauté −40 %', icone: '💄', fond: '#2C6BED',
+        id: 'beaute', titre: 'Beauté −40 %', icone: 'cadeau', fond: '#2C6BED',
         accroche: 'Sur une sélection de soins et parfums, jusqu’à dimanche.',
         produits: tousArticles.slice(0, 4),
       },
       {
-        id: 'tech', titre: 'Le mois high-tech', icone: '📱', fond: C.marine,
+        id: 'tech', titre: 'Le mois high-tech', icone: 'catalogue', fond: C.marine,
         accroche: 'Téléphones et ordinateurs, payables en douze fois.',
         produits: tousArticles.slice(4, 8),
       },
       {
-        id: 'relais', titre: 'Le relais', icone: '🔁', fond: '#00897B',
+        id: 'relais', titre: 'Le relais', icone: 'relais', fond: '#00897B',
         accroche: 'Un vendeur ne l’a pas ? Il t’envoie chez un voisin qui l’a — et tu paies moins cher.',
         route: '/relais', action: 'Comment ça marche',
       },
@@ -123,23 +127,30 @@ export default function Accueil() {
       {/* ① L'en-tête marine */}
       <SafeAreaView edges={['top']} style={{ backgroundColor: C.marine }}>
         <View style={st.enTete}>
-          <View style={st.enTeteHaut}>
+          {/* Ligne 1 — le logo seul, centré. C'est la marque, et rien d'autre
+              ne partage sa ligne : posé au milieu, il tient l'écran. */}
+          <View style={st.ligneLogo}>
             <Text style={st.logo}>buy<Text style={{ color: C.orange }}>ticle</Text></Text>
-            <View style={{ flexDirection: 'row', gap: 14 }}>
-              <Pressable onPress={() => router.push('/notifications')} hitSlop={8}>
-                <Text style={{ fontSize: 19 }}>🔔</Text>
-              </Pressable>
-              <Pressable onPress={() => router.push('/aide')} hitSlop={8}>
-                <Text style={{ fontSize: 19 }}>🎧</Text>
-              </Pressable>
-            </View>
           </View>
 
-          <Pressable onPress={() => router.push('/recherche')} style={st.recherche}>
-            <Text style={{ fontSize: 15, color: 'rgba(255,255,255,0.6)' }}>
-              🔍  Chercher un article
-            </Text>
-          </Pressable>
+          {/* Ligne 2 — l'épingle, le champ, puis la cloche et le casque. Les
+              trois affaires du client sur une seule ligne : où on livre, ce
+              qu'il cherche, et à qui parler. */}
+          <View style={st.ligneRecherche}>
+            <Icone nom="position" taille={20} couleur="rgba(255,255,255,0.75)" />
+            <Pressable onPress={() => router.push('/recherche')} style={st.recherche}>
+              <Icone nom="recherche" taille={17} couleur="rgba(255,255,255,0.55)" />
+              <Text style={{ fontSize: 15, color: 'rgba(255,255,255,0.55)' }}>
+                Chercher un article
+              </Text>
+            </Pressable>
+            <Pressable onPress={() => router.push('/notifications')} hitSlop={8}>
+              <Icone nom="cloche" taille={22} couleur="#FFF" />
+            </Pressable>
+            <Pressable onPress={() => router.push('/aide')} hitSlop={8}>
+              <Icone nom="casque" taille={22} couleur="#FFF" />
+            </Pressable>
+          </View>
 
           {/* ② Les puces de raccourci */}
           <View style={{ marginTop: 10, marginHorizontal: -E.page }}>
@@ -157,10 +168,18 @@ export default function Accueil() {
         }}
         refreshControl={<RefreshControl refreshing={rafraichit} onRefresh={rafraichir} />}>
 
-        {/* ②bis Les stories */}
+        {/* La nappe marine. Elle prolonge l'en-tête et descend jusqu'aux
+            quatre cinquièmes de la première diapositive : la bannière est
+            posée à cheval sur le marine et le lavande, et c'est ce
+            chevauchement — pas la bannière elle-même — qui donne la
+            profondeur de la référence. Elle défile avec le contenu, sinon
+            elle resterait collée sous l'en-tête pendant que tout glisse. */}
+        <View pointerEvents="none" style={st.nappe} />
+
+        {/* ②bis Les stories, posées sur la nappe */}
         {histoires.length > 0 && (
           <View style={{ marginTop: 14 }}>
-            <Stories histoires={histoires} />
+            <Stories histoires={histoires} sombre />
           </View>
         )}
 
@@ -171,12 +190,16 @@ export default function Accueil() {
 
         {/* ④ Les deux cartes de service */}
         <View style={st.duo}>
-          <View style={[st.duoCarte]}>
-            <Text style={{ fontSize: 18 }}>🚚</Text>
+          <View style={st.duoCarte}>
+            <View style={[st.duoRond, { backgroundColor: '#FFF1E7' }]}>
+              <Icone nom="camion" taille={17} couleur={C.orange} />
+            </View>
             <Text style={st.duoTexte}>Livraison{'\n'}gratuite</Text>
           </View>
-          <View style={[st.duoCarte]}>
-            <Text style={{ fontSize: 18 }}>🎯</Text>
+          <View style={st.duoCarte}>
+            <View style={[st.duoRond, { backgroundColor: '#FFF1E7' }]}>
+              <Icone nom="cible" taille={17} couleur={C.orange} />
+            </View>
             <Text style={st.duoTexte}>Programme{'\n'}de fidélité</Text>
           </View>
         </View>
@@ -186,7 +209,9 @@ export default function Accueil() {
           contentContainerStyle={{ gap: 10, paddingHorizontal: E.page, marginTop: 14 }}>
           {SERVICES.map((s) => (
             <Pressable key={s.titre} onPress={() => router.push(s.route)} style={st.service}>
-              <View style={st.serviceRond}><Text style={{ fontSize: 20 }}>{s.icone}</Text></View>
+              <View style={[st.serviceRond, { backgroundColor: s.teinte + '18' }]}>
+                <Icone nom={s.icone} taille={21} couleur={s.teinte} />
+              </View>
               <Text style={st.serviceTexte}>{s.titre}</Text>
             </Pressable>
           ))}
@@ -220,7 +245,7 @@ export default function Accueil() {
                 <Pressable key={c.nom} style={st.cat}
                   onPress={() => router.push(`/catalogue?type=${encodeURIComponent(c.nom)}`)}>
                   <View style={st.catImage}>
-                    <Text style={{ fontSize: 26 }}>{emojiCategorie(c.nom)}</Text>
+                    <IconeCategorie nom={c.nom} taille={30} />
                   </View>
                   <Text style={st.catTexte} numberOfLines={2}>{c.nom}</Text>
                 </Pressable>
@@ -242,13 +267,10 @@ export default function Accueil() {
           </View>
         </View>
 
-        {/* ⑨ Les promotions */}
+        {/* ⑨ Les promotions — le rail de diapositives de pub */}
         <View style={{ marginTop: 18 }}>
           <TitreSection titre="Promotions" lien="toutes" onLien={() => router.push('/catalogue')} />
-          <Carrousel hauteur={130} bannieres={[
-            { titre: 'Le mois du high-tech', sous: 'Jusqu’à −40 %', fond: '#3949AB' },
-            { titre: 'Maison & cuisine', sous: 'Sélection à petit prix', fond: '#00897B' },
-          ]} onOuvrir={() => router.push('/catalogue')} />
+          <SlidesPub />
         </View>
 
         {/* ⑩ Le top */}
@@ -277,31 +299,23 @@ export default function Accueil() {
               </Text>
             </View>
           </View>
-          <Text style={{ fontSize: 52 }}>🏃</Text>
+          <View style={st.bandeauRond}>
+            <Icone nom="relais" taille={30} couleur="#FFF" />
+          </View>
         </Pressable>
 
         {/* ⑫ La grille infinie, avec bannières intercalées */}
         <View style={{ marginTop: 18 }}>
           <TitreSection titre="Ça pourrait te plaire" />
           <View style={st.grille}>
-            {grille.map((p, i) => (
-              <React.Fragment key={p.id}>
-                <View style={st.celluleGrille}><CarteProduit p={p} /></View>
-                {/* Une bannière tous les six articles : elle coupe la
-                    monotonie sans casser la lecture en colonnes. */}
-                {(i + 1) % 6 === 0 && (
-                  <Pressable onPress={() => router.push('/catalogue')}
-                    style={[st.celluleGrille, st.banniereGrille]}>
-                    <Text style={{ color: '#FFF', fontWeight: '800', fontSize: 15 }}>
-                      Nouvel an{'\n'}avec des remises
-                    </Text>
-                    <Text style={{ color: 'rgba(255,255,255,0.85)', fontSize: 12, marginTop: 6 }}>
-                      Voir la sélection ›
-                    </Text>
-                  </Pressable>
-                )}
-              </React.Fragment>
-            ))}
+            {/* La pub occupe une CASE, pas une bande : elle arrive dans le
+                rythme des deux colonnes au lieu de le rompre. */}
+            {melangerPubs(grille).map((e) =>
+              e.type === 'produit' ? (
+                <View key={e.p.id} style={st.celluleGrille}><CarteProduit p={e.p} /></View>
+              ) : (
+                <View key={e.cle} style={st.celluleGrille}><PubVerticale pub={e.pub} /></View>
+              ))}
           </View>
           {encore && grille.length > 0 && <Squelette hauteur={80} style={{ margin: E.page }} />}
         </View>
@@ -310,33 +324,33 @@ export default function Accueil() {
   );
 }
 
-function emojiCategorie(nom) {
-  const n = (nom || '').toLowerCase();
-  if (n.includes('tech')) return '💻';
-  if (n.includes('audio')) return '🎧';
-  if (n.includes('femme') || n.includes('cloth')) return '👗';
-  if (n.includes('shoe')) return '👟';
-  if (n.includes('beaut')) return '💄';
-  if (n.includes('maison')) return '🏡';
-  if (n.includes('sport')) return '⚽';
-  if (n.includes('bébé') || n.includes('enfant')) return '🧸';
-  if (n.includes('auto')) return '🚗';
-  if (n.includes('sant')) return '💊';
-  if (n.includes('nutrition') || n.includes('aliment')) return '🥗';
-  if (n.includes('restaur')) return '🍽';
-  return '📦';
-}
-
 const st = StyleSheet.create({
   enTete: { paddingHorizontal: E.page, paddingBottom: 14 },
-  enTeteHaut: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    height: 40,
-  },
+  ligneLogo: { height: 40, alignItems: 'center', justifyContent: 'center' },
   logo: { color: '#FFF', fontSize: 20, fontWeight: '800', letterSpacing: -0.5 },
+  ligneRecherche: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 4 },
+
+  // 14 (marge stories) + 96 (le rail) + 14 (marge carrousel) + 118 des 150 de
+  // la bannière : quatre cinquièmes, pas la totalité. La nappe doit s'arrêter
+  // DANS la diapositive, sinon le chevauchement disparaît et on retombe sur
+  // un en-tête simplement plus haut.
+  nappe: {
+    position: 'absolute', top: 0, left: 0, right: 0, height: 242,
+    backgroundColor: C.marine,
+  },
   recherche: {
-    marginTop: 4, backgroundColor: 'rgba(255,255,255,0.12)',
-    borderRadius: R.puce, paddingHorizontal: 16, paddingVertical: 12,
+    flex: 1, flexDirection: 'row', alignItems: 'center', gap: 9,
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    borderRadius: R.puce, paddingHorizontal: 15, paddingVertical: 12,
+  },
+  duoRond: {
+    width: 32, height: 32, borderRadius: 16,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  bandeauRond: {
+    width: 54, height: 54, borderRadius: 27,
+    backgroundColor: 'rgba(255,255,255,0.14)',
+    alignItems: 'center', justifyContent: 'center',
   },
 
   duo: { flexDirection: 'row', gap: 10, paddingHorizontal: E.page, marginTop: 14 },

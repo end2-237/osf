@@ -6,8 +6,10 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { produits, categories } from '../../lib/boutique';
 import CarteProduit from '../../components/CarteProduit';
-import { TitreSection, Puces, Squelette, Vide, Carrousel } from '../../components/Base';
+import { TitreSection, Puces, Squelette, Vide } from '../../components/Base';
+import { SlidesPub, PubVerticale, melangerPubs, PUBS_LARGES } from '../../components/Pub';
 import { C, R, S, E, OMBRE } from '../../lib/ui';
+import Icone, { IconeCategorie } from '../../components/Icone';
 
 const L = Dimensions.get('window').width;
 
@@ -67,8 +69,9 @@ export default function Catalogue() {
           <View style={st.enTete}>
             <Text style={st.titre}>Catalogue</Text>
             <Pressable onPress={() => router.push('/recherche')} style={st.recherche}>
+              <Icone nom="recherche" taille={17} couleur="rgba(255,255,255,0.55)" />
               <Text style={{ fontSize: 15, color: 'rgba(255,255,255,0.6)' }}>
-                🔍  Chercher un article
+                Chercher un article
               </Text>
             </Pressable>
           </View>
@@ -80,14 +83,14 @@ export default function Catalogue() {
               {[0, 1, 2].map((i) => <Squelette key={i} hauteur={120} />)}
             </View>
           ) : cats.length === 0 ? (
-            <Vide icone="🗂" titre="Le catalogue est vide"
+            <Vide icone="catalogue" titre="Le catalogue est vide"
               texte="Aucun article n’est encore publié. Reviens dans un moment." />
           ) : (
             <View style={st.grilleCats}>
               {cats.map((c) => (
                 <Pressable key={c.nom} style={st.cat}
                   onPress={() => router.setParams({ type: c.nom })}>
-                  <View style={st.catImage}><Text style={{ fontSize: 30 }}>{emoji(c.nom)}</Text></View>
+                  <View style={st.catImage}><IconeCategorie nom={c.nom} taille={30} /></View>
                   <Text style={st.catTexte} numberOfLines={2}>{c.nom}</Text>
                   <Text style={st.catCompte}>{c.n} article{c.n > 1 ? 's' : ''}</Text>
                 </Pressable>
@@ -108,15 +111,16 @@ export default function Catalogue() {
         <View style={st.enTete}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
             <Pressable hitSlop={10} onPress={() => router.setParams({ type: undefined })}>
-              <Text style={{ color: '#FFF', fontSize: 24 }}>‹</Text>
+              <Icone nom="retour" taille={25} couleur="#FFF" />
             </Pressable>
             <Text style={[st.titre, { flex: 1, textAlign: 'left', marginTop: 0 }]} numberOfLines={1}>
               {type}
             </Text>
           </View>
           <Pressable onPress={() => router.push('/recherche')} style={st.recherche}>
+            <Icone nom="recherche" taille={17} couleur="rgba(255,255,255,0.55)" />
             <Text style={{ fontSize: 15, color: 'rgba(255,255,255,0.6)' }}>
-              🔍  Chercher dans {type}
+              Chercher dans {type}
             </Text>
           </Pressable>
         </View>
@@ -145,9 +149,16 @@ export default function Catalogue() {
           ]} actif={tri} onChoisir={setTri} />
         </View>
 
+        {/* Les diapositives de pub, entre le tri et la grille. C'est le seul
+            endroit de l'écran où une réclame ne coupe pas une lecture en
+            cours : au-dessus, on choisit ; en dessous, on regarde. */}
         <View style={{ marginTop: 14 }}>
-          <Carrousel hauteur={110} bannieres={[
-            { titre: `Le meilleur de ${type}`, sous: 'Sélection du moment', fond: C.marine },
+          <SlidesPub hauteur={118} pubs={[
+            { id: `c-${type}`, fond: C.marine, teinte: '#2C3A7D', icone: 'etoile',
+              eyebrow: 'Sélection du moment', titre: `Le meilleur de ${type}`,
+              sous: 'Trié par nos vendeurs, pas par un algorithme',
+              action: 'Voir', route: '/catalogue' },
+            ...PUBS_LARGES,
           ]} />
         </View>
 
@@ -158,7 +169,7 @@ export default function Catalogue() {
             ))}
           </View>
         ) : l.length === 0 ? (
-          <Vide icone="🔍" titre="Rien dans cette catégorie"
+          <Vide icone="recherche" titre="Rien dans cette catégorie"
             texte="Aucun article n’y est publié pour le moment."
             bouton="Voir tout le catalogue"
             onBouton={() => router.setParams({ type: undefined })} />
@@ -166,11 +177,16 @@ export default function Catalogue() {
           <>
             <TitreSection titre={`${l.length} article${l.length > 1 ? 's' : ''}`} style={{ marginTop: 16 }} />
             <View style={st.grille}>
-              {l.map((p) => (
-                <View key={p.id} style={{ width: (L - E.page * 2 - E.gouttiere) / 2 }}>
-                  <CarteProduit p={p} />
-                </View>
-              ))}
+              {melangerPubs(l).map((e) =>
+                e.type === 'produit' ? (
+                  <View key={e.p.id} style={{ width: (L - E.page * 2 - E.gouttiere) / 2 }}>
+                    <CarteProduit p={e.p} />
+                  </View>
+                ) : (
+                  <View key={e.cle} style={{ width: (L - E.page * 2 - E.gouttiere) / 2 }}>
+                    <PubVerticale pub={e.pub} />
+                  </View>
+                ))}
             </View>
             {encore && <Squelette hauteur={70} style={{ margin: E.page }} />}
           </>
@@ -180,28 +196,11 @@ export default function Catalogue() {
   );
 }
 
-function emoji(nom) {
-  const n = (nom || '').toLowerCase();
-  if (n.includes('tech')) return '💻';
-  if (n.includes('audio')) return '🎧';
-  if (n.includes('femme') || n.includes('cloth')) return '👗';
-  if (n.includes('shoe')) return '👟';
-  if (n.includes('beaut')) return '💄';
-  if (n.includes('maison')) return '🏡';
-  if (n.includes('sport')) return '⚽';
-  if (n.includes('bébé') || n.includes('enfant')) return '🧸';
-  if (n.includes('auto')) return '🚗';
-  if (n.includes('sant')) return '💊';
-  if (n.includes('nutrition') || n.includes('aliment')) return '🥗';
-  if (n.includes('restaur')) return '🍽';
-  if (n.includes('accessor')) return '👜';
-  return '📦';
-}
-
 const st = StyleSheet.create({
   enTete: { paddingHorizontal: E.page, paddingBottom: 14, paddingTop: 4 },
   titre: { color: '#FFF', fontSize: 19, fontWeight: '800', marginTop: 6 },
   recherche: {
+    flexDirection: 'row', alignItems: 'center', gap: 9,
     marginTop: 10, backgroundColor: 'rgba(255,255,255,0.12)',
     borderRadius: R.puce, paddingHorizontal: 16, paddingVertical: 11,
   },

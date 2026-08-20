@@ -9,6 +9,8 @@ import { produits, categories } from '../lib/boutique';
 import CarteProduit from '../components/CarteProduit';
 import { TitreSection, Squelette, Vide } from '../components/Base';
 import { C, R, S, E, OMBRE, fcfa } from '../lib/ui';
+import Icone from '../components/Icone';
+import { PubVerticale, melangerPubs } from '../components/Pub';
 
 const L = Dimensions.get('window').width;
 const CLE = 'btl_recherches';
@@ -32,10 +34,10 @@ const CLE = 'btl_recherches';
    ══════════════════════════════════════════════════════════════════════════ */
 
 const POPULAIRES = [
-  { icone: '📱', titre: 'Téléphones', sous: 'Smartphones et accessoires', type: 'Tech Lab' },
-  { icone: '🎧', titre: 'Audio', sous: 'Casques et enceintes', type: 'Audio Lab' },
-  { icone: '👟', titre: 'Chaussures', sous: 'Homme et femme', type: 'Shoes' },
-  { icone: '💄', titre: 'Beauté', sous: 'Soins et parfums', type: 'Beauté' },
+  { icone: 'catalogue', titre: 'Téléphones', sous: 'Smartphones et accessoires', type: 'Tech Lab' },
+  { icone: 'casque', titre: 'Audio', sous: 'Casques et enceintes', type: 'Audio Lab' },
+  { icone: 'etiquette', titre: 'Chaussures', sous: 'Homme et femme', type: 'Shoes' },
+  { icone: 'cadeau', titre: 'Beauté', sous: 'Soins et parfums', type: 'Beauté' },
 ];
 
 export default function Recherche() {
@@ -92,10 +94,10 @@ export default function Recherche() {
       <SafeAreaView edges={['top']} style={{ backgroundColor: C.marine }}>
         <View style={st.enTete}>
           <Pressable hitSlop={10} onPress={() => router.back()}>
-            <Text style={{ color: '#FFF', fontSize: 24 }}>‹</Text>
+            <Icone nom="retour" taille={25} couleur="#FFF" />
           </Pressable>
           <View style={st.champ}>
-            <Text style={{ fontSize: 15, color: 'rgba(255,255,255,0.5)' }}>🔍</Text>
+            <Icone nom="recherche" taille={17} couleur="rgba(255,255,255,0.5)" />
             <TextInput
               ref={champ} value={q} onChangeText={setQ}
               onSubmitEditing={() => lancer(q)} returnKeyType="search"
@@ -104,7 +106,7 @@ export default function Recherche() {
               style={st.saisie} />
             {!!q && (
               <Pressable hitSlop={8} onPress={() => setQ('')}>
-                <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 17 }}>✕</Text>
+                <Icone nom="fermer" taille={19} couleur="rgba(255,255,255,0.6)" />
               </Pressable>
             )}
           </View>
@@ -122,11 +124,11 @@ export default function Recherche() {
                 {suggestions.map((c) => (
                   <Pressable key={c.nom} style={st.suggestion}
                     onPress={() => { retenir(q); router.push(`/catalogue?type=${encodeURIComponent(c.nom)}`); }}>
-                    <Text style={{ fontSize: 15 }}>🗂</Text>
+                    <Icone nom="catalogue" taille={17} couleur={C.gris} />
                     <Text style={{ flex: 1, fontSize: 14, color: C.encre }}>
                       {q} <Text style={{ color: C.gris }}>dans</Text> {c.nom}
                     </Text>
-                    <Text style={{ color: C.grisClair, fontSize: 18 }}>›</Text>
+                    <Icone nom="suite" taille={17} couleur={C.grisClair} />
                   </Pressable>
                 ))}
               </View>
@@ -144,15 +146,20 @@ export default function Recherche() {
                 <TitreSection titre={`${res.length} résultat${res.length > 1 ? 's' : ''}`}
                   style={{ marginTop: 16 }} />
                 <View style={st.grille}>
-                  {res.map((p) => (
-                    <View key={p.id} style={{ width: (L - E.page * 2 - E.gouttiere) / 2 }}>
-                      <CarteProduit p={p} />
-                    </View>
-                  ))}
+                  {melangerPubs(res).map((e) =>
+                    e.type === 'produit' ? (
+                      <View key={e.p.id} style={{ width: (L - E.page * 2 - E.gouttiere) / 2 }}>
+                        <CarteProduit p={e.p} />
+                      </View>
+                    ) : (
+                      <View key={e.cle} style={{ width: (L - E.page * 2 - E.gouttiere) / 2 }}>
+                        <PubVerticale pub={e.pub} />
+                      </View>
+                    ))}
                 </View>
               </>
             ) : res ? (
-              <Vide icone="🔍" titre={`Rien pour « ${q} »`}
+              <Vide icone="recherche" titre={`Rien pour « ${q} »`}
                 texte="Essaie un autre mot, ou demande-le à un commerçant : s’il ne l’a pas, il t’enverra chez un voisin qui l’a."
                 bouton="Comment marche le relais" onBouton={() => router.push('/relais')} />
             ) : null}
@@ -177,7 +184,7 @@ export default function Recherche() {
                           const s = histo.filter((x) => x !== h);
                           setHisto(s); AsyncStorage.setItem(CLE, JSON.stringify(s));
                         }}>
-                        <Text style={{ color: C.grisClair, fontSize: 13 }}>✕</Text>
+                        <Icone nom="fermer" taille={13} couleur={C.grisClair} />
                       </Pressable>
                     </Pressable>
                   ))}
@@ -191,12 +198,12 @@ export default function Recherche() {
               {POPULAIRES.map((p) => (
                 <Pressable key={p.titre} style={st.suggestion}
                   onPress={() => router.push(`/catalogue?type=${encodeURIComponent(p.type)}`)}>
-                  <Text style={{ fontSize: 18 }}>{p.icone}</Text>
+                  <Icone nom={p.icone} taille={20} couleur={C.marine} />
                   <View style={{ flex: 1 }}>
                     <Text style={{ fontSize: 14, fontWeight: '600', color: C.encre }}>{p.titre}</Text>
                     <Text style={{ fontSize: 11.5, color: C.gris }}>{p.sous}</Text>
                   </View>
-                  <Text style={{ color: C.grisClair, fontSize: 18 }}>›</Text>
+                  <Icone nom="suite" taille={17} couleur={C.grisClair} />
                 </Pressable>
               ))}
             </View>

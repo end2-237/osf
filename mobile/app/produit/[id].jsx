@@ -9,6 +9,7 @@ import { produit, produits, useBoutique } from '../../lib/boutique';
 import CarteProduit from '../../components/CarteProduit';
 import { TitreSection, Chargement, Vide } from '../../components/Base';
 import { C, R, S, E, OMBRE, fcfa, pourcent } from '../../lib/ui';
+import Icone from '../../components/Icone';
 
 const L = Dimensions.get('window').width;
 
@@ -61,7 +62,7 @@ export default function Produit() {
   if (!p) {
     return (
       <View style={S.page}>
-        <Vide icone="🔍" titre="Article introuvable"
+        <Vide icone="recherche" titre="Article introuvable"
           texte="Il a peut-être été retiré de la vente."
           bouton="Retour au catalogue" onBouton={() => router.replace('/catalogue')} />
       </View>
@@ -79,7 +80,7 @@ export default function Produit() {
       <SafeAreaView edges={['top']} style={{ backgroundColor: C.carte }}>
         <View style={st.barreHaut}>
           <Pressable hitSlop={10} onPress={() => router.back()}>
-            <Text style={{ fontSize: 24, color: C.encre }}>‹</Text>
+            <Icone nom="retour" taille={25} couleur={C.encre} />
           </Pressable>
           <View style={{ flex: 1, flexDirection: 'row', justifyContent: 'center', gap: 6 }}>
             {ONGLETS.map((o) => (
@@ -92,9 +93,8 @@ export default function Produit() {
             ))}
           </View>
           <Pressable hitSlop={10} onPress={() => basculerFavori(p)}>
-            <Text style={{ fontSize: 20, color: estFavori(p.id) ? C.rouge : C.grisClair }}>
-              {estFavori(p.id) ? '♥' : '♡'}
-            </Text>
+            <Icone nom={estFavori(p.id) ? 'favoriPlein' : 'favori'} taille={22}
+              couleur={estFavori(p.id) ? C.rouge : C.grisClair} />
           </Pressable>
         </View>
       </SafeAreaView>
@@ -158,7 +158,7 @@ export default function Produit() {
                   <View style={st.logo}>
                     {p.vendor.logo_url
                       ? <Image source={{ uri: p.vendor.logo_url }} style={{ width: '100%', height: '100%' }} />
-                      : <Text style={{ fontSize: 18 }}>🏪</Text>}
+                      : <Icone nom="boutique" taille={19} couleur={C.gris} />}
                   </View>
                   <View style={{ flex: 1 }}>
                     <Text style={{ fontSize: 14.5, fontWeight: '700', color: C.encre }}>
@@ -168,7 +168,7 @@ export default function Produit() {
                       {p.vendor.city || 'Douala'} · Voir la boutique
                     </Text>
                   </View>
-                  <Text style={{ color: C.grisClair, fontSize: 20 }}>›</Text>
+                  <Icone nom="suite" taille={18} couleur={C.grisClair} />
                 </View>
               </Pressable>
             )}
@@ -177,12 +177,12 @@ export default function Produit() {
             <View style={[st.bloc, { gap: 10 }]}>
               <Text style={S.titre}>Comment le recevoir</Text>
               {[
-                ['🚀', 'Livraison express', 'Aujourd’hui, en 2 h', 'Payante'],
-                ['🚚', 'Livraison standard', 'Demain', '1 500 F'],
-                ['🏪', 'Retrait en boutique', 'Dès aujourd’hui', 'Gratuit'],
+                ['fusee', 'Livraison express', 'Aujourd’hui, en 2 h', 'Payante'],
+                ['camion', 'Livraison standard', 'Demain', '1 500 F'],
+                ['boutique', 'Retrait en boutique', 'Dès aujourd’hui', 'Gratuit'],
               ].map(([i, t, d, prix]) => (
                 <View key={t} style={st.mode}>
-                  <Text style={{ fontSize: 17 }}>{i}</Text>
+                  <Icone nom={i} taille={18} couleur={C.orange} />
                   <View style={{ flex: 1 }}>
                     <Text style={{ fontSize: 13.5, fontWeight: '600', color: C.encre }}>{t}</Text>
                     <Text style={{ fontSize: 11.5, color: C.gris }}>{d}</Text>
@@ -229,10 +229,12 @@ export default function Produit() {
               </Text>
             ) : avis.map((a) => (
               <View key={a.id} style={{ gap: 3 }}>
-                <Text style={{ fontSize: 13, color: C.jaune, fontWeight: '700' }}>
-                  {'★'.repeat(a.rating || 0)}
-                  <Text style={{ color: C.grisClair }}>{'★'.repeat(5 - (a.rating || 0))}</Text>
-                </Text>
+                <View style={{ flexDirection: 'row', gap: 2 }}>
+                  {[0,1,2,3,4].map((i) => (
+                    <Icone key={i} nom={i < (a.rating || 0) ? 'etoile' : 'etoileVide'} taille={13}
+                      couleur={i < (a.rating || 0) ? C.jaune : C.grisClair} />
+                  ))}
+                </View>
                 {!!a.comment && (
                   <Text style={{ fontSize: 13, color: C.encre, lineHeight: 18 }}>{a.comment}</Text>
                 )}
@@ -268,7 +270,7 @@ export default function Produit() {
         </View>
         <Pressable onPress={() => !epuise && ouvrirChoix(p)} disabled={epuise}
           style={[S.bouton, { paddingHorizontal: 30 }, epuise && S.boutonEteint]}>
-          <Text style={{ fontSize: 15 }}>🛒</Text>
+          <Icone nom="panier" taille={18} couleur={epuise ? C.grisClair : '#FFF'} />
           <Text style={[S.boutonTexte, epuise && S.boutonEteintTexte]}>
             {epuise ? 'Épuisé' : 'Au panier'}
           </Text>
