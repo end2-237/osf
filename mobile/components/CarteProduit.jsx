@@ -26,35 +26,49 @@ const PLACEHOLDER = 'data:image/svg+xml;utf8,' + encodeURIComponent(
      <path d="M62 132h76M72 108l21-25 17 20 12-12 17 17" stroke="#C7CBD1"
            stroke-width="6" fill="none" stroke-linecap="round"/></svg>`);
 
-/** L'urgence, dans l'ordre de force. Une seule ligne s'affiche. */
+/** L'urgence, dans l'ordre de force. Une seule ligne s'affiche, en capitales
+    orange : dans la référence c'est le seul texte en capitales de la carte, et
+    c'est ce qui le fait lire avant le titre. */
 function urgence(p) {
   if (p.fin_promo) return { icone: 'chrono', texte: p.fin_promo };
   if (p.stock != null && p.stock > 0 && p.stock <= 5) {
-    return { icone: 'eclair', texte: `Il en reste ${p.stock}` };
+    return { icone: 'feu', texte: `Il en reste ${p.stock}` };
   }
   if (p.meilleur_prix) return { icone: 'etoile', texte: 'Meilleur prix' };
   if (p.populaire) return { icone: 'feu', texte: 'Ça part vite' };
   return null;
 }
 
-function badge(p) {
-  if (p.status === 'Épuisé') return { t: 'ÉPUISÉ', fond: C.gris };
-  if (p.promo) return { t: 'SALE', fond: C.orange };
-  if (p.nouveau) return { t: 'NEW', fond: C.orange };
-  return { t: '0-0-24', fond: '#FFF', encre: C.encre };
+/* Les badges de la vignette. La référence en pose UN ou DEUX, jamais trois :
+   celui qui vend (la remise, SALE, NEW) puis celui qui rassure (le paiement
+   échelonné, en pilule blanche cerclée). Au-delà, la vignette devient un
+   autocollant et plus personne ne les lit. */
+function badges(p, remise) {
+  const l = [];
+  if (p.status === 'Épuisé') l.push({ t: 'ÉPUISÉ', fond: C.gris });
+  else if (remise) l.push({ t: `remise ${remise}`, fond: C.orange });
+  else if (p.promo) l.push({ t: 'SALE', fond: C.orange });
+  if (p.nouveau) l.push({ t: 'NEW', fond: C.orange, icone: 'feu' });
+  if (l.length < 2 && p.price >= 20000) {
+    l.push({ t: '0-0-24', fond: '#FFF', encre: C.encre, cercle: true });
+  }
+  return l.slice(0, 2);
 }
 
+/* La note se lit « 4,8 » en noir gras, puis les étoiles, puis le nombre d'avis
+   en gris. Mettre le chiffre en jaune comme les étoiles — ce qu'on fait
+   d'instinct — le noie dans la ligne : c'est le chiffre qu'on cherche. */
 function Etoiles({ note = 0, avis = 0 }) {
   if (!note) return null;
   const pleines = Math.round(note);
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-      <Text style={{ fontSize: 13, fontWeight: '700', color: C.jaune }}>
-        {Number(note).toFixed(1)}
+      <Text style={{ fontSize: 12.5, fontWeight: '700', color: C.encre }}>
+        {Number(note).toFixed(1).replace('.', ',')}
       </Text>
       <View style={{ flexDirection: 'row', gap: 1 }}>
         {[0, 1, 2, 3, 4].map((i) => (
-          <Icone key={i} nom={i < pleines ? 'etoile' : 'etoileVide'} taille={11}
+          <Icone key={i} nom={i < pleines ? 'etoile' : 'etoileVide'} taille={10}
             couleur={i < pleines ? C.jaune : C.grisClair} />
         ))}
       </View>
@@ -69,8 +83,8 @@ function CarteProduit({ p, horizontal = false, largeur }) {
 
   const fav = estFavori(p.id);
   const u = urgence(p);
-  const b = badge(p);
   const remise = pourcent(p.prix_barre, p.price);
+  const lesBadges = badges(p, remise);
   const epuise = p.status === 'Épuisé';
 
   const Image_ = (
@@ -100,9 +114,14 @@ function CarteProduit({ p, horizontal = false, largeur }) {
             balayer une liste et de repérer les SALE sans lire un mot. */}
         <View style={{ position: 'relative' }}>
           {Image_}
-          <View style={[st.badge, { backgroundColor: b.fond },
-            b.encre && { borderWidth: 1, borderColor: C.bord }]}>
-            <Text style={[st.badgeTexte, b.encre && { color: b.encre }]}>{b.t}</Text>
+          <View style={st.badges}>
+            {lesBadges.map((b) => (
+              <View key={b.t} style={[st.badge, { backgroundColor: b.fond },
+                b.cercle && { borderWidth: 1, borderColor: C.bord }]}>
+                {!!b.icone && <Icone nom={b.icone} taille={9} couleur={b.encre || '#FFF'} />}
+                <Text style={[st.badgeTexte, b.encre && { color: b.encre }]}>{b.t}</Text>
+              </View>
+            ))}
           </View>
           {!horizontal && (
             <Pressable hitSlop={8} onPress={() => basculerFavori(p)} style={st.coeur}>
@@ -130,7 +149,10 @@ function CarteProduit({ p, horizontal = false, largeur }) {
               clients : c'est lui qui rend l'article atteignable. */}
           {p.price >= 20000 && (
             <View style={st.echelonne}>
-              <Text style={st.echelonneTexte}>
+              <View style={st.echelonnePastille}>
+                <Text style={st.echelonnePastilleTexte}>0</Text>
+              </View>
+              <Text style={st.echelonneTexte} numberOfLines={1}>
                 dès <Text style={{ fontWeight: '700', color: C.encre }}>
                   {fcfa(Math.round(p.price / 12))}
                 </Text> × 12 mois
@@ -141,10 +163,13 @@ function CarteProduit({ p, horizontal = false, largeur }) {
           <View style={st.ligneP4rix}>
             <View style={{ flex: 1 }}>
               <Text style={st.prix}>{fcfa(p.price)}</Text>
+              {/* Le prix barré et la remise passent SOUS le prix, jamais à
+                  côté : à côté, l'œil compare deux nombres et hésite ; dessous,
+                  il lit le prix puis apprend qu'il a baissé. */}
               {!!remise && (
-                <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>
+                <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center', marginTop: 1 }}>
                   <Text style={S.prixBarre}>{fcfa(p.prix_barre)}</Text>
-                  <Text style={S.remise}>{remise}</Text>
+                  <Text style={st.remise}>{remise}</Text>
                 </View>
               )}
             </View>
@@ -187,11 +212,15 @@ const st = StyleSheet.create({
   },
   zoneImageH: { width: 108, aspectRatio: 1 },
 
-  badge: {
-    position: 'absolute', top: 6, left: 6, borderRadius: R.puce,
-    paddingHorizontal: 8, paddingVertical: 3,
+  badges: {
+    position: 'absolute', top: 6, left: 6, right: 30,
+    flexDirection: 'row', gap: 4, flexWrap: 'wrap',
   },
-  badgeTexte: { fontSize: 10, fontWeight: '700', color: '#FFF' },
+  badge: {
+    flexDirection: 'row', alignItems: 'center', gap: 3,
+    borderRadius: R.puce, paddingHorizontal: 7, paddingVertical: 2.5,
+  },
+  badgeTexte: { fontSize: 9.5, fontWeight: '700', color: '#FFF' },
 
   coeur: { position: 'absolute', top: 4, right: 4, padding: 4 },
 
@@ -202,18 +231,30 @@ const st = StyleSheet.create({
   point: { width: 4, height: 4, borderRadius: 2, backgroundColor: C.grisClair },
   pointActif: { backgroundColor: C.marine, width: 10 },
 
-  urgence: { fontSize: 11, fontWeight: '700', color: C.orange },
+  urgence: {
+    fontSize: 9.5, fontWeight: '800', color: C.orange,
+    textTransform: 'uppercase', letterSpacing: 0.4,
+  },
   titre: { fontSize: 13, color: C.encre, lineHeight: 17, minHeight: 34 },
 
   echelonne: {
+    flexDirection: 'row', alignItems: 'center', gap: 5,
     alignSelf: 'flex-start', marginTop: 5,
     backgroundColor: C.champ, borderRadius: R.puce,
-    paddingHorizontal: 8, paddingVertical: 3,
+    paddingLeft: 4, paddingRight: 9, paddingVertical: 2.5,
   },
-  echelonneTexte: { fontSize: 11, color: C.gris },
+  echelonnePastille: {
+    width: 14, height: 14, borderRadius: 7, backgroundColor: C.orange,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  echelonnePastilleTexte: { fontSize: 9, fontWeight: '800', color: '#FFF' },
+  echelonneTexte: { fontSize: 10.5, color: C.gris },
 
-  ligneP4rix: { flexDirection: 'row', alignItems: 'center', marginTop: 6, gap: 6 },
+  ligneP4rix: { flexDirection: 'row', alignItems: 'flex-end', marginTop: 6, gap: 6 },
   prix: { fontSize: 18, fontWeight: '800', color: C.encre },
+  // Rouge, pas orange : la remise est le seul endroit de la carte où le rouge
+  // a un sens, et l'orange y serait confondu avec la ligne d'urgence.
+  remise: { fontSize: 12, fontWeight: '700', color: C.rouge },
 
   panier: {
     width: 38, height: 38, borderRadius: 19, backgroundColor: C.marine,

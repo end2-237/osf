@@ -10,6 +10,7 @@ import CarteProduit from '../../components/CarteProduit';
 import { TitreSection, Puces, Carrousel, Squelette } from '../../components/Base';
 import Stories from '../../components/Stories';
 import { SlidesPub, PubVerticale, melangerPubs } from '../../components/Pub';
+import Logo from '../../components/Logo';
 import { C, R, S, E, OMBRE } from '../../lib/ui';
 import Icone, { IconeCategorie } from '../../components/Icone';
 
@@ -130,7 +131,7 @@ export default function Accueil() {
           {/* Ligne 1 — le logo seul, centré. C'est la marque, et rien d'autre
               ne partage sa ligne : posé au milieu, il tient l'écran. */}
           <View style={st.ligneLogo}>
-            <Text style={st.logo}>buy<Text style={{ color: C.orange }}>ticle</Text></Text>
+            <Logo taille={21} />
           </View>
 
           {/* Ligne 2 — l'épingle, le champ, puis la cloche et le casque. Les

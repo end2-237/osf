@@ -48,8 +48,9 @@ on:
         default: update
         type: choice
         options:
+          - apk             # l'APK construit ICI, à télécharger dans les artefacts
           - update          # mise à jour à l'air, deux minutes
-          - build-preview   # un APK à installer à la main
+          - build-preview   # un APK via les serveurs d'Expo
           - build-production # l'AAB du Play Store
       message:
         description: "Ce que ça corrige (pour la mise à jour)"
@@ -93,6 +94,117 @@ jobs:
           EXPO_PUBLIC_SUPABASE_URL: https://exemple.supabase.co
           EXPO_PUBLIC_SUPABASE_ANON_KEY: cle-de-controle
         run: npx expo export --platform android --output-dir /tmp/verif
+
+  # ──────────────────────────────────────────────────────────────────────────
+  #  L'APK, construit ICI et déposé en artefact du run.
+  #
+  #  Pourquoi ne pas passer par les serveurs d'Expo : un build EAS rend une
+  #  URL sur expo.dev, il faut un compte pour la suivre, et il consomme le
+  #  quota. Ici on préconstruit le projet natif et on appelle Gradle sur le
+  #  runner : le fichier tombe dans l'onglet « Artifacts » du run, et se
+  #  télécharge d'un clic sans rien installer.
+  #
+  #  La signature : le gabarit Expo signe la variante `release` avec la clé de
+  #  déboguage tant qu'aucune clé de publication n'est fournie. C'est ce qu'il
+  #  faut pour installer à la main et faire essayer l'application. Ce n'est PAS
+  #  ce qu'accepte le Play Store — pour le magasin, il faudra le profil
+  #  `build-production` et une vraie clé.
+  # ──────────────────────────────────────────────────────────────────────────
+  apk:
+    name: Construire l'APK ici
+    needs: verifier
+    if: github.event.inputs.action == 'apk'
+    runs-on: ubuntu-latest
+    # L'adresse du projet est déjà publique — elle est écrite en clair dans le
+    # code du site. Seule la clé anon reste à poser en variable de dépôt, et
+    # elle n'est pas secrète non plus : elle voyage dans chaque page du site.
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Installer
+        run: npm ci
+
+      # Les clés arrivent du dépôt et sont FIGÉES dans le binaire : `EXPO_PUBLIC_`
+      # est compilé, pas lu au démarrage. Une clé absente donnerait un APK qui
+      # s'ouvre et ne charge rien — on préfère échouer ici, bruyamment.
+      - name: Vérifier les clés
+        env:
+          URL: ${{ vars.EXPO_PUBLIC_SUPABASE_URL || 'https://alrbokstfwwlvbvghrqr.supabase.co' }}
+          CLE: ${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY || vars.EXPO_PUBLIC_SUPABASE_ANON_KEY }}
+        run: |
+          if [ -z "$CLE" ]; then
+            echo "::error::Il manque EXPO_PUBLIC_SUPABASE_ANON_KEY."
+            echo "::error::Settings → Secrets and variables → Actions → onglet « Variables »"
+            echo "::error::→ New repository variable. La clé anon n'est pas un secret :"
+            echo "::error::elle est déjà lisible dans le bundle du site."
+            exit 1
+          fi
+          echo "Adresse : $URL"
+          echo "Clé présente."
+
+      - name: Préconstruire le projet Android
+        env:
+          EXPO_PUBLIC_SUPABASE_URL: ${{ vars.EXPO_PUBLIC_SUPABASE_URL || 'https://alrbokstfwwlvbvghrqr.supabase.co' }}
+          EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY || vars.EXPO_PUBLIC_SUPABASE_ANON_KEY }}
+        run: npx expo prebuild --platform android --no-install --clean
+
+      - name: Gradle
+        env:
+          EXPO_PUBLIC_SUPABASE_URL: ${{ vars.EXPO_PUBLIC_SUPABASE_URL || 'https://alrbokstfwwlvbvghrqr.supabase.co' }}
+          EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY || vars.EXPO_PUBLIC_SUPABASE_ANON_KEY }}
+        run: |
+          cd android
+          chmod +x ./gradlew
+          ./gradlew assembleRelease --no-daemon --stacktrace
+
+      - name: Renommer le fichier
+        id: fichier
+        run: |
+          SRC=$(find android/app/build/outputs/apk -name '*.apk' | head -1)
+          VER=$(node -p "require('./app.json').expo.version")
+          DST="buyticle-store-${VER}-${GITHUB_SHA::7}.apk"
+          cp "$SRC" "$DST"
+          echo "nom=$DST" >> $GITHUB_OUTPUT
+          ls -lh "$DST"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: buyticle-store-apk
+          path: mobile/${{ steps.fichier.outputs.nom }}
+          retention-days: 30
+          if-no-files-found: error
+
+      - name: Où le récupérer
+        run: |
+          echo "### L'APK est prêt" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Fichier : \`${{ steps.fichier.outputs.nom }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Il est en bas de cette page, dans **Artifacts**, sous le nom" >> $GITHUB_STEP_SUMMARY
+          echo "\`buyticle-store-apk\`. GitHub le rend dans un **.zip** :" >> $GITHUB_STEP_SUMMARY
+          echo "décompresse-le avant d'installer." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Sur le téléphone, autorise **« Installer des applications" >> $GITHUB_STEP_SUMMARY
+          echo "inconnues »** pour le navigateur ou le gestionnaire de fichiers." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Signé avec la clé de déboguage : bon pour essayer et faire" >> $GITHUB_STEP_SUMMARY
+          echo "essayer, pas pour le Play Store." >> $GITHUB_STEP_SUMMARY
 
   # ──────────────────────────────────────────────────────────────────────────
   #  La mise à jour à l'air. Automatique sur main, ou à la demande.
