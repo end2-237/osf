@@ -1,0 +1,187 @@
+name: Buyticle Store — build et mise à jour
+
+# ════════════════════════════════════════════════════════════════════════════
+#  DEUX CHOSES QUI N'ONT PAS LE MÊME COÛT
+#
+#  Une MISE À JOUR À L'AIR ne contient que du JavaScript. Elle prend deux
+#  minutes, ne passe par aucun magasin, et atteint les téléphones au démarrage
+#  suivant. C'est ce qu'on veut à chaque correction : le commerçant de Mboppi
+#  ne rouvrira pas le Play Store.
+#
+#  Un BUILD reconstruit le binaire natif. Il prend vingt minutes sur les
+#  serveurs d'Expo et n'est nécessaire que lorsque le natif change — une
+#  dépendance Expo ajoutée, une permission, un changement de version.
+#
+#  D'où la règle qui gouverne ce fichier : on pousse une mise à jour
+#  automatiquement, on ne construit JAMAIS automatiquement. Un build lancé à
+#  chaque commit consommerait le quota et ne servirait à rien.
+#
+#  À POSER UNE FOIS, AVANT LE PREMIER LANCEMENT
+#
+#    1. Le jeton de publication, en secret du dépôt :
+#         Settings → Secrets and variables → Actions → New repository secret
+#         Nom : EXPO_TOKEN
+#         Valeur : un jeton créé sur https://expo.dev/settings/access-tokens
+#
+#    2. Les clés Supabase, côté Expo — elles ne transitent pas par ici, parce
+#       que le build tourne sur les serveurs d'Expo et non sur ce runner :
+#         cd mobile
+#         npx eas-cli env:create --name EXPO_PUBLIC_SUPABASE_URL \
+#           --value "https://xxxx.supabase.co" --visibility plaintext \
+#           --environment production --environment preview --environment development
+#         npx eas-cli env:create --name EXPO_PUBLIC_SUPABASE_ANON_KEY \
+#           --value "eyJ..." --visibility plaintext \
+#           --environment production --environment preview --environment development
+# ════════════════════════════════════════════════════════════════════════════
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'mobile/**'
+      - '.github/workflows/mobile.yml'
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "Ce qu'on fait"
+        required: true
+        default: update
+        type: choice
+        options:
+          - update          # mise à jour à l'air, deux minutes
+          - build-preview   # un APK à installer à la main
+          - build-production # l'AAB du Play Store
+      message:
+        description: "Ce que ça corrige (pour la mise à jour)"
+        required: false
+        default: ''
+
+# Une seule exécution à la fois : deux mises à jour concurrentes sur le même
+# canal produisent un ordre d'arrivée indéterminé sur les téléphones.
+concurrency:
+  group: mobile-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  # ──────────────────────────────────────────────────────────────────────────
+  #  Contrôle : le paquet s'installe et l'application se bundle vraiment.
+  #  Sans lui, une mise à jour cassée partirait vers les téléphones — et une
+  #  application qui ne démarre plus ne peut plus recevoir le correctif.
+  # ──────────────────────────────────────────────────────────────────────────
+  verifier:
+    name: Le bundle passe
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+
+      - name: Installer
+        run: npm ci
+
+      - name: Bundler pour Android
+        # Des valeurs de façade suffisent : on vérifie que le code compile,
+        # pas qu'il joigne la base.
+        env:
+          EXPO_PUBLIC_SUPABASE_URL: https://exemple.supabase.co
+          EXPO_PUBLIC_SUPABASE_ANON_KEY: cle-de-controle
+        run: npx expo export --platform android --output-dir /tmp/verif
+
+  # ──────────────────────────────────────────────────────────────────────────
+  #  La mise à jour à l'air. Automatique sur main, ou à la demande.
+  # ──────────────────────────────────────────────────────────────────────────
+  mise_a_jour:
+    name: Pousser la mise à jour
+    needs: verifier
+    if: github.event_name == 'push' || github.event.inputs.action == 'update'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+
+      - uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Installer
+        run: npm ci
+
+      - name: Publier sur le canal production
+        run: |
+          MSG="${{ github.event.inputs.message }}"
+          if [ -z "$MSG" ]; then
+            MSG="$(git log -1 --pretty=%s)"
+          fi
+          npx eas-cli update --branch production --message "$MSG" --non-interactive
+
+      - name: Ce qui vient de partir
+        run: |
+          echo "### Mise à jour poussée" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Canal **production**. Elle atteindra les téléphones au prochain" >> $GITHUB_STEP_SUMMARY
+          echo "démarrage de l'application — sans passer par le Play Store." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Rappel : une mise à jour à l'air ne remplace pas un build." >> $GITHUB_STEP_SUMMARY
+          echo "Elle n'atteint que les installations de la même \`version\`" >> $GITHUB_STEP_SUMMARY
+          echo "d'application (politique \`appVersion\`)." >> $GITHUB_STEP_SUMMARY
+
+  # ──────────────────────────────────────────────────────────────────────────
+  #  Le build natif. Jamais automatique — vingt minutes de serveur Expo.
+  # ──────────────────────────────────────────────────────────────────────────
+  build:
+    name: Construire le binaire
+    needs: verifier
+    if: startsWith(github.event.inputs.action, 'build-')
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+
+      - uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Installer
+        run: npm ci
+
+      - name: Lancer le build
+        run: |
+          PROFIL="${{ github.event.inputs.action }}"
+          PROFIL="${PROFIL#build-}"
+          echo "Profil : $PROFIL"
+          npx eas-cli build --platform android --profile "$PROFIL" \
+            --non-interactive --no-wait
+
+      - name: Où le récupérer
+        run: |
+          echo "### Build lancé" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Il tourne sur les serveurs d'Expo — compte une vingtaine de minutes." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Suis-le et télécharge le fichier ici :" >> $GITHUB_STEP_SUMMARY
+          echo "https://expo.dev/accounts/onedev237/projects/buyticle-store/builds" >> $GITHUB_STEP_SUMMARY

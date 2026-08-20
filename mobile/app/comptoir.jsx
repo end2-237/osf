@@ -497,10 +497,13 @@ function Envoyer({ vendor }) {
             </View>
           )}
 
+          {/* L'espacement des lettres s'applique aussi au texte d'invite : une
+              phrase entière y déborde du champ. Quatre caractères d'exemple
+              disent la même chose et tiennent. */}
           <TextInput
             value={code} onChangeText={(v) => setCode(v.toUpperCase())}
             maxLength={4} autoCapitalize="characters"
-            placeholder="Son code à 4 caractères" placeholderTextColor="#9AA0A6"
+            placeholder="AB34" placeholderTextColor="#9AA0A6"
             style={[S.champ, { textAlign: 'center', fontSize: 20, fontWeight: '700', letterSpacing: 6 }]} />
 
           <Pressable onPress={attribuer}
