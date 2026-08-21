@@ -181,6 +181,19 @@ const AddProductWizard = ({ vendor, product = null, plan = null, onClose, onDone
       const { error } = isEdit
         ? await supabase.from("products").update(payload).eq("id", product.id).eq("vendor_id", vendor.id)
         : await supabase.from("products").insert({ ...payload, vendor_id: vendor.id });
+      // 23505 : la base refuse un second article du même nom pour la même
+      // boutique. Ce n'est pas une panne — c'est presque toujours une
+      // republication après un réseau coupé, et l'article est DÉJÀ en ligne.
+      // Le dire ainsi évite au vendeur de recommencer une quatrième fois.
+      if (error?.code === "23505") {
+        showToast(
+          "Cet article est déjà en ligne",
+          "Tu l'as déjà publié sous ce nom. Vérifie ta liste : si le réseau a coupé tout à l'heure, il est bien passé. Pour une variante, change le nom.",
+          "error",
+        );
+        setSaving(false);
+        return;
+      }
       if (error) throw error;
       onDone();
     } catch (e) { showToast("Erreur", e.message, "error"); setSaving(false); }

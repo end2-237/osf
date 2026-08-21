@@ -5,6 +5,7 @@ import { useAuth } from "../context/AuthContext";
 import CJImportTab from "../components/CJImportTab";
 import RayonsConsole from "../components/RayonsConsole";
 import RegiePub from '../components/RegiePub';
+import MessagerieAdmin, { FeuilleAction, MOTIFS_PRODUIT } from '../components/MessagerieAdmin';
 import CourierManager from "../components/CourierManager";
 import { fetchSiteSettings, saveSiteSettings } from "../components/WhatsAppButton";
 
@@ -695,11 +696,23 @@ const AllProductsTab = ({ loading }) => {
   const [videoSync, setVideoSync] = useState({ running: false, done: 0, total: 0, updated: 0, stopped: false });
   const videoSyncStop = useRef(false);
 
-  const handleDelete = async (id) => {
-    if (!window.confirm("Supprimer ce produit ?")) return;
-    await supabase.from("products").delete().eq("id", id);
-    setProducts(p => p.filter(x => x.id !== id));
+  // La suppression ne part plus d'un `confirm()`. Un `confirm()` demande si on
+  // est sûr ; il ne demande pas POURQUOI, et c'est le pourquoi qui manquait au
+  // vendeur. La feuille d'action ne se valide pas sans message.
+  const [aRetirer, setARetirer] = useState(null);
+  const handleDelete = (id) => {
+    const p = products.find(x => x.id === id);
+    if (p) setARetirer(p);
+  };
+
+  const retirer = async ({ motif, message }) => {
+    const { error } = await supabase.rpc("admin_retirer_produit", {
+      p_product_id: aRetirer.id, p_motif: motif, p_message: message,
+    });
+    if (error) throw new Error(error.message);
+    setProducts(p => p.filter(x => x.id !== aRetirer.id));
     setTotal(t => t - 1);
+    setARetirer(null);
   };
 
   const runBulkVideoSync = async () => {
@@ -851,6 +864,20 @@ const AllProductsTab = ({ loading }) => {
             <ProductAdminCard key={p.id} p={p} onDelete={handleDelete} />
           ))}
         </div>
+      )}
+
+      {aRetirer && (
+        <FeuilleAction
+          titre={`Retirer « ${aRetirer.name} »`}
+          sousTitre={aRetirer.vendor?.shop_name
+            ? `${aRetirer.vendor.shop_name} sera prévenue, avec le motif.`
+            : "Article de la plateforme — personne à prévenir."}
+          motifs={MOTIFS_PRODUIT}
+          boutique={aRetirer.vendor?.shop_name}
+          dangereux
+          libelleValider="Retirer et prévenir"
+          onFerme={() => setARetirer(null)}
+          onValider={retirer} />
       )}
     </div>
   );
@@ -4072,6 +4099,7 @@ const SuperAdmin = () => {
     { key: "reviews",      icon: "fa-star",            label: "Avis",           badge: globalStats.pendingReviews || 0 },
     { key: "promo",        icon: "fa-tag",             label: "Promos"          },
     { key: "pub",          icon: "fa-bullhorn",        label: "Publicité"       },
+    { key: "messages",     icon: "fa-comment-dots",    label: "Messages"        },
     { key: "affiliation",  icon: "fa-link",            label: "Affiliation"     },
     { key: "settings",     icon: "fa-gear",            label: "Paramètres"      },
   ];
@@ -4213,6 +4241,8 @@ const SuperAdmin = () => {
         )}
 
         {activeTab === "pub" && <RegiePub />}
+
+        {activeTab === "messages" && <MessagerieAdmin />}
 
         {activeTab === "affiliation" && (
           <AffiliationTab orders={allOrders} />

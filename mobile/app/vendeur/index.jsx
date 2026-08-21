@@ -29,22 +29,29 @@ export default function Vendeur() {
   const [solde, setSolde] = useState(null);
   const [bon, setBon] = useState(null);
   const [appels, setAppels] = useState(0);
+  const [messages, setMessages] = useState(0);
   const [raf, setRaf] = useState(false);
 
   const charger = useCallback(async () => {
     if (!vendor?.id) return;
-    const [c, b, s, a] = await Promise.all([
+    const [c, b, s, a, m] = await Promise.all([
       supabase.from('orders')
         .select('id, total_amount, status, created_at, client_name')
         .eq('vendor_id', vendor.id).order('created_at', { ascending: false }).limit(50),
       supabase.rpc('vendor_balance', { p_vendor_id: vendor.id }),
       soldeBon(vendor.id),
       appelsEnAttente(vendor.id),
+      // Les sept derniers jours seulement : un avertissement de mars n'est
+      // plus une pastille rouge, c'est de l'historique.
+      supabase.from('actions_admin').select('id', { count: 'exact', head: true })
+        .eq('vendor_id', vendor.id)
+        .gte('created_at', new Date(Date.now() - 7 * 86400000).toISOString()),
     ]);
     setCmds(c.data || []);
     setSolde(b.data?.[0] || null);
     setBon(s.data?.[0] || null);
     setAppels((a.data || []).length);
+    setMessages(m.count || 0);
   }, [vendor?.id]);
 
   useEffect(() => { charger(); }, [charger]);
