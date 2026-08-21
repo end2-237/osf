@@ -7,7 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { produits, categories } from '../../lib/boutique';
 import CarteProduit from '../../components/CarteProduit';
 import { TitreSection, Puces, Squelette, Vide } from '../../components/Base';
-import { SlidesPub, PubVerticale, melangerPubs, PUBS_LARGES } from '../../components/Pub';
+import { SlidesPub, PubVerticale, melangerPubs, useCartesPub } from '../../components/Pub';
 import { C, R, S, E, OMBRE } from '../../lib/ui';
 import Icone, { IconeCategorie } from '../../components/Icone';
 
@@ -30,6 +30,7 @@ const L = Dimensions.get('window').width;
 export default function Catalogue() {
   const router = useRouter();
   const { type } = useLocalSearchParams();
+  const cartesPub = useCartesPub();
 
   const [cats, setCats] = useState(null);
   const [liste, setListe] = useState(null);
@@ -153,13 +154,7 @@ export default function Catalogue() {
             endroit de l'écran où une réclame ne coupe pas une lecture en
             cours : au-dessus, on choisit ; en dessous, on regarde. */}
         <View style={{ marginTop: 14 }}>
-          <SlidesPub hauteur={118} pubs={[
-            { id: `c-${type}`, fond: C.marine, teinte: '#2C3A7D', icone: 'etoile',
-              eyebrow: 'Sélection du moment', titre: `Le meilleur de ${type}`,
-              sous: 'Trié par nos vendeurs, pas par un algorithme',
-              action: 'Voir', route: '/catalogue' },
-            ...PUBS_LARGES,
-          ]} />
+          <SlidesPub hauteur={118} />
         </View>
 
         {l === null ? (
@@ -177,7 +172,7 @@ export default function Catalogue() {
           <>
             <TitreSection titre={`${l.length} article${l.length > 1 ? 's' : ''}`} style={{ marginTop: 16 }} />
             <View style={st.grille}>
-              {melangerPubs(l).map((e) =>
+              {melangerPubs(l, cartesPub).map((e) =>
                 e.type === 'produit' ? (
                   <View key={e.p.id} style={{ width: (L - E.page * 2 - E.gouttiere) / 2 }}>
                     <CarteProduit p={e.p} />

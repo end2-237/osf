@@ -16,12 +16,29 @@ const SponsoredBanner = ({ excludeVendorId = null, className = "" }) => {
 
   useEffect(() => {
     const load = async () => {
-      let q = supabase.from("vendors").select("*").eq("is_active", true);
-      if (excludeVendorId) q = q.neq("id", excludeVendorId);
-      const { data: vendors } = await q;
-      if (!vendors?.length) return;
+      /* La boutique SPONSORISÉE d'abord. Tirer au hasard parmi toutes les
+         boutiques actives, comme avant, revenait à vendre une mise en avant
+         qu'on ne savait pas livrer : celle qui payait n'était pas plus vue
+         qu'une autre. On ne retombe sur le hasard que si aucun contrat n'est
+         en cours — un bandeau vide se remarque plus qu'une réclame. */
+      let v = null;
+      const { data: sponso } = await supabase
+        .rpc("boutique_sponsorisee", { p_exclure: excludeVendorId || null });
+      const s = Array.isArray(sponso) ? sponso[0] : sponso;
 
-      const v = vendors[Math.floor(Math.random() * vendors.length)];
+      if (s?.vendor_id) {
+        const { data } = await supabase
+          .from("vendors").select("*").eq("id", s.vendor_id).maybeSingle();
+        v = data;
+      }
+
+      if (!v) {
+        let q = supabase.from("vendors").select("*").eq("is_active", true);
+        if (excludeVendorId) q = q.neq("id", excludeVendorId);
+        const { data: vendors } = await q;
+        if (!vendors?.length) return;
+        v = vendors[Math.floor(Math.random() * vendors.length)];
+      }
       const { data: prods } = await supabase
         .from("products")
         .select("id, name, img, price, type")

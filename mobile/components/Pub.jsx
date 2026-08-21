@@ -1,8 +1,9 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   View, Text, Image, Pressable, ScrollView, StyleSheet, Dimensions,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { supabase } from '../lib/supabase';
 import { C, R, E, OMBRE } from '../lib/ui';
 import Icone from './Icone';
 
@@ -70,12 +71,66 @@ export const PUBS_HAUTES = [
   },
 ];
 
+/* ── La régie ────────────────────────────────────────────────────────────
+   Les campagnes viennent de la base, plus du code : la console du
+   super-admin les écrit, et elles arrivent au prochain chargement d'écran —
+   sans déploiement, sans mise à jour à installer.
+
+   Le repli sur les constantes ci-dessus n'est pas de la prudence décorative :
+   un téléphone hors réseau, ou une régie vide un lundi matin, laisserait
+   sinon un trou dans la page. Un emplacement vide se remarque plus qu'une
+   réclame.
+
+   La FENÊTRE de diffusion est jugée en base et jamais ici : sur un téléphone
+   dont l'horloge est fausse — et il y en a — on afficherait une campagne
+   terminée, ou l'on raterait celle du jour. */
+function useCampagnes(emplacement, repli) {
+  const [pubs, setPubs] = useState(repli);
+
+  useEffect(() => {
+    let vivant = true;
+    supabase.rpc('pubs_actives', { p_emplacement: emplacement })
+      .then(({ data, error }) => {
+        if (!vivant || error || !data?.length) return;
+        setPubs(data.map((p) => ({
+          id: p.id,
+          fond: p.fond || C.marine,
+          teinte: p.teinte,
+          icone: p.icone,
+          eyebrow: p.eyebrow,
+          titre: p.titre,
+          sous: p.sous_titre,
+          action: p.action,
+          img: p.image_url,
+          route: routeDe(p),
+        })));
+      });
+    return () => { vivant = false; };
+  }, [emplacement]);
+
+  return pubs;
+}
+
+function routeDe(p) {
+  if (p.cible_type === 'boutique' && p.cible_id) return `/boutique/${p.cible_id}`;
+  if (p.cible_type === 'produit' && p.cible_id) return `/produit/${p.cible_id}`;
+  return p.cible_url || null;
+}
+
+// Le clic est compté au départ, pas à l'arrivée : si la destination met du
+// temps à s'ouvrir et que le client renonce, le clic a quand même eu lieu.
+function compterClic(id) {
+  if (id) supabase.rpc('pub_clic', { p_id: id }).then(() => {}, () => {});
+}
+
 /* ── ① Le rail de diapositives ───────────────────────────────────────────── */
-export function SlidesPub({ pubs = PUBS_LARGES, hauteur = 132 }) {
+export function SlidesPub({ pubs: fournies, hauteur = 132 }) {
   const router = useRouter();
   const [index, setIndex] = useState(0);
   const ref = useRef(null);
   const largeur = L - E.page * 2;
+  const chargees = useCampagnes('slide', PUBS_LARGES);
+  const pubs = fournies || chargees;
 
   if (!pubs.length) return null;
 
@@ -91,7 +146,7 @@ export function SlidesPub({ pubs = PUBS_LARGES, hauteur = 132 }) {
         {pubs.map((b) => (
           <Pressable
             key={b.id}
-            onPress={() => b.route && router.push(b.route)}
+            onPress={() => { compterClic(b.id); if (b.route) router.push(b.route); }}
             style={[st.slide, { width: largeur, height: hauteur, backgroundColor: b.fond }]}>
 
             {!!b.img && (
@@ -135,6 +190,13 @@ export function SlidesPub({ pubs = PUBS_LARGES, hauteur = 132 }) {
   );
 }
 
+/* Les cartes de grille, à appeler EN HAUT d'un écran. Un tableau stable est
+   renvoyé tant que la régie n'a pas répondu, pour que `melangerPubs` ne
+   réordonne pas la grille sous les doigts du client. */
+export function useCartesPub() {
+  return useCampagnes('carte', PUBS_HAUTES);
+}
+
 /* ── ② La carte haute, à poser dans une case de grille ───────────────────── */
 export function PubVerticale({ pub = PUBS_HAUTES[0], largeur }) {
   const router = useRouter();
@@ -142,8 +204,12 @@ export function PubVerticale({ pub = PUBS_HAUTES[0], largeur }) {
 
   return (
     <Pressable
-      onPress={() => pub.route && router.push(pub.route)}
+      onPress={() => { compterClic(pub.id); if (pub.route) router.push(pub.route); }}
       style={[st.haute, { backgroundColor: pub.fond }, !!largeur && { width: largeur }]}>
+
+      {!!pub.img && (
+        <Image source={{ uri: pub.img }} resizeMode="cover" style={StyleSheet.absoluteFill} />
+      )}
 
       <Text style={st.hauteEyebrow}>{pub.eyebrow}</Text>
       <Text style={st.hauteTitre} numberOfLines={3}>{pub.titre}</Text>

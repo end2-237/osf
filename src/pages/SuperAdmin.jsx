@@ -4,6 +4,7 @@ import { supabase } from "../lib/supabase";
 import { useAuth } from "../context/AuthContext";
 import CJImportTab from "../components/CJImportTab";
 import RayonsConsole from "../components/RayonsConsole";
+import RegiePub from '../components/RegiePub';
 import CourierManager from "../components/CourierManager";
 import { fetchSiteSettings, saveSiteSettings } from "../components/WhatsAppButton";
 
@@ -4070,6 +4071,7 @@ const SuperAdmin = () => {
     { key: "cj",           icon: "fa-diagram-project",   label: "CJ Import"       },
     { key: "reviews",      icon: "fa-star",            label: "Avis",           badge: globalStats.pendingReviews || 0 },
     { key: "promo",        icon: "fa-tag",             label: "Promos"          },
+    { key: "pub",          icon: "fa-bullhorn",        label: "Publicité"       },
     { key: "affiliation",  icon: "fa-link",            label: "Affiliation"     },
     { key: "settings",     icon: "fa-gear",            label: "Paramètres"      },
   ];
@@ -4209,6 +4211,8 @@ const SuperAdmin = () => {
         {activeTab === "promo" && (
           <PromoCodesTab />
         )}
+
+        {activeTab === "pub" && <RegiePub />}
 
         {activeTab === "affiliation" && (
           <AffiliationTab orders={allOrders} />

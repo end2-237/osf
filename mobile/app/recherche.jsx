@@ -10,7 +10,7 @@ import CarteProduit from '../components/CarteProduit';
 import { TitreSection, Squelette, Vide } from '../components/Base';
 import { C, R, S, E, OMBRE, fcfa } from '../lib/ui';
 import Icone from '../components/Icone';
-import { PubVerticale, melangerPubs } from '../components/Pub';
+import { PubVerticale, melangerPubs, useCartesPub } from '../components/Pub';
 
 const L = Dimensions.get('window').width;
 const CLE = 'btl_recherches';
@@ -42,6 +42,7 @@ const POPULAIRES = [
 
 export default function Recherche() {
   const router = useRouter();
+  const cartesPub = useCartesPub();
   const champ = useRef(null);
 
   const [q, setQ] = useState('');
@@ -146,7 +147,7 @@ export default function Recherche() {
                 <TitreSection titre={`${res.length} résultat${res.length > 1 ? 's' : ''}`}
                   style={{ marginTop: 16 }} />
                 <View style={st.grille}>
-                  {melangerPubs(res).map((e) =>
+                  {melangerPubs(res, cartesPub).map((e) =>
                     e.type === 'produit' ? (
                       <View key={e.p.id} style={{ width: (L - E.page * 2 - E.gouttiere) / 2 }}>
                         <CarteProduit p={e.p} />

@@ -9,7 +9,7 @@ import { produits, categories } from '../../lib/boutique';
 import CarteProduit from '../../components/CarteProduit';
 import { TitreSection, Puces, Carrousel, Squelette } from '../../components/Base';
 import Stories from '../../components/Stories';
-import { SlidesPub, PubVerticale, melangerPubs } from '../../components/Pub';
+import { SlidesPub, PubVerticale, melangerPubs, useCartesPub } from '../../components/Pub';
 import Logo from '../../components/Logo';
 import { C, R, S, E, OMBRE } from '../../lib/ui';
 import Icone, { IconeCategorie } from '../../components/Icone';
@@ -58,6 +58,7 @@ const BANNIERES = [
 export default function Accueil() {
   const router = useRouter();
   const { user } = useSession();
+  const cartesPub = useCartesPub();
 
   const [cats, setCats] = useState([]);
   const [offres, setOffres] = useState(null);
@@ -311,7 +312,7 @@ export default function Accueil() {
           <View style={st.grille}>
             {/* La pub occupe une CASE, pas une bande : elle arrive dans le
                 rythme des deux colonnes au lieu de le rompre. */}
-            {melangerPubs(grille).map((e) =>
+            {melangerPubs(grille, cartesPub).map((e) =>
               e.type === 'produit' ? (
                 <View key={e.p.id} style={st.celluleGrille}><CarteProduit p={e.p} /></View>
               ) : (
