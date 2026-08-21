@@ -45,6 +45,8 @@ const JEU = {
   haut:           [Ionicons, 'chevron-up'],
   filtre:         [Ionicons, 'options-outline'],
   partager:       [Ionicons, 'share-social-outline'],
+  lecture:        [Ionicons, 'play-circle-outline'],
+  agrandir:       [Ionicons, 'scan-outline'],
 
   // Commerce
   eclair:         [Ionicons, 'flash'],

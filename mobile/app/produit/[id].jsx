@@ -25,7 +25,26 @@ import Icone from '../../components/Icone';
    Beaucoup ne remontent pas.
    ══════════════════════════════════════════════════════════════════════════ */
 
-const ONGLETS = ['Aperçu', 'Caractéristiques', 'Avis'];
+const SITE = process.env.EXPO_PUBLIC_SITE_URL || 'https://buyticle.com';
+
+const ONGLETS = ['Aperçu', 'Caractéristiques'];
+
+/* Le compte à rebours de la promotion. Il descend seul, et c'est tout son
+   objet : un pourcentage ne presse personne, une heure qui s'épuise oui. Sans
+   date de fin en base on ne l'affiche pas — inventer une échéance qui n'existe
+   pas est un mensonge qui se découvre au rechargement de la page. */
+function useRebours(fin) {
+  const [reste, setReste] = useState(() => (fin ? Math.max(0, new Date(fin) - Date.now()) : 0));
+  useEffect(() => {
+    if (!fin) return;
+    const t = setInterval(() => setReste(Math.max(0, new Date(fin) - Date.now())), 1000);
+    return () => clearInterval(t);
+  }, [fin]);
+  if (!fin || reste <= 0) return null;
+  const s = Math.floor(reste / 1000);
+  const deux = (n) => String(n).padStart(2, '0');
+  return `${deux(Math.floor(s / 3600))}:${deux(Math.floor((s % 3600) / 60))}:${deux(s % 60)}`;
+}
 
 export default function Produit() {
   const { id } = useLocalSearchParams();
@@ -39,6 +58,10 @@ export default function Produit() {
   const [onglet, setOnglet] = useState('Aperçu');
   const [avis, setAvis] = useState([]);
   const [similaires, setSim] = useState([]);
+
+  // Le crochet vit AVANT les retours anticipés du chargement : appelé plus
+  // bas, il ne serait pas exécuté au même rang d'un rendu à l'autre.
+  const rebours = useRebours(p?.fin_promo);
 
   useEffect(() => {
     let vivant = true;
@@ -75,6 +98,12 @@ export default function Produit() {
   const noteMoy = avis.length
     ? avis.reduce((s, a) => s + (a.rating || 0), 0) / avis.length : null;
 
+  // Partager un article est la façon dont la plupart des ventes se décident
+  // ici : on envoie le lien à quelqu'un sur WhatsApp et on demande son avis.
+  const partager = () => Share.share({
+    message: `${p.name} — ${fcfa(p.price)} sur Buyticle\n${SITE}/product/${p.id}`,
+  }).catch(() => {});
+
   return (
     <View style={S.page}>
       <SafeAreaView edges={['top']} style={{ backgroundColor: C.carte }}>
@@ -82,7 +111,7 @@ export default function Produit() {
           <Pressable hitSlop={10} onPress={() => router.back()}>
             <Icone nom="retour" taille={25} couleur={C.encre} />
           </Pressable>
-          <View style={{ flex: 1, flexDirection: 'row', justifyContent: 'center', gap: 6 }}>
+          <View style={{ flexDirection: 'row', gap: 6 }}>
             {ONGLETS.map((o) => (
               <Pressable key={o} onPress={() => setOnglet(o)}
                 style={[st.ongletPuce, onglet === o && { backgroundColor: C.marine }]}>
@@ -92,9 +121,16 @@ export default function Produit() {
               </Pressable>
             ))}
           </View>
-          <Pressable hitSlop={10} onPress={() => basculerFavori(p)}>
-            <Icone nom={estFavori(p.id) ? 'favoriPlein' : 'favori'} taille={22}
-              couleur={estFavori(p.id) ? C.rouge : C.grisClair} />
+          <View style={{ flex: 1 }} />
+          <Pressable hitSlop={8} onPress={() => router.push('/recherche')}>
+            <Icone nom="recherche" taille={20} couleur={C.encre} />
+          </Pressable>
+          <Pressable hitSlop={8} onPress={partager}>
+            <Icone nom="partager" taille={20} couleur={C.encre} />
+          </Pressable>
+          <Pressable hitSlop={8} onPress={() => basculerFavori(p)}>
+            <Icone nom={estFavori(p.id) ? 'favoriPlein' : 'favori'} taille={21}
+              couleur={estFavori(p.id) ? C.rouge : C.encre} />
           </Pressable>
         </View>
       </SafeAreaView>
@@ -111,41 +147,93 @@ export default function Produit() {
                 style={{ width: L, height: 320, backgroundColor: '#FFF' }} />
             ))}
           </ScrollView>
-          {photos.length > 1 && (
-            <View style={st.points}>
-              {photos.map((_, i) => (
+          {/* La ligne de service sous l'image : ce qu'on peut FAIRE de la
+              photo. Dans la référence elle porte la vidéo à gauche, les points
+              au milieu et l'agrandissement à droite — trois affordances sur une
+              seule ligne, sans rien voler à l'image. */}
+          <View style={st.sousGalerie}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, width: 78 }}>
+              {!!p.video_url && (
+                <>
+                  <Icone nom="lecture" taille={13} couleur={C.gris} />
+                  <Text style={st.sousGalerieTexte}>Vidéo</Text>
+                </>
+              )}
+            </View>
+            <View style={{ flex: 1, flexDirection: 'row', justifyContent: 'center', gap: 5 }}>
+              {photos.length > 1 && photos.map((_, i) => (
                 <View key={i} style={[st.point, i === photo && st.pointActif]} />
               ))}
             </View>
-          )}
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, width: 78, justifyContent: 'flex-end' }}>
+              <Icone nom="agrandir" taille={13} couleur={C.gris} />
+              <Text style={st.sousGalerieTexte}>Agrandir</Text>
+            </View>
+          </View>
         </View>
 
-        {/* Le prix */}
-        <View style={[st.bloc, { gap: 8 }]}>
-          {!!remise && (
-            <View style={st.rubanPromo}>
-              <Text style={st.rubanTexte}>Promotion  {remise}</Text>
+        {/* Le prix, dans son cadre orange quand il baisse. Le cadre n'est pas
+            décoratif : c'est lui qui sépare un prix promotionnel d'un prix
+            ordinaire, et sans lui les deux nombres se ressemblent. */}
+        <View style={{ paddingHorizontal: E.page, marginTop: 12 }}>
+          <View style={[st.cadrePrix, !remise && { borderColor: C.bord }]}>
+            {!!remise && (
+              <View style={st.bandePromo}>
+                <Icone nom="feu" taille={12} couleur="#FFF" />
+                <Text style={st.bandePromoTexte}>Promotion</Text>
+                {!!rebours && (
+                  <>
+                    <View style={st.bandeSep} />
+                    <Text style={st.bandePromoTexte}>Se termine dans {rebours}</Text>
+                  </>
+                )}
+              </View>
+            )}
+            <View style={st.cadrePrixCorps}>
+              <Text style={{ fontSize: 24, fontWeight: '800', color: C.encre }}>{fcfa(p.price)}</Text>
+              {!!remise && (
+                <>
+                  <Text style={[S.prixBarre, { fontSize: 14 }]}>{fcfa(p.prix_barre)}</Text>
+                  <Text style={{ fontSize: 14, fontWeight: '800', color: C.rouge }}>{remise}</Text>
+                </>
+              )}
             </View>
-          )}
-          <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 9, flexWrap: 'wrap' }}>
-            <Text style={{ fontSize: 26, fontWeight: '800', color: C.encre }}>{fcfa(p.price)}</Text>
-            {!!remise && <Text style={[S.prixBarre, { fontSize: 14 }]}>{fcfa(p.prix_barre)}</Text>}
+          </View>
+        </View>
+
+        {/* Le bonus et l'échelonnement, sur une ligne — comme la référence */}
+        <View style={st.ligneBonus}>
+          <View style={st.bonus}>
+            <Text style={st.bonusTexte}>
+              +{Math.round(p.price / 100).toLocaleString('fr-FR')}
+            </Text>
+            <View style={st.bonusPastille}><Text style={st.bonusPastilleTexte}>B</Text></View>
           </View>
           {p.price >= 20000 && (
             <View style={st.echelonne}>
               <Text style={{ fontSize: 12, color: C.gris }}>
-                ou <Text style={{ fontWeight: '700', color: C.encre }}>
-                  {fcfa(Math.round(p.price / 12))}</Text> × 12 mois, sans frais
+                dès <Text style={{ fontWeight: '700', color: C.encre }}>
+                  {fcfa(Math.round(p.price / 12))}</Text> × 12 mois
               </Text>
             </View>
           )}
+        </View>
+
+        <View style={{ paddingHorizontal: E.page, marginTop: 8, gap: 6 }}>
           <Text style={st.nom}>{p.name}</Text>
           {!!noteMoy && (
-            <Text style={{ fontSize: 13, color: C.jaune, fontWeight: '700' }}>
-              {noteMoy.toFixed(1)} ★  <Text style={{ color: C.gris, fontWeight: '400' }}>
-                ({avis.length} avis)
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+              <Text style={{ fontSize: 13, fontWeight: '700', color: C.encre }}>
+                {noteMoy.toFixed(1).replace('.', ',')}
               </Text>
-            </Text>
+              <View style={{ flexDirection: 'row', gap: 1 }}>
+                {[0, 1, 2, 3, 4].map((i) => (
+                  <Icone key={i} nom={i < Math.round(noteMoy) ? 'etoile' : 'etoileVide'} taille={11}
+                    couleur={i < Math.round(noteMoy) ? C.jaune : C.grisClair} />
+                ))}
+              </View>
+              <Text style={{ fontSize: 12, color: C.gris }}>({avis.length} avis)</Text>
+            </View>
           )}
         </View>
 
@@ -220,8 +308,9 @@ export default function Produit() {
           </View>
         )}
 
-        {onglet === 'Avis' && (
+        {onglet === 'Aperçu' && (
           <View style={[st.bloc, { gap: 12 }]}>
+            <Text style={S.titre}>Les avis</Text>
             {avis.length === 0 ? (
               <Text style={S.sousTitre}>
                 Aucun avis pour l’instant. Ils arrivent après une commande livrée —
@@ -261,16 +350,16 @@ export default function Produit() {
       {/* La barre d'achat — fixée, toujours */}
       <View style={st.barreAchat}>
         <View style={{ flex: 1 }}>
-          <Text style={{ fontSize: 19, fontWeight: '800', color: C.encre }}>{fcfa(p.price)}</Text>
           {!!remise && (
-            <Text style={{ fontSize: 11, color: C.vert, fontWeight: '600' }}>
-              Tu économises {fcfa(p.prix_barre - p.price)}
-            </Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <Text style={S.prixBarre}>{fcfa(p.prix_barre)}</Text>
+              <Text style={{ fontSize: 12, fontWeight: '800', color: C.rouge }}>{remise}</Text>
+            </View>
           )}
+          <Text style={{ fontSize: 20, fontWeight: '800', color: C.encre }}>{fcfa(p.price)}</Text>
         </View>
         <Pressable onPress={() => !epuise && ouvrirChoix(p)} disabled={epuise}
-          style={[S.bouton, { paddingHorizontal: 30 }, epuise && S.boutonEteint]}>
-          <Icone nom="panier" taille={18} couleur={epuise ? C.grisClair : '#FFF'} />
+          style={[S.bouton, { flex: 1.15 }, epuise && S.boutonEteint]}>
           <Text style={[S.boutonTexte, epuise && S.boutonEteintTexte]}>
             {epuise ? 'Épuisé' : 'Au panier'}
           </Text>
@@ -293,6 +382,39 @@ const st = StyleSheet.create({
   ongletTexte: { fontSize: 12, color: C.gris },
 
   galerie: { backgroundColor: '#FFF' },
+  sousGalerie: {
+    flexDirection: 'row', alignItems: 'center',
+    paddingHorizontal: E.page, paddingBottom: 11, paddingTop: 2,
+    backgroundColor: '#FFF',
+  },
+  sousGalerieTexte: { fontSize: 11.5, color: C.gris },
+
+  cadrePrix: {
+    borderWidth: 1.5, borderColor: C.orange, borderRadius: R.carte,
+    overflow: 'hidden', backgroundColor: C.carte,
+  },
+  bandePromo: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    backgroundColor: C.orange, paddingHorizontal: 11, paddingVertical: 5,
+  },
+  bandePromoTexte: { fontSize: 11, fontWeight: '700', color: '#FFF' },
+  bandeSep: { width: 1, height: 11, backgroundColor: 'rgba(255,255,255,0.45)' },
+  cadrePrixCorps: {
+    flexDirection: 'row', alignItems: 'baseline', gap: 9,
+    paddingHorizontal: 13, paddingVertical: 11, flexWrap: 'wrap',
+  },
+
+  ligneBonus: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    paddingHorizontal: E.page, marginTop: 9,
+  },
+  bonus: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  bonusTexte: { fontSize: 13, fontWeight: '800', color: C.orange },
+  bonusPastille: {
+    width: 15, height: 15, borderRadius: 8, backgroundColor: C.orange,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  bonusPastilleTexte: { fontSize: 9, fontWeight: '800', color: '#FFF' },
   points: {
     flexDirection: 'row', justifyContent: 'center', gap: 5,
     paddingBottom: 12, backgroundColor: '#FFF',

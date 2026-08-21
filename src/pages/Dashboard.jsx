@@ -4,6 +4,7 @@ import { supabase, uploadProductImage, uploadVendorAsset, deleteProductImage } f
 import { useNavigate } from "react-router-dom";
 import VendorLivePanel from "../components/VendorLivePanel";
 import MessagesVendeur, { compterMessagesVendeur } from '../components/MessagesVendeur';
+import ClocheVendeur from '../components/ClocheVendeur';
 import AddProductWizard from "../components/AddProductWizard";
 import VendorProducts from "../components/VendorProducts";
 import VendorStats from "../components/VendorStats";
@@ -408,7 +409,14 @@ const Dashboard = () => {
           <div className="flex items-center gap-2 ml-auto">
             {/* Pas de bouton « Ajouter » ici : la page Produits porte déjà le
                 sien, et deux boutons pour la même action se contredisent. */}
-            <button className="w-9 h-9 rounded-lg hover:bg-gray-100 flex items-center justify-center text-gray-500"><i className="fa-regular fa-bell" /></button>
+            {/* La cloche était un bouton sans `onClick` — du décor. C'est pire
+                qu'une absence : un bouton qui ne fait rien apprend au
+                commerçant que les boutons de cette page ne font rien, et il
+                cesse d'essayer les autres. */}
+            <ClocheVendeur
+              vendor={vendor}
+              aConfirmer={pendingCount}
+              onOuvrirSection={go} />
           </div>
         </header>
 
