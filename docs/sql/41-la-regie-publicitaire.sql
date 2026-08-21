@@ -36,12 +36,12 @@ CREATE TABLE IF NOT EXISTS public.pubs (
   -- Où elle s'affiche. Le nom dit la FORME, pas l'écran : la même diapositive
   -- large sert l'accueil et le catalogue, et c'est voulu — une création
   -- refaite par écran ne serait jamais tenue à jour.
+  --   'carrousel' le grand carrousel du haut (mobile : accueil)
   --   'slide'     rail horizontal large      (mobile : accueil, catalogue)
   --   'carte'     une case de la grille      (mobile : accueil, catalogue, recherche)
   --   'story'     le format plein écran      (mobile : rail de stories)
   --   'bandeau'   la bande fine du site      (web)
-  emplacement  TEXT NOT NULL
-               CHECK (emplacement IN ('slide', 'carte', 'story', 'bandeau')),
+  emplacement  TEXT NOT NULL,
 
   eyebrow      TEXT,                 -- la sur-titre en capitales
   titre        TEXT NOT NULL,
@@ -79,6 +79,13 @@ CREATE TABLE IF NOT EXISTS public.pubs (
   created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at   TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- La contrainte est posée à part, et rejouable : ajouter un emplacement plus
+-- tard ne doit pas obliger à recréer la table ni à deviner si la migration a
+-- déjà tourné.
+ALTER TABLE public.pubs DROP CONSTRAINT IF EXISTS pubs_emplacement_check;
+ALTER TABLE public.pubs ADD CONSTRAINT pubs_emplacement_check
+  CHECK (emplacement IN ('carrousel', 'slide', 'carte', 'story', 'bandeau'));
 
 CREATE INDEX IF NOT EXISTS pubs_emplacement_idx
   ON public.pubs (emplacement, actif, poids DESC, created_at);
@@ -232,21 +239,59 @@ CREATE POLICY pub_media_ecriture ON storage.objects
 INSERT INTO public.pubs (emplacement, eyebrow, titre, sous_titre, action,
                          fond, teinte, icone, cible_type, cible_url, poids)
 SELECT * FROM (VALUES
-  ('slide', 'Le relais Buyticle', E'Il ne l\'a pas ?\nIl t\'envoie chez le voisin',
-   'Et tu paies 5 % moins cher qu\'en boutique', 'Comment ça marche',
+  -- Le guillemet dollar plutôt que l'apostrophe doublée : ces textes en sont
+  -- pleins, et une apostrophe oubliée casse la migration entière à la
+  -- dernière ligne. Les retours à la ligne sont écrits tels quels.
+  ('carrousel', NULL, $t$Commence l'année
+avec de bonnes affaires$t$,
+   $t$Jusqu'à −33 % sur des milliers d'articles$t$, NULL,
+   '#FF6B00', NULL, 'eclair', 'route', '/catalogue', 300),
+
+  ('carrousel', NULL, $t$Livraison gratuite
+à Douala$t$,
+   $t$Dès 25 000 F d'achat$t$, NULL,
+   '#2E7D32', NULL, 'camion', 'route', '/catalogue', 200),
+
+  ('carrousel', NULL, $t$Paiement en 12 fois$t$,
+   $t$Sans frais, sur les articles marqués 0-0-24$t$, NULL,
+   '#141B4D', NULL, 'cible', 'route', '/catalogue', 100),
+
+  ('slide', $t$Le relais Buyticle$t$, $t$Il ne l'a pas ?
+Il t'envoie chez le voisin$t$,
+   $t$Et tu paies 5 % moins cher qu'en boutique$t$, $t$Comment ça marche$t$,
    '#141B4D', '#2C3A7D', 'relais', 'route', '/relais', 300),
-  ('slide', 'Ventes flash', E'Jusqu\'à −33 %\nsur des milliers d\'articles',
-   'Jusqu\'à dimanche minuit', 'J\'en profite',
+
+  ('slide', $t$Ventes flash$t$, $t$Jusqu'à −33 %
+sur des milliers d'articles$t$,
+   $t$Jusqu'à dimanche minuit$t$, $t$J'en profite$t$,
    '#FF6B00', '#FF8C3A', 'eclair', 'route', '/catalogue', 200),
-  ('slide', 'Douala et Yaoundé', E'Livraison gratuite\ndès 25 000 F',
-   'Reçu le lendemain, partout en ville', 'Voir les articles',
+
+  ('slide', $t$Douala et Yaoundé$t$, $t$Livraison gratuite
+dès 25 000 F$t$,
+   $t$Reçu le lendemain, partout en ville$t$, $t$Voir les articles$t$,
    '#00695C', '#00897B', 'camion', 'route', '/catalogue', 100),
-  ('carte', 'Programme de fidélité', 'Chaque achat te rend des points',
-   '1 point pour 100 F, à dépenser quand tu veux', 'Mes bonus',
+
+  ('carte', $t$Programme de fidélité$t$, $t$Chaque achat te rend des points$t$,
+   $t$1 point pour 100 F, à dépenser quand tu veux$t$, $t$Mes bonus$t$,
    '#FF6B00', NULL, 'cadeau', 'route', '/fidelite', 200),
-  ('carte', 'Parrainage', E'Fais venir un ami,\ngagne sur ses achats',
-   'Ton code marche dès la première commande', 'Mon code',
-   '#141B4D', NULL, 'personnes', 'route', '/parrainage', 100)
+
+  ('carte', $t$Parrainage$t$, $t$Fais venir un ami,
+gagne sur ses achats$t$,
+   $t$Ton code marche dès la première commande$t$, $t$Mon code$t$,
+   '#141B4D', NULL, 'personnes', 'route', '/parrainage', 100),
+
+  ('story', NULL, $t$Beauté −40 %$t$,
+   $t$Sur une sélection de soins et parfums, jusqu'à dimanche.$t$, NULL,
+   '#2C6BED', NULL, 'cadeau', 'route', '/catalogue', 300),
+
+  ('story', NULL, $t$Le mois high-tech$t$,
+   $t$Téléphones et ordinateurs, payables en douze fois.$t$, NULL,
+   '#141B4D', NULL, 'catalogue', 'route', '/catalogue', 200),
+
+  ('story', NULL, $t$Le relais$t$,
+   $t$Un vendeur ne l'a pas ? Il t'envoie chez un voisin qui l'a — et tu paies moins cher.$t$,
+   $t$Comment ça marche$t$,
+   '#00897B', NULL, 'relais', 'route', '/relais', 100)
 ) AS v(emplacement, eyebrow, titre, sous_titre, action,
        fond, teinte, icone, cible_type, cible_url, poids)
 WHERE NOT EXISTS (SELECT 1 FROM public.pubs);

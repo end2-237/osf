@@ -23,6 +23,7 @@ import { supabase } from "../lib/supabase";
    ═══════════════════════════════════════════════════════════════════════════ */
 
 const EMPLACEMENTS = [
+  { cle: "carrousel", label: "Carrousel d'accueil", aide: "Le grand carrousel en haut de l'accueil mobile. Le format le plus vu." },
   { cle: "slide",   label: "Diapositive large",  aide: "Rail horizontal, entre deux sections. Mobile : accueil et catalogue." },
   { cle: "carte",   label: "Carte de grille",    aide: "Prend une case parmi les articles. Mobile : accueil, catalogue, recherche." },
   { cle: "story",   label: "Story",              aide: "Plein écran, dans le rail du haut." },

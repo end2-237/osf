@@ -9,7 +9,9 @@ import { produits, categories } from '../../lib/boutique';
 import CarteProduit from '../../components/CarteProduit';
 import { TitreSection, Puces, Carrousel, Squelette } from '../../components/Base';
 import Stories from '../../components/Stories';
-import { SlidesPub, PubVerticale, melangerPubs, useCartesPub } from '../../components/Pub';
+import {
+  SlidesPub, PubVerticale, melangerPubs, useCartesPub, useCarrouselPub, useStoriesPub,
+} from '../../components/Pub';
 import Logo from '../../components/Logo';
 import { C, R, S, E, OMBRE } from '../../lib/ui';
 import Icone, { IconeCategorie } from '../../components/Icone';
@@ -49,6 +51,19 @@ const SERVICES = [
   { icone: 'personnes', teinte: '#7B1FA2', titre: 'Parrainage',          route: '/parrainage' },
 ];
 
+// Le repli des stories, quand la régie est vide ou le réseau coupé. Les
+// articles, eux, sont attachés au chargement : une story sans stock est une
+// affiche qu'on referme, et le tiroir est tout l'intérêt du format.
+const STORIES_REPLI = [
+  { id: 'beaute', titre: 'Beauté −40 %', icone: 'cadeau', fond: '#2C6BED',
+    sous: 'Sur une sélection de soins et parfums, jusqu’à dimanche.' },
+  { id: 'tech', titre: 'Le mois high-tech', icone: 'catalogue', fond: C.marine,
+    sous: 'Téléphones et ordinateurs, payables en douze fois.' },
+  { id: 'relais', titre: 'Le relais', icone: 'relais', fond: '#00897B',
+    sous: 'Un vendeur ne l’a pas ? Il t’envoie chez un voisin qui l’a — et tu paies moins cher.',
+    action: 'Comment ça marche', route: '/relais' },
+];
+
 const BANNIERES = [
   { titre: 'Commence l’année\navec de bonnes affaires', sous: 'Jusqu’à −33 % sur des milliers d’articles', fond: C.orange },
   { titre: 'Livraison gratuite\nà Douala', sous: 'Dès 25 000 F d’achat', fond: '#2E7D32' },
@@ -59,6 +74,8 @@ export default function Accueil() {
   const router = useRouter();
   const { user } = useSession();
   const cartesPub = useCartesPub();
+  const bannieres = useCarrouselPub(BANNIERES);
+  const storiesPub = useStoriesPub(STORIES_REPLI);
 
   const [cats, setCats] = useState([]);
   const [offres, setOffres] = useState(null);
@@ -68,7 +85,7 @@ export default function Accueil() {
   const [page, setPage] = useState(0);
   const [encore, setEncore] = useState(true);
   const [rafraichit, setRaf] = useState(false);
-  const [histoires, setHistoires] = useState([]);
+  const [articlesStories, setArticlesStories] = useState([]);
 
   const charger = useCallback(async () => {
     const [c, o, n, t] = await Promise.all([
@@ -84,24 +101,7 @@ export default function Accueil() {
 
     // Les stories portent de vrais articles, jamais des visuels seuls : le
     // tiroir est tout l'intérêt du format, et il lui faut du stock.
-    const tousArticles = [...(o.data || []), ...(t.data || [])];
-    setHistoires([
-      {
-        id: 'beaute', titre: 'Beauté −40 %', icone: 'cadeau', fond: '#2C6BED',
-        accroche: 'Sur une sélection de soins et parfums, jusqu’à dimanche.',
-        produits: tousArticles.slice(0, 4),
-      },
-      {
-        id: 'tech', titre: 'Le mois high-tech', icone: 'catalogue', fond: C.marine,
-        accroche: 'Téléphones et ordinateurs, payables en douze fois.',
-        produits: tousArticles.slice(4, 8),
-      },
-      {
-        id: 'relais', titre: 'Le relais', icone: 'relais', fond: '#00897B',
-        accroche: 'Un vendeur ne l’a pas ? Il t’envoie chez un voisin qui l’a — et tu paies moins cher.',
-        route: '/relais', action: 'Comment ça marche',
-      },
-    ]);
+    setArticlesStories([...(o.data || []), ...(t.data || [])]);
   }, []);
 
   const chargerGrille = useCallback(async (p) => {
@@ -118,6 +118,18 @@ export default function Accueil() {
     await Promise.all([charger(), chargerGrille(0)]);
     setRaf(false);
   };
+
+  // Chaque story reçoit une tranche différente du catalogue : quatre articles
+  // par story, sans recouvrement, pour qu'ouvrir la seconde ne redonne pas ce
+  // qu'on vient de voir dans la première.
+  const histoires = storiesPub.map((h, i) => ({
+    ...h,
+    accroche: h.sous || h.accroche,
+    // La régie parle d'`img` ; le lecteur de stories attend `vignette` pour
+    // la pastille du rail et `img` pour le plein écran. On donne les deux.
+    vignette: h.img || h.vignette,
+    produits: h.produits || articlesStories.slice(i * 4, i * 4 + 4),
+  }));
 
   // Le chargement se déclenche à l'approche du bas, jamais sur un bouton :
   // un bouton « voir plus » coupe la lecture et fait chuter le défilement.
@@ -187,7 +199,8 @@ export default function Accueil() {
 
         {/* ③ Le carrousel */}
         <View style={{ marginTop: 14 }}>
-          <Carrousel bannieres={BANNIERES} onOuvrir={() => router.push('/catalogue')} />
+          <Carrousel bannieres={bannieres}
+            onOuvrir={(b) => router.push(b?.route || '/catalogue')} />
         </View>
 
         {/* ④ Les deux cartes de service */}

@@ -190,6 +190,21 @@ export function SlidesPub({ pubs: fournies, hauteur = 132 }) {
   );
 }
 
+/* Le carrousel du haut de l'accueil. Les bannières viennent de la régie et
+   retombent sur les nôtres si elle est vide. */
+export function useCarrouselPub(repli) {
+  const pubs = useCampagnes('carrousel', repli);
+  return pubs;
+}
+
+/* Les stories. La régie fournit le VISUEL et le texte ; les articles, eux,
+   viennent du catalogue et sont attachés par l'écran — une story sans stock
+   est une affiche qu'on referme, et c'est le tiroir d'articles qui fait tout
+   l'intérêt du format. */
+export function useStoriesPub(repli) {
+  return useCampagnes('story', repli);
+}
+
 /* Les cartes de grille, à appeler EN HAUT d'un écran. Un tableau stable est
    renvoyé tant que la régie n'a pas répondu, pour que `melangerPubs` ne
    réordonne pas la grille sous les doigts du client. */
