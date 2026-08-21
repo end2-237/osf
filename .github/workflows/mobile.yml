@@ -221,6 +221,10 @@ jobs:
             echo "manque_jeton=1" >> $GITHUB_OUTPUT
             exit 0
           fi
+          # Une variable n'est pas masquée par GitHub. Le masque coûte une
+          # ligne et vaut la peine même si rien, ici, n'imprime la valeur :
+          # ce qui l'imprimera un jour sera une commande qu'on n'a pas écrite.
+          echo "::add-mask::$EXPO_TOKEN"
           npx eas-cli@latest update --branch production \
             --message "APK $(node -p "require('./app.json').expo.version") — ${GITHUB_SHA::7}" \
             --non-interactive
@@ -274,28 +278,30 @@ jobs:
           cache: npm
           cache-dependency-path: mobile/package-lock.json
 
-      - uses: expo/expo-github-action@v8
-        with:
-          eas-version: latest
-          token: ${{ secrets.EXPO_TOKEN || vars.EXPO_TOKEN }}
-
-      - name: Installer
-        run: npm ci
-
-      # On regarde aux DEUX endroits. Un jeton posé en « Variable » plutôt
-      # qu'en « Secret » est l'erreur la plus fréquente : les deux onglets se
-      # ressemblent, et `secrets.X` reste alors désespérément vide sans que
-      # rien ne l'explique. On accepte les deux, et on dit lequel on a trouvé.
-      - name: Publier sur le canal production
-        env:
-          JETON_SECRET: ${{ secrets.EXPO_TOKEN }}
-          JETON_VAR: ${{ vars.EXPO_TOKEN }}
+      # ────────────────────────────────────────────────────────────────────
+      #  LE MASQUE D'ABORD, TOUT LE RESTE ENSUITE.
+      #
+      #  GitHub masque les SECRETS dans les journaux. Il ne masque pas les
+      #  VARIABLES — elles sont faites pour être lues. Un jeton rangé dans le
+      #  mauvais onglet s'écrit donc en clair à la première étape qui
+      #  l'expose, et n'importe qui ayant accès aux journaux le récupère.
+      #
+      #  C'est exactement ce qui est arrivé : `expo/expo-github-action`
+      #  réexporte le jeton dans l'environnement, et le groupe `env:` de
+      #  l'étape suivante l'a imprimé en toutes lettres.
+      #
+      #  On accepte donc toujours les deux magasins — se tromper d'onglet est
+      #  l'erreur la plus fréquente et ne mérite pas un échec — mais on pose
+      #  le masque AVANT que quoi que ce soit d'autre puisse toucher la
+      #  valeur, et on ne dit d'elle que sa longueur.
+      # ────────────────────────────────────────────────────────────────────
+      - name: Trouver le jeton, et le masquer
         run: |
           echo "Secret EXPO_TOKEN   : ${#JETON_SECRET} caractère(s)"
           echo "Variable EXPO_TOKEN : ${#JETON_VAR} caractère(s)"
 
-          export EXPO_TOKEN="${JETON_SECRET:-$JETON_VAR}"
-          if [ -z "$EXPO_TOKEN" ]; then
+          JETON="${JETON_SECRET:-$JETON_VAR}"
+          if [ -z "$JETON" ]; then
             echo "::error::Aucun EXPO_TOKEN, ni en secret ni en variable."
             echo "::error::Settings → Secrets and variables → Actions."
             echo "::error::Onglet « Secrets » → New repository secret, nom EXPO_TOKEN."
@@ -306,6 +312,31 @@ jobs:
             echo "::error::déclare — celui-ci n'en déclare aucun."
             exit 1
           fi
+
+          echo "::add-mask::$JETON"
+          echo "EXPO_TOKEN=$JETON" >> "$GITHUB_ENV"
+
+          if [ -n "$JETON_VAR" ] && [ -z "$JETON_SECRET" ]; then
+            echo "::warning::EXPO_TOKEN est rangé en VARIABLE. GitHub ne masque pas"
+            echo "::warning::les variables : déplace-le dans l'onglet « Secrets »,"
+            echo "::warning::et fais tourner le jeton — il a pu passer en clair."
+          fi
+        env:
+          JETON_SECRET: ${{ secrets.EXPO_TOKEN }}
+          JETON_VAR: ${{ vars.EXPO_TOKEN }}
+
+      # Pas de `token:` ici : le jeton est déjà dans l'environnement, masqué.
+      # Le lui repasser en clair le ferait ressortir dans les groupes `env:`
+      # des étapes suivantes — c'était la fuite.
+      - uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+
+      - name: Installer
+        run: npm ci
+
+      - name: Publier sur le canal production
+        run: |
           MSG="${{ github.event.inputs.message }}"
           if [ -z "$MSG" ]; then
             MSG="$(git log -1 --pretty=%s)"
@@ -343,10 +374,27 @@ jobs:
           cache: npm
           cache-dependency-path: mobile/package-lock.json
 
+      # Même précaution que pour la mise à jour : masquer avant d'exposer.
+      # Voir le commentaire long dans `mise_a_jour`.
+      - name: Trouver le jeton, et le masquer
+        run: |
+          echo "Secret EXPO_TOKEN   : ${#JETON_SECRET} caractère(s)"
+          echo "Variable EXPO_TOKEN : ${#JETON_VAR} caractère(s)"
+          JETON="${JETON_SECRET:-$JETON_VAR}"
+          if [ -z "$JETON" ]; then
+            echo "::error::Aucun EXPO_TOKEN, ni en secret ni en variable."
+            echo "::error::Settings → Secrets and variables → Actions → onglet « Secrets »."
+            exit 1
+          fi
+          echo "::add-mask::$JETON"
+          echo "EXPO_TOKEN=$JETON" >> "$GITHUB_ENV"
+        env:
+          JETON_SECRET: ${{ secrets.EXPO_TOKEN }}
+          JETON_VAR: ${{ vars.EXPO_TOKEN }}
+
       - uses: expo/expo-github-action@v8
         with:
           eas-version: latest
-          token: ${{ secrets.EXPO_TOKEN || vars.EXPO_TOKEN }}
 
       - name: Installer
         run: npm ci
