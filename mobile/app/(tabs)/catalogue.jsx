@@ -8,10 +8,8 @@ import { produits, categories } from '../../lib/boutique';
 import CarteProduit from '../../components/CarteProduit';
 import { TitreSection, Puces, Squelette, Vide } from '../../components/Base';
 import { SlidesPub, PubVerticale, melangerPubs, useCartesPub } from '../../components/Pub';
-import { C, R, S, E, OMBRE } from '../../lib/ui';
+import { C, R, S, E, OMBRE, useGrille, COLONNES } from '../../lib/ui';
 import Icone, { IconeCategorie } from '../../components/Icone';
-
-const L = Dimensions.get('window').width;
 
 /* ══════════════════════════════════════════════════════════════════════════
    LE CATALOGUE — deux niveaux
@@ -31,6 +29,8 @@ export default function Catalogue() {
   const router = useRouter();
   const { type } = useLocalSearchParams();
   const cartesPub = useCartesPub();
+  const { cellule } = useGrille(COLONNES.produits);
+  const { cellule: celluleCat } = useGrille(COLONNES.categories);
 
   const [cats, setCats] = useState(null);
   const [liste, setListe] = useState(null);
@@ -89,7 +89,7 @@ export default function Catalogue() {
           ) : (
             <View style={st.grilleCats}>
               {cats.map((c) => (
-                <Pressable key={c.nom} style={st.cat}
+                <Pressable key={c.nom} style={[st.cat, { width: celluleCat }]}
                   onPress={() => router.setParams({ type: c.nom })}>
                   <View style={st.catImage}><IconeCategorie nom={c.nom} taille={30} /></View>
                   <Text style={st.catTexte} numberOfLines={2}>{c.nom}</Text>
@@ -160,7 +160,7 @@ export default function Catalogue() {
         {l === null ? (
           <View style={[st.grille, { marginTop: 16 }]}>
             {[0, 1, 2, 3].map((i) => (
-              <Squelette key={i} hauteur={250} style={{ width: (L - E.page * 2 - E.gouttiere) / 2 }} />
+              <Squelette key={i} hauteur={250} style={{ width: cellule }} />
             ))}
           </View>
         ) : l.length === 0 ? (
@@ -174,11 +174,11 @@ export default function Catalogue() {
             <View style={st.grille}>
               {melangerPubs(l, cartesPub).map((e) =>
                 e.type === 'produit' ? (
-                  <View key={e.p.id} style={{ width: (L - E.page * 2 - E.gouttiere) / 2 }}>
+                  <View key={e.p.id} style={{ width: cellule }}>
                     <CarteProduit p={e.p} />
                   </View>
                 ) : (
-                  <View key={e.cle} style={{ width: (L - E.page * 2 - E.gouttiere) / 2 }}>
+                  <View key={e.cle} style={{ width: cellule }}>
                     <PubVerticale pub={e.pub} />
                   </View>
                 ))}
@@ -204,7 +204,6 @@ const st = StyleSheet.create({
     flexDirection: 'row', flexWrap: 'wrap', gap: E.gouttiere, paddingHorizontal: E.page,
   },
   cat: {
-    width: (L - E.page * 2 - E.gouttiere * 2) / 3,
     backgroundColor: C.carte, borderRadius: R.carte, padding: 10,
     alignItems: 'center', gap: 5, ...OMBRE,
   },

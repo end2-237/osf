@@ -13,10 +13,8 @@ import {
   SlidesPub, PubVerticale, melangerPubs, useCartesPub, useCarrouselPub, useStoriesPub,
 } from '../../components/Pub';
 import Logo from '../../components/Logo';
-import { C, R, S, E, OMBRE } from '../../lib/ui';
+import { C, R, S, E, OMBRE, useGrille, COLONNES } from '../../lib/ui';
 import Icone, { IconeCategorie } from '../../components/Icone';
-
-const L = Dimensions.get('window').width;
 
 /* ══════════════════════════════════════════════════════════════════════════
    L'ACCUEIL — douze blocs, dans cet ordre
@@ -74,6 +72,8 @@ export default function Accueil() {
   const router = useRouter();
   const { user } = useSession();
   const cartesPub = useCartesPub();
+  const { cellule } = useGrille(COLONNES.produits);
+  const { cellule: celluleCat } = useGrille(COLONNES.categories);
   const bannieres = useCarrouselPub(BANNIERES);
   const storiesPub = useStoriesPub(STORIES_REPLI);
 
@@ -257,7 +257,7 @@ export default function Accueil() {
               onLien={() => router.push('/catalogue')} />
             <View style={st.grilleCats}>
               {cats.slice(0, 9).map((c) => (
-                <Pressable key={c.nom} style={st.cat}
+                <Pressable key={c.nom} style={[st.cat, { width: celluleCat }]}
                   onPress={() => router.push(`/catalogue?type=${encodeURIComponent(c.nom)}`)}>
                   <View style={st.catImage}>
                     <IconeCategorie nom={c.nom} taille={30} />
@@ -327,9 +327,9 @@ export default function Accueil() {
                 rythme des deux colonnes au lieu de le rompre. */}
             {melangerPubs(grille, cartesPub).map((e) =>
               e.type === 'produit' ? (
-                <View key={e.p.id} style={st.celluleGrille}><CarteProduit p={e.p} /></View>
+                <View key={e.p.id} style={[st.celluleGrille, { width: cellule }]}><CarteProduit p={e.p} /></View>
               ) : (
-                <View key={e.cle} style={st.celluleGrille}><PubVerticale pub={e.pub} /></View>
+                <View key={e.cle} style={[st.celluleGrille, { width: cellule }]}><PubVerticale pub={e.pub} /></View>
               ))}
           </View>
           {encore && grille.length > 0 && <Squelette hauteur={80} style={{ margin: E.page }} />}
@@ -394,7 +394,6 @@ const st = StyleSheet.create({
     paddingHorizontal: E.page,
   },
   cat: {
-    width: (L - E.page * 2 - E.gouttiere * 2) / 3,
     backgroundColor: C.carte, borderRadius: R.carte,
     padding: 10, alignItems: 'center', gap: 6, ...OMBRE,
   },
@@ -420,7 +419,7 @@ const st = StyleSheet.create({
     flexDirection: 'row', flexWrap: 'wrap',
     gap: E.gouttiere, paddingHorizontal: E.page,
   },
-  celluleGrille: { width: (L - E.page * 2 - E.gouttiere) / 2 },
+  celluleGrille: {},
   banniereGrille: {
     backgroundColor: C.marine, borderRadius: R.carte,
     padding: 16, justifyContent: 'center', minHeight: 150,

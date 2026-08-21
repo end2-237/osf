@@ -1,14 +1,12 @@
 import React from 'react';
-import { View, Text, ScrollView, Pressable, StyleSheet, Dimensions } from 'react-native';
+import { View, Text, ScrollView, Pressable, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useBoutique } from '../../lib/boutique';
 import CarteProduit from '../../components/CarteProduit';
 import { Vide } from '../../components/Base';
-import { C, R, S, E } from '../../lib/ui';
+import { C, R, S, E, useGrille, COLONNES } from '../../lib/ui';
 import Icone from '../../components/Icone';
-
-const L = Dimensions.get('window').width;
 
 /* Les favoris sont la liste d'envies, et c'est souvent le vrai panier : on y
    met ce qu'on achètera à la paie. D'où le bouton qui bascule tout d'un coup
@@ -16,6 +14,7 @@ const L = Dimensions.get('window').width;
 export default function Favoris() {
   const router = useRouter();
   const { favoris, ouvrirChoix } = useBoutique();
+  const { cellule } = useGrille(COLONNES.produits);
 
   return (
     <View style={S.page}>
@@ -38,7 +37,7 @@ export default function Favoris() {
         <ScrollView contentContainerStyle={{ paddingVertical: 14, paddingBottom: 28 }}>
           <View style={st.grille}>
             {favoris.map((p) => (
-              <View key={p.id} style={{ width: (L - E.page * 2 - E.gouttiere) / 2 }}>
+              <View key={p.id} style={{ width: cellule }}>
                 <CarteProduit p={p} />
               </View>
             ))}

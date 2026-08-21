@@ -3,6 +3,7 @@ import { useAuth } from "../context/AuthContext";
 import { supabase, uploadProductImage, uploadVendorAsset, deleteProductImage } from "../lib/supabase";
 import { useNavigate } from "react-router-dom";
 import VendorLivePanel from "../components/VendorLivePanel";
+import MessagesVendeur, { compterMessagesVendeur } from '../components/MessagesVendeur';
 import AddProductWizard from "../components/AddProductWizard";
 import VendorProducts from "../components/VendorProducts";
 import VendorStats from "../components/VendorStats";
@@ -136,6 +137,16 @@ const Dashboard = () => {
   const countedOrders = orders.filter(o => COUNTED_STATUSES.includes(o.status));
   const revenue       = countedOrders.reduce((s, o) => s + Number(o.total_amount || 0), 0);
   const pendingCount  = orders.filter(o => o.status === "pending").length;
+
+  // Ce que l'équipe a fait sur la boutique ces sept derniers jours. La
+  // pastille est le seul endroit où le commerçant apprend qu'il s'est passé
+  // quelque chose : sans elle, l'écran existe et personne ne l'ouvre.
+  const [msgCount, setMsgCount] = useState(0);
+  useEffect(() => {
+    let vivant = true;
+    compterMessagesVendeur(vendor?.id).then((n) => vivant && setMsgCount(n));
+    return () => { vivant = false; };
+  }, [vendor?.id]);
   const avgBasket     = countedOrders.length ? Math.round(revenue / countedOrders.length) : 0;
 
   // ── 12 derniers mois glissants (année incluse : deux "Mars" ne se cumulent pas) ──
@@ -209,6 +220,7 @@ const Dashboard = () => {
       { key: "orders",    label: "Commandes",      icon: "fa-cart-shopping", badge: pendingCount },
       { key: "relais",    label: "Le relais",      icon: "fa-arrows-turn-right" },
       { key: "customers", label: "Clients",        icon: "fa-users" },
+      { key: "messages",  label: "Messages Buyticle", icon: "fa-comment-dots", badge: msgCount },
       { key: "live",      label: "Passer en live", icon: "fa-video", needs: "allows_live" },
     ]},
     { title: "Mon compte", items: [
@@ -428,6 +440,7 @@ const Dashboard = () => {
               {section === "stats" && <VendorStats orders={orders} products={products} />}
               {section === "live" && <VendorLivePanel vendor={vendor} onToast={showToast} />}
               {section === "customers" && <CustomersView customers={customers} />}
+              {section === "messages" && <MessagesVendeur vendor={vendor} />}
               {section === "abonnement" && (
                 <VendorSubscription vendor={vendor} showToast={showToast}
                   onPlanChange={() => { loadPlan(); fetchAll(); }} />

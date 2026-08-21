@@ -8,7 +8,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { produits, categories } from '../lib/boutique';
 import CarteProduit from '../components/CarteProduit';
 import { TitreSection, Squelette, Vide } from '../components/Base';
-import { C, R, S, E, OMBRE, fcfa } from '../lib/ui';
+import { C, R, S, E, OMBRE, fcfa, useGrille, COLONNES } from '../lib/ui';
 import Icone from '../components/Icone';
 import { PubVerticale, melangerPubs, useCartesPub } from '../components/Pub';
 
@@ -43,6 +43,7 @@ const POPULAIRES = [
 export default function Recherche() {
   const router = useRouter();
   const cartesPub = useCartesPub();
+  const { cellule } = useGrille(COLONNES.produits);
   const champ = useRef(null);
 
   const [q, setQ] = useState('');
@@ -139,7 +140,7 @@ export default function Recherche() {
               <View style={[st.grille, { marginTop: 14 }]}>
                 {[0, 1].map((i) => (
                   <Squelette key={i} hauteur={240}
-                    style={{ width: (L - E.page * 2 - E.gouttiere) / 2 }} />
+                    style={{ width: cellule }} />
                 ))}
               </View>
             ) : res?.length ? (
@@ -149,11 +150,11 @@ export default function Recherche() {
                 <View style={st.grille}>
                   {melangerPubs(res, cartesPub).map((e) =>
                     e.type === 'produit' ? (
-                      <View key={e.p.id} style={{ width: (L - E.page * 2 - E.gouttiere) / 2 }}>
+                      <View key={e.p.id} style={{ width: cellule }}>
                         <CarteProduit p={e.p} />
                       </View>
                     ) : (
-                      <View key={e.cle} style={{ width: (L - E.page * 2 - E.gouttiere) / 2 }}>
+                      <View key={e.cle} style={{ width: cellule }}>
                         <PubVerticale pub={e.pub} />
                       </View>
                     ))}

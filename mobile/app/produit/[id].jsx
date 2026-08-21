@@ -8,10 +8,9 @@ import { supabase } from '../../lib/supabase';
 import { produit, produits, useBoutique } from '../../lib/boutique';
 import CarteProduit from '../../components/CarteProduit';
 import { TitreSection, Chargement, Vide } from '../../components/Base';
-import { C, R, S, E, OMBRE, fcfa, pourcent } from '../../lib/ui';
+import { C, R, S, E, OMBRE, fcfa, pourcent , useLargeur } from '../../lib/ui';
 import Icone from '../../components/Icone';
 
-const L = Dimensions.get('window').width;
 
 /* ══════════════════════════════════════════════════════════════════════════
    LA FICHE PRODUIT
@@ -31,6 +30,7 @@ const ONGLETS = ['Aperçu', 'Caractéristiques', 'Avis'];
 export default function Produit() {
   const { id } = useLocalSearchParams();
   const router = useRouter();
+  const L = useLargeur();
   const { ouvrirChoix, basculerFavori, estFavori } = useBoutique();
 
   const [p, setP] = useState(null);

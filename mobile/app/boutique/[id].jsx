@@ -6,16 +6,15 @@ import { supabase } from '../../lib/supabase';
 import { produits } from '../../lib/boutique';
 import CarteProduit from '../../components/CarteProduit';
 import { Vide, Chargement, TitreSection } from '../../components/Base';
-import { C, R, S, E, OMBRE } from '../../lib/ui';
+import { C, R, S, E, OMBRE , useGrille, COLONNES } from '../../lib/ui';
 import Icone from '../../components/Icone';
-
-const L = Dimensions.get('window').width;
 
 /* La fiche boutique : qui vend, où, et tout son rayon. Le code d'affiliation
    n'y figure pas — il appartient à l'affiche du comptoir, pas à la vitrine. */
 export default function Boutique() {
   const { id } = useLocalSearchParams();
   const router = useRouter();
+  const { cellule } = useGrille(COLONNES.produits);
   const [b, setB] = useState(null);
   const [liste, setListe] = useState(null);
 
@@ -63,7 +62,7 @@ export default function Boutique() {
             <TitreSection titre={`${liste.length} article${liste.length > 1 ? 's' : ''}`} />
             <View style={st.grille}>
               {liste.map((p) => (
-                <View key={p.id} style={{ width: (L - E.page * 2 - E.gouttiere) / 2 }}>
+                <View key={p.id} style={{ width: cellule }}>
                   <CarteProduit p={p} />
                 </View>
               ))}

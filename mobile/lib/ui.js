@@ -1,4 +1,4 @@
-import { StyleSheet, Platform } from 'react-native';
+import { StyleSheet, Platform, useWindowDimensions } from 'react-native';
 
 /* ══════════════════════════════════════════════════════════════════════════
    LES JETONS
@@ -111,4 +111,55 @@ export const BADGES = {
   sale: { texte: 'SALE', fond: C.orange, encre: '#FFF' },
   neuf: { texte: '🔥 NEW', fond: C.orange, encre: '#FFF' },
   echelonne: { texte: '0-0-24', fond: '#FFF', encre: C.encre },
+};
+
+
+/* ══════════════════════════════════════════════════════════════════════════
+   LA LARGEUR, ET LES GRILLES
+
+   `Dimensions.get('window')` lu au chargement du module est un piège, et il
+   nous a coûté une grille de travers.
+
+   Deux raisons. La première : sur Android, quand le module est évalué, la
+   fenêtre n'est pas encore posée — la valeur lue est celle d'avant la mise en
+   page, et elle peut être fausse de plusieurs dizaines de points. La seconde :
+   même juste, elle ne bouge PLUS jamais. Rotation, écran partagé, téléphone
+   pliable, clavier qui redimensionne : la grille garde la largeur du premier
+   instant et déborde ou laisse un trou.
+
+   `useWindowDimensions` renvoie la largeur vivante et redessine quand elle
+   change. C'est la seule façon d'être juste sur tous les téléphones — y
+   compris ceux qui n'existent pas encore.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/**
+ * La largeur d'une case de grille, calculée sur la largeur RÉELLE de l'écran.
+ *
+ * `colonnes` peut être un nombre, ou une fonction de la largeur quand le
+ * nombre de colonnes doit s'adapter : à 320 points, trois colonnes donnent des
+ * cartes de 90 points où plus aucun nom de catégorie ne tient.
+ */
+export function useGrille(colonnes = 2, marge = E.page, gouttiere = E.gouttiere) {
+  const { width } = useWindowDimensions();
+  const n = Math.max(1, typeof colonnes === 'function' ? colonnes(width) : colonnes);
+  // On plancherise : un demi-point de reste par colonne suffit à faire passer
+  // la dernière carte à la ligne, et c'est exactement le trou qu'on répare.
+  const cellule = Math.floor((width - marge * 2 - gouttiere * (n - 1)) / n);
+  return { largeur: width, colonnes: n, cellule };
+}
+
+/** La largeur vivante, pour ce qui n'est pas une grille. */
+export function useLargeur() {
+  return useWindowDimensions().width;
+}
+
+/* Les seuils. Ils ne sortent pas d'un catalogue de tailles d'appareils — un
+   tel catalogue est périmé au premier modèle suivant — mais de la largeur
+   minimale à laquelle le CONTENU reste lisible :
+   · une carte de catégorie a besoin de 100 points pour porter son nom ;
+   · une carte produit a besoin de 150 points pour porter un prix et un
+     bouton sur la même ligne. */
+export const COLONNES = {
+  categories: (w) => (w >= 360 ? 3 : 2),
+  produits:   (w) => (w >= 620 ? 3 : 2),
 };

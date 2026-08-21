@@ -4,10 +4,9 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { supabase } from '../lib/supabase';
-import { C, R, E, OMBRE } from '../lib/ui';
+import { C, R, E, OMBRE, useLargeur } from '../lib/ui';
 import Icone from './Icone';
 
-const L = Dimensions.get('window').width;
 
 /* ══════════════════════════════════════════════════════════════════════════
    LA PUBLICITÉ DANS LES LISTES
@@ -128,6 +127,7 @@ export function SlidesPub({ pubs: fournies, hauteur = 132 }) {
   const router = useRouter();
   const [index, setIndex] = useState(0);
   const ref = useRef(null);
+  const L = useLargeur();
   const largeur = L - E.page * 2;
   const chargees = useCampagnes('slide', PUBS_LARGES);
   const pubs = fournies || chargees;

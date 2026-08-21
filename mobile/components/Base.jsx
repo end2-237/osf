@@ -5,10 +5,9 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { C, R, S, E, OMBRE } from '../lib/ui';
+import { C, R, S, E, OMBRE, useLargeur } from '../lib/ui';
 import Icone from './Icone';
 
-const L = Dimensions.get('window').width;
 
 /* ══════════════════════════════════════════════════════════════════════════
    LES BRIQUES PARTAGÉES
@@ -100,6 +99,7 @@ export function Puces({ valeurs, actif, onChoisir, sombre = false }) {
 export function Carrousel({ bannieres = [], hauteur = 150, onOuvrir }) {
   const [index, setIndex] = useState(0);
   const ref = useRef(null);
+  const L = useLargeur();
   const largeur = L - E.page * 2 - 24;
 
   useEffect(() => {
