@@ -63,6 +63,14 @@ export default function Messages() {
 
   useEffect(() => { charger(); }, [charger]);
 
+  // On marque lu APRÈS avoir affiché, jamais dans le chargement du compteur :
+  // le comptoir interroge la pastille en arrière-plan, et marquer là
+  // effacerait tout avant que le commerçant ait rien vu.
+  useEffect(() => {
+    if (!vendor?.id || !liste?.length) return;
+    supabase.rpc('marquer_messages_lus', { p_vendor_id: vendor.id }).then(() => {}, () => {});
+  }, [vendor?.id, liste?.length]);
+
   if (!vendor) {
     return (
       <View style={S.page}>
@@ -96,12 +104,15 @@ export default function Messages() {
           {liste.map((a) => {
             const g = GENRES[a.genre] || GENRES.message;
             return (
-              <View key={a.id} style={st.carte}>
+              <View key={a.id} style={[st.carte, !a.lu && st.carteNeuve]}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                   <View style={[st.rond, { backgroundColor: g.c + '18' }]}>
                     <Icone nom={g.i} taille={15} couleur={g.c} />
                   </View>
                   <Text style={[st.genre, { color: g.c }]}>{g.t}</Text>
+                  {!a.lu && (
+                    <View style={st.neuf}><Text style={st.neufTexte}>Nouveau</Text></View>
+                  )}
                   <View style={{ flex: 1 }} />
                   <Text style={st.quand}>{quand(a.created_at)}</Text>
                 </View>
@@ -132,6 +143,12 @@ export default function Messages() {
 
 const st = StyleSheet.create({
   carte: { backgroundColor: C.carte, borderRadius: R.carte, padding: 14, gap: 8, ...OMBRE },
+  carteNeuve: { borderLeftWidth: 3, borderLeftColor: C.orange },
+  neuf: {
+    backgroundColor: C.orangePale, borderRadius: R.puce,
+    paddingHorizontal: 7, paddingVertical: 2,
+  },
+  neufTexte: { fontSize: 9, fontWeight: '800', color: C.orange, textTransform: 'uppercase' },
   rond: {
     width: 28, height: 28, borderRadius: 14,
     alignItems: 'center', justifyContent: 'center',

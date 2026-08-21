@@ -48,19 +48,20 @@ function quand(iso) {
   return d.toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" });
 }
 
-/** Le compteur pour la pastille de la navigation. Sept jours seulement : un
-    avertissement de mars n'est plus une alerte, c'est de l'historique. */
+/** Le compteur pour la pastille de la navigation : les NON LUS, pas les
+    récents. La première version comptait les sept derniers jours — deux
+    messages lus hier restaient comptés aujourd'hui, et le commerçant
+    apprenait en trois jours que la pastille ment. C'est le pire état pour un
+    compteur d'alerte : une pastille juste fait ouvrir l'écran, une pastille
+    absente ne coûte rien, une pastille qui ment fait ignorer toutes les
+    suivantes — y compris celle qui annonce la suspension de la boutique. */
 export async function compterMessagesVendeur(vendorId) {
   if (!vendorId) return 0;
-  const { count } = await supabase
-    .from("actions_admin")
-    .select("id", { count: "exact", head: true })
-    .eq("vendor_id", vendorId)
-    .gte("created_at", new Date(Date.now() - 7 * 86400000).toISOString());
-  return count || 0;
+  const { data } = await supabase.rpc("compter_messages_non_lus", { p_vendor_id: vendorId });
+  return Number(data) || 0;
 }
 
-export default function MessagesVendeur({ vendor }) {
+export default function MessagesVendeur({ vendor, onLu }) {
   const [liste, setListe] = useState(null);
 
   const charger = useCallback(async () => {
@@ -79,13 +80,13 @@ export default function MessagesVendeur({ vendor }) {
 
     const fil = [
       ...(actions || []).map((a) => ({
-        id: `a-${a.id}`, genre: a.genre, motif: a.motif,
+        id: `a-${a.id}`, genre: a.genre, motif: a.motif, lu: a.lu,
         titre: null, corps: a.message, cible: a.cible, date: a.created_at,
       })),
       ...(notifs || [])
         .filter((n) => !vues.has(`${n.genre}|${minute(n.created_at)}`))
         .map((n) => ({
-          id: `n-${n.id}`, genre: n.genre, motif: null,
+          id: `n-${n.id}`, genre: n.genre, motif: null, lu: n.lue,
           titre: n.titre, corps: n.corps, cible: null, date: n.created_at, lien: n.lien,
         })),
     ].sort((x, y) => new Date(y.date) - new Date(x.date));
@@ -94,6 +95,17 @@ export default function MessagesVendeur({ vendor }) {
   }, [vendor?.id]);
 
   useEffect(() => { charger(); }, [charger]);
+
+  // Le marquage part APRÈS l'affichage, et seulement ici : le tableau de bord
+  // charge le compteur en arrière-plan sans que personne ait rien ouvert, et
+  // marquer dans la lecture effacerait tout avant d'avoir été vu.
+  useEffect(() => {
+    if (!vendor?.id || liste === null || liste.length === 0) return;
+    let vivant = true;
+    supabase.rpc("marquer_messages_lus", { p_vendor_id: vendor.id })
+      .then(() => { if (vivant) onLu?.(); });
+    return () => { vivant = false; };
+  }, [vendor?.id, liste === null, onLu]);   // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div className="space-y-4">
@@ -124,8 +136,15 @@ export default function MessagesVendeur({ vendor }) {
           {liste.map((m) => {
             const g = GENRES[m.genre] || GENRES.message;
             return (
-              <div key={m.id} className="bg-white rounded-xl border border-[#D5D9D9] p-4">
+              <div key={m.id}
+                className={`bg-white rounded-xl border p-4 ${
+                  m.lu ? "border-[#D5D9D9]" : "border-[#FF9900] border-l-4"}`}>
                 <div className="flex items-center gap-2 flex-wrap">
+                  {!m.lu && (
+                    <span className="text-[8.5px] font-black uppercase tracking-widest text-[#FF9900] bg-[#FFF6E9] px-2 py-1 rounded-full">
+                      Nouveau
+                    </span>
+                  )}
                   <span className={`inline-flex items-center gap-1.5 text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-full ${g.c}`}>
                     <i className={`fa-solid ${g.i}`} style={{ fontSize: 9 }} />
                     {g.t}

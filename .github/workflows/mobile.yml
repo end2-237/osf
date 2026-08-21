@@ -192,6 +192,35 @@ jobs:
           retention-days: 30
           if-no-files-found: error
 
+      # ────────────────────────────────────────────────────────────────────
+      #  L'OTA DANS LA FOULÉE. Un build sans mise à jour publiée laisse la
+      #  flotte déjà installée en arrière : le nouvel APK a le code neuf, les
+      #  téléphones qui l'ont déjà gardent l'ancien, et rien ne les rattrape.
+      #  On publie donc le MÊME code sur le canal juste après avoir construit
+      #  — c'est sans effet pour qui installe l'APK, et c'est tout ce qui
+      #  compte pour les autres.
+      #
+      #  L'étape ne fait pas échouer le build si le jeton manque : l'APK est
+      #  déjà construit et déposé, le perdre pour un secret absent serait
+      #  absurde. On le DIT, fort, dans le résumé.
+      # ────────────────────────────────────────────────────────────────────
+      - name: Publier la mise à jour correspondante
+        id: ota
+        continue-on-error: true
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          EXPO_PUBLIC_SUPABASE_URL: ${{ vars.EXPO_PUBLIC_SUPABASE_URL || 'https://alrbokstfwwlvbvghrqr.supabase.co' }}
+          EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY || vars.EXPO_PUBLIC_SUPABASE_ANON_KEY }}
+        run: |
+          if [ -z "$EXPO_TOKEN" ]; then
+            echo "::warning::EXPO_TOKEN absent — aucune mise à jour publiée."
+            echo "manque_jeton=1" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          npx eas-cli@latest update --branch production \
+            --message "APK $(node -p "require('./app.json').expo.version") — ${GITHUB_SHA::7}" \
+            --non-interactive
+
       - name: Où le récupérer
         run: |
           echo "### L'APK est prêt" >> $GITHUB_STEP_SUMMARY
@@ -207,6 +236,19 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "Signé avec la clé de déboguage : bon pour essayer et faire" >> $GITHUB_STEP_SUMMARY
           echo "essayer, pas pour le Play Store." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ steps.ota.outputs.manque_jeton }}" = "1" ]; then
+            echo "> **Aucune mise à jour publiée** : le secret \`EXPO_TOKEN\`" >> $GITHUB_STEP_SUMMARY
+            echo "> manque. Les téléphones qui ont déjà l'application resteront" >> $GITHUB_STEP_SUMMARY
+            echo "> sur l'ancien code — seul ce nouvel APK porte les changements." >> $GITHUB_STEP_SUMMARY
+          elif [ "${{ steps.ota.outcome }}" = "success" ]; then
+            echo "Une mise à jour a été publiée sur le canal **production** :" >> $GITHUB_STEP_SUMMARY
+            echo "les installations existantes recevront le même code au" >> $GITHUB_STEP_SUMMARY
+            echo "prochain démarrage." >> $GITHUB_STEP_SUMMARY
+          else
+            echo "> La publication de la mise à jour a échoué — voir l'étape" >> $GITHUB_STEP_SUMMARY
+            echo "> « Publier la mise à jour correspondante »." >> $GITHUB_STEP_SUMMARY
+          fi
 
   # ──────────────────────────────────────────────────────────────────────────
   #  La mise à jour à l'air. Automatique sur main, ou à la demande.
@@ -238,6 +280,12 @@ jobs:
 
       - name: Publier sur le canal production
         run: |
+          if [ -z "${{ secrets.EXPO_TOKEN }}" ]; then
+            echo "::error::EXPO_TOKEN manque. Settings → Secrets and variables →"
+            echo "::error::Actions → New repository secret. Jeton créé sur"
+            echo "::error::https://expo.dev/settings/access-tokens"
+            exit 1
+          fi
           MSG="${{ github.event.inputs.message }}"
           if [ -z "$MSG" ]; then
             MSG="$(git log -1 --pretty=%s)"

@@ -41,17 +41,16 @@ export default function Vendeur() {
       supabase.rpc('vendor_balance', { p_vendor_id: vendor.id }),
       soldeBon(vendor.id),
       appelsEnAttente(vendor.id),
-      // Les sept derniers jours seulement : un avertissement de mars n'est
-      // plus une pastille rouge, c'est de l'historique.
-      supabase.from('actions_admin').select('id', { count: 'exact', head: true })
-        .eq('vendor_id', vendor.id)
-        .gte('created_at', new Date(Date.now() - 7 * 86400000).toISOString()),
+      // Les NON LUS, pas les récents. Compter les sept derniers jours faisait
+      // remonter à quatre ce qui n'avait que deux nouveautés — et une pastille
+      // qui ment fait ignorer toutes les suivantes.
+      supabase.rpc('compter_messages_non_lus', { p_vendor_id: vendor.id }),
     ]);
     setCmds(c.data || []);
     setSolde(b.data?.[0] || null);
     setBon(s.data?.[0] || null);
     setAppels((a.data || []).length);
-    setMessages(m.count || 0);
+    setMessages(Number(m.data) || 0);
   }, [vendor?.id]);
 
   useEffect(() => { charger(); }, [charger]);

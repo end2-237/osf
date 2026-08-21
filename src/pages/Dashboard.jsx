@@ -440,7 +440,7 @@ const Dashboard = () => {
               {section === "stats" && <VendorStats orders={orders} products={products} />}
               {section === "live" && <VendorLivePanel vendor={vendor} onToast={showToast} />}
               {section === "customers" && <CustomersView customers={customers} />}
-              {section === "messages" && <MessagesVendeur vendor={vendor} />}
+              {section === "messages" && <MessagesVendeur vendor={vendor} onLu={() => setMsgCount(0)} />}
               {section === "abonnement" && (
                 <VendorSubscription vendor={vendor} showToast={showToast}
                   onPlanChange={() => { loadPlan(); fetchAll(); }} />
