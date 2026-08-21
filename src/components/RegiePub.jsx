@@ -52,6 +52,32 @@ const VIDE = {
   debut: "", fin: "", actif: true, poids: 100, vendor_id: null,
 };
 
+/* PostgreSQL rend NULL là où le formulaire attend une chaîne. `{...VIDE,
+   ...valeur}` ne protège de rien : le null de la base ÉCRASE la chaîne vide du
+   gabarit, et le premier `.trim()` fait tomber la page entière. C'est ce qui
+   cassait l'édition d'une campagne de carrousel — les lignes semées n'ont pas
+   de sur-titre.
+
+   On normalise donc à l'entrée ET à la sortie, une fois pour toutes, plutôt
+   que d'ajouter un `?.` à chaque appel — on en oublierait un. */
+const txt = (v) => (v == null ? "" : String(v));
+
+const normaliser = (v = {}) => ({
+  ...VIDE,
+  ...v,
+  eyebrow: txt(v.eyebrow),
+  titre: txt(v.titre),
+  sous_titre: txt(v.sous_titre),
+  action: txt(v.action),
+  image_url: txt(v.image_url),
+  fond: v.fond || VIDE.fond,
+  teinte: txt(v.teinte),
+  icone: v.icone || VIDE.icone,
+  cible_type: v.cible_type || VIDE.cible_type,
+  cible_url: txt(v.cible_url),
+  poids: v.poids ?? VIDE.poids,
+});
+
 const jour = (v) => (v ? new Date(v).toISOString().slice(0, 10) : "");
 const versDate = (v) => (v ? new Date(v + "T00:00:00Z").toISOString() : null);
 
@@ -108,13 +134,13 @@ function Apercu({ p }) {
 
 /* ── Le formulaire d'une création ───────────────────────────────────────── */
 function Editeur({ valeur, boutiques, onFerme, onEnregistre }) {
-  const [p, setP] = useState({ ...VIDE, ...valeur });
+  const [p, setP] = useState(() => normaliser(valeur));
   const [busy, setBusy] = useState(false);
   const [erreur, setErreur] = useState("");
   const fichier = useRef(null);
 
   const set = (k, v) => setP((x) => ({ ...x, [k]: v }));
-  const pret = p.titre.trim() && p.emplacement;
+  const pret = txt(p.titre).trim() && p.emplacement;
 
   const televerser = async (f) => {
     if (!f) return;
@@ -131,17 +157,17 @@ function Editeur({ valeur, boutiques, onFerme, onEnregistre }) {
     setBusy(true); setErreur("");
     const corps = {
       emplacement: p.emplacement,
-      eyebrow: p.eyebrow.trim() || null,
-      titre: p.titre.trim(),
-      sous_titre: p.sous_titre.trim() || null,
-      action: p.action.trim() || null,
+      eyebrow: txt(p.eyebrow).trim() || null,
+      titre: txt(p.titre).trim(),
+      sous_titre: txt(p.sous_titre).trim() || null,
+      action: txt(p.action).trim() || null,
       image_url: p.image_url || null,
       fond: p.fond || "#141B4D",
       teinte: p.teinte || null,
       icone: p.icone || null,
       cible_type: p.cible_type,
       cible_id: p.cible_type === "boutique" || p.cible_type === "produit" ? p.cible_id || null : null,
-      cible_url: p.cible_type === "route" || p.cible_type === "externe" ? p.cible_url.trim() || null : null,
+      cible_url: p.cible_type === "route" || p.cible_type === "externe" ? txt(p.cible_url).trim() || null : null,
       debut: versDate(p.debut),
       fin: versDate(p.fin),
       actif: !!p.actif,

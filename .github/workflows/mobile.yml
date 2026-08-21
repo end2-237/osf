@@ -208,12 +208,16 @@ jobs:
         id: ota
         continue-on-error: true
         env:
-          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          JETON_SECRET: ${{ secrets.EXPO_TOKEN }}
+          JETON_VAR: ${{ vars.EXPO_TOKEN }}
           EXPO_PUBLIC_SUPABASE_URL: ${{ vars.EXPO_PUBLIC_SUPABASE_URL || 'https://alrbokstfwwlvbvghrqr.supabase.co' }}
           EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY || vars.EXPO_PUBLIC_SUPABASE_ANON_KEY }}
         run: |
+          echo "Secret EXPO_TOKEN   : ${#JETON_SECRET} caractère(s)"
+          echo "Variable EXPO_TOKEN : ${#JETON_VAR} caractère(s)"
+          export EXPO_TOKEN="${JETON_SECRET:-$JETON_VAR}"
           if [ -z "$EXPO_TOKEN" ]; then
-            echo "::warning::EXPO_TOKEN absent — aucune mise à jour publiée."
+            echo "::warning::EXPO_TOKEN absent (ni secret ni variable) — aucune mise à jour publiée."
             echo "manque_jeton=1" >> $GITHUB_OUTPUT
             exit 0
           fi
@@ -273,17 +277,33 @@ jobs:
       - uses: expo/expo-github-action@v8
         with:
           eas-version: latest
-          token: ${{ secrets.EXPO_TOKEN }}
+          token: ${{ secrets.EXPO_TOKEN || vars.EXPO_TOKEN }}
 
       - name: Installer
         run: npm ci
 
+      # On regarde aux DEUX endroits. Un jeton posé en « Variable » plutôt
+      # qu'en « Secret » est l'erreur la plus fréquente : les deux onglets se
+      # ressemblent, et `secrets.X` reste alors désespérément vide sans que
+      # rien ne l'explique. On accepte les deux, et on dit lequel on a trouvé.
       - name: Publier sur le canal production
+        env:
+          JETON_SECRET: ${{ secrets.EXPO_TOKEN }}
+          JETON_VAR: ${{ vars.EXPO_TOKEN }}
         run: |
-          if [ -z "${{ secrets.EXPO_TOKEN }}" ]; then
-            echo "::error::EXPO_TOKEN manque. Settings → Secrets and variables →"
-            echo "::error::Actions → New repository secret. Jeton créé sur"
-            echo "::error::https://expo.dev/settings/access-tokens"
+          echo "Secret EXPO_TOKEN   : ${#JETON_SECRET} caractère(s)"
+          echo "Variable EXPO_TOKEN : ${#JETON_VAR} caractère(s)"
+
+          export EXPO_TOKEN="${JETON_SECRET:-$JETON_VAR}"
+          if [ -z "$EXPO_TOKEN" ]; then
+            echo "::error::Aucun EXPO_TOKEN, ni en secret ni en variable."
+            echo "::error::Settings → Secrets and variables → Actions."
+            echo "::error::Onglet « Secrets » → New repository secret, nom EXPO_TOKEN."
+            echo "::error::Attention : « Secrets » et « Variables » sont deux onglets"
+            echo "::error::distincts, et un jeton posé dans le mauvais reste invisible ici."
+            echo "::error::Attention aussi aux SECRETS D'ENVIRONNEMENT : un secret rangé"
+            echo "::error::dans un environnement n'est lisible que par un job qui le"
+            echo "::error::déclare — celui-ci n'en déclare aucun."
             exit 1
           fi
           MSG="${{ github.event.inputs.message }}"
@@ -326,7 +346,7 @@ jobs:
       - uses: expo/expo-github-action@v8
         with:
           eas-version: latest
-          token: ${{ secrets.EXPO_TOKEN }}
+          token: ${{ secrets.EXPO_TOKEN || vars.EXPO_TOKEN }}
 
       - name: Installer
         run: npm ci
