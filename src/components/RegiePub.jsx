@@ -62,6 +62,22 @@ const VIDE = {
    que d'ajouter un `?.` à chaque appel — on en oublierait un. */
 const txt = (v) => (v == null ? "" : String(v));
 
+/* La base garde des horodatages (`2026-08-01T00:00:00+00:00`), le formulaire
+   veut un jour (`2026-08-01`). Tant qu'on n'y touchait pas, l'état gardait
+   l'horodatage brut : `versDate` en recollait un second et fabriquait une date
+   invalide, dont le `.toISOString()` jetait. Autrement dit, ouvrir une
+   campagne existante et cliquer « Enregistrer » sans rien changer suffisait à
+   casser. On ramène donc au jour dès l'entrée, une fois. */
+const jour = (v) => {
+  if (!v) return "";
+  const d = new Date(v);
+  return Number.isNaN(d.getTime()) ? "" : d.toISOString().slice(0, 10);
+};
+const versDate = (v) => {
+  const j = jour(v);
+  return j ? `${j}T00:00:00.000Z` : null;
+};
+
 const normaliser = (v = {}) => ({
   ...VIDE,
   ...v,
@@ -76,10 +92,9 @@ const normaliser = (v = {}) => ({
   cible_type: v.cible_type || VIDE.cible_type,
   cible_url: txt(v.cible_url),
   poids: v.poids ?? VIDE.poids,
+  debut: jour(v.debut),
+  fin: jour(v.fin),
 });
-
-const jour = (v) => (v ? new Date(v).toISOString().slice(0, 10) : "");
-const versDate = (v) => (v ? new Date(v + "T00:00:00Z").toISOString() : null);
 
 /* ── L'aperçu ───────────────────────────────────────────────────────────────
    Il n'est pas décoratif. Une régie sans aperçu se pilote à l'aveugle, et le
